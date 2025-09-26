@@ -59,6 +59,19 @@ variable "existing_lb_subnet_id" {
   type        = string
 }
 
+variable "existing_pods_subnet_id" {
+  default     = ""
+  description = "OCID of the existing subnet for pods. Required when network_configuration_mode is 'bring_your_own'"
+  type        = string
+}
+
+variable "existing_services_subnet_id" {
+  default     = ""
+  description = "OCID of the existing subnet for services. Required when network_configuration_mode is 'bring_your_own'"
+  type        = string
+}
+
+
 # OKE Variables
 ## OKE Cluster Details
 variable "cluster_options_add_ons_is_kubernetes_dashboard_enabled" {
@@ -106,11 +119,11 @@ locals {
 
 ## OKE Node Pool Details
 variable "node_pool_name" {
-  default     = "pool1"
+  default     = "control-plane"
   description = "Name of the node pool"
 }
 variable "k8s_version" {
-  default     = "v1.31.1"
+  default     = "v1.33.3"
   description = "Kubernetes version installed on your master and worker nodes"
 }
 variable "num_pool_workers" {
@@ -138,13 +151,35 @@ variable "network_cidrs" {
   type = map(string)
 
   default = {
-    VCN-CIDR                      = "10.0.0.0/16"
-    SUBNET-REGIONAL-CIDR          = "10.0.64.0/20"
-    LB-SUBNET-REGIONAL-CIDR       = "10.0.96.0/20"
-    ENDPOINT-SUBNET-REGIONAL-CIDR = "10.0.128.0/20"
-    ALL-CIDR                      = "0.0.0.0/0"
-    PODS-CIDR                     = "10.244.0.0/16"
-    KUBERNETES-SERVICE-CIDR       = "10.96.0.0/16"
+    VCN-CIDR                                 = "10.0.0.0/16"
+    ENDPOINT-SUBNET-REGIONAL-CIDR            = "10.0.80.0/20"
+    NODES-SUBNET-REGIONAL-CIDR               = "10.0.96.0/20"
+    LB-SUBNET-BP-CONTROL-PLANE-REGIONAL-CIDR = "10.0.112.0/20"
+    LB-SUBNET-APPS-REGIONAL-CIDR             = "10.0.128.0/20"
+    ENDPOINT-SUBNET-REGIONAL-CIDR            = "10.0.144.0/20"
+    PODS-SUBNET-REGIONAL-CIDR                = "10.0.160.0/20"
+    SERVICES-SUBNET-REGIONAL-CIDR            = "10.0.176.0/20"
+    ALL-CIDR                                 = "0.0.0.0/0"
+  }
+}
+
+variable "blueprints_endpoint_visibility" {
+  default = "Public"
+  description = "The visibility of the blueprints endpoint"
+  type = string
+  validation {
+    condition     = var.blueprints_endpoint_visibility == "Private" || var.blueprints_endpoint_visibility == "Public"
+    error_message = "Blueprints endpoint visibility must be either 'Private' or 'Public'."
+  }
+}
+
+variable "apps_endpoint_visibility" {
+  default = "Public"
+  description = "The visibility of the apps endpoint"
+  type = string
+  validation {
+    condition     = var.apps_endpoint_visibility == "Private" || var.apps_endpoint_visibility == "Public"
+    error_message = "Apps endpoint visibility must be either 'Private' or 'Public'."
   }
 }
 

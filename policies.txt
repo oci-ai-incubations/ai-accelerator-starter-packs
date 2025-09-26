@@ -1,0 +1,6 @@
+Allow dynamic-group 'Default'/'dg-deploy-dennis-b' to inspect all-resources in tenancy
+Allow dynamic-group 'Default'/'dg-deploy-dennis-b' to manage clusters in compartment id ocid1.compartment.oc1..aaaaaaaa2pqfmbj2t7tlhnrxurdi2kigqks5ccheegcoh7wfcvc664aczlxa
+Allow dynamic-group 'Default'/'dg-deploy-dennis-b' to manage cluster-node-pools in compartment id ocid1.compartment.oc1..aaaaaaaa2pqfmbj2t7tlhnrxurdi2kigqks5ccheegcoh7wfcvc664aczlxa
+Allow dynamic-group 'Default'/'dg-deploy-dennis-b' to manage virtual-network-family in compartment id ocid1.compartment.oc1..aaaaaaaa2pqfmbj2t7tlhnrxurdi2kigqks5ccheegcoh7wfcvc664aczlxa
+Allow dynamic-group 'Default'/'dg-deploy-dennis-b' to read cluster-work-requests in compartment id ocid1.compartment.oc1..aaaaaaaa2pqfmbj2t7tlhnrxurdi2kigqks5ccheegcoh7wfcvc664aczlxa
+Allow dynamic-group 'Default'/'dg-deploy-dennis-b' to manage instance-family in compartment id ocid1.compartment.oc1..aaaaaaaa2pqfmbj2t7tlhnrxurdi2kigqks5ccheegcoh7wfcvc664aczlxa
