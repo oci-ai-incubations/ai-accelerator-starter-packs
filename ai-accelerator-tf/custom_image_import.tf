@@ -11,7 +11,7 @@ resource "oci_core_image" "nvidia_image" {
         operating_system_version = "22.04"
         source_type = "objectStorageUri"
         source_uri = local.nvidia_image_url
-    }   
+    }
 }
 
 resource "oci_core_image" "amd_image" {

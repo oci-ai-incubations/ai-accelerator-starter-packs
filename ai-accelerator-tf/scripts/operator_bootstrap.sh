@@ -13,7 +13,7 @@ sudo dnf install -y wget curl git vim tmux htop python3 python3-pip
 
 # Install OCI CLI
 sudo dnf -y install oraclelinux-developer-release-el8
-sudo dnf install python36-oci-cli
+sudo dnf -y install python36-oci-cli
 
 # Add OCI CLI to PATH for all users
 echo 'export PATH=$PATH:/home/opc/bin' >> /etc/profile
@@ -38,9 +38,6 @@ cat > /home/opc/configure_oke.sh << 'EOF'
 # Configure OKE access
 
 echo "Configuring OKE cluster access..."
-
-# Set up OCI CLI config (using instance principal)
-/home/opc/bin/oci setup config --file /home/opc/.oci/config
 
 # Get kubeconfig
 oci --auth instance_principal ce cluster create-kubeconfig \
