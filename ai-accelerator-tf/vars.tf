@@ -92,12 +92,12 @@ variable "cluster_workers_visibility" {
 
 variable "cluster_endpoint_visibility_new_vcn" {
   default     = "Public"
-  description = "The Kubernetes API endpoint visibility when creating a new VCN (only Public is supported)"
+  description = "The Kubernetes API endpoint visibility when creating a new VCN"
   type        = string
 
   validation {
-    condition     = var.cluster_endpoint_visibility_new_vcn == "Public"
-    error_message = "When creating a new VCN, only Public endpoint visibility is supported."
+    condition     = var.cluster_endpoint_visibility_new_vcn == "Private" || var.cluster_endpoint_visibility_new_vcn == "Public"
+    error_message = "Endpoint visibility must be either 'Private' or 'Public'."
   }
 }
 
@@ -141,7 +141,7 @@ variable "node_pool_instance_shape" {
   description = "A shape is a template that determines the number of OCPUs, amount of memory, and other resources allocated to a newly created instance for the Worker Node. Select at least 2 OCPUs and 16GB of memory if using Flex shapes"
 }
 variable "node_pool_boot_volume_size_in_gbs" {
-  default     = "60"
+  default     = "150"
   description = "Specify a custom boot volume size (in GB)"
 }
 
@@ -156,9 +156,10 @@ variable "network_cidrs" {
     NODES-SUBNET-REGIONAL-CIDR               = "10.0.96.0/20"
     LB-SUBNET-BP-CONTROL-PLANE-REGIONAL-CIDR = "10.0.112.0/20"
     LB-SUBNET-APPS-REGIONAL-CIDR             = "10.0.128.0/20"
-    ENDPOINT-SUBNET-REGIONAL-CIDR            = "10.0.144.0/20"
-    PODS-SUBNET-REGIONAL-CIDR                = "10.0.160.0/20"
-    SERVICES-SUBNET-REGIONAL-CIDR            = "10.0.176.0/20"
+    PODS-SUBNET-REGIONAL-CIDR                = "172.16.0.0/16"
+    SERVICES-SUBNET-REGIONAL-CIDR            = "172.17.0.0/16"
+    BASTION-SUBNET-REGIONAL-CIDR             = "10.0.192.0/20"
+    OPERATOR-SUBNET-REGIONAL-CIDR            = "10.0.208.0/20"
     ALL-CIDR                                 = "0.0.0.0/0"
   }
 }
@@ -194,6 +195,49 @@ variable "user_ocid" {
 # ORM Schema visual control variables
 variable "show_advanced" {
   default = false
+}
+
+# Bastion and Operator Configuration
+variable "create_bastion" {
+  type        = bool
+  default     = true
+  description = "Whether to create bastion and operator instances for private cluster access"
+}
+
+variable "ssh_public_key" {
+  type        = string
+  default     = ""
+  description = "SSH public key for bastion and operator instances. If empty, a new key pair will be generated."
+}
+
+variable "bastion_instance_shape" {
+  type = map(any)
+  default = {
+    "instanceShape" = "VM.Standard.E5.Flex"
+    "ocpus"         = 1
+    "memory"        = 8
+  }
+  description = "Shape configuration for the bastion instance"
+}
+
+variable "operator_instance_shape" {
+  type = map(any)
+  default = {
+    "instanceShape" = "VM.Standard.E5.Flex"
+    "ocpus"         = 2
+    "memory"        = 16
+  }
+  description = "Shape configuration for the operator instance"
+}
+
+variable "bastion_boot_volume_size_in_gbs" {
+  default     = "50"
+  description = "Boot volume size for bastion instance (in GB)"
+}
+
+variable "operator_boot_volume_size_in_gbs" {
+  default     = "100"
+  description = "Boot volume size for operator instance (in GB)"
 }
 
 # App Name Locals

@@ -1,0 +1,95 @@
+# Copyright (c) 2025 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+# OCI Provider Configuration
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaa..."
+compartment_ocid = "ocid1.compartment.oc1..aaaaaaaa..."
+region          = "us-ashburn-1"
+
+# Authentication (choose one method)
+# Method 1: User credentials
+user_ocid        = "ocid1.user.oc1..aaaaaaaa..."
+fingerprint      = "aa:bb:cc:dd:ee:ff:gg:hh:ii:jj:kk:ll:mm:nn:oo:pp"
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# Method 2: Instance Principal (uncomment if using)
+# use_instance_principal = true
+
+# SSH Configuration
+# Provide your SSH public key, or leave empty to auto-generate
+ssh_public_key = ""
+# ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... your-public-key"
+
+# Network Configuration
+network_configuration_mode = "create_new"  # Options: "create_new", "bring_your_own"
+
+# For existing VCN (only if network_configuration_mode = "bring_your_own")
+# existing_vcn_id = "ocid1.vcn.oc1..aaaaaaaa..."
+# existing_endpoint_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
+# existing_node_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
+# existing_lb_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
+# existing_pods_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
+# existing_services_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
+
+# Cluster Configuration
+k8s_version = "v1.33.3"
+
+# Endpoint Visibility (for new VCN, only "Public" is supported)
+cluster_endpoint_visibility_new_vcn = "Public"
+
+# Endpoint Visibility (for existing VCN)
+# cluster_endpoint_visibility_existing_vcn = "Public"  # Options: "Public", "Private"
+
+# Worker Node Configuration
+cluster_workers_visibility = "Private"  # Options: "Public", "Private"
+
+# Node Pool Configuration
+node_pool_name = "control-plane"
+num_pool_workers = 3
+
+node_pool_instance_shape = {
+  instanceShape = "VM.Standard.E5.Flex"
+  ocpus         = 6
+  memory        = 64
+}
+
+node_pool_boot_volume_size_in_gbs = "150"
+
+# Load Balancer Visibility
+blueprints_endpoint_visibility = "Public"  # Options: "Public", "Private"
+apps_endpoint_visibility = "Public"        # Options: "Public", "Private"
+
+# Bastion and Operator Configuration
+create_bastion = true
+
+bastion_instance_shape = {
+  instanceShape = "VM.Standard.E5.Flex"
+  ocpus         = 1
+  memory        = 8
+}
+
+operator_instance_shape = {
+  instanceShape = "VM.Standard.E5.Flex"
+  ocpus         = 2
+  memory        = 16
+}
+
+bastion_boot_volume_size_in_gbs = "50"
+operator_boot_volume_size_in_gbs = "100"
+
+# Optional: Custom Network CIDRs
+# network_cidrs = {
+#   VCN-CIDR                                 = "10.0.0.0/16"
+#   ENDPOINT-SUBNET-REGIONAL-CIDR            = "10.0.80.0/20"
+#   NODES-SUBNET-REGIONAL-CIDR               = "10.0.96.0/20"
+#   LB-SUBNET-BP-CONTROL-PLANE-REGIONAL-CIDR = "10.0.112.0/20"
+#   LB-SUBNET-APPS-REGIONAL-CIDR             = "10.0.128.0/20"
+#   PODS-SUBNET-REGIONAL-CIDR                = "10.0.160.0/20"
+#   SERVICES-SUBNET-REGIONAL-CIDR            = "10.0.176.0/20"
+#   BASTION-SUBNET-REGIONAL-CIDR             = "10.0.192.0/20"
+#   OPERATOR-SUBNET-REGIONAL-CIDR            = "10.0.208.0/20"
+#   ALL-CIDR                                 = "0.0.0.0/0"
+# }
+
+# Optional: Kubernetes Dashboard
+cluster_options_add_ons_is_kubernetes_dashboard_enabled = false
