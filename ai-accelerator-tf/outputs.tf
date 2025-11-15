@@ -13,9 +13,24 @@ output "cluster_name" {
   value       = local.oke_cluster.name
 }
 
-output "cluster_endpoint" {
-  description = "Kubernetes API endpoint"
-  value       = local.oke_cluster.endpoints[0].kubernetes
+output "public_cluster_endpoint_full" {
+  description = "Kubernetes API endpoint (public)"
+  value       = local.cluster_endpoint_public_full
+}
+
+output "private_cluster_endpoint_full" {
+  description = "Kubernetes API endpoint (private)"
+  value       = local.cluster_endpoint_private_full
+}
+
+output "public_cluster_endpoint" {
+  description = "Kubernetes API endpoint (public)"
+  value       = local.cluster_endpoint_public
+}
+
+output "private_cluster_endpoint" {
+  description = "Kubernetes API endpoint (private)"
+  value       = local.cluster_endpoint_private
 }
 
 output "cluster_endpoint_visibility" {

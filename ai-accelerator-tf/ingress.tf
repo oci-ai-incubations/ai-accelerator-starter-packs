@@ -1,0 +1,125 @@
+## Grafana Ingress
+resource "kubernetes_ingress_v1" "grafana_ingress" {
+  wait_for_load_balancer = true
+  metadata {
+    name      = "grafana-ingress"
+    namespace = "cluster-tools"
+    annotations = {
+      "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    tls {
+      hosts       = [local.public_endpoint.grafana]
+      secret_name = "grafana-tls"
+    }
+    rule {
+      host = local.public_endpoint.grafana
+      http {
+        path {
+          path = "/"
+          backend {
+            service {
+              name = "grafana"
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  depends_on = [helm_release.ingress_nginx, helm_release.grafana]
+}
+
+resource "kubernetes_ingress_v1" "prometheus_ingress" {
+  wait_for_load_balancer = true
+  metadata {
+    name      = "prometheus-ingress"
+    namespace = "cluster-tools"
+    annotations = {
+      "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    tls {
+      hosts       = [local.public_endpoint.prometheus]
+      secret_name = "prometheus-tls"
+    }
+    rule {
+      host = local.public_endpoint.prometheus
+      http {
+        path {
+          path = "/"
+          backend {
+            service {
+              name = "prometheus-server"
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  depends_on = [helm_release.ingress_nginx, helm_release.grafana]
+}
+
+## Data source for ingress controller service
+data "kubernetes_service" "ingress" {
+  metadata {
+    name      = "ingress-nginx-controller"
+    namespace = kubernetes_namespace.cluster_tools.id
+  }
+  depends_on = [helm_release.ingress_nginx]
+}
+
+locals {
+  ingress_controller_load_balancer_ip     = try(data.kubernetes_service.ingress.status[0].load_balancer[0].ingress[0].ip, "")
+  ingress_controller_load_balancer_ip_hex = join("", formatlist("%02x", split(".", local.ingress_controller_load_balancer_ip)))
+  ingress_controller_load_balancer_hostname = (
+  var.ingress_hosts != "" ? local.ingress_hosts[0] : (var.ingress_hosts_include_nip_io ? local.app_nip_io_domain : local.ingress_controller_load_balancer_ip))
+
+  ingress_nginx_annotations_basic = {
+    "nginx.ingress.kubernetes.io/rewrite-target" = "/$2"
+  }
+  ingress_nginx_annotations_tls = {
+    "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+  }
+  ingress_nginx_annotations_cert_manager = {
+    "cert-manager.io/cluster-issuer"      = "letsencrypt-prod"
+    "cert-manager.io/acme-challenge-type" = "http01"
+  }
+  ingress_nginx_annotations = merge(local.ingress_nginx_annotations_basic,
+    var.ingress_tls ? local.ingress_nginx_annotations_tls : {},
+    var.ingress_tls ? local.ingress_nginx_annotations_cert_manager : {}
+  )
+  ingress_hosts     = compact(concat(split(",", var.ingress_hosts), [local.app_nip_io_domain]))
+  app_name_for_dns  = substr(lower(replace(local.app_name, "/\\W|_|\\s/", "")), 0, 6)
+  app_nip_io_domain = (var.ingress_nginx_enabled && var.ingress_hosts_include_nip_io) ? format("${local.app_name_for_dns}.%s.${var.nip_io_domain}", local.ingress_controller_load_balancer_ip_hex) : ""
+
+  network = {
+    external_ip = data.kubernetes_service.ingress.status.0.load_balancer.0.ingress.0.ip
+  }
+  domain = {
+    nip_io_mode = "nip.io"
+    nip_io_fqdn = format("%s.nip.io", replace(local.network.external_ip, ".", "-"))
+  }
+
+  fqdn = {
+    name = local.domain.nip_io_fqdn
+  }
+  public_endpoint = {
+    api = join(".", ["api", local.fqdn.name])
+    api_origin_insecure = join(".", ["http://api", local.fqdn.name])
+    api_origin_secure   = join(".", ["https://api", local.fqdn.name])
+    prometheus       = join(".", ["prometheus", local.fqdn.name])
+    grafana          = join(".", ["grafana", local.fqdn.name])
+  }
+}

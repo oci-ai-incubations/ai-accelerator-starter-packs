@@ -1,0 +1,10 @@
+# Cert-Manager Helm Values
+# This file contains the configuration for cert-manager
+
+# Install CRDs automatically
+installCRDs: true
+
+# Webhook configuration
+webhook:
+  timeoutSeconds: 30
+

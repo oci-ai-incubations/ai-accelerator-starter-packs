@@ -1,0 +1,136 @@
+# Grafana Helm Values
+# This file contains the configuration for Grafana
+
+# Grafana configuration
+grafana.ini:
+  server:
+    root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana"
+    serve_from_sub_path: true
+
+# Dashboard configuration
+dashboards:
+  default:
+    k8s-cluster:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus
+    k8s-cluster-metrics:
+      gnetId: 11663
+      revision: 1
+      datasource: Prometheus
+    k8s-cluster-metrics-simple:
+      gnetId: 6417
+      revision: 1
+      datasource: Prometheus
+    k8s-pods-monitoring:
+      gnetId: 13498
+      revision: 1
+      datasource: Prometheus
+    k8s-memory:
+      gnetId: 13421
+      revision: 1
+      datasource: Prometheus
+    k8s-networking:
+      gnetId: 12658
+      revision: 1
+      datasource: Prometheus
+    k8s-cluster-autoscaler:
+      gnetId: 3831
+      revision: 1
+      datasource: Prometheus
+    k8s-hpa:
+      gnetId: 10257
+      revision: 1
+      datasource: Prometheus
+    k8s-pods:
+      gnetId: 6336
+      revision: 1
+      datasource: Prometheus
+    spring-boot:
+      gnetId: 12464
+      revision: 2
+      datasource: Prometheus
+    nginx-ingress-controller:
+      gnetId: 9614
+      revision: 1
+      datasource: Prometheus
+    oci-compute:
+      gnetId: 13596
+      revision: 1
+      datasource: Oracle Cloud Infrastructure Metrics
+    oci-oke:
+      gnetId: 13594
+      revision: 1
+      datasource: Oracle Cloud Infrastructure Metrics
+    nvidia-dcgm:
+      gnetId: 12239
+      revision: 2
+      datasource: Prometheus
+
+# Dashboard providers
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+    - name: 'default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: true
+      editable: true
+      options:
+        path: /var/lib/grafana/dashboards/default
+
+# Sidecar configuration
+sidecar:
+  datasources:
+    enabled: true
+    label: grafana_datasource
+  dashboards:
+    enabled: true
+    label: grafana_dashboard
+
+# Persistence configuration
+persistence:
+  enabled: true
+  existingClaim: grafana-pvc
+
+# Plugins to install
+plugins:
+  - oci-logs-datasource
+  - oci-metrics-datasource
+  - grafana-kubernetes-app
+  - grafana-worldmap-panel
+  - grafana-piechart-panel
+  - btplc-status-dot-panel
+
+# Datasources configuration
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus-server.${namespace}.svc.cluster.local
+      access: proxy
+      isDefault: true
+      disableDeletion: true
+      editable: false
+    - name: Oracle Cloud Infrastructure Metrics
+      type: oci-metrics-datasource
+      access: proxy
+      disableDeletion: true
+      editable: true
+      jsonData:
+        tenancyOCID: "${tenancy_ocid}"
+        defaultRegion: "${region}"
+        environment: "OCI Instance"
+    - name: Oracle Cloud Infrastructure Logs
+      type: oci-logs-datasource
+      access: proxy
+      disableDeletion: true
+      editable: true
+      jsonData:
+        tenancyOCID: "${tenancy_ocid}"
+        defaultRegion: "${region}"
+        environment: "OCI Instance"

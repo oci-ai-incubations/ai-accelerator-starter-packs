@@ -1,0 +1,10 @@
+# NVIDIA DCGM Exporter Helm Values
+# This file contains the configuration for NVIDIA DCGM Exporter
+
+# ServiceMonitor configuration for Prometheus integration
+serviceMonitor:
+  enabled: true
+  namespace: cluster-tools
+
+# Additional configuration can be added here as needed
+

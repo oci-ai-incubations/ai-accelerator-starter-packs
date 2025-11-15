@@ -1,0 +1,16 @@
+# Ingress-Nginx Helm Values
+# This file contains the configuration for the ingress-nginx controller
+
+controller:
+  metrics:
+    enabled: true
+  
+  service:
+    annotations:
+      # OCI Load Balancer Configuration
+      service.beta.kubernetes.io/oci-load-balancer-shape: "flexible"
+      service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
+      service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "100"
+      # Uncomment the line below for private load balancer
+      # service.beta.kubernetes.io/oci-load-balancer-internal: "true"
+

@@ -126,19 +126,24 @@ variable "k8s_version" {
   default     = "v1.33.3"
   description = "Kubernetes version installed on your master and worker nodes"
 }
-variable "num_pool_workers" {
-  default     = 3
-  description = "The number of worker nodes in the node pool. If select Cluster Autoscaler, will assume the minimum number of nodes configured"
+variable "worker_node_pool_size" {
+  default     = 1
+  description = "The number of worker nodes in the node pool."
 }
 
-variable "node_pool_instance_shape" {
+variable "control_plane_node_pool_instance_shape" {
   type = map(any)
   default = {
     "instanceShape" = "VM.Standard.E5.Flex"
-    "ocpus"         = 6
+    "ocpus"         = 3
     "memory"        = 64
   }
   description = "A shape is a template that determines the number of OCPUs, amount of memory, and other resources allocated to a newly created instance for the Worker Node. Select at least 2 OCPUs and 16GB of memory if using Flex shapes"
+}
+
+variable "control_plane_node_pool_size" {
+  default     = 2
+  description = "The number of control plane nodes in the node pool."
 }
 variable "node_pool_boot_volume_size_in_gbs" {
   default     = "150"
@@ -238,6 +243,97 @@ variable "bastion_boot_volume_size_in_gbs" {
 variable "operator_boot_volume_size_in_gbs" {
   default     = "100"
   description = "Boot volume size for operator instance (in GB)"
+}
+
+# Ingress Nginx Configuration
+variable "ingress_load_balancer_shape" {
+  default     = "flexible" # Flexible, 10Mbps, 100Mbps, 400Mbps or 8000Mps
+  description = "Shape that will be included on the Ingress annotation for the OCI Load Balancer creation"
+}
+variable "ingress_load_balancer_shape_flex_min" {
+  default     = "10"
+  description = "Enter the minimum size of the flexible shape."
+}
+variable "ingress_load_balancer_shape_flex_max" {
+  default     = "100"
+  description = "Enter the maximum size of the flexible shape (Should be bigger than minimum size). The maximum service limit is set by your tenancy limits."
+}
+variable "ingress_hosts" {
+  default     = ""
+  description = "Enter a valid full qualified domain name (FQDN). You will need to map the domain name to the EXTERNAL-IP address on your DNS provider (DNS Registry type - A). If you have multiple domain names, include separated by comma. e.g.: mushop.example.com,catshop.com"
+}
+variable "ingress_hosts_include_nip_io" {
+  default     = true
+  description = "Include app_name.HEXXX.nip.io on the ingress hosts. e.g.: mushop.HEXXX.nip.io"
+}
+variable "nip_io_domain" {
+  default     = "nip.io"
+  description = "Dynamic wildcard DNS for the application hostname. Should support hex notation. e.g.: nip.io"
+}
+variable "ingress_tls" {
+  default     = true
+  description = "If enabled, will generate SSL certificates to enable HTTPS for the ingress using the Certificate Issuer"
+}
+variable "ingress_cluster_issuer" {
+  default     = "letsencrypt-prod"
+  description = "Certificate issuer type. Currently supports the free Let's Encrypt and Self-Signed. Only *letsencrypt-prod* generates valid certificates"
+}
+variable "ingress_email_issuer" {
+  default     = "no-reply@example.cloud"
+  description = "You must replace this email address with your own. The certificate provider will use this to contact you about expiring certificates, and issues related to your account."
+}
+variable "ingress_nginx_enabled" {
+  default     = true
+  description = "Enable ingress-nginx controller deployment"
+}
+variable "cluster_load_balancer_visibility" {
+  default     = "Public"
+  description = "Load balancer visibility for the cluster. Options: Public, Private"
+}
+# Deployment Details + Freeform Tags + Defined Tags
+variable "oci_tag_values" {
+  description = "Tags to be added to the resources"
+  default = {
+    freeformTags = {
+      AppName = "ai-accelerator"
+    }
+    definedTags = {}
+  }
+}
+
+variable "stack_version" {
+  default     = "v1.0.10"
+  description = "backend version"
+}
+
+variable "admin_email" {
+  default     = "noop@example.com"
+  description = "admin email"
+}
+
+variable "is_nvaie_enabled" {
+  default     = false
+  description = "whether to enable NVAIE"
+}
+
+variable "setup_credential_provider_for_ocir" {
+  default     = false
+  description = "whether to setup credential provider for OCIR"
+}
+
+variable "override_hostnames" {
+  default     = false
+  description = "whether to override hostnames"
+}
+
+variable "nvme_raid_level" {
+  default     = 10
+  description = "NVMe RAID level"
+}
+
+variable "worker_node_shape" {
+  default = "BM.GPU4.8"
+  description = "Worker node shape"
 }
 
 # App Name Locals

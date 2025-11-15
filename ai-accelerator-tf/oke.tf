@@ -36,7 +36,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
       services_cidr = lookup(var.network_cidrs, "SERVICES-SUBNET-REGIONAL-CIDR")
     }
   }
-
+  type = "ENHANCED_CLUSTER"
   count = var.network_configuration_mode == "create_new" ? 1 : 0
 
   depends_on = [
@@ -105,18 +105,18 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
       }
     }
 
-    size = var.num_pool_workers
+    size = var.control_plane_node_pool_size
 
     nsg_ids = []
   }
 
-  node_shape = var.node_pool_instance_shape.instanceShape
+  node_shape = var.control_plane_node_pool_instance_shape.instanceShape
 
   dynamic "node_shape_config" {
-    for_each = length(regexall("Flex", var.node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
+    for_each = length(regexall("Flex", var.control_plane_node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
     content {
-      ocpus         = var.node_pool_instance_shape.ocpus
-      memory_in_gbs = var.node_pool_instance_shape.memory
+      ocpus         = var.control_plane_node_pool_instance_shape.ocpus
+      memory_in_gbs = var.control_plane_node_pool_instance_shape.memory
     }
   }
 
@@ -140,4 +140,12 @@ resource "tls_private_key" "oke_ssh_key" {
   algorithm = "RSA"
   rsa_bits  = 2048
   count     = var.ssh_public_key == "" ? 1 : 0
+}
+
+data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
+  cluster_id = oci_containerengine_cluster.oke_cluster[0].id
+}
+
+output "oke_kube_config" {
+  value = data.oci_containerengine_cluster_kube_config.oke_kube_config.content
 }

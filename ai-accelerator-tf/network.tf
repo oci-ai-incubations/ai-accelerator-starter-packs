@@ -184,6 +184,13 @@ resource "oci_core_security_list" "oke_nodes_security_list" {
         protocol = local.all_protocols
         stateless = false
     }
+    ingress_security_rules {
+        description = "Inbound traffic to worker nodes from load balancer"
+        source = lookup(var.network_cidrs, "LB-SUBNET-BP-CONTROL-PLANE-REGIONAL-CIDR")
+        source_type = "CIDR_BLOCK"
+        protocol = local.all_protocols
+        stateless = false
+    }
 
     egress_security_rules {
         description = "Allow nodes to communicate with OKE"

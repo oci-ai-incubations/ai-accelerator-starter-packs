@@ -37,5 +37,41 @@ provider "oci" {
 # New configuration to avoid Terraform Kubernetes provider interpolation. https://registry.terraform.io/providers/hashicorp/kubernetes/2.2.0/docs#stacking-with-managed-kubernetes-cluster-resources
 # Currently need to uncheck to refresh (--refresh=false) when destroying or else the terraform destroy will fail
 
-# Kubernetes and Helm providers will be configured after cluster creation
-# See kubernetes.tf for provider configuration
+# Kubernetes and Helm providers configuration
+provider "kubernetes" {
+  host                   = local.cluster_endpoint_public_full
+  cluster_ca_certificate = local.cluster_ca_certificate
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "oci"
+    args = [
+      "ce",
+      "cluster",
+      "generate-token",
+      "--cluster-id",
+      local.cluster_id,
+      "--region",
+      local.cluster_region
+    ]
+  }
+}
+
+provider "helm" {
+  kubernetes = {
+    host                   = local.cluster_endpoint_public_full
+    cluster_ca_certificate = local.cluster_ca_certificate
+    exec = {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "oci"
+      args = [
+        "ce",
+        "cluster",
+        "generate-token",
+        "--cluster-id",
+        local.cluster_id,
+        "--region",
+        local.cluster_region
+      ]
+    }
+  }
+}

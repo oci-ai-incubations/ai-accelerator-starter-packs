@@ -1,0 +1,30 @@
+# Prometheus Helm Values
+# This file contains the configuration for the Prometheus monitoring stack
+
+# Server configuration
+server:
+  persistentVolume:
+    enabled: true
+    size: 100Gi
+    storageClass: oci-bv
+  
+  service:
+    type: ClusterIP
+
+# Alertmanager configuration
+alertmanager:
+  persistentVolume:
+    enabled: true
+    size: 20Gi
+    storageClass: oci-bv
+
+# Enable additional components
+pushgateway:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
