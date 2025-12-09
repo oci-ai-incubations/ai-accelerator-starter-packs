@@ -39,7 +39,7 @@ provider "oci" {
 
 # Kubernetes and Helm providers configuration
 provider "kubernetes" {
-  host                   = local.cluster_endpoint_public_full
+  host                   = local.cluster_endpoint_public_host
   cluster_ca_certificate = local.cluster_ca_certificate
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
@@ -58,7 +58,7 @@ provider "kubernetes" {
 
 provider "helm" {
   kubernetes = {
-    host                   = local.cluster_endpoint_public_full
+    host                   = local.cluster_endpoint_public_host
     cluster_ca_certificate = local.cluster_ca_certificate
     exec = {
       api_version = "client.authentication.k8s.io/v1beta1"

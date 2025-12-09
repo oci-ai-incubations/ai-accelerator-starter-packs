@@ -4,7 +4,7 @@ resource "helm_release" "ingress_nginx" {
   repository    = "https://kubernetes.github.io/ingress-nginx"
   chart         = "ingress-nginx"
   version       = "4.13.3"
-  namespace     = kubernetes_namespace.cluster_tools.id
+  namespace     = kubernetes_namespace_v1.cluster_tools.id
   # Need to wait for webhooks so we don't hit timing issues.
   wait          = true
   wait_for_jobs = true
@@ -56,7 +56,7 @@ resource "helm_release" "cert_manager" {
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
   version    = "1.19.1"
-  namespace  = kubernetes_namespace.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools.id
   wait       = true # wait to allow the webhook be properly configured
 
   set = [
@@ -78,7 +78,7 @@ resource "helm_release" "prometheus" {
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "prometheus"
   version    = "27.42.2"
-  namespace  = kubernetes_namespace.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools.id
   wait       = true
 
   set = [
@@ -130,7 +130,7 @@ resource "helm_release" "grafana" {
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
   version    = "10.1.4"
-  namespace  = kubernetes_namespace.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools.id
   wait       = false
 
   set = [
@@ -240,7 +240,7 @@ datasources:
     datasources:
     - name: Prometheus
       type: prometheus
-      url: http://prometheus-server.${kubernetes_namespace.cluster_tools.id}.svc.cluster.local
+      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools.id}.svc.cluster.local
       access: proxy
       isDefault: true
       disableDeletion: true
@@ -269,10 +269,10 @@ EOF
   depends_on = [kubernetes_persistent_volume_claim_v1.grafana, helm_release.prometheus]
 }
 
-resource "kubernetes_config_map" "vllm_dashboard" {
+resource "kubernetes_config_map_v1" "vllm_dashboard" {
   metadata {
     name      = "vllm-custom-dashboard"
-    namespace = kubernetes_namespace.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools.id
     labels = {
       grafana_dashboard = "true"
     }
@@ -286,7 +286,7 @@ resource "kubernetes_config_map" "vllm_dashboard" {
 resource "kubernetes_persistent_volume_claim_v1" "grafana" {
   metadata {
     name      = "grafana-pvc"
-    namespace = kubernetes_namespace.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools.id
   }
 
   spec {
@@ -307,20 +307,20 @@ resource "kubernetes_persistent_volume_claim_v1" "grafana" {
     create = "5m"
   }
 
-  depends_on = [kubernetes_namespace.cluster_tools]
+  depends_on = [kubernetes_namespace_v1.cluster_tools]
 }
 
 ## Kubernetes Secret: Grafana Admin Password
-data "kubernetes_secret" "grafana" {
+data "kubernetes_secret_v1" "grafana" {
   metadata {
     name      = "grafana"
-    namespace = kubernetes_namespace.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools.id
   }
   depends_on = [helm_release.grafana]
 }
 
 locals {
-  grafana_admin_password = data.kubernetes_secret.grafana.data.admin-password
+  grafana_admin_password = data.kubernetes_secret_v1.grafana.data.admin-password
 }
 
 output "grafana_admin_password" {

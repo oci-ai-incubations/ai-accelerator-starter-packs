@@ -71,6 +71,30 @@ variable "existing_services_subnet_id" {
   type        = string
 }
 
+# -----------------------------------
+# Corrino User
+# -----------------------------------
+
+variable "corrino_admin_username" {
+  description = "The user name used to login to OCI AI Blueprints"
+  type        = string
+}
+
+variable "corrino_admin_password" {
+  description = "The password used to login to OCI AI Blueprints"
+  type        = string
+}
+
+variable "corrino_admin_email" {
+  description = "The email address used to identify the OCI AI Blueprints user"
+  type        = string
+}
+
+variable "share_data_with_corrino_team_enabled" {
+  description = "Allow this Terraform to send a small registration file to OCI AI Blueprints team."
+  type        = bool
+  default     = true
+}
 
 # OKE Variables
 ## OKE Cluster Details
@@ -334,6 +358,32 @@ variable "nvme_raid_level" {
 variable "worker_node_shape" {
   default = "BM.GPU4.8"
   description = "Worker node shape"
+}
+
+# Helm installs
+variable "kong_enabled" {
+  default = false
+  description = "Install kong inference gateway"
+}
+
+# -----------------------------------
+# Corrino FQDN
+# -----------------------------------
+
+# This is populated from schema.yaml from an enumeration with one of three possible values:
+#    - nip.io
+#    - corrino-oci.com
+#    - custom
+
+variable "fqdn_domain_mode_selector" {
+  type    = string
+  default = "nip.io"
+}
+
+variable "fqdn_custom_domain" {
+  description = "Your custom FQDN can be a simple top-level domain or an A-Record for a top-level domain.  Either method requires that you modify the domain registrar records to send traffic to the load balancer public IP that is provisioned for you."
+  type        = string
+  default     = ""
 }
 
 # App Name Locals

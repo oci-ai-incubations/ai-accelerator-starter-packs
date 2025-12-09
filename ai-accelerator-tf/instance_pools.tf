@@ -58,6 +58,12 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
       }
     }
   }
+  
+  lifecycle {
+    ignore_changes = [
+      instance_details[0].launch_details[0].metadata["user_data"]
+    ]
+  }
 }
 
 resource "oci_core_instance_pool" "worker_nodes_pool" {

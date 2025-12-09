@@ -1,0 +1,99 @@
+resource "kubernetes_service_v1" "corrino_cp_service" {
+  metadata {
+    name = "corrino-cp"
+    annotations = {
+      "oci.oraclecloud.com/load-balancer-type"             = "lb"
+      "service.beta.kubernetes.io/oci-load-balancer-shape" = "flexible"
+    }
+  }
+  spec {
+    selector = {
+      app = "corrino-cp"
+    }
+    port {
+      port        = 80
+      target_port = 5000
+    }
+  }
+  depends_on = [kubernetes_deployment_v1.corrino_cp_deployment]
+}
+
+resource "kubernetes_deployment_v1" "corrino_cp_deployment" {
+  metadata {
+    name = "corrino-cp"
+    labels = {
+      app = "corrino-cp"
+    }
+  }
+  spec {
+    replicas = 1
+
+    strategy {
+      type = "Recreate"
+    }
+
+    selector {
+      match_labels = {
+        app = "corrino-cp"
+      }
+    }
+    template {
+      metadata {
+        labels = {
+          app = "corrino-cp"
+        }
+      }
+      spec {
+        container {
+          name              = "corrino-cp"
+          image             = local.app.backend_image_uri
+          image_pull_policy = "Always"
+
+          dynamic "env" {
+            for_each = local.env_universal
+            content {
+              name  = env.value.name
+              value = env.value.value
+            }
+          }
+
+          dynamic "env" {
+            for_each = local.env_app_api
+            content {
+              name  = env.value.name
+              value = env.value.value
+            }
+          }
+
+          dynamic "env" {
+            for_each = local.env_app_configmap
+            content {
+              name = env.value.name
+              value_from {
+                config_map_key_ref {
+                  name = env.value.config_map_name
+                  key  = env.value.config_map_key
+                }
+              }
+            }
+          }
+
+          dynamic "env" {
+            for_each = local.env_psql_configmap
+            content {
+              name = env.value.name
+              value_from {
+                config_map_key_ref {
+                  name = env.value.config_map_name
+                  key  = env.value.config_map_key
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  depends_on = [kubernetes_job_v1.corrino_migration_job]
+}
+
