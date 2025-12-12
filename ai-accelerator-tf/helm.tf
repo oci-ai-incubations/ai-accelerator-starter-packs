@@ -36,7 +36,7 @@ resource "helm_release" "ingress_nginx" {
       type  = "string"
     }
   ] : [])
-
+  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
 }
 
 ## NVIDIA DCGM Exporter - Commented out temporarily due to chart not found
@@ -48,6 +48,8 @@ resource "helm_release" "ingress_nginx" {
    create_namespace = true
    wait             = false
    version          = "v25.10.0"
+
+  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
 }
 
 ## Cert Manager
@@ -70,6 +72,7 @@ resource "helm_release" "cert_manager" {
     }
   ]
 
+  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
 }
 
 ## Prometheus
@@ -123,6 +126,8 @@ resource "helm_release" "prometheus" {
       value = "true"
     }
   ]
+
+  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
 }
 
 resource "helm_release" "grafana" {
@@ -281,6 +286,8 @@ resource "kubernetes_config_map_v1" "vllm_dashboard" {
   data = {
     "vllm-dashboard.json" = file("${path.module}/dashboards/vllm-dashboard.json")
   }
+
+  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "grafana" {
@@ -307,9 +314,8 @@ resource "kubernetes_persistent_volume_claim_v1" "grafana" {
     create = "5m"
   }
 
-  depends_on = [kubernetes_namespace_v1.cluster_tools]
+  depends_on = [oci_containerengine_node_pool.oke_node_pool, kubernetes_namespace_v1.cluster_tools]
 }
-
 ## Kubernetes Secret: Grafana Admin Password
 data "kubernetes_secret_v1" "grafana" {
   metadata {

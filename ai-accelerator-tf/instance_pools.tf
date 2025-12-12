@@ -104,8 +104,12 @@ locals {
         trimspace(var.ssh_public_key),
     ])
     runcmd_bootstrap_script = format(
-      "curl -sL -o /var/run/oke-ubuntu-cloud-init.sh https://raw.githubusercontent.com/oracle-quickstart/oci-hpc-oke/refs/heads/main/files/oke-ubuntu-cloud-init.sh && (bash /var/run/oke-ubuntu-cloud-init.sh '%v' '%v' '%v' || echo 'Error bootstrapping OKE' >&2)",
-      var.k8s_version, var.setup_credential_provider_for_ocir, var.override_hostnames
+      "bash /var/run/worker_node_bootstrap.sh '%v' || echo 'Error bootstrapping OKE' >&2",
+      var.k8s_version
+    )
+    runcmd_bootstrap = format(
+    "curl -sL -o /var/run/oke-ubuntu-cloud-init.sh https://raw.githubusercontent.com/oracle-quickstart/oci-hpc-oke/refs/heads/main/files/oke-ubuntu-cloud-init.sh && (bash /var/run/oke-ubuntu-cloud-init.sh '%v' '%v' '%v' || echo 'Error bootstrapping OKE' >&2)",
+    var.k8s_version, var.setup_credential_provider_for_ocir, var.override_hostnames
     )
     runcmd_nvme_raid = format(
         "curl -sL -o /var/run/oke-nvme-raid.sh https://raw.githubusercontent.com/oracle-quickstart/oci-hpc-oke/refs/heads/main/files/oke-nvme-raid.sh && (bash /var/run/oke-nvme-raid.sh '%v' || echo 'Error initializing RAID' >&2)",
@@ -122,6 +126,12 @@ locals {
             owner = "root:root"
             path = "/etc/kubernetes/ca.crt"
             permissions = "0644"
+        },
+        {
+            content = file("${path.module}/scripts/worker_node_bootstrap.sh"),
+            path = "/var/run/worker_node_bootstrap.sh"
+            permissions = "0755"
+            owner = "root:root"
         }
     ]
     cloud_init = {

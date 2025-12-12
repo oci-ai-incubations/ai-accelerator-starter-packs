@@ -37,6 +37,16 @@ locals {
     password = random_string.postgres_db_password.result
   }
 
+  ngc_secrets = {
+    docker_secret_name = "ngc-secret"
+    nvidia_api_key_envvar_name = "NVIDIA_API_KEY"
+    nvidia_api_key_secret_key = "NVIDIA_API_KEY"
+    nvidia_api_key_secret_name = "nvidia-api-secret"
+
+    ngc_api_key_envvar_name = "NGC_API_KEY"
+    ngc_api_key_secret_key = "NGC_API_KEY"
+    ngc_api_key_secret_name = "ngc-api-secret"
+  }
   registration = {
     #object_filename = format("corrino-registration-%s", random_string.registration_id.result)
     object_filename = "corrino_registration.json"
@@ -92,7 +102,7 @@ network = {
     loopback           = "127.0.0.1"
     loopback_origin    = "http://127.0.0.1"
     external_ip        = var.ingress_nginx_enabled ? local.ingress_controller_load_balancer_ip : "#Ingress_Not_Deployed"
-    oke_node_subnet_id = var.existing_node_subnet_id
+    oke_node_subnet_id = local.create_network_resources ? oci_core_subnet.oke_nodes_subnet[0].id : var.existing_node_subnet_id
   }
 
   inference_gateway = {

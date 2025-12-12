@@ -45,27 +45,6 @@ resource "kubernetes_job_v1" "corrino_migration_job" {
             }
           }
 
-          # dynamic "env" {
-          #   for_each = local.env_adb_access
-          #   content {
-          #     name  = env.value.name
-          #     value = env.value.value
-          #   }
-          # }
-
-          # dynamic "env" {
-          #   for_each = local.env_adb_access_secrets
-          #   content {
-          #     name = env.value.name
-          #     value_from {
-          #       secret_key_ref {
-          #         name = env.value.secret_name
-          #         key  = env.value.secret_key
-          #       }
-          #     }
-          #   }
-          # }
-
           dynamic "env" {
             for_each = local.env_psql_configmap
             content {
@@ -79,19 +58,7 @@ resource "kubernetes_job_v1" "corrino_migration_job" {
             }
           }
 
-          # volume_mount {
-          #   name       = "adb-wallet-volume"
-          #   mount_path = "/app/wallet"
-          #   read_only  = true
-          # }
         }
-
-        # volume {
-        #   name = "adb-wallet-volume"
-        #   secret {
-        #     secret_name = "oadb-wallet"
-        #   }
-        # }
 
         restart_policy = "Never"
       }
@@ -109,8 +76,5 @@ resource "kubernetes_job_v1" "corrino_migration_job" {
     kubernetes_config_map_v1.corrino-configmap, 
     kubernetes_service_v1.postgres,
   ]
-  #depends_on = [kubernetes_job.wallet_extractor_job, kubernetes_config_map.corrino-configmap]
-
-  #  count = var.mushop_mock_mode_all ? 0 : 1
   count = 1
 }

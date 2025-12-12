@@ -4,7 +4,7 @@ locals {
     recipe_mode                            = "service"
     deployment_name                        = "cuopt2gpunvi"
     recipe_image_uri                       = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
-    recipe_container_secret_name           = "ngc-secret"
+    recipe_container_secret_name           = local.ngc_secrets.docker_secret_name
     recipe_node_shape                      = "BM.GPU4.8"
     recipe_replica_count                   = 8
     recipe_container_port                  = "5000"
@@ -14,9 +14,9 @@ locals {
     recipe_shared_memory_volume_size_limit_in_mb = 16384
     recipe_environment_secrets = [
       {
-        envvar_name   = "NVIDIA_API_KEY"
-        secret_name   = "ngc-api-secret"
-        secret_key    = "NGC_API_KEY"
+        envvar_name   = local.ngc_secrets.nvidia_api_key_envvar_name
+        secret_name   = local.ngc_secrets.nvidia_api_key_secret_name
+        secret_key    = local.ngc_secrets.nvidia_api_key_secret_key
       }
     ]
     recipe_container_command_args = [

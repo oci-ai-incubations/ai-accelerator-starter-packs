@@ -8,6 +8,39 @@ resource "kubernetes_config_map_v1" "cuopt_blueprint_config" {
   }
 }
 
+resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
+  metadata {
+    name = "configure-oke-for-blueprint-deployment-job"
+  }
+  spec {
+    template {
+      metadata {}
+      spec {
+        container {
+          name = "configure-oke"
+          image = local.app.deploy_blueprint_image_uri
+          image_pull_policy = "Always"
+          command = ["/bin/sh", "-c"]
+          args = [
+            "python3 /app/configure_oke.py"
+          ]
+        }
+      }
+    }
+    backoff_limit = 0
+    ttl_seconds_after_finished = 120
+  }
+  wait_for_completion = true
+  timeouts {
+    create = "20m"
+    update = "20m"
+  }
+  depends_on = [
+    kubernetes_deployment_v1.corrino_cp_deployment,
+  ]
+  count = 1
+}
+
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
   metadata {
     name = "blueprint-deployment-job"
@@ -64,6 +97,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
 
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
+    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     kubernetes_config_map_v1.cuopt_blueprint_config,
     kubernetes_service_v1.postgres,
   ]
