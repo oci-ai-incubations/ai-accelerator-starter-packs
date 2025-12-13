@@ -134,9 +134,12 @@ locals {
             owner = "root:root"
         }
     ]
+
+    # These commands must be executed in this order. If you change runcmd_nvme_raid to run second, it changes the mount location of the kubelet.
+    # This happens after kubelet is started by bootstrap, and so all pods after that will fail to start because they cannot find the volume (because it has moved).
     cloud_init = {
         ssh_authorized_keys = local.ssh_authorized_keys
-        runcmd = compact([local.runcmd_nvme_raid, local.runcmd_bootstrap_script])
+        runcmd = compact([local.runcmd_nvme_raid, local.runcmd_bootstrap_script]) # These commands must be executed in this order. 
         write_files = local.write_files
     }
 }
