@@ -136,7 +136,7 @@ locals {
     ]
     cloud_init = {
         ssh_authorized_keys = local.ssh_authorized_keys
-        runcmd = compact([local.runcmd_bootstrap_script, local.runcmd_nvme_raid])
+        runcmd = compact([local.runcmd_nvme_raid, local.runcmd_bootstrap_script])
         write_files = local.write_files
     }
 }
