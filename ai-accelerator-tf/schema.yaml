@@ -294,15 +294,7 @@ variables:
     type: boolean
     visible: false
 
-  control_plane_node_pool_size:
-    type: integer
-    visible: false
-
   k8s_version:
-    type: string
-    visible: false
-
-  node_pool_boot_volume_size_in_gbs:
     type: string
     visible: false
 

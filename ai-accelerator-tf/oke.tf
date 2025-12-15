@@ -105,7 +105,7 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
       }
     }
 
-    size = var.control_plane_node_pool_size
+    size = local.starter_pack_config.control_plane_node_pool_size
 
     nsg_ids = []
   }
@@ -124,7 +124,7 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
     image_id    = data.oci_core_images.oracle_linux.images[0].id
     source_type = "IMAGE"
 
-    boot_volume_size_in_gbs = var.node_pool_boot_volume_size_in_gbs
+    boot_volume_size_in_gbs = local.starter_pack_config.node_pool_boot_volume_size_in_gbs
   }
 
   initial_node_labels {

@@ -165,15 +165,6 @@ variable "k8s_version" {
 #   description = "A shape is a template that determines the number of OCPUs, amount of memory, and other resources allocated to a newly created instance for the Worker Node. Select at least 2 OCPUs and 16GB of memory if using Flex shapes"
 # }
 
-variable "control_plane_node_pool_size" {
-  default     = 2
-  description = "The number of control plane nodes in the node pool."
-}
-variable "node_pool_boot_volume_size_in_gbs" {
-  default     = "150"
-  description = "Specify a custom boot volume size (in GB)"
-}
-
 # Network Details
 ## CIDRs
 variable "network_cidrs" {
@@ -403,8 +394,10 @@ locals {
       "blueprint_file"      = "cuopt-blueprint.json"
       "blueprint"           = local.cuopt_small_blueprint
       # Compute shapes for cuopt_small (GPU workload)
-      "worker_node_shape"     = "BM.GPU4.8"
-      "worker_node_pool_size" = 1
+      "worker_node_shape"                 = "BM.GPU4.8"
+      "worker_node_pool_size"             = 1
+      "control_plane_node_pool_size"      = 2
+      "node_pool_boot_volume_size_in_gbs" = "150"
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
         "ocpus"         = 3
@@ -416,12 +409,14 @@ locals {
       "blueprint_file"      = "vss-blueprint.json"
       "blueprint"           = local.vss_blueprint
       # Compute shapes for vss_medium (GPU workload)
-      "worker_node_shape"     = "BM.GPU.B4.8"
-      "worker_node_pool_size" = 1
+      "worker_node_shape"                 = "BM.GPU.B4.8"
+      "worker_node_pool_size"             = 1
+      "control_plane_node_pool_size"      = 2
+      "node_pool_boot_volume_size_in_gbs" = "150"
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 3
-        "memory"        = 64
+        "ocpus"         = 32
+        "memory"        = 128
       }
     }
   }
