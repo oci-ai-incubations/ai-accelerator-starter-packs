@@ -338,7 +338,7 @@ resource "helm_release" "milvus" {
   repository = "https://zilliztech.github.io/milvus-helm/"
   chart      = "milvus"
   version    = "5.0.10"
-  namespace  = kubernetes_namespace_v1.milvus.id
+  namespace  = kubernetes_namespace_v1.milvus[0].id
   wait       = false
 
   set = [
@@ -367,6 +367,6 @@ resource "helm_release" "milvus" {
       value = "true"
     }
   ]
-  count      = local.starter_pack_config.starter_pack_choice == "vss" ? 1 : 0
+  count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }

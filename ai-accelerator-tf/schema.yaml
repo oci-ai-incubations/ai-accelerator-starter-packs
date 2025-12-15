@@ -749,6 +749,86 @@ outputs:
     title: "Grafana Password"
     visible: true
 
+  # ---------------------------------
+  # Hidden Outputs (visible: false)
+  # From outputs.tf - should not appear in the UI
+  # ---------------------------------
+
+  # Cluster Information
+  cluster_id:
+    visible: false
+
+  cluster_name:
+    visible: false
+
+  public_cluster_endpoint_full:
+    visible: false
+
+  private_cluster_endpoint_full:
+    visible: false
+
+  public_cluster_endpoint:
+    visible: false
+
+  private_cluster_endpoint:
+    visible: false
+
+  cluster_endpoint_visibility:
+    visible: false
+
+  # Network Information
+  vcn_id:
+    visible: false
+
+  vcn_cidr:
+    visible: false
+
+  # Node Pool Information
+  node_pool_id:
+    visible: false
+
+  node_pool_kubernetes_version:
+    visible: false
+
+  # Bastion Information
+  bastion_public_ip:
+    visible: false
+
+  bastion_private_ip:
+    visible: false
+
+  # Operator Information
+  operator_private_ip:
+    visible: false
+
+  # SSH Key Information
+  ssh_private_key:
+    visible: false
+
+  ssh_public_key:
+    visible: false
+
+  # Connection Instructions
+  connection_instructions:
+    visible: false
+
+  kubeconfig_command:
+    visible: false
+
+  # Load Balancer Subnet Information
+  lb_subnet_bp_control_plane_id:
+    visible: false
+
+  lb_subnet_apps_id:
+    visible: false
+
+  # Deployment Information
+  deployment_id:
+    visible: false
+
+  app_name:
+    visible: false
+
 #  # ------------------------------------------------
 #  # COMMENTED OUT - Not needed for starter packs
 #  # ------------------------------------------------

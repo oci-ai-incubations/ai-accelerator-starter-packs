@@ -41,4 +41,5 @@ resource "kubernetes_namespace_v1" "milvus" {
   metadata {
     name = "milvus"
   }
+  count = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
 }
