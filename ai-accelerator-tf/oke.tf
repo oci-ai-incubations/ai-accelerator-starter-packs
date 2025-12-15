@@ -36,7 +36,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
       services_cidr = lookup(var.network_cidrs, "SERVICES-SUBNET-REGIONAL-CIDR")
     }
   }
-  type = "ENHANCED_CLUSTER"
+  type  = "ENHANCED_CLUSTER"
   count = var.network_configuration_mode == "create_new" ? 1 : 0
 
   depends_on = [
@@ -110,13 +110,13 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
     nsg_ids = []
   }
 
-  node_shape = var.control_plane_node_pool_instance_shape.instanceShape
+  node_shape = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
 
   dynamic "node_shape_config" {
-    for_each = length(regexall("Flex", var.control_plane_node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
+    for_each = length(regexall("Flex", local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
     content {
-      ocpus         = var.control_plane_node_pool_instance_shape.ocpus
-      memory_in_gbs = var.control_plane_node_pool_instance_shape.memory
+      ocpus         = local.starter_pack_config.control_plane_node_pool_instance_shape.ocpus
+      memory_in_gbs = local.starter_pack_config.control_plane_node_pool_instance_shape.memory
     }
   }
 

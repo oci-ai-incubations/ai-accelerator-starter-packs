@@ -1,10 +1,10 @@
 ## Ingress Nginx
 resource "helm_release" "ingress_nginx" {
-  name          = "ingress-nginx"
-  repository    = "https://kubernetes.github.io/ingress-nginx"
-  chart         = "ingress-nginx"
-  version       = "4.13.3"
-  namespace     = kubernetes_namespace_v1.cluster_tools.id
+  name       = "ingress-nginx"
+  repository = "https://kubernetes.github.io/ingress-nginx"
+  chart      = "ingress-nginx"
+  version    = "4.13.3"
+  namespace  = kubernetes_namespace_v1.cluster_tools.id
   # Need to wait for webhooks so we don't hit timing issues.
   wait          = true
   wait_for_jobs = true
@@ -29,27 +29,27 @@ resource "helm_release" "ingress_nginx" {
       value = var.ingress_load_balancer_shape_flex_max
       type  = "string"
     }
-  ], var.cluster_load_balancer_visibility == "Private" ? [
+    ], var.cluster_load_balancer_visibility == "Private" ? [
     {
       name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-internal"
       value = "true"
       type  = "string"
     }
   ] : [])
-  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 ## NVIDIA DCGM Exporter - Commented out temporarily due to chart not found
- resource "helm_release" "nvidia-gpu-operator" {
-   name             = "gpu-operator"
-   repository       = "https://helm.ngc.nvidia.com/nvidia"
-   chart            = "gpu-operator"
-   namespace        = "gpu-operator"
-   create_namespace = true
-   wait             = false
-   version          = "v25.10.0"
+resource "helm_release" "nvidia-gpu-operator" {
+  name             = "gpu-operator"
+  repository       = "https://helm.ngc.nvidia.com/nvidia"
+  chart            = "gpu-operator"
+  namespace        = "gpu-operator"
+  create_namespace = true
+  wait             = false
+  version          = "v25.10.0"
 
-  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 ## Cert Manager
@@ -72,7 +72,7 @@ resource "helm_release" "cert_manager" {
     }
   ]
 
-  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 ## Prometheus
@@ -127,7 +127,7 @@ resource "helm_release" "prometheus" {
     }
   ]
 
-  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 resource "helm_release" "grafana" {
@@ -287,7 +287,7 @@ resource "kubernetes_config_map_v1" "vllm_dashboard" {
     "vllm-dashboard.json" = file("${path.module}/dashboards/vllm-dashboard.json")
   }
 
-  depends_on = [ oci_containerengine_node_pool.oke_node_pool ]
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "grafana" {
@@ -330,5 +330,43 @@ locals {
 }
 
 output "grafana_admin_password" {
-  value     = nonsensitive(local.grafana_admin_password)
+  value = nonsensitive(local.grafana_admin_password)
+}
+
+resource "helm_release" "milvus" {
+  name       = "milvus"
+  repository = "https://zilliztech.github.io/milvus-helm/"
+  chart      = "milvus"
+  version    = "5.0.10"
+  namespace  = kubernetes_namespace_v1.milvus.id
+  wait       = false
+
+  set = [
+    {
+      name  = "image.all.tag"
+      value = "v2.6.7"
+    },
+    {
+      name  = "cluster.enabled",
+      value = "false"
+    },
+    {
+      name  = "pulsarv3.enabled"
+      value = "false"
+    },
+    {
+      name  = "standalone.messageQueue"
+      value = "woodpecker"
+    },
+    {
+      name  = "woodpecker.enabled"
+      value = "true"
+    },
+    {
+      name  = "streaming.enabled"
+      value = "true"
+    }
+  ]
+  count      = local.starter_pack_config.starter_pack_choice == "vss" ? 1 : 0
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
