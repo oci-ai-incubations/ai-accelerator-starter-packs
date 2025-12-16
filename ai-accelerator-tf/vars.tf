@@ -392,6 +392,7 @@ locals {
       # Compute shapes for cuopt_small (GPU workload)
       "worker_node_shape"                 = "BM.GPU4.8"
       "worker_node_pool_size"             = 1
+      "cpu_worker_node_pool_size"         = 0
       "control_plane_node_pool_size"      = 2
       "node_pool_boot_volume_size_in_gbs" = "150"
       "control_plane_node_pool_instance_shape" = {
@@ -405,10 +406,17 @@ locals {
       "blueprint_file"      = "vss-blueprint.json"
       "deployment_name"     = "vss"
       # Compute shapes for vss_medium (GPU workload)
-      "worker_node_shape"                 = "BM.GPU4.8"
-      "worker_node_pool_size"             = 1
-      "control_plane_node_pool_size"      = 2
-      "node_pool_boot_volume_size_in_gbs" = "150"
+      "worker_node_shape"         = "BM.GPU4.8"
+      "worker_node_pool_size"     = 1
+      "cpu_worker_node_pool_size" = 1
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 3
+        "memory"        = 64
+      }
+      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
+      "control_plane_node_pool_size"                 = 2
+      "node_pool_boot_volume_size_in_gbs"            = "150"
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
         "ocpus"         = 32

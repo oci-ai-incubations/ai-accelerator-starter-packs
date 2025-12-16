@@ -361,6 +361,26 @@ resource "helm_release" "milvus" {
     {
       name  = "streaming.enabled"
       value = "true"
+    },
+    {
+      name  = "minio.mode"
+      value = "standalone"
+    },
+    {
+      name  = "etcd.replicaCount"
+      value = "1"
+    },
+    {
+      name  = "minio.image.repository"
+      value = "quay.io/minio/minio"
+    },
+    {
+      name  = "minio.image.tag"
+      value = "RELEASE.2024-12-18T13-15-44Z"
+    },
+    {
+      name  = "milvus.image.repository"
+      value = "docker.io/milvusdb/milvus"
     }
   ]
   count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0

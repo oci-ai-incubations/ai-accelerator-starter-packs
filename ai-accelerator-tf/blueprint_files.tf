@@ -68,7 +68,7 @@ locals {
             recipe_node_pool_size       = 1
             recipe_use_shared_node_pool = true
             recipe_replica_count        = 1
-            recipe_image_uri            = "elasticsearch:9.1.2"
+            recipe_image_uri            = "docker.io/elasticsearch:9.1.2"
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -87,7 +87,7 @@ locals {
           recipe = {
             deployment_name             = "neo4j-deployment-group"
             recipe_mode                 = "service"
-            recipe_image_uri            = "neo4j:5.26.4"
+            recipe_image_uri            = "docker.io/neo4j:5.26.4"
             recipe_replica_count        = 1
             recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
             recipe_use_shared_node_pool = true
