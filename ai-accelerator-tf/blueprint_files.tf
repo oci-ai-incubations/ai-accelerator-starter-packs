@@ -160,7 +160,7 @@ locals {
             recipe_replica_count         = 1
             recipe_nvidia_gpu_count      = 1
             recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
-            recipe_container_secret_name = "ngc-docker-reg-secret"
+            recipe_container_secret_name = "ngc-secret"
             recipe_container_port        = "8000"
             recipe_host_port             = "8000"
             recipe_storage_group_id      = 1000
@@ -169,7 +169,7 @@ locals {
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
             ]
             recipe_environment_secrets = [
-              { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-key-secret", secret_key = "NGC_API_KEY" }
+              { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" }
             ]
             pvcs = {
               retain_after_undeploy = false
@@ -201,7 +201,7 @@ locals {
             recipe_replica_count         = 1
             recipe_nvidia_gpu_count      = 1
             recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
-            recipe_container_secret_name = "ngc-docker-reg-secret"
+            recipe_container_secret_name = "ngc-secret"
             recipe_container_port        = "8000"
             recipe_host_port             = "8000"
             recipe_storage_group_id      = 1000
@@ -209,7 +209,7 @@ locals {
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
             ]
             recipe_environment_secrets = [
-              { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-key-secret", secret_key = "NGC_API_KEY" }
+              { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" }
             ]
             pvcs = {
               retain_after_undeploy = false
@@ -256,7 +256,7 @@ locals {
             ]
             recipe_container_port                        = "8000"
             recipe_host_port                             = "8000"
-            recipe_container_secret_name                 = "ngc-docker-reg-secret"
+            recipe_container_secret_name                 = "ngc-secret"
             recipe_shared_memory_volume_size_limit_in_mb = 65536
             recipe_storage_group_id                      = 1000
             pvcs = {
@@ -302,7 +302,7 @@ locals {
             deployment_name                              = "vss-deployment-group"
             recipe_mode                                  = "service"
             recipe_image_uri                             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
-            recipe_container_secret_name                 = "ngc-docker-reg-secret"
+            recipe_container_secret_name                 = "ngc-secret"
             recipe_replica_count                         = 1
             recipe_node_shape                            = local.starter_pack_config.worker_node_shape
             recipe_use_shared_node_pool                  = true

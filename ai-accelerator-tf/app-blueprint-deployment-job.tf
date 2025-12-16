@@ -4,7 +4,7 @@ resource "kubernetes_config_map_v1" "blueprint_config_map" {
     name = "blueprint-config"
   }
   data = {
-    "${local.starter_pack_config.blueprint_file}" = local.starter_pack_config.blueprint
+    "${local.starter_pack_config.blueprint_file}" = local.starter_pack_blueprint_content[var.starter_pack_choice]
   }
 }
 
@@ -28,7 +28,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
       }
     }
     backoff_limit              = 0
-    ttl_seconds_after_finished = 120
+    ttl_seconds_after_finished = 3600 # 1 hour instead of 2 minutes
   }
   wait_for_completion = true
   timeouts {

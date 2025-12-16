@@ -383,6 +383,7 @@ variable "starter_pack_choice" {
 }
 
 locals {
+
   starter_pack_choice_map = {
     "cuopt_small" = {
       "starter_pack_choice" = "cuopt_small"
@@ -420,6 +421,10 @@ locals {
   starter_back_deployment_name_map = {
     "cuopt_small" = "cuopt"
     "vss_medium"  = "vss"
+  }
+  starter_pack_blueprint_content = {
+    "cuopt_small" = local.cuopt_small_blueprint
+    "vss_medium"  = local.vss_blueprint
   }
   starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
   starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]
