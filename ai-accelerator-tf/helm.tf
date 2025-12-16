@@ -329,10 +329,6 @@ locals {
   grafana_admin_password = data.kubernetes_secret_v1.grafana.data.admin-password
 }
 
-output "grafana_admin_password" {
-  value = nonsensitive(local.grafana_admin_password)
-}
-
 resource "helm_release" "milvus" {
   name       = "milvus"
   repository = "https://zilliztech.github.io/milvus-helm/"

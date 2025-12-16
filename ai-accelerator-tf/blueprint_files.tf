@@ -2,7 +2,7 @@ locals {
   cuopt_small_blueprint = jsonencode({
     recipe_id                                    = "cuopt"
     recipe_mode                                  = "service"
-    deployment_name                              = "cuopt2gpunvi"
+    deployment_name                              = local.starter_pack_deployment_name,
     recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
     recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
     recipe_node_shape                            = "BM.GPU4.8"
@@ -181,7 +181,7 @@ locals {
             "deployment_name" : "nemo-embedding-deployment-group",
             "recipe_mode" : "service",
             "recipe_use_shared_node_pool" : true,
-            "recipe_node_shape" : "BM.GPU.B4.8",
+            "recipe_node_shape" : "BM.GPU4.8",
             "recipe_replica_count" : 1,
             "recipe_nvidia_gpu_count" : 1,
             "recipe_image_uri" : "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0",
@@ -230,7 +230,7 @@ locals {
             "deployment_name" : "nemo-rerank-deployment-group",
             "recipe_mode" : "service",
             "recipe_use_shared_node_pool" : true,
-            "recipe_node_shape" : "BM.GPU.B4.8",
+            "recipe_node_shape" : "BM.GPU4.8",
             "recipe_replica_count" : 1,
             "recipe_nvidia_gpu_count" : 1,
             "recipe_image_uri" : "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0",
@@ -278,7 +278,7 @@ locals {
             "deployment_name" : "nim-llm-deployment-group",
             "recipe_mode" : "service",
             "recipe_use_shared_node_pool" : true,
-            "recipe_node_shape" : "BM.GPU.B4.8",
+            "recipe_node_shape" : "BM.GPU4.8",
             "recipe_node_pool_size" : 1,
             "recipe_replica_count" : 1,
             "recipe_nvidia_gpu_count" : 4,
@@ -369,12 +369,12 @@ locals {
         {
           "name" : "vss",
           "recipe" : {
-            "deployment_name" : "vss-deployment-group",
+            "deployment_name" : local.starter_pack_deployment_name,
             "recipe_mode" : "service",
             "recipe_image_uri" : "nvcr.io/nvidia/blueprint/vss-engine:2.4.0",
             "recipe_container_secret_name" : "ngc-docker-reg-secret",
             "recipe_replica_count" : 1,
-            "recipe_node_shape" : "BM.GPU.B4.8",
+            "recipe_node_shape" : "BM.GPU4.8",
             "recipe_use_shared_node_pool" : true,
             "recipe_nvidia_gpu_count" : 2,
             "recipe_storage_group_id" : 1000,

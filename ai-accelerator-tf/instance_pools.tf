@@ -59,6 +59,8 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
     }
   }
 
+  depends_on = [oci_core_image.nvidia_image]
+
   lifecycle {
     ignore_changes = [
       instance_details[0].launch_details[0].metadata["user_data"]
@@ -78,7 +80,8 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
       primary_subnet_id   = oci_core_subnet.oke_nodes_subnet[0].id
     }
   }
-  depends_on = [oci_core_subnet.oke_nodes_subnet, oci_core_instance_configuration.worker_nodes_configuration]
+  depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration]
+  count = (local.starter_pack_config.worker_node_pool_size < 2) ? 1 : 0
 }
 
 resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
@@ -94,7 +97,7 @@ resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
       availability_domain = placement_configuration.value.name
     }
   }
-  depends_on = [oci_core_subnet.oke_nodes_subnet, oci_core_instance_pool.worker_nodes_pool]
+  depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration]
   count      = (local.starter_pack_config.worker_node_pool_size >= 2) ? 1 : 0
 }
 

@@ -1,7 +1,7 @@
 # ConfigMap to hold the blueprint JSON file
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
   metadata {
-    name = "${local.starter_pack_config.starter_pack_choice}-blueprint-config"
+    name = "blueprint-config"
   }
   data = {
     "${local.starter_pack_config.blueprint_file}" = local.starter_pack_config.blueprint

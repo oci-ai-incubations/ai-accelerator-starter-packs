@@ -11,20 +11,22 @@ source:
   type: quickstart
 
 outputGroups:
-  - title: "Deployment Information"
+  - title: "Blueprints Information"
     outputs:
-      - external_ip
+      - corrino_admin_username
+      - corrino_admin_password
       - blueprints_portal_url
       - corrino_api_url
 
-  - title: "Admin Credentials"
+  - title: "Starter Pack Information"
     outputs:
-      - corrino_admin_username_output
-      - corrino_admin_nonce_output
+      - starter_pack_deployment_name
+      - starter_pack_url
 
   - title: "Monitoring"
     outputs:
-      - corrino_grafana_url
+      - prometheus_url
+      - grafana_url
       - grafana_admin_username
       - grafana_admin_password
 
@@ -45,7 +47,7 @@ variableGroups:
   - title: "Admin Credentials"
     variables:
       - corrino_admin_username
-      - corrino_admin_nonce
+      - corrino_admin_password
       - corrino_admin_email
 
 #  # ------------------------------------------------
@@ -199,7 +201,7 @@ variables:
     description: "Email address for the admin account"
     required: true
 
-  corrino_admin_nonce:
+  corrino_admin_password:
     type: password
     title: "Admin Password"
     description: "Password for the admin account (you will be required to change this at first login)"
@@ -211,14 +213,6 @@ variables:
   # ---------------------------------
 
   # Admin and Authentication
-  admin_email:
-    type: string
-    visible: false
-
-  corrino_admin_password:
-    type: string
-    visible: false
-
   use_instance_principal:
     type: boolean
     visible: false
@@ -711,15 +705,15 @@ outputs:
     title: "External IP"
     visible: true
 
-  corrino_admin_username_output:
+  corrino_admin_username:
     title: "Admin Username"
     visible: true
   
-  corrino_admin_nonce_output:
+  corrino_admin_password:
     title: "Admin Password"
     visible: true
 
-  corrino_grafana_url:
+  grafana_url:
     title: "Grafana URL"
     visible: true
 

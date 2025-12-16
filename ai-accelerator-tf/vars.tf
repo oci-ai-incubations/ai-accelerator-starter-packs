@@ -147,7 +147,7 @@ variable "node_pool_name" {
   description = "Name of the node pool"
 }
 variable "k8s_version" {
-  default     = "v1.33.3"
+  default     = "v1.34.1"
   description = "Kubernetes version installed on your master and worker nodes"
 }
 # variable "worker_node_pool_size" {
@@ -195,7 +195,7 @@ variable "blueprints_endpoint_visibility" {
 }
 
 variable "apps_endpoint_visibility" {
-  default     = "Public"
+  default     = "Private"
   description = "The visibility of the apps endpoint"
   type        = string
   validation {
@@ -321,13 +321,8 @@ variable "stack_version" {
   description = "backend version"
 }
 
-variable "admin_email" {
-  default     = "noop@example.com"
-  description = "admin email"
-}
-
 variable "is_nvaie_enabled" {
-  default     = false
+  default     = true
   description = "whether to enable NVAIE"
 }
 
@@ -392,6 +387,7 @@ locals {
     "cuopt_small" = {
       "starter_pack_choice" = "cuopt_small"
       "blueprint_file"      = "cuopt-blueprint.json"
+      "deployment_name"     = "cuopt"
       "blueprint"           = local.cuopt_small_blueprint
       # Compute shapes for cuopt_small (GPU workload)
       "worker_node_shape"                 = "BM.GPU4.8"
@@ -407,9 +403,10 @@ locals {
     "vss_medium" = {
       "starter_pack_choice" = "vss_medium"
       "blueprint_file"      = "vss-blueprint.json"
+      "deployment_name"     = "vss"
       "blueprint"           = local.vss_blueprint
       # Compute shapes for vss_medium (GPU workload)
-      "worker_node_shape"                 = "BM.GPU.B4.8"
+      "worker_node_shape"                 = "BM.GPU4.8"
       "worker_node_pool_size"             = 1
       "control_plane_node_pool_size"      = 2
       "node_pool_boot_volume_size_in_gbs" = "150"
@@ -420,7 +417,14 @@ locals {
       }
     }
   }
-  starter_pack_config = local.starter_pack_choice_map[var.starter_pack_choice]
+
+  starter_pack_choice = var.starter_pack_choice != "" ? var.starter_pack_choice : "starter-pack"
+  starter_back_deployment_name_map = {
+    "cuopt_small" = "cuopt"
+    "vss_medium" = "vss"
+  }
+  starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
+  starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]
 }
 
 # App Name Locals

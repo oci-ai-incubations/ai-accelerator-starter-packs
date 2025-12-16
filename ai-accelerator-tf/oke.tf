@@ -145,7 +145,3 @@ resource "tls_private_key" "oke_ssh_key" {
 data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
   cluster_id = oci_containerengine_cluster.oke_cluster[0].id
 }
-
-output "oke_kube_config" {
-  value = data.oci_containerengine_cluster_kube_config.oke_kube_config.content
-}
