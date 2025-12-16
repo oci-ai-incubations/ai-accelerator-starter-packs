@@ -5,10 +5,15 @@ locals {
     deployment_name                              = local.starter_pack_deployment_name,
     recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
     recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
+<<<<<<< HEAD
     recipe_node_shape                            = local.starter_pack_config.worker_node_shape
     recipe_replica_count                         = 8
+=======
+    recipe_node_shape                            = "BM.GPU4.8"
+    recipe_replica_count                         = 1
+>>>>>>> 62b09da (changed deployment to 8 GPUs.)
     recipe_container_port                        = "5000"
-    recipe_nvidia_gpu_count                      = 1
+    recipe_nvidia_gpu_count                      = 8
     recipe_use_shared_node_pool                  = true
     recipe_ephemeral_storage_size                = 200
     recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -26,7 +31,7 @@ locals {
       "-p",
       "5000",
       "-g",
-      "1"
+      "8"
     ]
     recipe_liveness_probe_params = {
       port                  = 5000
