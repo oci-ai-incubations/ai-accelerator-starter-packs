@@ -388,7 +388,6 @@ locals {
       "starter_pack_choice" = "cuopt_small"
       "blueprint_file"      = "cuopt-blueprint.json"
       "deployment_name"     = "cuopt"
-      "blueprint"           = local.cuopt_small_blueprint
       # Compute shapes for cuopt_small (GPU workload)
       "worker_node_shape"                 = "BM.GPU4.8"
       "worker_node_pool_size"             = 1
@@ -404,7 +403,6 @@ locals {
       "starter_pack_choice" = "vss_medium"
       "blueprint_file"      = "vss-blueprint.json"
       "deployment_name"     = "vss"
-      "blueprint"           = local.vss_blueprint
       # Compute shapes for vss_medium (GPU workload)
       "worker_node_shape"                 = "BM.GPU4.8"
       "worker_node_pool_size"             = 1
@@ -421,7 +419,7 @@ locals {
   starter_pack_choice = var.starter_pack_choice != "" ? var.starter_pack_choice : "starter-pack"
   starter_back_deployment_name_map = {
     "cuopt_small" = "cuopt"
-    "vss_medium" = "vss"
+    "vss_medium"  = "vss"
   }
   starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
   starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]

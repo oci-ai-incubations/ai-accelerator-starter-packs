@@ -13,7 +13,8 @@ locals {
     backend_service_name_origin  = "http://corrino-cp"
     backend_service_name_ingress = "corrino-cp-ingress"
     #    backend_image_uri_base                       = join(":", [local.ocir.base_uri, local.ocir.backend_image])
-    backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.stack_version}")
+    #backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.stack_version}")
+    backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-v1.0.11-vss"
     #backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-latest"
     #frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
     blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.stack_version}")
@@ -38,13 +39,13 @@ locals {
   }
 
   ngc_secrets = {
-    docker_secret_name = "ngc-secret"
+    docker_secret_name         = "ngc-secret"
     nvidia_api_key_envvar_name = "NVIDIA_API_KEY"
-    nvidia_api_key_secret_key = "NVIDIA_API_KEY"
+    nvidia_api_key_secret_key  = "NVIDIA_API_KEY"
     nvidia_api_key_secret_name = "nvidia-api-secret"
 
     ngc_api_key_envvar_name = "NGC_API_KEY"
-    ngc_api_key_secret_key = "NGC_API_KEY"
+    ngc_api_key_secret_key  = "NGC_API_KEY"
     ngc_api_key_secret_name = "ngc-api-secret"
   }
   registration = {
@@ -96,7 +97,7 @@ locals {
     region_name       = var.region
   }
 
-network = {
+  network = {
     localhost          = "localhost"
     localhost_origin   = "http://localhost"
     loopback           = "127.0.0.1"
@@ -106,10 +107,10 @@ network = {
   }
 
   inference_gateway = {
-    localhost          = "localhost"
-    localhost_origin   = "http://localhost"
-    loopback           = "127.0.0.1"
-    loopback_origin    = "http://127.0.0.1"
+    localhost        = "localhost"
+    localhost_origin = "http://localhost"
+    loopback         = "127.0.0.1"
+    loopback_origin  = "http://127.0.0.1"
     # external_ip        = var.kong_enabled ? "" : data.kubernetes_service.kong_proxy_service.0.status.0.load_balancer.0.ingress.0.ip
   }
 
