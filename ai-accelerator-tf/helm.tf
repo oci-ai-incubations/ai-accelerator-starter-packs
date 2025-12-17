@@ -379,10 +379,10 @@ resource "helm_release" "milvus" {
       value = "RELEASE.2024-12-18T13-15-44Z"
     },
     {
-      name  = "milvus.image.repository"
+      name  = "image.all.repository"
       value = "docker.io/milvusdb/milvus"
     }
   ]
   count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
-  depends_on = [oci_containerengine_node_pool.oke_node_pool]
+  depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
