@@ -75,6 +75,25 @@ resource "helm_release" "cert_manager" {
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
+
+## Cert Manager Issuers
+resource "helm_release" "cert_manager_issuers" {
+  name       = "cert-manager-issuers"
+  chart      = "${path.module}/helm-values/issuers"
+  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  wait       = true
+
+  set = [
+    {
+      name  = "issuer.email"
+      value = var.corrino_admin_email
+    }
+  ]
+  depends_on = [
+    helm_release.cert_manager
+  ]
+}
+
 ## Prometheus
 resource "helm_release" "prometheus" {
   name       = "prometheus"
