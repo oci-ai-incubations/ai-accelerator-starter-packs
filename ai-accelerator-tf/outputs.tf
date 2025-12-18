@@ -141,8 +141,8 @@ output "starter_pack_deployment_name" {
 output "starter_pack_url" {
   description = "Starter pack FQDN"
   value = var.starter_pack_choice == "vss_medium" ? (
-    length(data.external.vss_starter_pack_url) > 0 ?
-    data.external.vss_starter_pack_url[0].result.url :
+    local.vss_dynamic_url != "" ?
+    local.vss_dynamic_url :
     local.public_endpoint.starter_pack
   ) : local.public_endpoint.starter_pack
 }

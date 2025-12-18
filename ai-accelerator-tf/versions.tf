@@ -34,5 +34,10 @@ terraform {
       version = ">= 3.6"
       # https://registry.terraform.io/providers/hashicorp/random/
     }
+    http = {
+      source  = "hashicorp/http"
+      version = ">= 3.4"
+      # https://registry.terraform.io/providers/hashicorp/http/
+    }
   }
 }
