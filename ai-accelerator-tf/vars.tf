@@ -71,6 +71,12 @@ variable "existing_services_subnet_id" {
   type        = string
 }
 
+variable "create_policies" {
+  default     = true
+  description = "Whether to create policies"
+  type        = bool
+}
+
 # -----------------------------------
 # Corrino User
 # -----------------------------------
