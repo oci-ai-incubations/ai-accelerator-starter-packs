@@ -3,6 +3,10 @@
 # 
 
 # Cluster Information
+output "oke_kube_config" {
+  value = data.oci_containerengine_cluster_kube_config.oke_kube_config.content
+}
+
 output "cluster_id" {
   description = "ID of the OKE cluster"
   value       = local.oke_cluster.id
@@ -93,10 +97,10 @@ output "ssh_public_key" {
 output "connection_instructions" {
   description = "Instructions for connecting to the cluster"
   value = var.create_bastion && local.create_network_resources ? {
-    bastion_ssh = "ssh -i <private_key_file> opc@${oci_core_instance.bastion[0].public_ip}"
+    bastion_ssh              = "ssh -i <private_key_file> opc@${oci_core_instance.bastion[0].public_ip}"
     operator_ssh_via_bastion = "ssh -i <private_key_file> -J opc@${oci_core_instance.bastion[0].public_ip} opc@${oci_core_instance.operator[0].private_ip}"
-    kubectl_setup = "After connecting to operator instance, run: ./configure_oke.sh"
-  } : {
+    kubectl_setup            = "After connecting to operator instance, run: ./configure_oke.sh"
+    } : {
     direct_access = local.cluster_endpoint_visibility == "Public" ? "Configure kubectl with: oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id}" : "Cluster has private endpoint - use bastion/operator setup"
   }
 }
@@ -127,4 +131,63 @@ output "deployment_id" {
 output "app_name" {
   description = "Application name"
   value       = local.app_name
+}
+
+output "starter_pack_deployment_name" {
+  description = "Starter pack deployment name"
+  value       = local.starter_pack_deployment_name
+}
+
+output "starter_pack_url" {
+  description = "Starter pack FQDN"
+  value = var.starter_pack_choice == "vss_medium" ? (
+    local.vss_dynamic_url != "" ?
+    local.vss_dynamic_url :
+    local.public_endpoint.starter_pack
+  ) : local.public_endpoint.starter_pack
+}
+
+output "blueprints_portal_url" {
+  description = "Portal FQDN"
+  value       = local.public_endpoint.blueprint_portal
+}
+
+output "corrino_api_url" {
+  description = "Corrino API URL"
+  value       = local.public_endpoint.api
+}
+
+output "prometheus_url" {
+  description = "Prometheus FQDN"
+  value       = local.public_endpoint.prometheus
+}
+
+output "grafana_url" {
+  description = "Grafana FQDN"
+  value       = local.public_endpoint.grafana
+}
+
+output "corrino_admin_username" {
+  description = "Corrino admin username"
+  value       = var.corrino_admin_username
+}
+
+output "corrino_admin_password" {
+  description = "Corrino admin password"
+  value       = var.corrino_admin_password
+}
+
+output "corrino_admin_email" {
+  description = "Corrino admin email"
+  value       = var.corrino_admin_email
+}
+
+output "grafana_admin_username" {
+  description = "Grafana admin username"
+  value       = local.addon.grafana_user
+}
+
+output "grafana_admin_password" {
+  description = "Grafana admin password"
+  value       = nonsensitive(local.addon.grafana_token)
 }

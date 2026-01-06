@@ -1,10 +1,10 @@
 # ConfigMap to hold the blueprint JSON file
-resource "kubernetes_config_map_v1" "cuopt_blueprint_config" {
+resource "kubernetes_config_map_v1" "blueprint_config_map" {
   metadata {
-    name = "cuopt-blueprint-config"
+    name = "blueprint-config"
   }
   data = {
-    "cuopt-blueprint.json" = local.cuopt_small_blueprint
+    "${local.starter_pack_config.blueprint_file}" = local.starter_pack_blueprint_content[var.starter_pack_choice]
   }
 }
 
@@ -17,18 +17,18 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
       metadata {}
       spec {
         container {
-          name = "configure-oke"
-          image = local.app.deploy_blueprint_image_uri
+          name              = "configure-oke"
+          image             = local.app.deploy_blueprint_image_uri
           image_pull_policy = "Always"
-          command = ["/bin/sh", "-c"]
+          command           = ["/bin/sh", "-c"]
           args = [
             "python3 /app/configure_oke.py"
           ]
         }
       }
     }
-    backoff_limit = 0
-    ttl_seconds_after_finished = 120
+    backoff_limit              = 0
+    ttl_seconds_after_finished = 3600 # 1 hour instead of 2 minutes
   }
   wait_for_completion = true
   timeouts {
@@ -56,14 +56,14 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
           image_pull_policy = "Always"
           command           = ["/bin/sh", "-c"]
           args = [
-            "python3 /app/corrino_api_client.py -y -a ${local.public_endpoint.api_origin_secure} -d /blueprints/cuopt-blueprint.json"
+            "python3 /app/corrino_api_client.py -y -a ${local.public_endpoint.api_origin_secure} -d /blueprints/${local.starter_pack_config.blueprint_file}"
           ]
 
           env {
             name  = "CORRINO_USERNAME"
             value = var.corrino_admin_username
           }
-          
+
           env {
             name  = "CORRINO_PASSWORD"
             value = var.corrino_admin_password
@@ -79,7 +79,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
         volume {
           name = "blueprint-volume"
           config_map {
-            name = kubernetes_config_map_v1.cuopt_blueprint_config.metadata[0].name
+            name = kubernetes_config_map_v1.blueprint_config_map.metadata[0].name
           }
         }
 
@@ -98,7 +98,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
     kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-    kubernetes_config_map_v1.cuopt_blueprint_config,
+    kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
   ]
   count = 1

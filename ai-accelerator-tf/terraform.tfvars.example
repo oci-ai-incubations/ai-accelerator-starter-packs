@@ -53,8 +53,6 @@ node_pool_instance_shape = {
   memory        = 64
 }
 
-node_pool_boot_volume_size_in_gbs = "150"
-
 # Load Balancer Visibility
 blueprints_endpoint_visibility = "Public"  # Options: "Public", "Private"
 apps_endpoint_visibility = "Public"        # Options: "Public", "Private"

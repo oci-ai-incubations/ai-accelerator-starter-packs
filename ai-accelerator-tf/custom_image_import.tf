@@ -5,7 +5,7 @@ locals {
 
 resource "oci_core_image" "nvidia_image" {
     compartment_id = var.compartment_ocid
-    display_name = "NVIDIA_Ubuntu_22.04_Driver_570_CUDA_12.8_HPC"
+    display_name = "NVIDIA_Ubuntu_22.04_Driver_580_CUDA_13.0_HPC"
     image_source_details {
         operating_system = "Ubuntu"
         operating_system_version = "22.04"
@@ -23,4 +23,5 @@ resource "oci_core_image" "amd_image" {
         source_type = "objectStorageUri"
         source_uri = local.amd_image_url
     }
+    count = var.is_nvaie_enabled ? 0 : 1
 }

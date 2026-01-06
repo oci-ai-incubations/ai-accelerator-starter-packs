@@ -71,6 +71,12 @@ variable "existing_services_subnet_id" {
   type        = string
 }
 
+variable "create_policies" {
+  default     = true
+  description = "Whether to create policies"
+  type        = bool
+}
+
 # -----------------------------------
 # Corrino User
 # -----------------------------------
@@ -147,32 +153,23 @@ variable "node_pool_name" {
   description = "Name of the node pool"
 }
 variable "k8s_version" {
-  default     = "v1.33.3"
+  default     = "v1.34.1"
   description = "Kubernetes version installed on your master and worker nodes"
 }
-variable "worker_node_pool_size" {
-  default     = 1
-  description = "The number of worker nodes in the node pool."
-}
+# variable "worker_node_pool_size" {
+#   default     = 1
+#   description = "The number of worker nodes in the node pool."
+# }
 
-variable "control_plane_node_pool_instance_shape" {
-  type = map(any)
-  default = {
-    "instanceShape" = "VM.Standard.E5.Flex"
-    "ocpus"         = 3
-    "memory"        = 64
-  }
-  description = "A shape is a template that determines the number of OCPUs, amount of memory, and other resources allocated to a newly created instance for the Worker Node. Select at least 2 OCPUs and 16GB of memory if using Flex shapes"
-}
-
-variable "control_plane_node_pool_size" {
-  default     = 2
-  description = "The number of control plane nodes in the node pool."
-}
-variable "node_pool_boot_volume_size_in_gbs" {
-  default     = "150"
-  description = "Specify a custom boot volume size (in GB)"
-}
+# variable "control_plane_node_pool_instance_shape" {
+#   type = map(any)
+#   default = {
+#     "instanceShape" = "VM.Standard.E5.Flex"
+#     "ocpus"         = 3
+#     "memory"        = 64
+#   }
+#   description = "A shape is a template that determines the number of OCPUs, amount of memory, and other resources allocated to a newly created instance for the Worker Node. Select at least 2 OCPUs and 16GB of memory if using Flex shapes"
+# }
 
 # Network Details
 ## CIDRs
@@ -194,9 +191,9 @@ variable "network_cidrs" {
 }
 
 variable "blueprints_endpoint_visibility" {
-  default = "Public"
+  default     = "Public"
   description = "The visibility of the blueprints endpoint"
-  type = string
+  type        = string
   validation {
     condition     = var.blueprints_endpoint_visibility == "Private" || var.blueprints_endpoint_visibility == "Public"
     error_message = "Blueprints endpoint visibility must be either 'Private' or 'Public'."
@@ -204,9 +201,9 @@ variable "blueprints_endpoint_visibility" {
 }
 
 variable "apps_endpoint_visibility" {
-  default = "Public"
+  default     = "Private"
   description = "The visibility of the apps endpoint"
-  type = string
+  type        = string
   validation {
     condition     = var.apps_endpoint_visibility == "Private" || var.apps_endpoint_visibility == "Public"
     error_message = "Apps endpoint visibility must be either 'Private' or 'Public'."
@@ -330,13 +327,8 @@ variable "stack_version" {
   description = "backend version"
 }
 
-variable "admin_email" {
-  default     = "noop@example.com"
-  description = "admin email"
-}
-
 variable "is_nvaie_enabled" {
-  default     = false
+  default     = true
   description = "whether to enable NVAIE"
 }
 
@@ -355,14 +347,14 @@ variable "nvme_raid_level" {
   description = "NVMe RAID level"
 }
 
-variable "worker_node_shape" {
-  default = "BM.GPU4.8"
-  description = "Worker node shape"
-}
+# variable "worker_node_shape" {
+#   default     = "BM.GPU4.8"
+#   description = "Worker node shape"
+# }
 
 # Helm installs
 variable "kong_enabled" {
-  default = false
+  default     = false
   description = "Install kong inference gateway"
 }
 
@@ -386,6 +378,72 @@ variable "fqdn_custom_domain" {
   default     = ""
 }
 
+variable "starter_pack_choice" {
+  description = "the starter pack choice"
+  type        = string
+  default     = "cuopt_small"
+  validation {
+    condition     = contains(["cuopt_small", "vss_medium"], var.starter_pack_choice)
+    error_message = "Starter pack choice must be either 'cuopt_small' or 'vss_medium'."
+  }
+}
+
+locals {
+
+  starter_pack_choice_map = {
+    "cuopt_small" = {
+      "starter_pack_choice" = "cuopt_small"
+      "blueprint_file"      = "cuopt-blueprint.json"
+      "deployment_name"     = "cuopt"
+      # Compute shapes for cuopt_small (GPU workload)
+      "worker_node_shape"                 = "BM.GPU4.8"
+      "worker_node_pool_size"             = 1
+      "cpu_worker_node_pool_size"         = 0
+      "control_plane_node_pool_size"      = 2
+      "node_pool_boot_volume_size_in_gbs" = "150"
+      "control_plane_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 3
+        "memory"        = 64
+      }
+    }
+    "vss_medium" = {
+      "starter_pack_choice" = "vss_medium"
+      "blueprint_file"      = "vss-blueprint.json"
+      "deployment_name"     = "vss"
+      # Compute shapes for vss_medium (GPU workload)
+      "worker_node_shape"         = "BM.GPU4.8"
+      "worker_node_pool_size"     = 1
+      "cpu_worker_node_pool_size" = 1
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 3
+        "memory"        = 64
+      }
+      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
+      "control_plane_node_pool_size"                 = 2
+      "node_pool_boot_volume_size_in_gbs"            = "150"
+      "control_plane_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 32
+        "memory"        = 128
+      }
+    }
+  }
+
+  starter_pack_choice = var.starter_pack_choice != "" ? var.starter_pack_choice : "starter-pack"
+  starter_back_deployment_name_map = {
+    "cuopt_small" = "cuopt"
+    "vss_medium"  = "vss"
+  }
+  starter_pack_blueprint_content = {
+    "cuopt_small" = local.cuopt_small_blueprint
+    "vss_medium"  = local.vss_blueprint
+  }
+  starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
+  starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]
+}
+
 # App Name Locals
 locals {
   app_name               = random_string.app_name_autogen.result
@@ -397,13 +455,13 @@ locals {
 locals {
   # Determine which VCN and subnets to use based on configuration mode
   vcn_id = var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
-  
+
   endpoint_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
-  
+
   node_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
-  
+
   lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
-  
+
   # Only create new network resources when in create_new mode
   create_network_resources = var.network_configuration_mode == "create_new"
 }

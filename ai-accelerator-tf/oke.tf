@@ -36,7 +36,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
       services_cidr = lookup(var.network_cidrs, "SERVICES-SUBNET-REGIONAL-CIDR")
     }
   }
-  type = "ENHANCED_CLUSTER"
+  type  = "ENHANCED_CLUSTER"
   count = var.network_configuration_mode == "create_new" ? 1 : 0
 
   depends_on = [
@@ -105,18 +105,18 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
       }
     }
 
-    size = var.control_plane_node_pool_size
+    size = local.starter_pack_config.control_plane_node_pool_size
 
     nsg_ids = []
   }
 
-  node_shape = var.control_plane_node_pool_instance_shape.instanceShape
+  node_shape = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
 
   dynamic "node_shape_config" {
-    for_each = length(regexall("Flex", var.control_plane_node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
+    for_each = length(regexall("Flex", local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
     content {
-      ocpus         = var.control_plane_node_pool_instance_shape.ocpus
-      memory_in_gbs = var.control_plane_node_pool_instance_shape.memory
+      ocpus         = local.starter_pack_config.control_plane_node_pool_instance_shape.ocpus
+      memory_in_gbs = local.starter_pack_config.control_plane_node_pool_instance_shape.memory
     }
   }
 
@@ -124,7 +124,7 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
     image_id    = data.oci_core_images.oracle_linux.images[0].id
     source_type = "IMAGE"
 
-    boot_volume_size_in_gbs = var.node_pool_boot_volume_size_in_gbs
+    boot_volume_size_in_gbs = local.starter_pack_config.node_pool_boot_volume_size_in_gbs
   }
 
   initial_node_labels {
@@ -142,10 +142,69 @@ resource "tls_private_key" "oke_ssh_key" {
   count     = var.ssh_public_key == "" ? 1 : 0
 }
 
-data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
-  cluster_id = oci_containerengine_cluster.oke_cluster[0].id
+resource "oci_containerengine_node_pool" "worker_cpu_pool" {
+  count = local.starter_pack_config.cpu_worker_node_pool_size > 0 ? 1 : 0
+
+  cluster_id         = local.oke_cluster.id
+  compartment_id     = var.compartment_ocid
+  kubernetes_version = var.k8s_version
+  name               = "AI-Accel-Worker-CPU-Pool-${random_string.deploy_id.result}"
+
+  node_config_details {
+    dynamic "placement_configs" {
+      for_each = data.oci_identity_availability_domains.ads.availability_domains
+      content {
+        availability_domain = placement_configs.value.name
+        subnet_id           = local.node_subnet_id
+      }
+    }
+
+    size = local.starter_pack_config.cpu_worker_node_pool_size
+
+    nsg_ids = []
+  }
+
+  node_shape = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+
+  dynamic "node_shape_config" {
+    for_each = length(regexall("Flex", local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape)) > 0 ? [1] : []
+    content {
+      ocpus         = local.starter_pack_config.cpu_worker_node_pool_instance_shape.ocpus
+      memory_in_gbs = local.starter_pack_config.cpu_worker_node_pool_instance_shape.memory
+    }
+  }
+
+  node_source_details {
+    image_id    = data.oci_core_images.oracle_linux.images[0].id
+    source_type = "IMAGE"
+
+    boot_volume_size_in_gbs = local.starter_pack_config.cpu_worker_node_pool_boot_volume_size_in_gbs
+  }
+
+  dynamic "initial_node_labels" {
+    for_each = [
+      {
+        key   = "name"
+        value = "AI-Accel-Worker-CPU-Pool-${random_string.deploy_id.result}"
+      },
+      {
+        key   = "corrino/pool-shared-any"
+        value = "true"
+      },
+      {
+        key   = "corrino"
+        value = "ai-accelerator"
+      }
+    ]
+    content {
+      key   = initial_node_labels.value.key
+      value = initial_node_labels.value.value
+    }
+  }
+
+  ssh_public_key = var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh
 }
 
-output "oke_kube_config" {
-  value = data.oci_containerengine_cluster_kube_config.oke_kube_config.content
+data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
+  cluster_id = oci_containerengine_cluster.oke_cluster[0].id
 }
