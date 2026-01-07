@@ -12,6 +12,7 @@ resource "oci_core_image" "nvidia_image" {
         source_type = "objectStorageUri"
         source_uri = local.nvidia_image_url
     }
+    count = var.is_nvaie_enabled ? 1 : 0
 }
 
 resource "oci_core_image" "amd_image" {

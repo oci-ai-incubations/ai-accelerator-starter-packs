@@ -60,7 +60,7 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
   }
 
   depends_on = [oci_core_image.nvidia_image]
-
+  count = local.starter_pack_choice == "paas_rag" ? 0 : 1
   lifecycle {
     ignore_changes = [
       instance_details[0].launch_details[0].metadata["user_data"]
@@ -69,6 +69,7 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
 }
 
 resource "oci_core_instance_pool" "worker_nodes_pool" {
+  count = local.starter_pack_choice == "paas_rag" ? 0 : 1
   compartment_id            = var.compartment_ocid
   display_name              = "AI-Accel-Worker-Nodes-Pool-${random_string.deploy_id.result}"
   instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration.id
@@ -81,7 +82,6 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
     }
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration]
-  count = (local.starter_pack_config.worker_node_pool_size < 2) ? 1 : 0
 }
 
 resource "oci_core_cluster_network" "worker_nodes_cluster_network" {

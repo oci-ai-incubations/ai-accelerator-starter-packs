@@ -172,8 +172,9 @@ variables:
     enum:
       - cuopt_small
       - vss_medium
+      - paas_rag
     title: "Starter Pack"
-    description: "Select a pre-configured starter pack. 'cuopt_small' deploys NVIDIA cuOpt optimization workloads on BM.GPU4.8. 'vss_medium' deploys Video Search workloads on BM.GPU.B4.8."
+    description: "Select a pre-configured starter pack. 'cuopt_small' deploys NVIDIA cuOpt optimization workloads on BM.GPU4.8. 'vss_medium' deploys Video Search workloads on BM.GPU.B4.8. 'paas_rag' deploys RAG workloads on CPU using OCI PaaS services."
     default: cuopt_small
     required: true
 

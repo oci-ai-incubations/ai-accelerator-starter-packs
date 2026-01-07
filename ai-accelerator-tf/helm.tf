@@ -1,43 +1,46 @@
-## Ingress Nginx
-resource "helm_release" "ingress_nginx" {
-  name       = "ingress-nginx"
-  repository = "https://kubernetes.github.io/ingress-nginx"
-  chart      = "ingress-nginx"
-  version    = "4.13.3"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
-  # Need to wait for webhooks so we don't hit timing issues.
-  wait          = true
+## Envoy Gateway Installation
+# Install Envoy Gateway using Helm chart (following OKE best practices)
+# Reference: https://github.com/ronsevetoci/oke-envoy-gateway
+resource "helm_release" "envoy_gateway" {
+  name       = "eg"
+  repository = "oci://docker.io/envoyproxy/gateway-helm"
+  chart      = "gateway-helm"
+  version    = "v1.6.0"
+  namespace  = "envoy-gateway-system"
+  create_namespace = true
+  wait       = true
   wait_for_jobs = true
 
+  # Configure OCI Load Balancer via service annotations
   set = concat([
     {
-      name  = "controller.metrics.enabled"
-      value = "true"
-    },
-    {
-      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-shape"
+      name  = "service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-shape"
       value = var.ingress_load_balancer_shape
       type  = "string"
     },
     {
-      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-shape-flex-min"
+      name  = "service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-shape-flex-min"
       value = var.ingress_load_balancer_shape_flex_min
       type  = "string"
     },
     {
-      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-shape-flex-max"
+      name  = "service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-shape-flex-max"
       value = var.ingress_load_balancer_shape_flex_max
       type  = "string"
     }
-    ], var.cluster_load_balancer_visibility == "Private" ? [
+  ], var.cluster_load_balancer_visibility == "Private" ? [
     {
-      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-internal"
+      name  = "service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-internal"
       value = "true"
       type  = "string"
     }
   ] : [])
+
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
+
+# Note: The Helm chart automatically creates a GatewayClass named "envoy"
+# which is used by the Gateway resources in ingress.tf
 
 ## NVIDIA DCGM Exporter - Commented out temporarily due to chart not found
 resource "helm_release" "nvidia-gpu-operator" {

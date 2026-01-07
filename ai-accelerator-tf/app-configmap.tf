@@ -43,5 +43,6 @@ resource "kubernetes_config_map_v1" "corrino-configmap" {
     POSTGRES_DB                                    = local.postgres_db.db_name
     POSTGRES_USER                                  = local.postgres_db.user
     POSTGRES_PASSWORD                              = local.postgres_db.password
+    KUBERNETES_GATEWAY_API_ENABLED                 = local.kubernetes_gateway_api.enabled
   }
 }

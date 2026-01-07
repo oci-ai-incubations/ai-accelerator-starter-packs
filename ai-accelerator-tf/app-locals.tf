@@ -102,8 +102,12 @@ locals {
     localhost_origin   = "http://localhost"
     loopback           = "127.0.0.1"
     loopback_origin    = "http://127.0.0.1"
-    external_ip        = var.ingress_nginx_enabled ? local.ingress_controller_load_balancer_ip : "#Ingress_Not_Deployed"
+    external_ip        = var.ingress_envoy_gateway_enabled ? local.gateway_load_balancer_ip : "#Ingress_Not_Deployed"
     oke_node_subnet_id = local.create_network_resources ? oci_core_subnet.oke_nodes_subnet[0].id : var.existing_node_subnet_id
+  }
+
+  kubernetes_gateway_api = {
+    enabled = var.ingress_envoy_gateway_enabled
   }
 
   inference_gateway = {
@@ -230,6 +234,11 @@ locals {
       name            = "ADDON_GRAFANA_TOKEN"
       config_map_name = "corrino-configmap"
       config_map_key  = "ADDON_GRAFANA_TOKEN"
+    },
+    {
+      name            = "KUBERNETES_GATEWAY_API_ENABLED"
+      config_map_name = "corrino-configmap"
+      config_map_key  = "KUBERNETES_GATEWAY_API_ENABLED"
     },
     {
       name            = "ADDON_GRAFANA_USER"

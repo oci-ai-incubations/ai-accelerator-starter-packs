@@ -303,9 +303,9 @@ variable "ingress_email_issuer" {
   default     = "no-reply@example.cloud"
   description = "You must replace this email address with your own. The certificate provider will use this to contact you about expiring certificates, and issues related to your account."
 }
-variable "ingress_nginx_enabled" {
+variable "ingress_envoy_gateway_enabled" {
   default     = true
-  description = "Enable ingress-nginx controller deployment"
+  description = "Enable Gateway API (Envoy Gateway) deployment. Note: ingress-nginx has been replaced with Gateway API."
 }
 variable "cluster_load_balancer_visibility" {
   default     = "Public"
@@ -429,16 +429,36 @@ locals {
         "memory"        = 128
       }
     }
+    "paas_rag" = {
+      "starter_pack_choice" = "paas_rag"
+      "blueprint_file"      = "paas-rag-blueprint.json"
+      "deployment_name"     = "paas-rag"
+      "cpu_worker_node_pool_size" = 1
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 28
+        "memory"        = 128
+      }
+      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
+      "control_plane_node_pool_size"                 = 2
+      "control_plane_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 6
+        "memory"        = 48
+      }
+    }
   }
 
   starter_pack_choice = var.starter_pack_choice != "" ? var.starter_pack_choice : "starter-pack"
   starter_back_deployment_name_map = {
     "cuopt_small" = "cuopt"
     "vss_medium"  = "vss"
+    "paas_rag"    = "paas-rag"
   }
   starter_pack_blueprint_content = {
     "cuopt_small" = local.cuopt_small_blueprint
     "vss_medium"  = local.vss_blueprint
+    "paas_rag"    = local.paas_rag_blueprint
   }
   starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
   starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]
@@ -451,6 +471,9 @@ locals {
   oci_ai_blueprints_link = file("${path.module}/OCI_AI_BLUEPRINTS_LINK")
 }
 
+locals {
+  starter_pack_using_gpus = local.starter_pack_choice == "cuopt_small" || local.starter_pack_choice == "vss_medium"
+}
 # Networking Locals
 locals {
   # Determine which VCN and subnets to use based on configuration mode
