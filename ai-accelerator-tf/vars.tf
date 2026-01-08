@@ -359,6 +359,20 @@ variable "kong_enabled" {
   description = "Install kong inference gateway"
 }
 
+variable "ngc_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
+}
+
+variable "ngc_api_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
+}
+
 # -----------------------------------
 # Corrino FQDN
 # -----------------------------------
@@ -384,8 +398,8 @@ variable "starter_pack_choice" {
   type        = string
   default     = "cuopt_small"
   validation {
-    condition     = contains(["cuopt_small", "vss_medium", "paas_rag"], var.starter_pack_choice)
-    error_message = "Starter pack choice must be either 'cuopt_small', 'vss_medium' or 'paas_rag'."
+    condition     = contains(["cuopt_small", "vss_medium", "paas_rag", "enterprise_rag_medium"], var.starter_pack_choice)
+    error_message = "Starter pack choice must be 'cuopt_small', 'vss_medium', 'paas_rag', or 'enterprise_rag_medium'."
   }
 }
 
@@ -417,17 +431,17 @@ variable "db_password" {
   sensitive   = true
 
   validation {
-    condition = length(var.db_password) >= 12
+    condition     = length(var.db_password) >= 12
     error_message = "Database password must be at least 12 characters long."
   }
 
   validation {
-    condition = can(regex("[A-Z]", var.db_password))
+    condition     = can(regex("[A-Z]", var.db_password))
     error_message = "Database password must contain at least one uppercase letter."
   }
 
   validation {
-    condition = can(regex("[^a-zA-Z0-9]", var.db_password))
+    condition     = can(regex("[^a-zA-Z0-9]", var.db_password))
     error_message = "Database password must contain at least one special character (non-alphanumeric character)."
   }
 }
@@ -464,11 +478,11 @@ locals {
       "blueprint_file"      = "cuopt-blueprint.json"
       "deployment_name"     = "cuopt"
       # Compute shapes for cuopt_small (GPU workload)
-      "worker_node_shape"                 = "BM.GPU4.8"
-      "worker_node_pool_size"             = 1
-      "cpu_worker_node_pool_size"         = 0 # not used
-      "control_plane_node_pool_size"      = 2
-      "node_pool_boot_volume_size_in_gbs" = "150"
+      "worker_node_shape"                            = "BM.GPU4.8"
+      "worker_node_pool_size"                        = 1
+      "cpu_worker_node_pool_size"                    = 0 # not used
+      "control_plane_node_pool_size"                 = 2
+      "node_pool_boot_volume_size_in_gbs"            = "150"
       "cpu_worker_node_pool_boot_volume_size_in_gbs" = "0" # not used
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
@@ -486,11 +500,11 @@ locals {
       "blueprint_file"      = "vss-blueprint.json"
       "deployment_name"     = "vss"
       # Compute shapes for vss_medium (GPU workload)
-      "worker_node_shape"            = "BM.GPU4.8"
-      "worker_node_pool_size"        = 1
-      "cpu_worker_node_pool_size"    = 1
-      "control_plane_node_pool_size" = 2
-      "node_pool_boot_volume_size_in_gbs" = "200"
+      "worker_node_shape"                            = "BM.GPU4.8"
+      "worker_node_pool_size"                        = 1
+      "cpu_worker_node_pool_size"                    = 1
+      "control_plane_node_pool_size"                 = 2
+      "node_pool_boot_volume_size_in_gbs"            = "200"
       "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
@@ -504,14 +518,14 @@ locals {
       }
     }
     "paas_rag" = {
-      "starter_pack_choice" = "paas_rag"
-      "blueprint_file"      = "paas-rag-blueprint.json"
-      "deployment_name"     = "erag"
-      "worker_node_shape"   = "none"
-      "worker_node_pool_size"     = 0 # not used
-      "cpu_worker_node_pool_size" = 1
-      "control_plane_node_pool_size" = 2
-      "node_pool_boot_volume_size_in_gbs" = "100" # not used
+      "starter_pack_choice"                          = "paas_rag"
+      "blueprint_file"                               = "paas-rag-blueprint.json"
+      "deployment_name"                              = "erag"
+      "worker_node_shape"                            = "none"
+      "worker_node_pool_size"                        = 0 # not used
+      "cpu_worker_node_pool_size"                    = 1
+      "control_plane_node_pool_size"                 = 2
+      "node_pool_boot_volume_size_in_gbs"            = "100" # not used
       "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
@@ -524,18 +538,42 @@ locals {
         "memory"        = 128
       }
     }
+    "enterprise_rag_medium" = {
+      "starter_pack_choice" = "enterprise_rag_medium"
+      "blueprint_file"      = "" # Uses Helm release instead of JSON blueprint
+      "deployment_name"     = "rag"
+      # Compute shapes for enterprise_rag_medium (GPU workload)
+      "worker_node_shape"         = "BM.GPU4.8"
+      "worker_node_pool_size"     = 1
+      "cpu_worker_node_pool_size" = 1
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 3
+        "memory"        = 64
+      }
+      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
+      "control_plane_node_pool_size"                 = 2
+      "node_pool_boot_volume_size_in_gbs"            = "150"
+      "control_plane_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 32
+        "memory"        = 128
+      }
+    }
   }
 
   starter_pack_choice = var.starter_pack_choice != "" ? var.starter_pack_choice : "starter-pack"
   starter_back_deployment_name_map = {
-    "cuopt_small" = "cuopt"
-    "vss_medium"  = "vss"
-    "paas_rag"    = "paas-rag"
+    "cuopt_small"           = "cuopt"
+    "vss_medium"            = "vss"
+    "paas_rag"              = "paas-rag"
+    "enterprise_rag_medium" = "rag"
   }
   starter_pack_blueprint_content = {
-    "cuopt_small" = local.cuopt_small_blueprint
-    "vss_medium"  = local.vss_blueprint
-    "paas_rag"    = local.paas_rag_blueprint
+    "cuopt_small"           = local.cuopt_small_blueprint
+    "vss_medium"            = local.vss_blueprint
+    "paas_rag"              = local.paas_rag_blueprint
+    "enterprise_rag_medium" = "" # Uses Helm release instead of JSON blueprint
   }
   starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
   starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]
@@ -559,7 +597,7 @@ locals {
 
   lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
 
-  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id  # Placeholder for bring_your_own
+  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
 
   # Only create new network resources when in create_new mode
   create_network_resources = var.network_configuration_mode == "create_new"
@@ -577,7 +615,7 @@ locals {
 # Accelerator specific stuff
 locals {
   should_import_nvidia_gpu_image = local.starter_pack_choice == "cuopt_small" || local.starter_pack_choice == "vss_medium"
-  should_import_amd_gpu_image = false # if amd starter pack is added, update this
+  should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 
 locals {

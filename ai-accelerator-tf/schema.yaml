@@ -56,6 +56,13 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
+      - ngc_secret
+      - ngc_api_secret
+
+  - title: "Oracle 26ai Database Credentials"
+    variables:
+      - db_username
+      - db_password
 
   - title: "Oracle 26ai Database Credentials"
     variables:
@@ -416,6 +423,20 @@ variables:
   kong_enabled:
     type: boolean
     visible: false
+
+  ngc_secret:
+    type: password
+    title: "NVIDIA NGC Secret"
+    description: "Your NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull. Get one at https://ngc.nvidia.com/setup/api-key"
+    required: false
+    visible: true
+
+  ngc_api_secret:
+    type: password
+    title: "NVIDIA NGC API Secret"
+    description: "Your NVIDIA NGC API secret for accessing NGC services and APIs. Get one at https://ngc.nvidia.com/setup/api-key"
+    required: false
+    visible: true
 
   override_hostnames:
     type: boolean

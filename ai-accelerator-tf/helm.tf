@@ -78,10 +78,10 @@ resource "helm_release" "cert_manager" {
 
 ## Cert Manager Issuers
 resource "helm_release" "cert_manager_issuers" {
-  name       = "cert-manager-issuers"
-  chart      = "${path.module}/helm-values/issuers"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
-  wait       = true
+  name      = "cert-manager-issuers"
+  chart     = "${path.module}/helm-values/issuers"
+  namespace = kubernetes_namespace_v1.cluster_tools.id
+  wait      = true
 
   set = [
     {
@@ -427,4 +427,29 @@ resource "helm_release" "milvus" {
   ]
   count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
+}
+
+resource "helm_release" "rag" {
+  name             = "rag"
+  namespace        = "rag"
+  create_namespace = true
+
+  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
+
+  repository_username = "$oauthtoken"
+  repository_password = var.ngc_secret
+
+  set_sensitive = [
+    {
+      name  = "imagePullSecret.password"
+      value = var.ngc_secret
+    },
+    {
+      name  = "ngcApiSecret.password"
+      value = var.ngc_api_secret
+    }
+  ]
+  count      = local.starter_pack_config.starter_pack_choice == "enterprise_rag_medium" ? 1 : 0
+  depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
+
 }

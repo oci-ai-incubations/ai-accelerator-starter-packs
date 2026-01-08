@@ -91,3 +91,8 @@ operator_boot_volume_size_in_gbs = "100"
 
 # Optional: Kubernetes Dashboard
 cluster_options_add_ons_is_kubernetes_dashboard_enabled = false
+
+# NVIDIA NGC Secrets (required for RAG blueprint and NGC container registry access)
+# Default keys are provided, but you can override with your own from: https://ngc.nvidia.com/setup/api-key
+# ngc_secret = "your-ngc-secret"          # For docker registry auth (nvcr.io) and image pull
+# ngc_api_secret = "your-ngc-api-secret"  # For NGC API access
