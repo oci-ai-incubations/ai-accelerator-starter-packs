@@ -299,19 +299,25 @@ locals {
         {
           name = "vss"
           recipe = {
-            deployment_name                              = "vss-deployment-group"
-            recipe_mode                                  = "service"
-            recipe_image_uri                             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
-            recipe_container_secret_name                 = "ngc-secret"
-            recipe_replica_count                         = 1
-            recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-            recipe_use_shared_node_pool                  = true
-            recipe_nvidia_gpu_count                      = 2
-            recipe_storage_group_id                      = 1000
-            recipe_container_port                        = "9000"
-            recipe_host_port                             = "9000"
+            deployment_name              = "vss-deployment-group"
+            recipe_mode                  = "service"
+            recipe_image_uri             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
+            recipe_container_secret_name = "ngc-secret"
+            recipe_replica_count         = 1
+            recipe_node_shape            = local.starter_pack_config.worker_node_shape
+            recipe_use_shared_node_pool  = true
+            recipe_nvidia_gpu_count      = 2
+            recipe_storage_group_id      = 1000
+            recipe_container_port        = "9000"
+            recipe_host_port             = "9000"
+            recipe_additional_ingress_ports = [{
+              "name" : "backend",
+              "port" : 8000,
+              "path" : "/v1"
+            }]
             recipe_container_command                     = ["bash", "/opt/scripts/start.sh"]
             recipe_shared_memory_volume_size_limit_in_mb = 16384
+
 
             pvcs = {
               retain_after_undeploy = false

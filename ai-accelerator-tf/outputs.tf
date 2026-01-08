@@ -97,10 +97,10 @@ output "ssh_public_key" {
 output "connection_instructions" {
   description = "Instructions for connecting to the cluster"
   value = var.create_bastion && local.create_network_resources ? {
-    bastion_ssh              = "ssh -i <private_key_file> opc@${oci_core_instance.bastion[0].public_ip}"
+    bastion_ssh = "ssh -i <private_key_file> opc@${oci_core_instance.bastion[0].public_ip}"
     operator_ssh_via_bastion = "ssh -i <private_key_file> -J opc@${oci_core_instance.bastion[0].public_ip} opc@${oci_core_instance.operator[0].private_ip}"
-    kubectl_setup            = "After connecting to operator instance, run: ./configure_oke.sh"
-    } : {
+    kubectl_setup = "After connecting to operator instance, run: ./configure_oke.sh"
+  } : {
     direct_access = local.cluster_endpoint_visibility == "Public" ? "Configure kubectl with: oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id}" : "Cluster has private endpoint - use bastion/operator setup"
   }
 }
@@ -140,11 +140,7 @@ output "starter_pack_deployment_name" {
 
 output "starter_pack_url" {
   description = "Starter pack FQDN"
-  value = var.starter_pack_choice == "vss_medium" ? (
-    local.vss_dynamic_url != "" ?
-    local.vss_dynamic_url :
-    local.public_endpoint.starter_pack
-  ) : local.public_endpoint.starter_pack
+  value       = local.public_endpoint.starter_pack
 }
 
 output "blueprints_portal_url" {
