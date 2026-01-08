@@ -1,5 +1,8 @@
 # ConfigMap to hold the blueprint JSON file
+# Only created when there's a blueprint file (not for Helm-based deployments like enterprise_rag_medium)
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
+  count = local.starter_pack_config.blueprint_file != "" ? 1 : 0
+
   metadata {
     name = "blueprint-config"
   }
@@ -41,7 +44,10 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   count = var.is_nvaie_enabled ? 1 : 0
 }
 
+# Only run blueprint deployment job when there's a blueprint file (not for Helm-based deployments)
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
+  count = local.starter_pack_config.blueprint_file != "" ? 1 : 0
+
   metadata {
     name = "blueprint-deployment-job"
   }
@@ -79,7 +85,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
         volume {
           name = "blueprint-volume"
           config_map {
-            name = kubernetes_config_map_v1.blueprint_config_map.metadata[0].name
+            name = kubernetes_config_map_v1.blueprint_config_map[0].metadata[0].name
           }
         }
 
@@ -101,5 +107,4 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
   ]
-  count = 1
 }

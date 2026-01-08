@@ -451,5 +451,4 @@ resource "helm_release" "rag" {
   ]
   count      = local.starter_pack_config.starter_pack_choice == "enterprise_rag_medium" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
-
 }
