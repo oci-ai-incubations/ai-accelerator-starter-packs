@@ -45,13 +45,6 @@ cluster_workers_visibility = "Private"  # Options: "Public", "Private"
 
 # Node Pool Configuration
 node_pool_name = "control-plane"
-num_pool_workers = 3
-
-node_pool_instance_shape = {
-  instanceShape = "VM.Standard.E5.Flex"
-  ocpus         = 6
-  memory        = 64
-}
 
 # Load Balancer Visibility
 blueprints_endpoint_visibility = "Public"  # Options: "Public", "Private"
@@ -91,3 +84,4 @@ operator_boot_volume_size_in_gbs = "100"
 
 # Optional: Kubernetes Dashboard
 cluster_options_add_ons_is_kubernetes_dashboard_enabled = false
+

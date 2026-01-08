@@ -383,8 +383,8 @@ variable "starter_pack_choice" {
   type        = string
   default     = "cuopt_small"
   validation {
-    condition     = contains(["cuopt_small", "vss_medium"], var.starter_pack_choice)
-    error_message = "Starter pack choice must be either 'cuopt_small' or 'vss_medium'."
+    condition     = contains(["cuopt_small", "vss_medium", "paas_rag"], var.starter_pack_choice)
+    error_message = "Starter pack choice must be either 'cuopt_small', 'vss_medium', or 'paas_rag'."
   }
 }
 
@@ -398,13 +398,19 @@ locals {
       # Compute shapes for cuopt_small (GPU workload)
       "worker_node_shape"                 = "BM.GPU4.8"
       "worker_node_pool_size"             = 1
-      "cpu_worker_node_pool_size"         = 0
+      "cpu_worker_node_pool_size"         = 0 # not used
       "control_plane_node_pool_size"      = 2
       "node_pool_boot_volume_size_in_gbs" = "150"
+      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "0" # not used
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
         "ocpus"         = 3
         "memory"        = 64
+      }
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "none"
+        "ocpus"         = 0
+        "memory"        = 0
       }
     }
     "vss_medium" = {
@@ -412,39 +418,42 @@ locals {
       "blueprint_file"      = "vss-blueprint.json"
       "deployment_name"     = "vss"
       # Compute shapes for vss_medium (GPU workload)
-      "worker_node_shape"         = "BM.GPU4.8"
-      "worker_node_pool_size"     = 1
-      "cpu_worker_node_pool_size" = 1
-      "cpu_worker_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 3
-        "memory"        = 64
-      }
+      "worker_node_shape"            = "BM.GPU4.8"
+      "worker_node_pool_size"        = 1
+      "cpu_worker_node_pool_size"    = 1
+      "control_plane_node_pool_size" = 2
+      "node_pool_boot_volume_size_in_gbs" = "200"
       "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
-      "control_plane_node_pool_size"                 = 2
-      "node_pool_boot_volume_size_in_gbs"            = "150"
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
         "ocpus"         = 32
         "memory"        = 128
       }
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 3
+        "memory"        = 64
+      }
     }
     "paas_rag" = {
       "starter_pack_choice" = "paas_rag"
       "blueprint_file"      = "paas-rag-blueprint.json"
-      "deployment_name"     = "paas-rag"
+      "deployment_name"     = "erag"
+      "worker_node_shape"   = "none"
+      "worker_node_pool_size"     = 0 # not used
       "cpu_worker_node_pool_size" = 1
-      "cpu_worker_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 28
-        "memory"        = 128
-      }
+      "control_plane_node_pool_size" = 2
+      "node_pool_boot_volume_size_in_gbs" = "100" # not used
       "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
-      "control_plane_node_pool_size"                 = 2
       "control_plane_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
         "ocpus"         = 6
         "memory"        = 48
+      }
+      "cpu_worker_node_pool_instance_shape" = {
+        "instanceShape" = "VM.Standard.E5.Flex"
+        "ocpus"         = 28
+        "memory"        = 128
       }
     }
   }
@@ -496,4 +505,9 @@ locals {
     "VM.Standard.E4.Flex",
     "VM.Standard.A1.Flex"
   ]
+}
+
+locals {
+  should_import_nvidia_gpu_image = local.starter_pack_choice == "cuopt_small" || local.starter_pack_choice == "vss_medium"
+  should_import_amd_gpu_image = false # if amd starter pack is added, update this
 }

@@ -10,8 +10,11 @@
 #
 # Note: cert-manager Gateway shim will automatically create Certificate resources
 # for hostnames defined in HTTPRoutes when they have cert-manager annotations
-resource "kubernetes_manifest" "main_gateway" {
-  manifest = {
+#
+# Using kubectl apply via null_resource instead of kubernetes_manifest to avoid
+# Terraform provider configuration issues (see: https://medium.com/@danieljimgarcia/dont-use-the-terraform-kubernetes-manifest-resource-6c7ff4fe629a)
+resource "local_file" "main_gateway_yaml" {
+  content = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "Gateway"
     metadata = {
@@ -29,7 +32,6 @@ resource "kubernetes_manifest" "main_gateway" {
           port     = 80
           protocol = "HTTP"
           hostname = "*"
-          # Redirect HTTP to HTTPS if TLS is enabled
           allowedRoutes = {
             namespaces = {
               from = "All"
@@ -43,9 +45,6 @@ resource "kubernetes_manifest" "main_gateway" {
           hostname = "*"
           tls = {
             mode = "Terminate"
-            # Certificates will be managed per HTTPRoute via cert-manager
-            # For Gateway API, cert-manager creates certificates automatically
-            # when HTTPRoutes have the cert-manager annotations
           }
           allowedRoutes = {
             namespaces = {
@@ -55,17 +54,39 @@ resource "kubernetes_manifest" "main_gateway" {
         }
       ]
     }
+  })
+  filename = "${path.module}/.terraform/main-gateway.yaml"
+}
+
+resource "null_resource" "main_gateway" {
+  triggers = {
+    gateway_yaml = local_file.main_gateway_yaml.content
+    cluster_id   = local.oke_cluster.id
+    region       = var.region
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Configure kubectl with OCI
+      oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --region ${var.region} --file $HOME/.kube/config --kubeconfig-token-version 2.0.0 2>/dev/null || true
+      
+      # Apply the Gateway resource
+      kubectl apply -f ${local_file.main_gateway_yaml.filename}
+    EOT
   }
 
   depends_on = [
+    kubernetes_namespace_v1.cluster_tools,
     helm_release.envoy_gateway,
-    helm_release.cert_manager
+    helm_release.cert_manager,
+    local_file.main_gateway_yaml
   ]
 }
 
 ## Grafana HTTPRoute
-resource "kubernetes_manifest" "grafana_httproute" {
-  manifest = {
+# Using kubectl apply via null_resource instead of kubernetes_manifest
+resource "local_file" "grafana_httproute_yaml" {
+  content = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "HTTPRoute"
     metadata = {
@@ -78,8 +99,8 @@ resource "kubernetes_manifest" "grafana_httproute" {
     spec = {
       parentRefs = [
         {
-          name      = "main-gateway"
-          namespace = kubernetes_namespace_v1.cluster_tools.id
+          name        = "main-gateway"
+          namespace   = kubernetes_namespace_v1.cluster_tools.id
           sectionName = "https"
         }
       ]
@@ -103,17 +124,38 @@ resource "kubernetes_manifest" "grafana_httproute" {
         }
       ]
     }
+  })
+  filename = "${path.module}/.terraform/grafana-httproute.yaml"
+}
+
+resource "null_resource" "grafana_httproute" {
+  triggers = {
+    httproute_yaml = local_file.grafana_httproute_yaml.content
+    cluster_id     = local.oke_cluster.id
+    region         = var.region
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Configure kubectl with OCI
+      oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --region ${var.region} --file $HOME/.kube/config --kubeconfig-token-version 2.0.0 2>/dev/null || true
+      
+      # Apply the HTTPRoute resource
+      kubectl apply -f ${local_file.grafana_httproute_yaml.filename}
+    EOT
   }
 
   depends_on = [
-    kubernetes_manifest.main_gateway,
-    helm_release.grafana
+    null_resource.main_gateway,
+    helm_release.grafana,
+    local_file.grafana_httproute_yaml
   ]
 }
 
 ## Prometheus HTTPRoute
-resource "kubernetes_manifest" "prometheus_httproute" {
-  manifest = {
+# Using kubectl apply via null_resource instead of kubernetes_manifest
+resource "local_file" "prometheus_httproute_yaml" {
+  content = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "HTTPRoute"
     metadata = {
@@ -126,8 +168,8 @@ resource "kubernetes_manifest" "prometheus_httproute" {
     spec = {
       parentRefs = [
         {
-          name      = "main-gateway"
-          namespace = kubernetes_namespace_v1.cluster_tools.id
+          name        = "main-gateway"
+          namespace   = kubernetes_namespace_v1.cluster_tools.id
           sectionName = "https"
         }
       ]
@@ -151,17 +193,40 @@ resource "kubernetes_manifest" "prometheus_httproute" {
         }
       ]
     }
+  })
+  filename = "${path.module}/.terraform/prometheus-httproute.yaml"
+}
+
+resource "null_resource" "prometheus_httproute" {
+  triggers = {
+    httproute_yaml = local_file.prometheus_httproute_yaml.content
+    cluster_id     = local.oke_cluster.id
+    region         = var.region
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Configure kubectl with OCI
+      oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --region ${var.region} --file $HOME/.kube/config --kubeconfig-token-version 2.0.0 2>/dev/null || true
+      
+      # Apply the HTTPRoute resource
+      kubectl apply -f ${local_file.prometheus_httproute_yaml.filename}
+    EOT
   }
 
   depends_on = [
-    kubernetes_manifest.main_gateway,
-    helm_release.prometheus
+    null_resource.main_gateway,
+    helm_release.prometheus,
+    local_file.prometheus_httproute_yaml
   ]
 }
 
 ## Corrino CP HTTPRoute
-resource "kubernetes_manifest" "corrino_cp_httproute" {
-  manifest = {
+# Using kubectl apply via null_resource instead of kubernetes_manifest
+resource "local_file" "corrino_cp_httproute_yaml" {
+  count = var.ingress_envoy_gateway_enabled ? 1 : 0
+
+  content = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "HTTPRoute"
     metadata = {
@@ -173,8 +238,8 @@ resource "kubernetes_manifest" "corrino_cp_httproute" {
     spec = {
       parentRefs = [
         {
-          name      = "main-gateway"
-          namespace = kubernetes_namespace_v1.cluster_tools.id
+          name        = "main-gateway"
+          namespace   = kubernetes_namespace_v1.cluster_tools.id
           sectionName = "https"
         }
       ]
@@ -198,15 +263,42 @@ resource "kubernetes_manifest" "corrino_cp_httproute" {
         }
       ]
     }
+  })
+  filename = "${path.module}/.terraform/corrino-cp-httproute.yaml"
+}
+
+resource "null_resource" "corrino_cp_httproute" {
+  count = var.ingress_envoy_gateway_enabled ? 1 : 0
+
+  triggers = {
+    httproute_yaml = local_file.corrino_cp_httproute_yaml[0].content
+    cluster_id     = local.oke_cluster.id
+    region         = var.region
   }
 
-  depends_on = [kubernetes_manifest.main_gateway]
-  count      = var.ingress_envoy_gateway_enabled ? 1 : 0
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Configure kubectl with OCI
+      oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --region ${var.region} --file $HOME/.kube/config --kubeconfig-token-version 2.0.0 2>/dev/null || true
+      
+      # Apply the HTTPRoute resource
+      kubectl apply -f ${local_file.corrino_cp_httproute_yaml[0].filename}
+    EOT
+  }
+
+  depends_on = [
+    null_resource.main_gateway,
+    kubernetes_service_v1.corrino_cp_service,
+    local_file.corrino_cp_httproute_yaml
+  ]
 }
 
 ## OCI AI Blueprints Portal HTTPRoute
-resource "kubernetes_manifest" "oci_ai_blueprints_portal_httproute" {
-  manifest = {
+# Using kubectl apply via null_resource instead of kubernetes_manifest
+resource "local_file" "oci_ai_blueprints_portal_httproute_yaml" {
+  count = var.ingress_envoy_gateway_enabled ? 1 : 0
+
+  content = yamlencode({
     apiVersion = "gateway.networking.k8s.io/v1"
     kind       = "HTTPRoute"
     metadata = {
@@ -218,8 +310,8 @@ resource "kubernetes_manifest" "oci_ai_blueprints_portal_httproute" {
     spec = {
       parentRefs = [
         {
-          name      = "main-gateway"
-          namespace = kubernetes_namespace_v1.cluster_tools.id
+          name        = "main-gateway"
+          namespace   = kubernetes_namespace_v1.cluster_tools.id
           sectionName = "https"
         }
       ]
@@ -243,10 +335,34 @@ resource "kubernetes_manifest" "oci_ai_blueprints_portal_httproute" {
         }
       ]
     }
+  })
+  filename = "${path.module}/.terraform/oci-ai-blueprints-portal-httproute.yaml"
+}
+
+resource "null_resource" "oci_ai_blueprints_portal_httproute" {
+  count = var.ingress_envoy_gateway_enabled ? 1 : 0
+
+  triggers = {
+    httproute_yaml = local_file.oci_ai_blueprints_portal_httproute_yaml[0].content
+    cluster_id     = local.oke_cluster.id
+    region         = var.region
   }
 
-  depends_on = [kubernetes_manifest.main_gateway]
-  count      = var.ingress_envoy_gateway_enabled ? 1 : 0
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Configure kubectl with OCI
+      oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --region ${var.region} --file $HOME/.kube/config --kubeconfig-token-version 2.0.0 2>/dev/null || true
+      
+      # Apply the HTTPRoute resource
+      kubectl apply -f ${local_file.oci_ai_blueprints_portal_httproute_yaml[0].filename}
+    EOT
+  }
+
+  depends_on = [
+    null_resource.main_gateway,
+    kubernetes_service_v1.oci_ai_blueprints_portal_service,
+    local_file.oci_ai_blueprints_portal_httproute_yaml
+  ]
 }
 
 ## Data source for Gateway service
@@ -259,13 +375,14 @@ data "kubernetes_service_v1" "gateway" {
 }
 
 locals {
-  gateway_load_balancer_ip     = try(data.kubernetes_service_v1.gateway.status[0].load_balancer[0].ingress[0].ip, "")
-  gateway_load_balancer_ip_hex = join("", formatlist("%02x", split(".", local.gateway_load_balancer_ip)))
+  gateway_load_balancer_ip = try(data.kubernetes_service_v1.gateway.status[0].load_balancer[0].ingress[0].ip, "")
+  # Only compute hex if IP is not empty to avoid formatlist errors
+  gateway_load_balancer_ip_hex = local.gateway_load_balancer_ip != "" ? join("", formatlist("%02x", [for octet in split(".", local.gateway_load_balancer_ip) : tonumber(octet)])) : ""
   gateway_load_balancer_hostname = (
   var.ingress_hosts != "" ? local.ingress_hosts[0] : (var.ingress_hosts_include_nip_io ? local.app_nip_io_domain : local.gateway_load_balancer_ip))
 
   ingress_hosts     = compact(concat(split(",", var.ingress_hosts), [local.app_nip_io_domain]))
   app_name_for_dns  = substr(lower(replace(local.app_name, "/\\W|_|\\s/", "")), 0, 6)
-  app_nip_io_domain = (var.ingress_envoy_gateway_enabled && var.ingress_hosts_include_nip_io) ? format("${local.app_name_for_dns}.%s.${var.nip_io_domain}", local.gateway_load_balancer_ip_hex) : ""
+  app_nip_io_domain = (var.ingress_envoy_gateway_enabled && var.ingress_hosts_include_nip_io && local.gateway_load_balancer_ip != "") ? format("${local.app_name_for_dns}.%s.${var.nip_io_domain}", local.gateway_load_balancer_ip_hex) : ""
 
 }

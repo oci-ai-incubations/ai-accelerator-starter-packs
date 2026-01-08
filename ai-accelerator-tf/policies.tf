@@ -5,7 +5,7 @@ resource "oci_identity_dynamic_group" "operator_dg" {
     name = "operator_dg-${random_string.deploy_id.result}"
     description = "DG For operator to access the cluster"
     compartment_id = var.tenancy_ocid
-    matching_rule = "ALL {instance.id = '${oci_core_instance.operator[0].id}'}"
+    matching_rule = "ALL {instance.compartment.id = '${var.compartment_ocid}'}"
     count = local.create_network_resources && var.create_bastion ? 1 : 0
 }
 

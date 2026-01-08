@@ -3,10 +3,10 @@
 # Reference: https://github.com/ronsevetoci/oke-envoy-gateway
 resource "helm_release" "envoy_gateway" {
   name       = "eg"
-  repository = "oci://docker.io/envoyproxy/gateway-helm"
+  repository = "oci://docker.io/envoyproxy"
   chart      = "gateway-helm"
-  version    = "v1.6.0"
-  namespace  = "envoy-gateway-system"
+  version    = "v1.6.1"
+  namespace  = kubernetes_namespace_v1.cluster_tools.id
   create_namespace = true
   wait       = true
   wait_for_jobs = true
@@ -146,6 +146,27 @@ resource "helm_release" "prometheus" {
     {
       name  = "kubeStateMetrics.enabled"
       value = "true"
+    },
+    # Add docker.io registry prefix for all Prometheus component images
+    {
+      name  = "server.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "alertmanager.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "pushgateway.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "nodeExporter.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "kubeStateMetrics.image.registry"
+      value = "docker.io"
     }
   ]
 
@@ -169,6 +190,11 @@ resource "helm_release" "grafana" {
     {
       name  = "grafana\\.ini.server.serve_from_sub_path"
       value = "false"
+    },
+    # Add docker.io registry prefix for Grafana image
+    {
+      name  = "image.registry"
+      value = "docker.io"
     }
   ]
 

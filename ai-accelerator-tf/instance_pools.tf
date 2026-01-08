@@ -31,7 +31,7 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
         shape                    = local.starter_pack_config.worker_node_shape
         source_details {
           source_type             = "image"
-          image_id                = oci_core_image.nvidia_image.id
+          image_id                = oci_core_image.nvidia_image[0].id
           boot_volume_size_in_gbs = 500
         }
         agent_config {
@@ -69,10 +69,10 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
 }
 
 resource "oci_core_instance_pool" "worker_nodes_pool" {
-  count = local.starter_pack_choice == "paas_rag" ? 0 : 1
+  count = (local.starter_pack_using_gpus && local.starter_pack_config.worker_node_pool_size < 2) ? 1 : 0
   compartment_id            = var.compartment_ocid
   display_name              = "AI-Accel-Worker-Nodes-Pool-${random_string.deploy_id.result}"
-  instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration.id
+  instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration[0].id
   size                      = local.starter_pack_config.worker_node_pool_size
   dynamic "placement_configurations" {
     for_each = data.oci_identity_availability_domains.ads.availability_domains
@@ -88,7 +88,7 @@ resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
   compartment_id = var.compartment_ocid
   display_name   = "AI-Accel-Worker-Nodes-Cluster-Network-${random_string.deploy_id.result}"
   instance_pools {
-    instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration.id
+    instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration[0].id
     size                      = local.starter_pack_config.worker_node_pool_size
   }
   dynamic "placement_configuration" {
