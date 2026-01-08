@@ -182,6 +182,7 @@ variable "network_cidrs" {
     NODES-SUBNET-REGIONAL-CIDR               = "10.0.96.0/20"
     LB-SUBNET-BP-CONTROL-PLANE-REGIONAL-CIDR = "10.0.112.0/20"
     LB-SUBNET-APPS-REGIONAL-CIDR             = "10.0.128.0/20"
+    DB-SUBNET-REGIONAL-CIDR                  = "10.0.2.0/24"
     PODS-SUBNET-REGIONAL-CIDR                = "172.16.0.0/16"
     SERVICES-SUBNET-REGIONAL-CIDR            = "172.17.0.0/16"
     BASTION-SUBNET-REGIONAL-CIDR             = "10.0.192.0/20"
@@ -388,6 +389,52 @@ variable "starter_pack_choice" {
   }
 }
 
+# -----------------------------------
+# 26ai Autonomous Database Variables
+# -----------------------------------
+
+variable "db_name" {
+  description = "Name of the Autonomous Database (must be uppercase alphanumeric)"
+  type        = string
+  default     = "ORACLE26AI"
+}
+
+variable "db_display_name" {
+  description = "Display name for the Autonomous Database"
+  type        = string
+  default     = "Oracle Database 26ai"
+}
+
+variable "db_password" {
+  description = "Admin password for the Autonomous Database"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_compute_count" {
+  description = "Number of ECPU cores for the database"
+  type        = number
+  default     = 2
+}
+
+variable "db_data_storage_size_in_tbs" {
+  description = "Data storage size in TBs"
+  type        = number
+  default     = 1
+}
+
+variable "db_license_model" {
+  description = "License model: BRING_YOUR_OWN_LICENSE or LICENSE_INCLUDED"
+  type        = string
+  default     = "LICENSE_INCLUDED"
+}
+
+variable "db_workload_type" {
+  description = "Workload type: LH (Lakehouse), OLTP, DW, AJD, APEX"
+  type        = string
+  default     = "LH"
+}
+
 locals {
 
   starter_pack_choice_map = {
@@ -461,6 +508,8 @@ locals {
   node_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
 
   lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+
+  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id  # Placeholder for bring_your_own
 
   # Only create new network resources when in create_new mode
   create_network_resources = var.network_configuration_mode == "create_new"

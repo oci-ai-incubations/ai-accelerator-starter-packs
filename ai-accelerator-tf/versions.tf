@@ -6,7 +6,7 @@ terraform {
   required_providers {
     oci = {
       source  = "oracle/oci"
-      version = ">= 5"
+      version = "~> 7.0"
       # https://registry.terraform.io/providers/oracle/oci/
     }
     kubernetes = {
