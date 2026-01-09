@@ -439,6 +439,10 @@ resource "helm_release" "rag" {
   repository_username = "$oauthtoken"
   repository_password = var.ngc_secret
 
+  values = [
+    file("${path.module}/values.yaml")
+  ]
+
   set_sensitive = [
     {
       name  = "imagePullSecret.password"
@@ -450,5 +454,5 @@ resource "helm_release" "rag" {
     }
   ]
   count      = local.starter_pack_config.starter_pack_choice == "enterprise_rag_medium" ? 1 : 0
-  depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
+  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network]
 }
