@@ -30,6 +30,13 @@ outputGroups:
       - grafana_admin_username
       - grafana_admin_password
 
+  - title: "Oracle 26ai Database"
+    outputs:
+      - db_username
+      - db_password
+      - autonomous_database_name
+      - autonomous_database_id
+
 locale: "en"
 
 variableGroups:
@@ -49,6 +56,11 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
+
+  - title: "Oracle 26ai Database Credentials"
+    variables:
+      - db_username
+      - db_password
 
 #  # ------------------------------------------------
 #  # COMMENTED OUT - Not needed for starter packs
@@ -172,8 +184,9 @@ variables:
     enum:
       - cuopt_small
       - vss_medium
+      - paas_rag
     title: "Starter Pack"
-    description: "Select a pre-configured starter pack. 'cuopt_small' deploys NVIDIA cuOpt optimization workloads on BM.GPU4.8. 'vss_medium' deploys Video Search workloads on BM.GPU.B4.8."
+    description: "Select a pre-configured starter pack. 'cuopt_small' deploys NVIDIA cuOpt optimization workloads on BM.GPU4.8. 'vss_medium' deploys Video Search workloads on BM.GPU.B4.8. 'paas_rag' deploys RAG workloads on CPU using OCI PaaS services."
     default: cuopt_small
     required: true
 
@@ -205,6 +218,22 @@ variables:
     type: password
     title: "Admin Password"
     description: "Password for the admin account (you will be required to change this at first login)"
+    required: true
+
+  # ---------------------------------
+  # Required: Oracle 26ai Database Credentials
+  # ---------------------------------
+  db_username:
+    type: string
+    title: "Database Admin Username"
+    description: "Admin username for the Oracle 26ai Autonomous Database"
+    default: "ADMIN"
+    required: true
+
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    description: "Admin password for the Oracle 26ai Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character."
     required: true
 
   # ---------------------------------
@@ -733,6 +762,26 @@ outputs:
   grafana_admin_password:
     type: string
     title: "Grafana Password"
+    visible: true
+
+  db_username:
+    type: string
+    title: "Database Admin Username"
+    visible: true
+
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    visible: true
+
+  autonomous_database_name:
+    type: string
+    title: "Autonomous Database Name"
+    visible: true
+
+  autonomous_database_id:
+    type: string
+    title: "Autonomous Database OCID"
     visible: true
 
   # ---------------------------------

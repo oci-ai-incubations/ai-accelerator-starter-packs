@@ -218,3 +218,14 @@ output "db_subnet_id" {
   description = "OCID of the database subnet"
   value       = local.create_network_resources ? oci_core_subnet.oke_db_subnet[0].id : null
 }
+
+output "db_username" {
+  description = "Admin username for the Oracle 26ai Autonomous Database"
+  value       = var.db_username
+}
+
+output "db_password" {
+  description = "Admin password for the Oracle 26ai Autonomous Database"
+  value       = var.db_password
+  sensitive   = true
+}
