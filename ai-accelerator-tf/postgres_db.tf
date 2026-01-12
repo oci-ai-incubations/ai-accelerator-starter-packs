@@ -15,6 +15,7 @@ resource "kubernetes_config_map_v1" "postgres_secret" {
     POSTGRES_USER     = local.postgres_db.user
     POSTGRES_PASSWORD = local.postgres_db.password
   }
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 # PersistentVolumeClaim for PostgreSQL data
@@ -39,6 +40,7 @@ resource "kubernetes_persistent_volume_claim_v1" "postgresql_pv_claim" {
   timeouts {
     create = "5m"
   }
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 # PostgreSQL Deployment
@@ -120,7 +122,8 @@ resource "kubernetes_deployment_v1" "postgres" {
 
   depends_on = [
     kubernetes_config_map_v1.postgres_secret,
-    kubernetes_persistent_volume_claim_v1.postgresql_pv_claim
+    kubernetes_persistent_volume_claim_v1.postgresql_pv_claim,
+    oci_containerengine_node_pool.oke_node_pool
   ]
 }
 
@@ -149,7 +152,7 @@ resource "kubernetes_service_v1" "postgres" {
     }
   }
 
-  depends_on = [kubernetes_deployment_v1.postgres]
+  depends_on = [kubernetes_deployment_v1.postgres, oci_containerengine_node_pool.oke_node_pool]
 }
 
 # Data source to get the service information (used in locals.tf)

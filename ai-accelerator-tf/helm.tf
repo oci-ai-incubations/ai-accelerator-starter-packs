@@ -29,7 +29,7 @@ resource "helm_release" "ingress_nginx" {
       value = var.ingress_load_balancer_shape_flex_max
       type  = "string"
     }
-    ], var.cluster_load_balancer_visibility == "Private" ? [
+    ], var.blueprints_endpoint_visibility == "Private" ? [
     {
       name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-internal"
       value = "true"
@@ -143,6 +143,24 @@ resource "helm_release" "prometheus" {
     {
       name  = "kubeStateMetrics.enabled"
       value = "true"
+    },
+    # Add docker.io registry prefix for Prometheus component images
+    # Note: alertmanager.image.registry is not supported in chart version 27.42.2
+    {
+      name  = "server.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "pushgateway.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "nodeExporter.image.registry"
+      value = "docker.io"
+    },
+    {
+      name  = "kubeStateMetrics.image.registry"
+      value = "docker.io"
     }
   ]
 
@@ -166,6 +184,11 @@ resource "helm_release" "grafana" {
     {
       name  = "grafana\\.ini.server.serve_from_sub_path"
       value = "false"
+    },
+    # Add docker.io registry prefix for Grafana image
+    {
+      name  = "image.registry"
+      value = "docker.io"
     }
   ]
 

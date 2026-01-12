@@ -429,4 +429,32 @@ locals {
       ]
     }
   })
+  paas_rag_blueprint = jsonencode({
+    deployment_group = {
+      name = local.starter_pack_deployment_name
+      deployments = [
+        {
+          name = "llamastack1"
+          recipe = {
+            recipe_id                   = "llamastack"
+            deployment_name             = "llamastack1"
+            recipe_mode                 = "service"
+            recipe_node_shape           = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
+            recipe_use_shared_node_pool = true
+            recipe_replica_count        = 1
+            recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9"
+            recipe_container_env = [
+              { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
+              { "key" = "OCI_REGION", value = var.region },
+              { "key" = "OCI_AUTH_TYPE", value = "instance_principal" }
+            ],
+            recipe_container_port = "8321"
+            recipe_flex_shape_ocpu_count = 4
+            recipe_flex_shape_memory_size_in_gbs = 32
+          }
+        }
+      ]
+    }
+  })
 }

@@ -38,7 +38,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
   ]
-  count = 1
+  count = var.is_nvaie_enabled ? 1 : 0
 }
 
 resource "kubernetes_job_v1" "blueprint_deployment_job" {

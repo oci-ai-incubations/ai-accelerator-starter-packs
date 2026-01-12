@@ -12,6 +12,7 @@ resource "oci_core_image" "nvidia_image" {
         source_type = "objectStorageUri"
         source_uri = local.nvidia_image_url
     }
+    count = local.should_import_nvidia_gpu_image ? 1 : 0
 }
 
 resource "oci_core_image" "amd_image" {
@@ -23,5 +24,5 @@ resource "oci_core_image" "amd_image" {
         source_type = "objectStorageUri"
         source_uri = local.amd_image_url
     }
-    count = var.is_nvaie_enabled ? 0 : 1
+    count = local.should_import_amd_gpu_image ? 1 : 0
 }
