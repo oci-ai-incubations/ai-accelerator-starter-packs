@@ -543,8 +543,8 @@ locals {
       "blueprint_file"      = "" # Uses Helm release instead of JSON blueprint
       "deployment_name"     = "rag"
       # Compute shapes for enterprise_rag_medium (GPU workload)
-      "worker_node_shape"         = "BM.GPU.H100.8"
-      "worker_node_pool_size"     = 1
+      "worker_node_shape"         = "BM.GPU.B4.8"
+      "worker_node_pool_size"     = 2
       "cpu_worker_node_pool_size" = 1
       "cpu_worker_node_pool_instance_shape" = {
         "instanceShape" = "VM.Standard.E5.Flex"
