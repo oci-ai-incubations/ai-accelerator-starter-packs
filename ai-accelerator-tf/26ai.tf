@@ -9,6 +9,7 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   display_name                                = var.db_display_name
   admin_password                              = var.db_password
   compute_count                               = var.db_compute_count
+  db_version                                  = "26ai"
   compute_model                               = "ECPU"
   data_storage_size_in_tbs                    = var.db_data_storage_size_in_tbs
   db_workload                                 = var.db_workload_type
@@ -55,7 +56,7 @@ resource "kubernetes_secret_v1" "oadb-admin" {
   type = "Opaque"
 
   count = local.needs_26ai ? 1 : 0
-  depends_on = [oci_database_autonomous_database.oracle_26ai]
+  depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
 resource "kubernetes_secret_v1" "oadb-connection" {
@@ -70,7 +71,7 @@ resource "kubernetes_secret_v1" "oadb-connection" {
   type = "Opaque"
 
   count = local.needs_26ai ? 1 : 0
-  depends_on = [oci_database_autonomous_database.oracle_26ai]
+  depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
 # ### OADB Wallet extraction <>
@@ -85,7 +86,7 @@ resource "kubernetes_secret_v1" "oadb_wallet_zip" {
   type = "Opaque"
 
   count = local.needs_26ai ? 1 : 0
-  depends_on = [oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet]
+  depends_on = [oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet, oci_containerengine_node_pool.oke_node_pool]
 }
 
 resource "kubernetes_cluster_role_v1" "secret_creator" {
@@ -99,6 +100,7 @@ resource "kubernetes_cluster_role_v1" "secret_creator" {
   }
 
   count = local.needs_26ai ? 1 : 0
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 resource "kubernetes_cluster_role_binding_v1" "wallet_extractor_crb" {
@@ -117,6 +119,7 @@ resource "kubernetes_cluster_role_binding_v1" "wallet_extractor_crb" {
   }
 
   count = local.needs_26ai ? 1 : 0
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 resource "kubernetes_service_account_v1" "wallet_extractor_sa" {
@@ -126,6 +129,7 @@ resource "kubernetes_service_account_v1" "wallet_extractor_sa" {
   }
 
   count = local.needs_26ai ? 1 : 0
+  depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
 # Service account tokens are automatically created by Kubernetes
@@ -194,7 +198,8 @@ resource "kubernetes_job_v1" "wallet_extractor_job" {
   depends_on = [
     oci_database_autonomous_database_wallet.oracle_26ai_wallet,
     kubernetes_service_account_v1.wallet_extractor_sa,
-    kubernetes_cluster_role_binding_v1.wallet_extractor_crb
+    kubernetes_cluster_role_binding_v1.wallet_extractor_crb,
+    oci_containerengine_node_pool.oke_node_pool
   ]
   count = local.needs_26ai ? 1 : 0
 }

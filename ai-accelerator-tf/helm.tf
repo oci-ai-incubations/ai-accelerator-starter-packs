@@ -29,7 +29,7 @@ resource "helm_release" "ingress_nginx" {
       value = var.ingress_load_balancer_shape_flex_max
       type  = "string"
     }
-    ], var.cluster_load_balancer_visibility == "Private" ? [
+    ], var.blueprints_endpoint_visibility == "Private" ? [
     {
       name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/oci-load-balancer-internal"
       value = "true"

@@ -51,19 +51,6 @@ resource "oci_core_subnet" "oke_lb_subnet" {
     count = local.create_network_resources ? 1 : 0
 }
 
-resource "oci_core_subnet" "oke_lb_subnet_apps" {
-    cidr_block = lookup(var.network_cidrs, "LB-SUBNET-APPS-REGIONAL-CIDR")
-    compartment_id = var.compartment_ocid
-    display_name = "AI-Accel-LB-SUBNET-APPS-${random_string.deploy_id.result}"
-    dns_label = "lbapps${random_string.deploy_id.result}"
-    vcn_id = oci_core_virtual_network.oke_vcn[0].id
-    prohibit_public_ip_on_vnic = (var.apps_endpoint_visibility == "Private") ? true : false
-    route_table_id = (var.apps_endpoint_visibility == "Private") ? (local.create_network_resources ? oci_core_route_table.oke_private_route_table[0].id : null) : (local.create_network_resources ? oci_core_route_table.oke_public_route_table[0].id : null)
-    dhcp_options_id = local.create_network_resources ? oci_core_virtual_network.oke_vcn[0].default_dhcp_options_id : null
-    security_list_ids = local.create_network_resources ? [oci_core_security_list.oke_lb_security_list[0].id] : []
-    count = local.create_network_resources ? 1 : 0
-}
-
 
 # Route Tables
 resource "oci_core_route_table" "oke_private_route_table" {
@@ -240,6 +227,17 @@ resource "oci_core_security_list" "oke_nodes_security_list" {
         }
     }
     egress_security_rules {
+        description = "Allow nodes to communicate with database subnet - SQL*Net"
+        destination = lookup(var.network_cidrs, "DB-SUBNET-REGIONAL-CIDR")
+        destination_type = "CIDR_BLOCK"
+        protocol = local.tcp_protocol
+        stateless = false
+        tcp_options {
+            min = 1522
+            max = 1522
+        }
+    }
+    egress_security_rules {
         description = "Allow nodes to communicate with database subnet - HTTPS"
         destination = lookup(var.network_cidrs, "DB-SUBNET-REGIONAL-CIDR")
         destination_type = "CIDR_BLOCK"
@@ -389,6 +387,17 @@ resource "oci_core_security_list" "oke_db_security_list" {
         tcp_options {
             min = 1521
             max = 1521
+        }
+    }
+    ingress_security_rules {
+        description = "Allow SQL*Net from nodes subnet"
+        source = lookup(var.network_cidrs, "NODES-SUBNET-REGIONAL-CIDR")
+        source_type = "CIDR_BLOCK"
+        protocol = local.tcp_protocol
+        stateless = false
+        tcp_options {
+            min = 1522
+            max = 1522
         }
     }
     ingress_security_rules {
