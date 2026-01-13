@@ -462,10 +462,10 @@ locals {
       name = local.starter_pack_deployment_name
       deployments = [
         {
-          name = "llamastack6"
+          name = "llamastack"
           recipe = {
             recipe_id                   = "llamastack"
-            deployment_name             = "llamastack6"
+            deployment_name             = "llamastack"
             recipe_mode                 = "service"
             recipe_node_shape           = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
             recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size

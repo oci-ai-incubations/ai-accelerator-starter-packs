@@ -75,14 +75,6 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
             read_only  = true
           }
 
-          dynamic "volume_mount" {
-            for_each = local.needs_26ai ? [1] : []
-            content {
-              name       = "oadb-wallet-volume"
-              mount_path = "/wallet"
-              read_only  = true
-            }
-          }
         }
 
         volume {
@@ -92,15 +84,6 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
           }
         }
 
-        dynamic "volume" {
-          for_each = local.needs_26ai ? [1] : []
-          content {
-            name = "oadb-wallet-volume"
-            secret {
-              secret_name = "oadb-wallet"
-            }
-          }
-        }
 
         restart_policy = "Never"
       }
