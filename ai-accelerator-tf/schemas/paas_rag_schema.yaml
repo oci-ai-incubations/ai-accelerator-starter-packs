@@ -53,7 +53,7 @@ variables:
     enum:
       - small
     title: "RAG Deployment Size"
-    description: "<strong>SMALL</strong> - 2x E5.Flex control plane (3 OCPU, 64GB), Oracle 26ai Autonomous Database, OCI GenAI Service (no GPU required)"
+    description: "<strong>SMALL</strong> - 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), Oracle 26ai Autonomous Database, OCI GenAI Service - On Demand (no GPU required) | <strong>MEDIUM</strong> - 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (8 OCPU, 64GB Mem), Oracle 26ai Autonomous Database, OCI GenAI Service - On Demand (no GPU required)"
     default: small
     required: true
 

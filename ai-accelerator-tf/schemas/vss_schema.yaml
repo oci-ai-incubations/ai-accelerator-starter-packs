@@ -65,7 +65,7 @@ variables:
     enum:
       - small
     title: "VSS Deployment Size"
-    description: "<strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 1x E5.Flex worker (32 OCPU, 128GB), 2x E5.Flex control plane, 300GB storage"
+    description: "<strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 300GB storage, 1 Flexible Load Balancer"
     default: small
     required: true
 
