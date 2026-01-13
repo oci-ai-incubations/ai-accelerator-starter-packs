@@ -39,3 +39,5 @@ override.tf.json
 terraform.rc
 
 ai-accelerator-tf/schema.yaml
+
+.DS_Store
