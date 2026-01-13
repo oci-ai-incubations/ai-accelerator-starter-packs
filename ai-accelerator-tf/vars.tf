@@ -379,13 +379,27 @@ variable "fqdn_custom_domain" {
   default     = ""
 }
 
-variable "starter_pack_choice" {
-  description = "the starter pack choice"
+# -----------------------------------
+# Starter Pack Configuration
+# -----------------------------------
+
+variable "starter_pack_category" {
+  description = "The starter pack category. Set via starter_pack_category.auto.tfvars"
   type        = string
-  default     = "cuopt_small"
+  default     = "cuopt"
   validation {
-    condition     = contains(["cuopt_small", "vss_medium", "paas_rag"], var.starter_pack_choice)
-    error_message = "Starter pack choice must be either 'cuopt_small', 'vss_medium' or 'paas_rag'."
+    condition     = contains(["cuopt", "vss", "paas_rag"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', or 'paas_rag'."
+  }
+}
+
+variable "starter_pack_size" {
+  description = "The starter pack size (small, medium, large)"
+  type        = string
+  default     = "small"
+  validation {
+    condition     = contains(["small", "medium", "large"], var.starter_pack_size)
+    error_message = "Starter pack size must be 'small', 'medium', or 'large'."
   }
 }
 
@@ -412,22 +426,23 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character."
+  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character. Only required for paas_rag starter pack."
   type        = string
   sensitive   = true
+  default     = null
 
   validation {
-    condition = length(var.db_password) >= 12
+    condition     = var.db_password == null ? true : length(var.db_password) >= 12
     error_message = "Database password must be at least 12 characters long."
   }
 
   validation {
-    condition = can(regex("[A-Z]", var.db_password))
+    condition     = var.db_password == null ? true : can(regex("[A-Z]", var.db_password))
     error_message = "Database password must contain at least one uppercase letter."
   }
 
   validation {
-    condition = can(regex("[^a-zA-Z0-9]", var.db_password))
+    condition     = var.db_password == null ? true : can(regex("[^a-zA-Z0-9]", var.db_password))
     error_message = "Database password must contain at least one special character (non-alphanumeric character)."
   }
 }
@@ -456,89 +471,101 @@ variable "db_workload_type" {
   default     = "LH"
 }
 
+# -----------------------------------
+# Starter Pack Configuration Map
+# Nested by category, then by size
+# Only define sizes that are actually implemented
+# -----------------------------------
 locals {
+  starter_pack_configs = {
+    "cuopt" = {
+      "small" = {
+        blueprint_file                               = "cuopt-blueprint.json"
+        deployment_name                              = "cuopt"
+        worker_node_shape                            = "BM.GPU4.8"
+        worker_node_pool_size                        = 1
+        cpu_worker_node_pool_size                    = 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "none"
+          ocpus         = 0
+          memory        = 0
+        }
+      }
+      # Add "medium" here when implemented
+      # Add "large" here when implemented
+    }
 
-  starter_pack_choice_map = {
-    "cuopt_small" = {
-      "starter_pack_choice" = "cuopt_small"
-      "blueprint_file"      = "cuopt-blueprint.json"
-      "deployment_name"     = "cuopt"
-      # Compute shapes for cuopt_small (GPU workload)
-      "worker_node_shape"                 = "BM.GPU4.8"
-      "worker_node_pool_size"             = 1
-      "cpu_worker_node_pool_size"         = 0 # not used
-      "control_plane_node_pool_size"      = 2
-      "node_pool_boot_volume_size_in_gbs" = "150"
-      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "0" # not used
-      "control_plane_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 3
-        "memory"        = 64
+    "vss" = {
+      "small" = {
+        blueprint_file                               = "vss-blueprint.json"
+        deployment_name                              = "vss"
+        worker_node_shape                            = "BM.GPU4.8"
+        worker_node_pool_size                        = 1
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "200"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 32
+          memory        = 128
+        }
       }
-      "cpu_worker_node_pool_instance_shape" = {
-        "instanceShape" = "none"
-        "ocpus"         = 0
-        "memory"        = 0
-      }
+      # Add "medium" here when implemented
+      # Add "large" here when implemented
     }
-    "vss_medium" = {
-      "starter_pack_choice" = "vss_medium"
-      "blueprint_file"      = "vss-blueprint.json"
-      "deployment_name"     = "vss"
-      # Compute shapes for vss_medium (GPU workload)
-      "worker_node_shape"            = "BM.GPU4.8"
-      "worker_node_pool_size"        = 1
-      "cpu_worker_node_pool_size"    = 1
-      "control_plane_node_pool_size" = 2
-      "node_pool_boot_volume_size_in_gbs" = "200"
-      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
-      "control_plane_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 32
-        "memory"        = 128
-      }
-      "cpu_worker_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 3
-        "memory"        = 64
-      }
-    }
+
     "paas_rag" = {
-      "starter_pack_choice" = "paas_rag"
-      "blueprint_file"      = "paas-rag-blueprint.json"
-      "deployment_name"     = "erag"
-      "worker_node_shape"   = "none"
-      "worker_node_pool_size"     = 0 # not used
-      "cpu_worker_node_pool_size" = 1
-      "control_plane_node_pool_size" = 2
-      "node_pool_boot_volume_size_in_gbs" = "100" # not used
-      "cpu_worker_node_pool_boot_volume_size_in_gbs" = "150"
-      "control_plane_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 6
-        "memory"        = 48
+      "small" = {
+        blueprint_file                               = "paas-rag-blueprint.json"
+        deployment_name                              = "erag"
+        worker_node_shape                            = "none"
+        worker_node_pool_size                        = 0
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "100"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 6
+          memory        = 48
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 28
+          memory        = 128
+        }
       }
-      "cpu_worker_node_pool_instance_shape" = {
-        "instanceShape" = "VM.Standard.E5.Flex"
-        "ocpus"         = 28
-        "memory"        = 128
-      }
+      # Add "medium" here when implemented
+      # Add "large" here when implemented
     }
   }
 
-  starter_pack_choice = var.starter_pack_choice != "" ? var.starter_pack_choice : "starter-pack"
-  starter_back_deployment_name_map = {
-    "cuopt_small" = "cuopt"
-    "vss_medium"  = "vss"
-    "paas_rag"    = "paas-rag"
-  }
-  starter_pack_blueprint_content = {
-    "cuopt_small" = local.cuopt_small_blueprint
-    "vss_medium"  = local.vss_blueprint
-    "paas_rag"    = local.paas_rag_blueprint
-  }
-  starter_pack_config          = local.starter_pack_choice_map[var.starter_pack_choice]
-  starter_pack_deployment_name = local.starter_back_deployment_name_map[var.starter_pack_choice]
+  # Backward compatibility - combined key for existing conditionals
+  starter_pack_choice = "${var.starter_pack_category}_${var.starter_pack_size}"
+
+  # Resolved config (maintains existing interface for all consuming resources)
+  starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
+
+  # Deployment name from config
+  starter_pack_deployment_name = local.starter_pack_config.deployment_name
+
+  # Blueprint content - directly from the organized blueprint map in blueprint_files.tf
+  # No need to maintain a separate map here - just reference the nested structure
+  starter_pack_blueprint_content = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
 }
 
 # App Name Locals
@@ -559,7 +586,7 @@ locals {
 
   lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
 
-  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id  # Placeholder for bring_your_own
+  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
 
   # Only create new network resources when in create_new mode
   create_network_resources = var.network_configuration_mode == "create_new"
@@ -576,10 +603,12 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  should_import_nvidia_gpu_image = local.starter_pack_choice == "cuopt_small" || local.starter_pack_choice == "vss_medium"
-  should_import_amd_gpu_image = false # if amd starter pack is added, update this
+  # GPU image needed for cuopt and vss categories (GPU workloads)
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss"
+  should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 
 locals {
-  needs_26ai = local.starter_pack_choice == "paas_rag"
+  # 26ai database needed for paas_rag category
+  needs_26ai = var.starter_pack_category == "paas_rag"
 }

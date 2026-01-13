@@ -78,10 +78,10 @@ resource "helm_release" "cert_manager" {
 
 ## Cert Manager Issuers
 resource "helm_release" "cert_manager_issuers" {
-  name       = "cert-manager-issuers"
-  chart      = "${path.module}/helm-values/issuers"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
-  wait       = true
+  name      = "cert-manager-issuers"
+  chart     = "${path.module}/helm-values/issuers"
+  namespace = kubernetes_namespace_v1.cluster_tools.id
+  wait      = true
 
   set = [
     {
@@ -425,6 +425,6 @@ resource "helm_release" "milvus" {
       value = "docker.io/milvusdb/milvus"
     }
   ]
-  count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
+  count      = var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }

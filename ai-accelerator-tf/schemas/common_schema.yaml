@@ -1,0 +1,513 @@
+# Copyright (c) 2020-2024 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+
+# =============================================================================
+# OCI AI Starter Packs - Common Schema
+# =============================================================================
+# This is the base schema. Category-specific schemas override these values.
+
+title: "OCI AI Starter Packs"
+description: "Pre-configured AI/ML Workload Deployments on OCI"
+informationalText: "Select a pre-configured starter pack to quickly deploy AI/ML workloads on OCI."
+
+schemaVersion: 1.1.0
+version: "20190304"
+
+source:
+  type: quickstart
+
+locale: "en"
+
+# Primary action button - links to the deployed service
+primaryOutputButton: starter_pack_url
+
+# =============================================================================
+# Output Groups - Common structure
+# =============================================================================
+outputGroups:
+  - title: "Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+  - title: "Oracle 26ai Database"
+    outputs:
+      - db_username
+      - db_password
+      - autonomous_database_name
+      - autonomous_database_id
+
+# =============================================================================
+# Variable Groups - Common structure
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+  - title: "Oracle 26ai Database"
+    variables:
+      - db_username
+      - db_password
+
+# =============================================================================
+# Variables - Common definitions
+# =============================================================================
+variables:
+  # Starter Pack Size - overridden by each category
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "Deployment Size"
+    description: "Select the deployment size"
+    default: small
+    required: true
+
+  # Category is set via starter_pack_category.auto.tfvars
+  starter_pack_category:
+    type: string
+    visible: false
+
+  # OCI Identity (Hidden)
+  compartment_ocid:
+    type: oci:identity:compartment:id
+    title: "Compartment"
+    description: "The compartment in which to create resources"
+    required: true
+
+  # Admin Credentials - common across all packs
+  corrino_admin_username:
+    type: string
+    minLength: 3
+    maxLength: 50
+    title: "Admin Username"
+    description: "Username for accessing the management portal and API"
+    required: true
+
+  corrino_admin_password:
+    type: password
+    title: "Admin Password"
+    description: "Password for the admin account"
+    required: true
+
+  corrino_admin_email:
+    type: string
+    title: "Admin Email"
+    description: "Email address for admin account notifications and password recovery"
+    required: true
+
+  # Oracle 26ai Database Credentials
+  db_username:
+    type: string
+    title: "Database Admin Username"
+    description: "Admin username for the Oracle 26ai Autonomous Database"
+    default: "ADMIN"
+    required: true
+
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    description: "Admin password for the Oracle 26ai Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character."
+    required: true
+
+  # Hidden DB config variables - common across all packs
+  db_name:
+    type: string
+    visible: false
+
+  db_display_name:
+    type: string
+    visible: false
+
+  db_compute_count:
+    type: number
+    visible: false
+
+  db_data_storage_size_in_tbs:
+    type: number
+    visible: false
+
+  db_license_model:
+    type: string
+    visible: false
+
+  db_workload_type:
+    type: string
+    visible: false
+
+  create_policies:
+    type: boolean
+    visible: false
+
+  # ---------------------------------
+  # Hidden Variables
+  # ---------------------------------
+  use_instance_principal:
+    type: boolean
+    visible: false
+
+  fingerprint:
+    type: string
+    visible: false
+
+  private_key_path:
+    type: string
+    visible: false
+
+  user_ocid:
+    type: string
+    visible: false
+
+  show_advanced:
+    type: boolean
+    visible: false
+
+  apps_endpoint_visibility:
+    type: string
+    visible: false
+
+  blueprints_endpoint_visibility:
+    type: string
+    visible: false
+
+  cluster_endpoint_visibility_existing_vcn:
+    type: string
+    visible: false
+
+  cluster_endpoint_visibility_new_vcn:
+    type: string
+    visible: false
+
+  cluster_load_balancer_visibility:
+    type: string
+    visible: false
+
+  cluster_workers_visibility:
+    type: string
+    visible: false
+
+  create_bastion:
+    type: boolean
+    visible: false
+
+  bastion_boot_volume_size_in_gbs:
+    type: string
+    visible: false
+
+  bastion_instance_shape:
+    type: map
+    visible: false
+
+  operator_boot_volume_size_in_gbs:
+    type: string
+    visible: false
+
+  operator_instance_shape:
+    type: map
+    visible: false
+
+  ssh_public_key:
+    type: string
+    visible: false
+
+  cluster_options_add_ons_is_kubernetes_dashboard_enabled:
+    type: boolean
+    visible: false
+
+  k8s_version:
+    type: string
+    visible: false
+
+  node_pool_name:
+    type: string
+    visible: false
+
+  network_configuration_mode:
+    type: string
+    visible: false
+
+  network_cidrs:
+    type: map
+    visible: false
+
+  existing_vcn_id:
+    type: string
+    visible: false
+
+  existing_endpoint_subnet_id:
+    type: string
+    visible: false
+
+  existing_lb_subnet_id:
+    type: string
+    visible: false
+
+  existing_node_subnet_id:
+    type: string
+    visible: false
+
+  existing_pods_subnet_id:
+    type: string
+    visible: false
+
+  existing_services_subnet_id:
+    type: string
+    visible: false
+
+  ingress_nginx_enabled:
+    type: boolean
+    visible: false
+
+  ingress_hosts:
+    type: string
+    visible: false
+
+  ingress_hosts_include_nip_io:
+    type: boolean
+    visible: false
+
+  ingress_load_balancer_shape:
+    type: string
+    visible: false
+
+  ingress_load_balancer_shape_flex_max:
+    type: string
+    visible: false
+
+  ingress_load_balancer_shape_flex_min:
+    type: string
+    visible: false
+
+  ingress_tls:
+    type: boolean
+    visible: false
+
+  ingress_cluster_issuer:
+    type: string
+    visible: false
+
+  ingress_email_issuer:
+    type: string
+    visible: false
+
+  fqdn_domain_mode_selector:
+    type: string
+    visible: false
+
+  fqdn_custom_domain:
+    type: string
+    visible: false
+
+  nip_io_domain:
+    type: string
+    visible: false
+
+  is_nvaie_enabled:
+    type: boolean
+    visible: false
+
+  kong_enabled:
+    type: boolean
+    visible: false
+
+  override_hostnames:
+    type: boolean
+    visible: false
+
+  setup_credential_provider_for_ocir:
+    type: boolean
+    visible: false
+
+  share_data_with_corrino_team_enabled:
+    type: boolean
+    visible: false
+
+  nvme_raid_level:
+    type: integer
+    visible: false
+
+  stack_version:
+    type: string
+    visible: false
+
+  oci_tag_values:
+    type: map
+    visible: false
+
+# =============================================================================
+# Outputs - Common definitions with proper types
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: link
+    title: "Open Service"
+    displayText: "Open Service"
+    visible: true
+
+  starter_pack_deployment_name:
+    type: string
+    title: "Deployment Name"
+    visible: true
+
+  blueprints_portal_url:
+    type: link
+    title: "Management Portal"
+    displayText: "Open Management Portal"
+    visible: true
+
+  corrino_api_url:
+    type: link
+    title: "API Endpoint"
+    displayText: "View API Endpoint"
+    visible: true
+
+  corrino_admin_username:
+    type: string
+    title: "Admin Username"
+    visible: true
+
+  corrino_admin_password:
+    type: string
+    title: "Admin Password"
+    visible: true
+
+  grafana_url:
+    type: link
+    title: "Grafana Dashboard"
+    displayText: "Open Grafana"
+    visible: true
+
+  prometheus_url:
+    type: link
+    title: "Prometheus"
+    displayText: "Open Prometheus"
+    visible: true
+
+  grafana_admin_username:
+    type: string
+    title: "Grafana Username"
+    visible: true
+
+  grafana_admin_password:
+    type: string
+    title: "Grafana Password"
+    visible: true
+
+  external_ip:
+    title: "External IP"
+    visible: true
+
+  db_username:
+    type: string
+    title: "Database Username"
+    visible: true
+
+  db_password:
+    type: string
+    title: "Database Password"
+    visible: true
+
+  autonomous_database_name:
+    type: string
+    title: "Database Name"
+    visible: true
+
+  autonomous_database_id:
+    type: ocid
+    title: "Database OCID"
+    visible: true
+
+  # Hidden outputs
+  cluster_id:
+    visible: false
+
+  cluster_name:
+    visible: false
+
+  public_cluster_endpoint_full:
+    visible: false
+
+  private_cluster_endpoint_full:
+    visible: false
+
+  public_cluster_endpoint:
+    visible: false
+
+  private_cluster_endpoint:
+    visible: false
+
+  cluster_endpoint_visibility:
+    visible: false
+
+  vcn_id:
+    visible: false
+
+  vcn_cidr:
+    visible: false
+
+  node_pool_id:
+    visible: false
+
+  node_pool_kubernetes_version:
+    visible: false
+
+  bastion_public_ip:
+    visible: false
+
+  bastion_private_ip:
+    visible: false
+
+  operator_private_ip:
+    visible: false
+
+  ssh_private_key:
+    visible: false
+
+  ssh_public_key:
+    visible: false
+
+  connection_instructions:
+    visible: false
+
+  kubeconfig_command:
+    visible: false
+
+  lb_subnet_bp_control_plane_id:
+    visible: false
+
+  lb_subnet_apps_id:
+    visible: false
+
+  deployment_id:
+    visible: false
+
+  app_name:
+    visible: false

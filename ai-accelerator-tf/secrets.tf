@@ -13,7 +13,7 @@ resource "kubernetes_secret_v1" "neo4j_creds" {
     password = "password"
   }
 
-  count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
+  count      = var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -30,7 +30,7 @@ resource "kubernetes_secret_v1" "minio_creds" {
     "secret-key" = "minioadmin"
   }
 
-  count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
+  count      = var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -47,6 +47,6 @@ resource "kubernetes_secret_v1" "arango_db_creds" {
     password = "password"
   }
 
-  count      = local.starter_pack_config.starter_pack_choice == "vss_medium" ? 1 : 0
+  count      = var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }

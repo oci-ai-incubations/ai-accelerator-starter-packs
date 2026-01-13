@@ -140,7 +140,7 @@ output "starter_pack_deployment_name" {
 
 output "starter_pack_url" {
   description = "Starter pack FQDN"
-  value = var.starter_pack_choice == "vss_medium" ? (
+  value = var.starter_pack_category == "vss" ? (
     local.vss_dynamic_url != "" ?
     local.vss_dynamic_url :
     local.public_endpoint.starter_pack
@@ -195,23 +195,23 @@ output "grafana_admin_password" {
 # Autonomous Database Outputs
 output "autonomous_database_id" {
   description = "OCID of the Autonomous Database"
-  value       = local.create_network_resources ? oci_database_autonomous_database.oracle_26ai[0].id : null
+  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].id : null
 }
 
 output "autonomous_database_name" {
   description = "Name of the Autonomous Database"
-  value       = local.create_network_resources ? oci_database_autonomous_database.oracle_26ai[0].db_name : null
+  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].db_name : null
 }
 
 output "connection_strings" {
   description = "Connection strings for the Autonomous Database"
-  value       = local.create_network_resources ? oci_database_autonomous_database.oracle_26ai[0].connection_strings : null
+  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].connection_strings : null
   sensitive   = true
 }
 
 output "private_endpoint" {
   description = "Private endpoint details"
-  value       = local.create_network_resources ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
+  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
 }
 
 output "db_subnet_id" {
