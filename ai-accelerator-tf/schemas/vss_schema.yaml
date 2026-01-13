@@ -1,0 +1,98 @@
+# =============================================================================
+# NVIDIA VSS - Schema Overrides
+# =============================================================================
+# Only contains differences from common_schema.yaml
+# VSS does NOT need Oracle 26ai database
+
+title: "NVIDIA Video Search & Summarization Starter Pack"
+description: "AI-Powered Video Analysis, Search & Summarization"
+informationalText: |
+  Deploy NVIDIA Video Search and Summarization (VSS) on OCI's GPU infrastructure.
+  
+  VSS enables AI-powered video analysis capabilities including real-time search, 
+  content summarization, and intelligent video indexing using NVIDIA NIMs.
+
+# =============================================================================
+# Output Groups - Remove database section
+# =============================================================================
+outputGroups:
+  - title: "VSS Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variable Groups - Remove database section
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+# =============================================================================
+# Variables - VSS specific
+# =============================================================================
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "VSS Deployment Size"
+    description: "<strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 1x E5.Flex worker (32 OCPU, 128GB), 2x E5.Flex control plane, 300GB storage"
+    default: small
+    required: true
+
+  # Hide database variables
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+# =============================================================================
+# Outputs - VSS specific titles, hide database
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: link
+    title: "Open VSS Service"
+    displayText: "Open VSS Service"
+
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+  autonomous_database_name:
+    visible: false
+
+  autonomous_database_id:
+    visible: false

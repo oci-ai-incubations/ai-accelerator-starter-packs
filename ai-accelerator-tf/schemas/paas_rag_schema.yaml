@@ -1,0 +1,75 @@
+# =============================================================================
+# Enterprise RAG - Schema Overrides
+# =============================================================================
+# Only contains differences from common_schema.yaml
+# PaaS RAG REQUIRES Oracle 26ai database (keeps DB sections visible)
+
+title: "Enterprise RAG with Oracle 26ai Starter Pack"
+description: "Serverless RAG with Oracle 26ai & OCI GenAI Services"
+informationalText: |
+  Deploy Enterprise RAG using Oracle 26ai and OCI PaaS services.
+  
+  Build production-ready RAG applications with Oracle's AI-optimized 26ai 
+  database for vector storage and OCI GenAI services for LLM inference.
+  
+  No GPU infrastructure required - fully managed and serverless.
+
+# =============================================================================
+# Output Groups - Include database section
+# =============================================================================
+outputGroups:
+  - title: "RAG Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Oracle 26ai Database"
+    outputs:
+      - autonomous_database_name
+      - autonomous_database_id
+      - db_username
+      - db_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variables - RAG specific
+# =============================================================================
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "RAG Deployment Size"
+    description: "<strong>SMALL</strong> - 2x E5.Flex control plane (3 OCPU, 64GB), Oracle 26ai Autonomous Database, OCI GenAI Service (no GPU required)"
+    default: small
+    required: true
+
+  # Database password with validation pattern
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
+    description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
+    required: true
+
+# =============================================================================
+# Outputs - RAG specific titles
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: link
+    title: "Open RAG Service"
+    displayText: "Open RAG Service"
