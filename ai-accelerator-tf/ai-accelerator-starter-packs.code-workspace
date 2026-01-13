@@ -1,0 +1,14 @@
+{
+  "folders": [
+	{
+		"path": ".."
+	},
+	{
+		"path": "../../corrino_deployment_scripts"
+	},
+	{
+		"path": "../../corrino"
+	}
+],
+  "settings": {}
+}

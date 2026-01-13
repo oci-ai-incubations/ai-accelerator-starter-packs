@@ -570,13 +570,18 @@ nim-llm:
     tag: "1.13.1"
   resources:
     limits:
-      nvidia.com/gpu: 1
+      nvidia.com/gpu: 4
     requests:
-      nvidia.com/gpu: 1
-
+      nvidia.com/gpu: 4
+  storage:
+    sharedMemorySizeLimit: "16Gi"
   env:
     - name: NIM_MODEL_PROFILE
-      value: "f6fef2d707d9051e9c0843ec75d089d44360e6d19a79c0722bf90d103426b58c"
+      value: "5010084be13f774e66efce785e35bc8e940d57d7c6786058c81bc8edf600e516"
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0,1,2,3"
+    - name: NIM_SERVED_MODEL_NAME
+      value: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
   model:
     ngcAPIKey: ""
     name: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
@@ -591,6 +596,9 @@ nvidia-nim-llama-32-nv-embedqa-1b-v2:
   image:
     repository: nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2
     tag: "1.10.0"
+  env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "4"
   resources:
     limits:
       nvidia.com/gpu: 1
@@ -608,6 +616,9 @@ nvidia-nim-llama-32-nemoretriever-1b-vlm-embed-v1:
   image:
     repository: nvcr.io/nvidia/nemo-microservices/llama-3.2-nemoretriever-1b-vlm-embed-v1
     tag: "1.7.0"
+  env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "5"
   resources:
     limits:
       nvidia.com/gpu: 1
@@ -625,6 +636,9 @@ nvidia-nim-llama-32-nv-rerankqa-1b-v2:
   image:
     repository: nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2
     tag: "1.8.0"
+  env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "6"
   resources:
     limits:
       nvidia.com/gpu: 1
