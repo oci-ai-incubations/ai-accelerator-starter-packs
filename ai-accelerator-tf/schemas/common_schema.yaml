@@ -115,7 +115,7 @@ variables:
   corrino_admin_password:
     type: password
     title: "Admin Password"
-    description: "Password for the admin account (you will be required to change this at first login)"
+    description: "Password for the admin account"
     required: true
 
   corrino_admin_email:
