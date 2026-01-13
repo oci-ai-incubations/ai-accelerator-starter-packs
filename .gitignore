@@ -38,4 +38,4 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-*/ai-accelerator-tf/schema.yaml
+ai-accelerator-tf/schema.yaml
