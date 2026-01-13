@@ -11,8 +11,8 @@ locals {
       # Add "large" here when implemented
     }
     "vss" = {
-      # Add "small" here when implemented
-      "medium" = local._vss_medium_blueprint
+      "small" = local._vss_small_blueprint
+      # Add "medium" here when implemented
       # Add "large" here when implemented
     }
     "paas_rag" = {
@@ -77,7 +77,7 @@ locals {
     }
   })
 
-  _vss_medium_blueprint = jsonencode({
+  _vss_small_blueprint = jsonencode({
     deployment_group = {
       name = join("-", [local.starter_pack_deployment_name, "2"])
       deployments = [

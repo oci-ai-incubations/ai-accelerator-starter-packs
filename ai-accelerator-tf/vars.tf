@@ -426,22 +426,23 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character."
+  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character. Only required for paas_rag starter pack."
   type        = string
   sensitive   = true
+  default     = null
 
   validation {
-    condition     = length(var.db_password) >= 12
+    condition     = var.db_password == null ? true : length(var.db_password) >= 12
     error_message = "Database password must be at least 12 characters long."
   }
 
   validation {
-    condition     = can(regex("[A-Z]", var.db_password))
+    condition     = var.db_password == null ? true : can(regex("[A-Z]", var.db_password))
     error_message = "Database password must contain at least one uppercase letter."
   }
 
   validation {
-    condition     = can(regex("[^a-zA-Z0-9]", var.db_password))
+    condition     = var.db_password == null ? true : can(regex("[^a-zA-Z0-9]", var.db_password))
     error_message = "Database password must contain at least one special character (non-alphanumeric character)."
   }
 }
@@ -503,8 +504,7 @@ locals {
     }
 
     "vss" = {
-      # Add "small" here when implemented
-      "medium" = {
+      "small" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         worker_node_shape                            = "BM.GPU4.8"
@@ -524,6 +524,7 @@ locals {
           memory        = 128
         }
       }
+      # Add "medium" here when implemented
       # Add "large" here when implemented
     }
 

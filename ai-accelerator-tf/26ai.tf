@@ -4,30 +4,37 @@
 
 # Autonomous Database
 resource "oci_database_autonomous_database" "oracle_26ai" {
-  compartment_id                              = var.compartment_ocid
-  db_name                                     = var.db_name
-  display_name                                = var.db_display_name
-  admin_password                              = var.db_password
-  compute_count                               = var.db_compute_count
-  db_version                                  = "26ai"
-  compute_model                               = "ECPU"
-  data_storage_size_in_tbs                    = var.db_data_storage_size_in_tbs
-  db_workload                                 = var.db_workload_type
-  license_model                               = var.db_license_model
-  is_auto_scaling_enabled                     = true
-  is_auto_scaling_for_storage_enabled         = false
-  is_dedicated                                = false
-  is_free_tier                                = false
-  is_mtls_connection_required                 = true
+  compartment_id                                 = var.compartment_ocid
+  db_name                                        = var.db_name
+  display_name                                   = var.db_display_name
+  admin_password                                 = var.db_password
+  compute_count                                  = var.db_compute_count
+  db_version                                     = "26ai"
+  compute_model                                  = "ECPU"
+  data_storage_size_in_tbs                       = var.db_data_storage_size_in_tbs
+  db_workload                                    = var.db_workload_type
+  license_model                                  = var.db_license_model
+  is_auto_scaling_enabled                        = true
+  is_auto_scaling_for_storage_enabled            = false
+  is_dedicated                                   = false
+  is_free_tier                                   = false
+  is_mtls_connection_required                    = true
   is_preview_version_with_service_terms_accepted = false
-  autonomous_maintenance_schedule_type        = "REGULAR"
-  backup_retention_period_in_days             = 60
-  character_set                               = "AL32UTF8"
-  ncharacter_set                              = "AL16UTF16"
-  whitelisted_ips                             = []
-  subnet_id                                   = local.db_subnet_id
+  autonomous_maintenance_schedule_type           = "REGULAR"
+  backup_retention_period_in_days                = 60
+  character_set                                  = "AL32UTF8"
+  ncharacter_set                                 = "AL16UTF16"
+  whitelisted_ips                                = []
+  subnet_id                                      = local.db_subnet_id
 
   count = local.needs_26ai ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = var.db_password != null
+      error_message = "db_password is required when using the paas_rag starter pack category."
+    }
+  }
 
   depends_on = [
     oci_core_subnet.oke_db_subnet
@@ -36,9 +43,9 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
 
 resource "oci_database_autonomous_database_wallet" "oracle_26ai_wallet" {
   autonomous_database_id = oci_database_autonomous_database.oracle_26ai[0].id
-  password = var.db_password
-  generate_type = "SINGLE"
-  base64_encode_content = true
+  password               = var.db_password
+  generate_type          = "SINGLE"
+  base64_encode_content  = true
   depends_on = [
     oci_database_autonomous_database.oracle_26ai
   ]
@@ -55,7 +62,7 @@ resource "kubernetes_secret_v1" "oadb-admin" {
   }
   type = "Opaque"
 
-  count = local.needs_26ai ? 1 : 0
+  count      = local.needs_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -70,7 +77,7 @@ resource "kubernetes_secret_v1" "oadb-connection" {
   }
   type = "Opaque"
 
-  count = local.needs_26ai ? 1 : 0
+  count      = local.needs_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -85,7 +92,7 @@ resource "kubernetes_secret_v1" "oadb_wallet_zip" {
   }
   type = "Opaque"
 
-  count = local.needs_26ai ? 1 : 0
+  count      = local.needs_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -99,7 +106,7 @@ resource "kubernetes_cluster_role_v1" "secret_creator" {
     verbs      = ["create", "delete"]
   }
 
-  count = local.needs_26ai ? 1 : 0
+  count      = local.needs_26ai ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -118,7 +125,7 @@ resource "kubernetes_cluster_role_binding_v1" "wallet_extractor_crb" {
     namespace = kubernetes_service_account_v1.wallet_extractor_sa[0].metadata[0].namespace
   }
 
-  count = local.needs_26ai ? 1 : 0
+  count      = local.needs_26ai ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -128,7 +135,7 @@ resource "kubernetes_service_account_v1" "wallet_extractor_sa" {
     namespace = "default"
   }
 
-  count = local.needs_26ai ? 1 : 0
+  count      = local.needs_26ai ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
