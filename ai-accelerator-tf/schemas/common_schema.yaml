@@ -77,6 +77,10 @@ variableGroups:
       - db_username
       - db_password
 
+  - title: "Advanced Options"
+    variables:
+      - skip_capacity_check
+
 # =============================================================================
 # Variables - Common definitions
 # =============================================================================
@@ -95,6 +99,14 @@ variables:
   starter_pack_category:
     type: string
     visible: false
+
+  # Capacity Check Option
+  skip_capacity_check:
+    type: boolean
+    title: "Skip Capacity Check"
+    description: "Skip the compute capacity pre-validation that runs before deployment. Enable this only if you are certain capacity exists in your region or want to bypass the pre-check. <strong>Warning:</strong> If capacity is unavailable, the deployment will fail later during resource provisioning."
+    default: false
+    required: false
 
   # OCI Identity (Hidden)
   compartment_ocid:
