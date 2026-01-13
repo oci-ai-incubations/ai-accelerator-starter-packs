@@ -74,6 +74,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
             mount_path = "/blueprints"
             read_only  = true
           }
+
         }
 
         volume {
@@ -82,6 +83,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
             name = kubernetes_config_map_v1.blueprint_config_map.metadata[0].name
           }
         }
+
 
         restart_policy = "Never"
       }
@@ -100,6 +102,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
+    kubernetes_job_v1.wallet_extractor_job,
   ]
   count = 1
 }

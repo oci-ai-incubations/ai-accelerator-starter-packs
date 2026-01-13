@@ -477,6 +477,12 @@ variable "db_workload_type" {
   default     = "LH"
 }
 
+variable "genai_region" {
+  description = "Region for the GenAI service"
+  type        = string
+  default     = "us-chicago-1"
+}
+
 # -----------------------------------
 # Starter Pack Configuration Map
 # Nested by category, then by size

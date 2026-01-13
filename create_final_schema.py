@@ -8,6 +8,7 @@ Usage:
 If category is not provided, it reads from starter_pack_category.auto.tfvars
 """
 import yaml
+import argparse
 import sys
 import re
 from pathlib import Path
@@ -46,22 +47,19 @@ def represent_str(dumper, data):
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
+def get_args():
+    parser = argparse.ArgumentParser(description="Generate schema.yaml from common and category-specific schemas")
+    parser.add_argument("-c", "--category", choices=["cuopt", "paas_rag", "vss"], required=True, help="Category to generate schema for (cuopt, vss, paas_rag)")
+    return parser.parse_args()
 
 def main():
+    args = get_args()
+    category = args.category
+    print(f"Building schema for category: {category}")
+    
     script_dir = Path(__file__).parent
     tf_dir = script_dir / "ai-accelerator-tf"
     schemas_dir = tf_dir / "schemas"
-    
-    # Get category from argument or tfvars file
-    if len(sys.argv) > 1:
-        category = sys.argv[1]
-        print(f"Using category from argument: {category}")
-    else:
-        tfvars_path = tf_dir / "starter_pack_category.auto.tfvars"
-        category = get_category_from_tfvars(tfvars_path)
-        print(f"Read category from tfvars: {category}")
-    
-    print(f"Building schema for category: {category}")
     
     # Load common schema
     common_path = schemas_dir / "common_schema.yaml"

@@ -193,13 +193,20 @@ resource "kubernetes_job_v1" "wallet_extractor_job" {
       }
     }
     backoff_limit              = 1
-    ttl_seconds_after_finished = 120
+    # Increase TTL to prevent job from being deleted too quickly
+    # This helps Terraform maintain state consistency
+    ttl_seconds_after_finished = 3600
   }
 
   wait_for_completion = true
   timeouts {
     create = "20m"
     update = "20m"
+  }
+
+  lifecycle {
+    # Jobs are immutable in Kubernetes, so Terraform will recreate them if deleted
+    # The increased TTL (3600s) helps keep the job around longer to avoid unnecessary recreations
   }
 
   depends_on = [
@@ -209,4 +216,66 @@ resource "kubernetes_job_v1" "wallet_extractor_job" {
     oci_containerengine_node_pool.oke_node_pool
   ]
   count = local.needs_26ai ? 1 : 0
+}
+
+# Data source to read the oadb-wallet secret after extraction
+# Note: This will read the secret even if the job has been deleted (after TTL expiration)
+# The secret persists independently of the job
+data "kubernetes_secret_v1" "oadb_wallet" {
+  metadata {
+    name      = "oadb-wallet"
+    namespace = "default"
+  }
+
+  # Only depend on the job if it exists (count > 0)
+  # This allows the data source to work even if the job was deleted after completion
+  depends_on = [
+    kubernetes_job_v1.wallet_extractor_job
+  ]
+
+  count = local.needs_26ai ? 1 : 0
+}
+
+# Extract oracle26ai_high connection string from tnsnames.ora
+locals {
+  # The Kubernetes secret data source automatically decodes base64 values
+  tnsnames_ora_content = local.needs_26ai && length(data.kubernetes_secret_v1.oadb_wallet) > 0 ? nonsensitive(
+    lookup(data.kubernetes_secret_v1.oadb_wallet[0].data, "tnsnames.ora", "")
+  ) : ""
+
+  # Normalize line endings and match oracle26ai_high line
+  # First normalize \r\n to \n, then match the oracle26ai_high line
+  normalized_content = local.needs_26ai && local.tnsnames_ora_content != "" ? replace(
+    local.tnsnames_ora_content, "\r\n", "\n"
+  ) : ""
+
+  # Match oracle26ai_high = ... (single line, stops at newline)
+  oracle26ai_high_match = local.needs_26ai && local.normalized_content != "" ? regex(
+    "oracle26ai_high\\s*=\\s*[^\\n]+",
+    local.normalized_content
+  ) : ""
+
+  # Extract everything after the "=" sign
+  # Use simple string replace to remove "oracle26ai_high = " prefix
+  oracle26ai_high_connection_string = local.needs_26ai && local.oracle26ai_high_match != "" ? trimspace(
+    replace(local.oracle26ai_high_match, "oracle26ai_high = ", "")
+  ) : ""
+}
+
+# Secret containing the oracle26ai_high connection string
+resource "kubernetes_secret_v1" "oadb_high_connection" {
+  metadata {
+    name      = "oadb-high-connection"
+    namespace = "default"
+  }
+  data = {
+    connection_string = local.oracle26ai_high_connection_string
+  }
+  type = "Opaque"
+
+  count = local.needs_26ai ? 1 : 0
+  depends_on = [
+    kubernetes_job_v1.wallet_extractor_job,
+    data.kubernetes_secret_v1.oadb_wallet
+  ]
 }
