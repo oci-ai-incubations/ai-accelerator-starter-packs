@@ -47,9 +47,9 @@ variableGroups:
       - region
     visible: false
 
-  - title: "Starter Pack Selection"
+  - title: "Starter Pack Size"
     variables:
-      - starter_pack_choice
+      - starter_pack_size
 
   - title: "Admin Credentials"
     variables:
@@ -177,18 +177,24 @@ variableGroups:
 
 variables:
   # ---------------------------------
-  # Required: Starter Pack Selection
+  # Required: Starter Pack Size Selection
+  # The category is set via starter_pack_category.auto.tfvars
+  # Only include sizes that are implemented for your category
   # ---------------------------------
-  starter_pack_choice:
+  starter_pack_size:
     type: enum
     enum:
-      - cuopt_small
-      - vss_medium
-      - paas_rag
-    title: "Starter Pack"
-    description: "Select a pre-configured starter pack. 'cuopt_small' deploys NVIDIA cuOpt optimization workloads on BM.GPU4.8. 'vss_medium' deploys Video Search workloads on BM.GPU.B4.8. 'paas_rag' deploys RAG workloads on CPU using OCI PaaS services."
-    default: cuopt_small
+      - small
+      # Add medium, large when implemented for your category
+    title: "Starter Pack Size"
+    description: "Select the size for your starter pack deployment. Available sizes depend on the starter pack category configured in starter_pack_category.auto.tfvars."
+    default: small
     required: true
+
+  # Category is set via starter_pack_category.auto.tfvars, not in UI
+  starter_pack_category:
+    type: string
+    visible: false
 
   # ---------------------------------
   # Required: OCI Identity (Hidden)

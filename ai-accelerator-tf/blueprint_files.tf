@@ -1,5 +1,33 @@
+# -----------------------------------
+# Starter Pack Blueprints
+# Organized by category, then by size
+# Add new blueprints here when implementing new sizes
+# -----------------------------------
 locals {
-  cuopt_small_blueprint = jsonencode({
+  starter_pack_blueprints = {
+    "cuopt" = {
+      "small" = local._cuopt_small_blueprint
+      # Add "medium" here when implemented
+      # Add "large" here when implemented
+    }
+    "vss" = {
+      # Add "small" here when implemented
+      "medium" = local._vss_medium_blueprint
+      # Add "large" here when implemented
+    }
+    "paas_rag" = {
+      "small" = local._paas_rag_small_blueprint
+      # Add "medium" here when implemented
+      # Add "large" here when implemented
+    }
+  }
+}
+
+# -----------------------------------
+# Individual Blueprint Definitions
+# -----------------------------------
+locals {
+  _cuopt_small_blueprint = jsonencode({
     recipe_id                                    = "cuopt"
     recipe_mode                                  = "service"
     deployment_name                              = local.starter_pack_deployment_name,
@@ -49,7 +77,7 @@ locals {
     }
   })
 
-  vss_blueprint = jsonencode({
+  _vss_medium_blueprint = jsonencode({
     deployment_group = {
       name = join("-", [local.starter_pack_deployment_name, "2"])
       deployments = [
@@ -429,7 +457,7 @@ locals {
       ]
     }
   })
-  paas_rag_blueprint = jsonencode({
+  _paas_rag_small_blueprint = jsonencode({
     deployment_group = {
       name = local.starter_pack_deployment_name
       deployments = [
@@ -449,8 +477,8 @@ locals {
               { "key" = "OCI_REGION", value = var.region },
               { "key" = "OCI_AUTH_TYPE", value = "instance_principal" }
             ],
-            recipe_container_port = "8321"
-            recipe_flex_shape_ocpu_count = 4
+            recipe_container_port                = "8321"
+            recipe_flex_shape_ocpu_count         = 4
             recipe_flex_shape_memory_size_in_gbs = 32
           }
         }

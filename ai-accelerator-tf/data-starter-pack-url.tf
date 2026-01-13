@@ -1,9 +1,9 @@
 # HTTP-based data sources to dynamically fetch the starter pack URL from workspace API
-# This is only used for vss_medium starter pack to get the correct public endpoint
+# This is only used for vss starter pack to get the correct public endpoint
 
 # Step 1: Wait for the VSS deployment to become available (polls the API)
 resource "null_resource" "wait_for_vss_deployment" {
-  count = var.starter_pack_choice == "vss_medium" ? 1 : 0
+  count = var.starter_pack_category == "vss" ? 1 : 0
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
@@ -54,7 +54,7 @@ resource "null_resource" "wait_for_vss_deployment" {
 
 # Step 2: Authenticate with the Corrino API to get a token
 data "http" "vss_auth" {
-  count  = var.starter_pack_choice == "vss_medium" ? 1 : 0
+  count  = var.starter_pack_category == "vss" ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/login/"
   method = "POST"
 
@@ -71,7 +71,7 @@ data "http" "vss_auth" {
 
 # Step 3: Fetch workspace info using the authentication token
 data "http" "vss_workspace" {
-  count  = var.starter_pack_choice == "vss_medium" ? 1 : 0
+  count  = var.starter_pack_category == "vss" ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/workspace/"
   method = "GET"
 
@@ -88,7 +88,7 @@ data "http" "vss_workspace" {
 # Local to extract the VSS deployment URL from the workspace response
 locals {
   # Parse workspace response - it's a single object with recipes directly at root level
-  vss_workspace_data = var.starter_pack_choice == "vss_medium" ? (
+  vss_workspace_data = var.starter_pack_category == "vss" ? (
     try(jsondecode(data.http.vss_workspace[0].response_body), null)
   ) : null
 
