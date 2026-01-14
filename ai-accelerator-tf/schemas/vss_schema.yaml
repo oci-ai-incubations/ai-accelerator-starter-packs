@@ -69,6 +69,10 @@ variables:
     default: small
     required: true
 
+  # Hide genai_region - not needed for VSS
+  genai_region:
+    visible: false
+
   # Hide database variables
   db_username:
     visible: false
@@ -81,9 +85,8 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open VSS Service"
-    displayText: "Open VSS Service"
+    type: string
+    title: "VSS Service URL"
 
   db_username:
     visible: false
