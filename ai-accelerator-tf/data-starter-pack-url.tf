@@ -105,3 +105,10 @@ locals {
   # Get the URL or fall back to the static URL
   vss_dynamic_url = length(local.vss_matching_recipes) > 0 ? local.vss_matching_recipes[0] : ""
 }
+
+# Starter pack URL for cuopt
+# TODO: This is a temporary solution to get the correct URL for the cuopt starter pack
+locals {
+  cuopt_url = var.cuopt_marketing_enabled ? "cuopt-cuopt.${local.fqdn.name}" : local.public_endpoint.starter_pack
+  cuopt_marketing_url = var.cuopt_marketing_enabled ? "demo-cuopt.${local.fqdn.name}" : "#Marketing Disabled"
+}
