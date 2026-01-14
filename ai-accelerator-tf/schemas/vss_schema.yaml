@@ -73,6 +73,9 @@ variables:
   genai_region:
     visible: false
 
+  cuopt_marketing_enabled:
+    visible: false
+
   # Hide database variables
   db_username:
     visible: false

@@ -483,6 +483,12 @@ variable "genai_region" {
   default     = "us-chicago-1"
 }
 
+variable "cuopt_marketing_enabled" {
+  description = "Enable cuopt marketing frontend"
+  type        = bool
+  default     = false
+}
+
 # -----------------------------------
 # Starter Pack Configuration Map
 # Nested by category, then by size
@@ -492,23 +498,23 @@ locals {
   starter_pack_configs = {
     "cuopt" = {
       "small" = {
-        blueprint_file                               = "cuopt-blueprint.json"
+        blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = 0
+        cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_marketing_enabled ? "150" : "0"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = "none"
-          ocpus         = 0
-          memory        = 0
+          instanceShape = var.cuopt_marketing_enabled ? "VM.Standard.E5.Flex" : "none"
+          ocpus         = var.cuopt_marketing_enabled ? 4 : 0
+          memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
       }
       # Add "medium" here when implemented

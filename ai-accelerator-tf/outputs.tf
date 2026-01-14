@@ -147,6 +147,13 @@ output "starter_pack_url" {
   ) : local.public_endpoint.starter_pack
 }
 
+output "starter_pack_marketing_url" {
+  description = "Starter pack marketing FQDN"
+  value = var.starter_pack_category == "cuopt" ? (
+    var.cuopt_marketing_enabled ? local.cuopt_marketing_url : "#Marketing Disabled"
+  ) : "#Marketing Disabled"
+}
+
 output "blueprints_portal_url" {
   description = "Portal FQDN"
   value       = local.public_endpoint.blueprint_portal
