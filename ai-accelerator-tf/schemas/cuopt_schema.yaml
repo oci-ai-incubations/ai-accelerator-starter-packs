@@ -82,6 +82,7 @@ variables:
     title: "Enable cuOpt Marketing"
     description: "Enable cuOpt marketing frontend"
     default: false
+    visible: false
     required: true
 
   genai_region:
