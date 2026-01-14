@@ -379,9 +379,8 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open Service"
-    displayText: "Open Service"
+    type: string
+    title: "Service URL"
     visible: true
 
   starter_pack_deployment_name:
@@ -390,15 +389,13 @@ outputs:
     visible: true
 
   blueprints_portal_url:
-    type: link
-    title: "Management Portal"
-    displayText: "Open Management Portal"
+    type: string
+    title: "Management Portal URL"
     visible: true
 
   corrino_api_url:
-    type: link
+    type: string
     title: "API Endpoint"
-    displayText: "View API Endpoint"
     visible: true
 
   corrino_admin_username:
@@ -412,15 +409,13 @@ outputs:
     visible: true
 
   grafana_url:
-    type: link
-    title: "Grafana Dashboard"
-    displayText: "Open Grafana"
+    type: string
+    title: "Grafana Dashboard URL"
     visible: true
 
   prometheus_url:
-    type: link
-    title: "Prometheus"
-    displayText: "Open Prometheus"
+    type: string
+    title: "Prometheus URL"
     visible: true
 
   grafana_admin_username:

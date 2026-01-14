@@ -81,9 +81,8 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open VSS Service"
-    displayText: "Open VSS Service"
+    type: string
+    title: "VSS Service URL"
 
   db_username:
     visible: false
