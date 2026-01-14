@@ -69,6 +69,10 @@ variables:
     default: small
     required: true
 
+  # Hide genai_region - not needed for VSS
+  genai_region:
+    visible: false
+
   # Hide database variables
   db_username:
     visible: false
