@@ -21,46 +21,41 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
   display_name   = "AI-Accel-Worker-Nodes-Configuration-${random_string.deploy_id.result}"
   instance_details {
     instance_type = "compute"
-    dynamic "launch_details" {
-      for_each = data.oci_identity_availability_domains.ads.availability_domains
-      content {
-        availability_domain      = launch_details.value.name
-        compartment_id           = var.compartment_ocid
-        is_ai_enterprise_enabled = var.is_nvaie_enabled
-        display_name             = "AI-Accel-Worker-Node-${launch_details.value.name}-${random_string.deploy_id.result}"
-        shape                    = local.starter_pack_config.worker_node_shape
-        source_details {
-          source_type             = "image"
-          image_id                = oci_core_image.nvidia_image[0].id
-          boot_volume_size_in_gbs = 500
+    launch_details {
+      compartment_id           = var.compartment_ocid
+      is_ai_enterprise_enabled = var.is_nvaie_enabled
+      display_name             = "AI-Accel-Worker-Node-${random_string.deploy_id.result}"
+      shape                    = local.starter_pack_config.worker_node_shape
+      source_details {
+        source_type             = "image"
+        image_id                = oci_core_image.nvidia_image[0].id
+        boot_volume_size_in_gbs = 500
+      }
+      agent_config {
+        are_all_plugins_disabled = false
+        is_management_disabled   = false
+        is_monitoring_disabled   = false
+        plugins_config {
+          desired_state = "ENABLED"
+          name          = "Management Agent"
         }
-        agent_config {
-          are_all_plugins_disabled = false
-          is_management_disabled   = false
-          is_monitoring_disabled   = false
-          plugins_config {
-            desired_state = "ENABLED"
-            name          = "Management Agent"
-          }
-          plugins_config {
-            desired_state = "ENABLED"
-            name          = "Compute Instance Monitoring"
-          }
-          plugins_config {
-            desired_state = "ENABLED"
-            name          = "Custom Logs Monitoring"
-          }
+        plugins_config {
+          desired_state = "ENABLED"
+          name          = "Compute Instance Monitoring"
         }
-        metadata = {
-          user_data = data.cloudinit_config.workers.rendered
+        plugins_config {
+          desired_state = "ENABLED"
+          name          = "Custom Logs Monitoring"
         }
-
+      }
+      metadata = {
+        user_data = data.cloudinit_config.workers.rendered
       }
     }
   }
 
   depends_on = [oci_core_image.nvidia_image]
-  count = local.should_import_nvidia_gpu_image ? 1 : 0
+  count      = local.should_import_nvidia_gpu_image ? 1 : 0
 
   lifecycle {
     ignore_changes = [
@@ -82,7 +77,7 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
     }
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration]
-  count = (local.should_import_nvidia_gpu_image && local.starter_pack_config.worker_node_pool_size < 2) ? 1 : 0
+  count      = (local.should_import_nvidia_gpu_image && local.starter_pack_config.worker_node_pool_size < 2) ? 1 : 0
 }
 
 resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
