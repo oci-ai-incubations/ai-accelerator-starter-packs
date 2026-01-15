@@ -281,6 +281,7 @@ resource "terraform_data" "capacity_validated" {
   }
 
   depends_on = [
+    null_resource.capacity_registration,
     oci_core_compute_capacity_report.gpu_worker_capacity,
     oci_core_compute_capacity_report.control_plane_capacity,
     oci_core_compute_capacity_report.cpu_worker_capacity,
