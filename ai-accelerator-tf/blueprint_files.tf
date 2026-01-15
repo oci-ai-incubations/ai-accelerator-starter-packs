@@ -6,8 +6,8 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
-      "small" = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
-      # Add "medium" here when implemented
+      "small"  = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
+      "medium" = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
       # Add "large" here when implemented
     }
     "vss" = {
@@ -136,16 +136,16 @@ locals {
         {
           name = "llamastack",
           recipe = {
-            recipe_id = "llamastack",
-            deployment_name = "llamastack",
-            recipe_mode = "service",
-            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9",
-            recipe_replica_count = 1,
-            recipe_flex_shape_ocpu_count = 1,
+            recipe_id                            = "llamastack",
+            deployment_name                      = "llamastack",
+            recipe_mode                          = "service",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9",
+            recipe_replica_count                 = 1,
+            recipe_flex_shape_ocpu_count         = 1,
             recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
-            recipe_use_shared_node_pool = true,
-            recipe_container_port = "8321",
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_port                = "8321",
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
@@ -155,19 +155,19 @@ locals {
           exports = ["internal_dns_name"]
         },
         {
-          name = "cuopt-demo",
+          name       = "cuopt-demo",
           depends_on = ["llamastack", "cuopt"],
           recipe = {
-            recipe_id = "cuopt-demo",
-            deployment_name = "cuopt-demo",
-            recipe_mode = "service",
-            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.1",
-            recipe_replica_count = 1,
-            recipe_flex_shape_ocpu_count = 1,
+            recipe_id                            = "cuopt-demo",
+            deployment_name                      = "cuopt-demo",
+            recipe_mode                          = "service",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.1",
+            recipe_replica_count                 = 1,
+            recipe_flex_shape_ocpu_count         = 1,
             recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
-            recipe_use_shared_node_pool = true,
-            recipe_container_port = "3000",
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_port                = "3000",
           }
         }
       ]
@@ -583,8 +583,8 @@ locals {
             recipe_secret_mounts = [
               { "name" = "oadb-wallet", "mount_location" = "/wallet" }
             ]
-            recipe_container_port = "8321"
-            recipe_flex_shape_ocpu_count = 4
+            recipe_container_port                = "8321"
+            recipe_flex_shape_ocpu_count         = 4
             recipe_flex_shape_memory_size_in_gbs = 32
           }
         }
