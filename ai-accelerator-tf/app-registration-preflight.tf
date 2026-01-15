@@ -14,7 +14,6 @@ locals {
     compartment_ocid      = var.compartment_ocid
     starter_pack_category = var.starter_pack_category
     starter_pack_size     = var.starter_pack_size
-    admin_email           = var.corrino_admin_email
   })
 
   preflight_filepath = format("%s/%s-preflight", abspath(path.root), random_uuid.registration_id.result)

@@ -15,7 +15,6 @@ locals {
     compartment_ocid      = var.compartment_ocid
     starter_pack_category = var.starter_pack_category
     starter_pack_size     = var.starter_pack_size
-    admin_email           = var.corrino_admin_email
 
     # Capacity results
     capacity_available = local.all_capacity_available
