@@ -60,7 +60,6 @@ locals {
       registration_id = random_uuid.registration_id.result
       stage           = "success"
       timestamp       = local.ts
-      admin_email     = var.corrino_admin_email
       workspace_name  = local.app_name
       deploy_id       = local.deploy_id
       stack_version   = var.stack_version
