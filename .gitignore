@@ -18,6 +18,9 @@ venv/
 *.tfvars
 *.tfvars.json
 
+# Keep starter_pack_category.auto.tfvars tracked
+!ai-accelerator-tf/starter_pack_category.auto.tfvars
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
