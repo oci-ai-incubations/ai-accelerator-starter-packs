@@ -48,23 +48,77 @@ locals {
     ngc_api_key_secret_key  = "NGC_API_KEY"
     ngc_api_key_secret_name = "ngc-api-secret"
   }
+  # Upload path separated to avoid circular dependencies
+  # This only depends on random_uuid which has no resource dependencies
+  registration_upload_path = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/7OpjqoxJGKSJ31gSFSNytBbq7l0hEXN0uJP9NKTznJgoElAA9M5G1YXoW757yaHO/n/iduyx1qnmway/b/production-data-repo/o/${random_uuid.registration_id.result}/"
+
   registration = {
-    #object_filename = format("corrino-registration-%s", random_string.registration_id.result)
-    object_filename = "corrino_registration.json"
-    object_filepath = format("%s/%s", abspath(path.root), random_uuid.registration_id.result)
+    object_filename = "success.json"
+    object_filepath = format("%s/%s-success", abspath(path.root), random_uuid.registration_id.result)
     object_content = jsonencode({
-      "Registration ID"       = random_uuid.registration_id.result
-      "Deploy DateTime"       = local.ts
-      "Administrator"         = var.corrino_admin_email
-      "Workspace Name"        = local.app_name
-      "Deploy ID"             = local.deploy_id
-      "Control Plane Version" = var.stack_version
-      "FQDN"                  = local.fqdn.name
-      "Tenancy OCID"          = local.oci.tenancy_id
-      "OKE Cluster OCID"      = local.oke_cluster.id
-      "Region"                = local.oci.region_name
+      # Metadata
+      registration_id = random_uuid.registration_id.result
+      stage           = "success"
+      timestamp       = local.ts
+      admin_email     = var.corrino_admin_email
+      workspace_name  = local.app_name
+      deploy_id       = local.deploy_id
+      stack_version   = var.stack_version
+      fqdn            = local.fqdn.name
+
+      # Core OCI Info
+      tenancy_ocid          = var.tenancy_ocid
+      compartment_ocid      = var.compartment_ocid
+      region                = var.region
+      starter_pack_category = var.starter_pack_category
+      starter_pack_size     = var.starter_pack_size
+
+      # Networking
+      vcn_ocid              = try(oci_core_virtual_network.oke_vcn[0].id, null)
+      endpoint_subnet_ocid  = try(oci_core_subnet.oke_k8s_endpoint_subnet[0].id, null)
+      nodes_subnet_ocid     = try(oci_core_subnet.oke_nodes_subnet[0].id, null)
+      lb_subnet_ocid        = try(oci_core_subnet.oke_lb_subnet[0].id, null)
+      db_subnet_ocid        = try(oci_core_subnet.oke_db_subnet[0].id, null)
+      bastion_subnet_ocid   = try(oci_core_subnet.oke_bastion_subnet[0].id, null)
+      operator_subnet_ocid  = try(oci_core_subnet.oke_operator_subnet[0].id, null)
+      nat_gateway_ocid      = try(oci_core_nat_gateway.oke_nat_gateway[0].id, null)
+      internet_gateway_ocid = try(oci_core_internet_gateway.oke_internet_gateway[0].id, null)
+      service_gateway_ocid  = try(oci_core_service_gateway.oke_service_gateway[0].id, null)
+
+      # OKE
+      oke_cluster_ocid     = local.oke_cluster.id
+      node_pool_ocid       = oci_containerengine_node_pool.oke_node_pool.id
+      worker_cpu_pool_ocid = try(oci_containerengine_node_pool.worker_cpu_pool[0].id, null)
+
+      # Compute
+      bastion_instance_ocid  = try(oci_core_instance.bastion[0].id, null)
+      operator_instance_ocid = try(oci_core_instance.operator[0].id, null)
+
+      # Instance Pools / Cluster Network
+      worker_instance_config_ocid = try(oci_core_instance_configuration.worker_nodes_configuration[0].id, null)
+      worker_instance_pool_ocid   = try(oci_core_instance_pool.worker_nodes_pool[0].id, null)
+      worker_cluster_network_ocid = try(oci_core_cluster_network.worker_nodes_cluster_network[0].id, null)
+
+      # Custom Images
+      nvidia_image_ocid = try(oci_core_image.nvidia_image[0].id, null)
+      amd_image_ocid    = try(oci_core_image.amd_image[0].id, null)
+
+      # Database (26AI)
+      autonomous_db_ocid = try(oci_database_autonomous_database.oracle_26ai[0].id, null)
+
+      # IAM
+      operator_dg_ocid     = try(oci_identity_dynamic_group.operator_dg[0].id, null)
+      instance_dg_ocid     = try(oci_identity_dynamic_group.dyn_group[0].id, null)
+      operator_policy_ocid = try(oci_identity_policy.operator_policy[0].id, null)
+      instance_policy_ocid = try(oci_identity_policy.oke_instances_tenancy_policy[0].id, null)
+
+      # Configuration Details
+      worker_node_shape     = try(local.starter_pack_config.worker_node_shape, null)
+      worker_node_pool_size = try(local.starter_pack_config.worker_node_pool_size, null)
+      network_config_mode   = var.network_configuration_mode
+      load_balancer_ip      = try(local.ingress_controller_load_balancer_ip, null)
     })
-    upload_path = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/bqCfQwvzAZPCnxehCZs1Le5V2Pajn3j4JsFzb5CWHRNvtQ4Je-Lk_ApwCcurdpYT/n/iduyx1qnmway/b/corrino-terraform-registry/o/${random_uuid.registration_id.result}/"
+    upload_path = local.registration_upload_path
   }
 
   corrino_tags = {

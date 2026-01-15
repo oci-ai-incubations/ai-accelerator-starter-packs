@@ -1,23 +1,32 @@
+# Copyright (c) 2025 Oracle and/or its affiliates. All rights reserved.
+# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+#
+# Stage 3: Success Registration
+# Captures all resource OCIDs after successful deployment
 
 resource "local_file" "registration" {
   content  = local.registration.object_content
   filename = local.registration.object_filepath
 }
 
-# curl -X PUT --data-binary '@local_filename' unique_PAR_URL
+resource "null_resource" "success_registration" {
+  depends_on = [
+    kubernetes_deployment_v1.corrino_cp_deployment,
+    local_file.registration,
+    # Key resources to ensure they're all created
+    oci_containerengine_cluster.oke_cluster,
+    oci_containerengine_cluster.oke_cluster_existing_vcn,
+    oci_containerengine_node_pool.oke_node_pool,
+  ]
 
-resource "null_resource" "registration" {
-    depends_on = [kubernetes_deployment_v1.corrino_cp_deployment, local_file.registration]
-    triggers   = {
-        always_run = timestamp()
-    }
-    provisioner "local-exec" {
-        command = <<-EOT
-        if [ "${var.share_data_with_corrino_team_enabled}" = "true" ]; then
-            curl -X PUT --data-binary '@${local.registration.object_filepath}' ${local.registration.upload_path}${local.registration.object_filename}
-        else
-            echo "1" > /tmp/opted_out && curl -X PUT --data-binary '@/tmp/opted_out' ${local.registration.upload_path}opted_out
-        fi
-	      EOT
-    }
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      curl -X PUT --data-binary '@${local.registration.object_filepath}' \
+        ${local.registration_upload_path}success.json
+    EOT
+  }
 }
