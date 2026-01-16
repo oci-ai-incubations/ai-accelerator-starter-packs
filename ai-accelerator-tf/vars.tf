@@ -2,6 +2,20 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 # 
 
+variable "ngc_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
+}
+
+variable "ngc_api_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
+}
+
 # Authentication Configuration
 variable "use_instance_principal" {
   type        = bool
@@ -388,8 +402,8 @@ variable "starter_pack_category" {
   type        = string
   default     = "cuopt"
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', or 'paas_rag'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', or 'enterprise_rag'."
   }
 }
 
@@ -589,6 +603,29 @@ locals {
       # Add "medium" here when implemented
       # Add "large" here when implemented
     }
+
+    "enterprise_rag" = {
+      "small" = {
+        blueprint_file                               = ""
+        deployment_name                              = "enterprise_rag"
+        worker_node_shape                            = "BM.GPU4.8"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "120"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "none"
+          ocpus         = 0
+          memory        = 0
+        }
+      }
+    }
   }
 
   # Backward compatibility - combined key for existing conditionals
@@ -640,8 +677,8 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  # GPU image needed for cuopt and vss categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss"
+  # GPU image needed for cuopt, vss, and enterprise_rag categories (GPU workloads)
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 

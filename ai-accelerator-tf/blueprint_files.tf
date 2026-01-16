@@ -20,6 +20,12 @@ locals {
       # Add "medium" here when implemented
       # Add "large" here when implemented
     }
+    # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
+    "enterprise_rag" = {
+      "small" = ""
+      # Add "medium" here when implemented
+      # Add "large" here when implemented
+    }
   }
 }
 

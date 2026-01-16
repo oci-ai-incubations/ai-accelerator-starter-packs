@@ -428,3 +428,87 @@ resource "helm_release" "milvus" {
   count      = var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
+
+resource "helm_release" "rag" {
+  name             = "rag"
+  namespace        = "rag"
+  create_namespace = true
+
+  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
+
+  repository_username = "$oauthtoken"
+  repository_password = var.ngc_secret
+
+  values = [
+    file("${path.module}/helm-values/enterprise-rag-values.yaml")
+  ]
+
+  set_sensitive = [
+    {
+      name  = "imagePullSecret.password"
+      value = var.ngc_secret
+    },
+    {
+      name  = "ngcApiSecret.password"
+      value = var.ngc_api_secret
+    }
+  ]
+
+  set = [
+    {
+      name  = "global.ngcApiKey"
+      value = var.ngc_api_secret
+    },
+    {
+      name  = "milvus.standalone.resources.limits.nvidia\\.com/gpu"
+      value = "0"
+    },
+    {
+      name  = "milvus.standalone.resources.limits.cpu"
+      value = "8"
+    },
+    {
+      name  = "milvus.standalone.resources.limits.memory"
+      value = "24Gi"
+    },
+    {
+      name  = "milvus.app_vectorstore_enablegpusearch"
+      value = "False"
+    },
+    {
+      name  = "nim-llm.image.repository"
+      value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+    },
+    {
+      name  = "nim-llm.image.tag"
+      value = "1.14.0"
+    }
+  ]
+  count      = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network]
+}
+
+resource "kubernetes_manifest" "patch_nim_llm_service_selector" {
+  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+
+  manifest = {
+    apiVersion = "v1"
+    kind       = "Service"
+    metadata = {
+      name      = "nim-llm"
+      namespace = "rag"
+    }
+    spec = {
+      selector = {
+        "statefulset.kubernetes.io/pod-name" = "rag-nim-llm-0"
+      }
+    }
+  }
+
+  field_manager {
+    name            = "terraform-selector-patch"
+    force_conflicts = true
+  }
+
+  depends_on = [helm_release.rag]
+}
