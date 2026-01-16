@@ -91,10 +91,11 @@ resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
     for_each = data.oci_identity_availability_domains.ads.availability_domains
     content {
       availability_domain = placement_configuration.value.name
+      primary_subnet_id   = local.node_subnet_id
     }
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration]
-  count      = (local.starter_pack_config.worker_node_pool_size >= 2) ? 1 : 0
+  count      = (local.should_import_nvidia_gpu_image && local.starter_pack_config.worker_node_pool_size >= 2) ? 1 : 0
 }
 
 
