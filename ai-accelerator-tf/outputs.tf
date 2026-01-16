@@ -147,6 +147,11 @@ output "starter_pack_url" {
   ) : local.public_endpoint.starter_pack
 }
 
+output "paas_rag_url" {
+  description = "Paas RAG FQDN"
+  value = var.starter_pack_category == "paas_rag" ? "https://frontend-paas.${local.fqdn.name}" : "#Paas RAG Starter Pack Disabled"
+}
+
 output "starter_pack_marketing_url" {
   description = "Starter pack marketing FQDN"
   value = var.starter_pack_category == "cuopt" ? (

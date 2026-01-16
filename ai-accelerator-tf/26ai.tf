@@ -5,13 +5,13 @@
 # Autonomous Database
 resource "oci_database_autonomous_database" "oracle_26ai" {
   compartment_id                                 = var.compartment_ocid
-  db_name                                        = var.db_name
-  display_name                                   = var.db_display_name
+  db_name                                        = "AIAccel${var.db_name}${random_string.deploy_id.result}"
+  display_name                                   = "AIAccel${var.db_display_name}${random_string.deploy_id.result}"
   admin_password                                 = var.db_password
-  compute_count                                  = var.db_compute_count
+  compute_count                                  = local.starter_pack_config.database_compute_count
   db_version                                     = "26ai"
   compute_model                                  = "ECPU"
-  data_storage_size_in_tbs                       = var.db_data_storage_size_in_tbs
+  data_storage_size_in_tbs                       = local.starter_pack_config.database_storage_size_in_tbs
   db_workload                                    = var.db_workload_type
   license_model                                  = var.db_license_model
   is_auto_scaling_enabled                        = true
@@ -249,16 +249,23 @@ locals {
     local.tnsnames_ora_content, "\r\n", "\n"
   ) : ""
 
-  # Match oracle26ai_high = ... (single line, stops at newline)
-  oracle26ai_high_match = local.needs_26ai && local.normalized_content != "" ? regex(
-    "oracle26ai_high\\s*=\\s*[^\\n]+",
+  # Get the actual database name (lowercased for tnsnames.ora)
+  db_name_lower = local.needs_26ai && length(oci_database_autonomous_database.oracle_26ai) > 0 ? lower(
+    oci_database_autonomous_database.oracle_26ai[0].db_name
+  ) : ""
+
+  # Match {db_name}_high = ... (single line, stops at newline)
+  # Use the actual database name to construct the pattern dynamically
+  # Database names are alphanumeric, so no special regex escaping needed
+  oracle26ai_high_match = local.needs_26ai && local.normalized_content != "" && local.db_name_lower != "" ? regex(
+    "${local.db_name_lower}_high\\s*=\\s*[^\\n]+",
     local.normalized_content
   ) : ""
 
   # Extract everything after the "=" sign
-  # Use simple string replace to remove "oracle26ai_high = " prefix
-  oracle26ai_high_connection_string = local.needs_26ai && local.oracle26ai_high_match != "" ? trimspace(
-    replace(local.oracle26ai_high_match, "oracle26ai_high = ", "")
+  # Use simple string replace to remove "{db_name}_high = " prefix
+  oracle26ai_high_connection_string = local.needs_26ai && local.oracle26ai_high_match != "" && local.db_name_lower != "" ? trimspace(
+    replace(local.oracle26ai_high_match, "${local.db_name_lower}_high = ", "")
   ) : ""
 }
 
