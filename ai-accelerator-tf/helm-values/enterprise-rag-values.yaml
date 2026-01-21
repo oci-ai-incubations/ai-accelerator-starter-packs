@@ -762,7 +762,7 @@ nv-ingest:
         tag: v2.5.17-gpu
     etcd:
       image:
-        repository: "docker.io/milvusdb/etcd"
+        repository: "milvusdb/etcd"
         tag: "3.5.22-r1"
     standalone:
       resources:

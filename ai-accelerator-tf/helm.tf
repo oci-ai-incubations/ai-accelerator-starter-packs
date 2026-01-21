@@ -488,27 +488,26 @@ resource "helm_release" "rag" {
   depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network]
 }
 
-resource "kubernetes_manifest" "patch_nim_llm_service_selector" {
+resource "local_sensitive_file" "kubeconfig_patch" {
+  count    = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  content  = data.oci_containerengine_cluster_kube_config.oke.content
+  filename = "${path.module}/kubeconfig_patch"
+}
+
+resource "terraform_data" "patch_nim_llm_service_selector" {
   count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
 
-  manifest = {
-    apiVersion = "v1"
-    kind       = "Service"
-    metadata = {
-      name      = "nim-llm"
-      namespace = "rag"
-    }
-    spec = {
-      selector = {
-        "statefulset.kubernetes.io/pod-name" = "rag-nim-llm-0"
-      }
-    }
-  }
+  triggers_replace = [
+    local.cluster_id,
+    "patch_nim_llm_service_selector_v1"
+  ]
 
-  field_manager {
-    name            = "terraform-selector-patch"
-    force_conflicts = true
-  }
+  depends_on = [
+    helm_release.rag,
+    local_sensitive_file.kubeconfig_patch
+  ]
 
-  depends_on = [helm_release.rag]
+  provisioner "local-exec" {
+    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n rag --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\"}}}'"
+  }
 }
