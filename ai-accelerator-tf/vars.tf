@@ -363,20 +363,22 @@ variable "kong_enabled" {
 # Corrino FQDN
 # -----------------------------------
 
-# This is populated from schema.yaml from an enumeration with one of three possible values:
-#    - nip.io
-#    - corrino-oci.com
-#    - custom
-
-variable "fqdn_domain_mode_selector" {
-  type    = string
-  default = "nip.io"
+variable "use_custom_dns" {
+  description = "Enable to use your own custom domain instead of the automatic nip.io domain."
+  type        = bool
+  default     = false
 }
 
 variable "fqdn_custom_domain" {
-  description = "Your custom FQDN can be a simple top-level domain or an A-Record for a top-level domain.  Either method requires that you modify the domain registrar records to send traffic to the load balancer public IP that is provisioned for you."
+  description = "Your custom FQDN can be a simple top-level domain or an A-Record for a top-level domain. Either method requires that you modify the domain registrar records to send traffic to the load balancer public IP that is provisioned for you."
   type        = string
   default     = ""
+}
+
+# Legacy variable - kept for backward compatibility, derived from use_custom_dns
+variable "fqdn_domain_mode_selector" {
+  type    = string
+  default = "nip.io"
 }
 
 # -----------------------------------

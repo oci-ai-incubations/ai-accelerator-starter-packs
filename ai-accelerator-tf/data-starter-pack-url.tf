@@ -1,17 +1,35 @@
 # HTTP-based data sources to dynamically fetch the starter pack URL from workspace API
-# This is only used for vss starter pack to get the correct public endpoint
+# Used for starter packs that need dynamic URL lookup (vss, paas_rag)
 
-# Step 1: Wait for the VSS deployment to become available (polls the API)
-resource "null_resource" "wait_for_vss_deployment" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+# =============================================================================
+# Configuration locals
+# =============================================================================
+locals {
+  # Categories that need dynamic URL lookup
+  needs_dynamic_url = contains(["vss", "paas_rag"], var.starter_pack_category)
+
+  # Deployment group prefix to search for in workspace recipes
+  deployment_group_prefix = {
+    "vss"      = "vss-deployment-group"
+    "paas_rag" = "erag"
+    "cuopt"    = "cuopt" # for future use
+  }
+}
+
+# =============================================================================
+# Step 1: Wait for the deployment to become available (polls the API)
+# =============================================================================
+resource "null_resource" "wait_for_deployment" {
+  count = local.needs_dynamic_url ? 1 : 0
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT
-      echo "Waiting for VSS deployment to become available..."
+      echo "Waiting for ${var.starter_pack_category} deployment to become available..."
       API_URL="${local.public_endpoint.api_origin_secure}"
       USERNAME="${var.corrino_admin_username}"
       PASSWORD="${var.corrino_admin_password}"
+      DEPLOYMENT_PREFIX="${local.deployment_group_prefix[var.starter_pack_category]}"
       MAX_ATTEMPTS=40  # 40 attempts * 30 seconds = 20 minutes max wait
       ATTEMPT=0
 
@@ -30,21 +48,21 @@ resource "null_resource" "wait_for_vss_deployment" {
           continue
         fi
 
-        # Check workspace for vss-deployment-group recipe
+        # Check workspace for deployment group recipe with Ingress type
         WORKSPACE=$(curl -sk -X GET "$API_URL/workspace/" \
           -H "Authorization: Token $TOKEN" \
           -H "Content-Type: application/json" 2>/dev/null)
 
-        if echo "$WORKSPACE" | grep -q '"vss-deployment-group.*"type":"Ingress"'; then
-          echo "VSS deployment found! Deployment is ready."
+        if echo "$WORKSPACE" | grep -q "\"$DEPLOYMENT_PREFIX.*\"type\":\"Ingress\""; then
+          echo "${var.starter_pack_category} deployment found! Deployment is ready."
           exit 0
         fi
 
-        echo "VSS deployment not ready yet, waiting 30 seconds..."
+        echo "${var.starter_pack_category} deployment not ready yet, waiting 30 seconds..."
         sleep 30
       done
 
-      echo "Timeout waiting for VSS deployment after $MAX_ATTEMPTS attempts"
+      echo "Timeout waiting for ${var.starter_pack_category} deployment after $MAX_ATTEMPTS attempts"
       exit 1
     EOT
   }
@@ -52,9 +70,11 @@ resource "null_resource" "wait_for_vss_deployment" {
   depends_on = [kubernetes_job_v1.blueprint_deployment_job]
 }
 
+# =============================================================================
 # Step 2: Authenticate with the Corrino API to get a token
-data "http" "vss_auth" {
-  count  = var.starter_pack_category == "vss" ? 1 : 0
+# =============================================================================
+data "http" "starter_pack_auth" {
+  count  = local.needs_dynamic_url ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/login/"
   method = "POST"
 
@@ -66,49 +86,54 @@ data "http" "vss_auth" {
 
   insecure = true # Allow self-signed certificates
 
-  depends_on = [null_resource.wait_for_vss_deployment]
+  depends_on = [null_resource.wait_for_deployment]
 }
 
+# =============================================================================
 # Step 3: Fetch workspace info using the authentication token
-data "http" "vss_workspace" {
-  count  = var.starter_pack_category == "vss" ? 1 : 0
+# =============================================================================
+data "http" "starter_pack_workspace" {
+  count  = local.needs_dynamic_url ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/workspace/"
   method = "GET"
 
   request_headers = {
-    Authorization = "Token ${jsondecode(data.http.vss_auth[0].response_body).token}"
+    Authorization = "Token ${jsondecode(data.http.starter_pack_auth[0].response_body).token}"
     Content-Type  = "application/json"
   }
 
   insecure = true # Allow self-signed certificates
 
-  depends_on = [data.http.vss_auth]
+  depends_on = [data.http.starter_pack_auth]
 }
 
-# Local to extract the VSS deployment URL from the workspace response
+# =============================================================================
+# Extract the deployment URL from the workspace response
+# =============================================================================
 locals {
   # Parse workspace response - it's a single object with recipes directly at root level
-  vss_workspace_data = var.starter_pack_category == "vss" ? (
-    try(jsondecode(data.http.vss_workspace[0].response_body), null)
+  workspace_data = local.needs_dynamic_url ? (
+    try(jsondecode(data.http.starter_pack_workspace[0].response_body), null)
   ) : null
 
   # Get recipes from the workspace data (directly at root, not nested under digest)
-  vss_recipes = local.vss_workspace_data != null ? try(local.vss_workspace_data.recipes, {}) : {}
+  recipes = local.workspace_data != null ? try(local.workspace_data.recipes, {}) : {}
 
-  # Find the first recipe that starts with "vss-deployment-group" and has type "Ingress"
-  vss_matching_recipes = [
-    for name, info in local.vss_recipes :
+  # Find matching recipes using the category-specific prefix
+  matching_recipes = local.needs_dynamic_url ? [
+    for name, info in local.recipes :
     info.public_endpoint
-    if startswith(name, "vss-deployment-group") && try(info.type, "") == "Ingress" && try(info.public_endpoint, "") != ""
-  ]
+    if startswith(name, local.deployment_group_prefix[var.starter_pack_category]) && try(info.type, "") == "Ingress" && try(info.public_endpoint, "") != ""
+  ] : []
 
-  # Get the URL or fall back to the static URL
-  vss_dynamic_url = length(local.vss_matching_recipes) > 0 ? local.vss_matching_recipes[0] : ""
+  # Single dynamic URL that works for all categories
+  dynamic_url = length(local.matching_recipes) > 0 ? local.matching_recipes[0] : ""
 }
 
-# Starter pack URL for cuopt
-# TODO: This is a temporary solution to get the correct URL for the cuopt starter pack
+# =============================================================================
+# Starter pack URL for cuopt (static pattern)
+# =============================================================================
 locals {
-  cuopt_url = var.cuopt_marketing_enabled ? "cuopt-cuopt.${local.fqdn.name}" : local.public_endpoint.starter_pack
+  cuopt_url           = var.cuopt_marketing_enabled ? "cuopt-cuopt.${local.fqdn.name}" : local.public_endpoint.starter_pack
   cuopt_marketing_url = var.cuopt_marketing_enabled ? "demo-cuopt.${local.fqdn.name}" : "#Marketing Disabled"
 }

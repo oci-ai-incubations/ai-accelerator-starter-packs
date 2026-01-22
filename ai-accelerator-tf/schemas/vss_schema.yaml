@@ -56,6 +56,12 @@ variableGroups:
       - corrino_admin_password
       - corrino_admin_email
 
+  - title: "Advanced Options"
+    variables:
+      - skip_capacity_check
+      - use_custom_dns
+      - fqdn_custom_domain
+
 # =============================================================================
 # Variables - VSS specific
 # =============================================================================

@@ -140,10 +140,8 @@ output "starter_pack_deployment_name" {
 
 output "starter_pack_url" {
   description = "Starter pack FQDN"
-  value = var.starter_pack_category == "vss" ? (
-    local.vss_dynamic_url != "" ?
-    local.vss_dynamic_url :
-    local.public_endpoint.starter_pack
+  value = local.needs_dynamic_url ? (
+    local.dynamic_url != "" ? local.dynamic_url : local.public_endpoint.starter_pack
   ) : local.public_endpoint.starter_pack
 }
 

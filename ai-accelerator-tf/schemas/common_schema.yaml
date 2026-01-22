@@ -29,6 +29,7 @@ outputGroups:
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
+      - external_ip
 
   - title: "Management & API"
     outputs:
@@ -80,6 +81,8 @@ variableGroups:
   - title: "Advanced Options"
     variables:
       - skip_capacity_check
+      - use_custom_dns
+      - fqdn_custom_domain
 
 # =============================================================================
 # Variables - Common definitions
@@ -330,19 +333,32 @@ variables:
     type: string
     visible: false
 
-  fqdn_domain_mode_selector:
-    type: string
-    visible: false
+  use_custom_dns:
+    type: boolean
+    title: "Use Custom DNS"
+    description: "Enable to use your own domain instead of the automatic nip.io domain. Recommended for production deployments."
+    default: false
+    required: false
 
   fqdn_custom_domain:
     type: string
-    visible: false
+    title: "Custom Domain"
+    description: "Your domain (e.g., ai.mycompany.com). After deployment, create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in outputs."
+    required: true
+    visible:
+      eq:
+        - use_custom_dns
+        - true
 
   cuopt_marketing_enabled:
     type: boolean
     visible: false
 
   nip_io_domain:
+    type: string
+    visible: false
+
+  fqdn_domain_mode_selector:
     type: string
     visible: false
 
@@ -376,6 +392,15 @@ variables:
 
   oci_tag_values:
     type: map
+    visible: false
+
+  # cuOpt-specific variables - hidden by default, overridden in cuopt_schema.yaml
+  cuopt_marketing_enabled:
+    type: boolean
+    visible: false
+
+  genai_region:
+    type: string
     visible: false
 
 # =============================================================================
@@ -433,7 +458,9 @@ outputs:
     visible: true
 
   external_ip:
-    title: "External IP"
+    type: string
+    title: "Load Balancer IP (for DNS configuration)"
+    description: "Configure your DNS A-record to point to this IP address. For custom domains, create a wildcard record: *.yourdomain.com -> this IP"
     visible: true
 
   db_username:

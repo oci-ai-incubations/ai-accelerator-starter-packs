@@ -198,10 +198,10 @@ locals {
   }
 
   fqdn = {
-    name                = var.fqdn_domain_mode_selector == local.domain.custom_mode ? local.domain.custom_fqdn : (var.fqdn_domain_mode_selector == local.domain.nip_io_mode ? local.domain.nip_io_fqdn : local.domain.corrino_oci_fqdn)
-    is_nip_io_mode      = var.fqdn_domain_mode_selector == local.domain.nip_io_mode ? true : false
-    is_corrino_com_mode = var.fqdn_domain_mode_selector == local.domain.corrino_oci_mode ? true : false
-    is_custom_mode      = var.fqdn_domain_mode_selector == local.domain.custom_mode ? true : false
+    name                = var.use_custom_dns ? local.domain.custom_fqdn : local.domain.nip_io_fqdn
+    is_nip_io_mode      = !var.use_custom_dns
+    is_corrino_com_mode = false
+    is_custom_mode      = var.use_custom_dns
   }
 
   public_endpoint = {
