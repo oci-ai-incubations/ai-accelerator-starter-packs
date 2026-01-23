@@ -2,20 +2,6 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 # 
 
-variable "ngc_secret" {
-  type        = string
-  default     = "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"
-  sensitive   = true
-  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
-}
-
-variable "ngc_api_secret" {
-  type        = string
-  default     = "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"
-  sensitive   = true
-  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
-}
-
 # Authentication Configuration
 variable "use_instance_principal" {
   type        = bool
@@ -514,6 +500,7 @@ locals {
       "small" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
+        app_namespace                                = "default"
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -534,6 +521,7 @@ locals {
       "medium" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
+        app_namespace                                = "default"
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -558,6 +546,7 @@ locals {
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
+        app_namespace                                = "default"
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
@@ -583,6 +572,7 @@ locals {
       "small" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "erag"
+        app_namespace                                = "default"
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -607,7 +597,8 @@ locals {
     "enterprise_rag" = {
       "small" = {
         blueprint_file                               = ""
-        deployment_name                              = "enterprise_rag"
+        deployment_name                              = "enterprise-rag"
+        app_namespace                                = "rag"
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0

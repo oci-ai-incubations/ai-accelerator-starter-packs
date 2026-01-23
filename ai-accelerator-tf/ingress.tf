@@ -151,7 +151,7 @@ resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
   wait_for_load_balancer = true
   metadata {
     name      = "enterprise-rag-frontend-ingress"
-    namespace = "rag"
+    namespace = local.starter_pack_config.app_namespace
     annotations = {
       "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
       "nginx.ingress.kubernetes.io/rewrite-target" = "/"

@@ -431,13 +431,14 @@ resource "helm_release" "milvus" {
 
 resource "helm_release" "rag" {
   name             = "rag"
-  namespace        = "rag"
+  namespace        = local.starter_pack_config.app_namespace
   create_namespace = true
 
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
 
   repository_username = "$oauthtoken"
-  repository_password = var.ngc_secret
+
+  timeout = 5400 # Increase timeout to 90 minutes
 
   values = [
     file("${path.module}/helm-values/enterprise-rag-values.yaml")
@@ -445,19 +446,39 @@ resource "helm_release" "rag" {
 
   set_sensitive = [
     {
-      name  = "imagePullSecret.password"
-      value = var.ngc_secret
+      name  = "envVars.MINIO_ACCESSKEY"
+      value = random_string.minio_access_key.result
     },
     {
-      name  = "ngcApiSecret.password"
-      value = var.ngc_api_secret
+      name  = "envVars.MINIO_SECRETKEY"
+      value = random_password.minio_secret_key.result
+    },
+    {
+      name  = "ingestor-server.envVars.MINIO_ACCESSKEY"
+      value = random_string.minio_access_key.result
+    },
+    {
+      name  = "ingestor-server.envVars.MINIO_SECRETKEY"
+      value = random_password.minio_secret_key.result
+    },
+    {
+      name  = "nv-ingest.milvus.minio.accessKey"
+      value = random_string.minio_access_key.result
+    },
+    {
+      name  = "nv-ingest.milvus.minio.secretKey"
+      value = random_password.minio_secret_key.result
     }
   ]
 
   set = [
     {
-      name  = "global.ngcApiKey"
-      value = var.ngc_api_secret
+      name  = "imagePullSecret.create"
+      value = "false"
+    },
+    {
+      name  = "ngcApiSecret.create"
+      value = "false"
     },
     {
       name  = "milvus.standalone.resources.limits.nvidia\\.com/gpu"
@@ -508,6 +529,6 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
   ]
 
   provisioner "local-exec" {
-    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n rag --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\"}}}'"
+    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\"}}}'"
   }
 }

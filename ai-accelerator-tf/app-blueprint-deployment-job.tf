@@ -24,7 +24,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
           image_pull_policy = "Always"
           command           = ["/bin/sh", "-c"]
           args = [
-            "python3 /app/configure_oke.py"
+            "python3 /app/configure_oke.py -n ${local.starter_pack_config.app_namespace}"
           ]
         }
       }

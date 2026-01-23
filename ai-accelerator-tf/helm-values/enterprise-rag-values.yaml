@@ -91,9 +91,10 @@ envVars:
   LLM_API_KEY: ""
 
   ##===MINIO specific configurations used to store multimodal base64 content===
+  ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
   MINIO_ENDPOINT: "rag-minio:9000"
-  MINIO_ACCESSKEY: "minioadmin"
-  MINIO_SECRETKEY: "minioadmin"
+  MINIO_ACCESSKEY: REPLACE_HERE
+  MINIO_SECRETKEY: REPLACE_HERE
 
   ##===Vector DB specific configurations===
   # URL on which vectorstore is hosted
@@ -276,11 +277,11 @@ ingestor-server:
     APP_VECTORSTORE_ENABLEGPUINDEX: "True"
     APP_VECTORSTORE_ENABLEGPUSEARCH: "True"
     COLLECTION_NAME: "multimodal_data"
-
+    ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
     # === MinIO Configurations ===
     MINIO_ENDPOINT: "rag-minio:9000"
-    MINIO_ACCESSKEY: "minioadmin"
-    MINIO_SECRETKEY: "minioadmin"
+    MINIO_ACCESSKEY: REPLACE_HERE
+    MINIO_SECRETKEY: REPLACE_HERE
 
     # === Authentication ===
     # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -537,25 +538,25 @@ zipkin:
   enabled: false
 
 # subsection: kube-prometheus-stack
-kube-prometheus-stack:
-  enabled: false
-  prometheus:
-    serviceMonitor:
-      interval: "1s"
-    prometheusSpec:
-      scrapeInterval: "1s"
-      evaluationInterval: "1s"
-      additionalScrapeConfigs:
-        - job_name: rag-app
-          scrape_interval: 5s
-          metrics_path: /metrics
-          static_configs:
-            - targets:
-                # If the app is in another namespace, use rag-server.<namespace>.svc:8081
-                - rag-server:8081
-  grafana:
-    adminUser: admin
-    adminPassword: "admin"
+# kube-prometheus-stack:
+#   enabled: false
+#   prometheus:
+#     serviceMonitor:
+#       interval: "1s"
+#     prometheusSpec:
+#       scrapeInterval: "1s"
+#       evaluationInterval: "1s"
+#       additionalScrapeConfigs:
+#         - job_name: rag-app
+#           scrape_interval: 5s
+#           metrics_path: /metrics
+#           static_configs:
+#             - targets:
+#                 # If the app is in another namespace, use rag-server.<namespace>.svc:8081
+#                 - rag-server:8081
+#   grafana:
+#     adminUser: REPLACE_HERE
+#     adminPassword: REPLACE_HERE
 
 # -- NIMs (dependencies) configuration
 # subsection: nim-llm
@@ -771,9 +772,10 @@ nv-ingest:
     minio:
       image:
         repository: docker.io/minio/minio
-        tag: "RELEASE.2025-09-07T16-13-09Z"
-      accessKey: minioadmin
-      secretKey: minioadmin
+        tag: "RELEASE.2025-09-07T16-13-09Z" 
+      ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
+      accessKey: REPLACE_HERE
+      secretKey: REPLACE_HERE
       bucketName: nv-ingest
     fullnameOverride: milvus
 
