@@ -621,7 +621,7 @@ locals {
             recipe_id = "frontend",
             deployment_name = "frontend",
             recipe_mode = "service",
-            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:skynet-paas",
+            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oracle-net-frontend",
             recipe_replica_count = 1,
             recipe_flex_shape_ocpu_count = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
