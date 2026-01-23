@@ -387,7 +387,7 @@ variable "starter_pack_category" {
   description = "The starter pack category. Set via starter_pack_category.auto.tfvars"
   type        = string
   # No default here - schema.yaml provides the default for Resource Manager portal
-  # Default is set in schema.yaml per category (paas_rag, cuopt, vss)
+  # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
     condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag"], var.starter_pack_category)
     error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', or 'enterprise_rag'."
@@ -578,9 +578,8 @@ locals {
     "paas_rag" = {
       "small" = {
         blueprint_file                               = "paas-rag-blueprint.json"
-        deployment_name                              = "erag"
-        app_namespace                                = "default"
         deployment_name                              = "paas"
+        app_namespace                                = "default"
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -625,6 +624,7 @@ locals {
       }
       # Add "large" here when implemented
     }
+
 
     "enterprise_rag" = {
       "small" = {
@@ -700,7 +700,7 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  # GPU image needed for cuopt, vss, and enterprise_rag categories (GPU workloads)
+  # GPU image needed for cuopt and vss categories (GPU workloads)
   should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }

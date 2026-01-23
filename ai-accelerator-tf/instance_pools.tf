@@ -77,7 +77,7 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
     }
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration, terraform_data.capacity_validated]
-  count      = (local.should_import_nvidia_gpu_image && local.starter_pack_config.worker_node_pool_size < 2) ? 1 : 0
+  count      = local.should_import_nvidia_gpu_image ? 1 : 0
 }
 
 resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
@@ -95,7 +95,7 @@ resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
     }
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration, terraform_data.capacity_validated]
-  count      = (local.should_import_nvidia_gpu_image && local.starter_pack_config.worker_node_pool_size >= 2) ? 1 : 0
+  count      = 0
 }
 
 
