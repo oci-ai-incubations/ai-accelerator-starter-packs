@@ -61,7 +61,7 @@ def represent_str(dumper, data):
 
 def get_args():
     parser = argparse.ArgumentParser(description="Generate schema.yaml from common and category-specific schemas")
-    parser.add_argument("-c", "--category", choices=["cuopt", "paas_rag", "vss"], required=True, help="Category to generate schema for (cuopt, vss, paas_rag)")
+    parser.add_argument("-c", "--category", choices=["cuopt", "paas_rag", "vss", "enterprise_rag"], required=True, help="Category to generate schema for (cuopt, vss, paas_rag, enterprise_rag)")
     return parser.parse_args()
 
 def main():

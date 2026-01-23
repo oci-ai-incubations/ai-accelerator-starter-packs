@@ -1,0 +1,106 @@
+# =============================================================================
+# NVIDIA Enterprise RAG - Schema Overrides
+# =============================================================================
+# Only contains differences from common_schema.yaml
+# Enterprise RAG is deployed via Helm, NOT OCI AI Blueprints
+# Does NOT need Oracle 26ai database
+
+title: "NVIDIA Enterprise RAG Starter Pack"
+description: "GPU-Accelerated Enterprise Retrieval-Augmented Generation"
+informationalText: |
+  Deploy NVIDIA Enterprise RAG on OCI's high-performance GPU infrastructure.
+  
+  This starter pack deploys a complete RAG pipeline including:
+  - NVIDIA NIM for LLM inference (Llama 3.3 Nemotron)
+  - Embedding and Reranking NIMs
+  - Milvus vector database
+  - NV-Ingest for document processing
+  - RAG Server and Frontend
+  
+  Note: This deployment is managed via Helm charts, not OCI AI Blueprints.
+
+# =============================================================================
+# Output Groups - Simplified for Helm-based deployment
+# =============================================================================
+outputGroups:
+  - title: "Enterprise RAG Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variable Groups - Remove database section
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+# =============================================================================
+# Variables - Enterprise RAG specific
+# =============================================================================
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "Enterprise RAG Deployment Size"
+    description: "<strong>SMALL</strong> - 2x BM.GPU4.8 (8x A100 40GB each), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 500GB storage, 1 Flexible Load Balancer"
+    default: small
+    required: true
+
+  # Hide database variables (not needed for enterprise_rag)
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+# =============================================================================
+# Outputs - Enterprise RAG specific titles, hide database
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: link
+    title: "Open Enterprise RAG Service"
+    displayText: "Open Enterprise RAG Service"
+
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+  autonomous_database_name:
+    visible: false
+
+  autonomous_database_id:
+    visible: false
+

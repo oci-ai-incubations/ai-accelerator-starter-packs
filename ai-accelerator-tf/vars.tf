@@ -387,10 +387,10 @@ variable "starter_pack_category" {
   description = "The starter pack category. Set via starter_pack_category.auto.tfvars"
   type        = string
   # No default here - schema.yaml provides the default for Resource Manager portal
-  # Default is set in schema.yaml per category (paas_rag, cuopt, vss)
+  # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', or 'paas_rag'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', or 'enterprise_rag'."
   }
 }
 
@@ -501,6 +501,7 @@ locals {
       "small" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
+        app_namespace                                = "default"
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -523,6 +524,7 @@ locals {
       "medium" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
+        app_namespace                                = "default"
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -549,6 +551,7 @@ locals {
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
+        app_namespace                                = "default"
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
@@ -576,6 +579,7 @@ locals {
       "small" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
+        app_namespace                                = "default"
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -619,6 +623,31 @@ locals {
         database_compute_count = 16
       }
       # Add "large" here when implemented
+    }
+
+
+    "enterprise_rag" = {
+      "small" = {
+        blueprint_file                               = ""
+        deployment_name                              = "enterprise-rag"
+        app_namespace                                = "rag"
+        worker_node_shape                            = "BM.GPU4.8"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "120"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "none"
+          ocpus         = 0
+          memory        = 0
+        }
+      }
     }
   }
 
@@ -671,8 +700,8 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  # GPU image needed for cuopt and vss categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss"
+  # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 

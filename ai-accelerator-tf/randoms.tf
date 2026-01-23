@@ -91,3 +91,13 @@ resource "random_uuid" "registration_id" {
 #  special = false
 #  upper   = false
 #}
+
+resource "random_string" "minio_access_key" {
+  length  = 20
+  special = false
+}
+
+resource "random_password" "minio_secret_key" {
+  length  = 40
+  special = false
+}

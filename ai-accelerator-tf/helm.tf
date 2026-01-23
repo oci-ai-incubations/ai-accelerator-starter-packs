@@ -428,3 +428,107 @@ resource "helm_release" "milvus" {
   count      = var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
+
+resource "helm_release" "rag" {
+  name             = "rag"
+  namespace        = local.starter_pack_config.app_namespace
+  create_namespace = true
+
+  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
+
+  repository_username = "$oauthtoken"
+
+  timeout = 5400 # Increase timeout to 90 minutes
+
+  values = [
+    file("${path.module}/helm-values/enterprise-rag-values.yaml")
+  ]
+
+  set_sensitive = [
+    {
+      name  = "envVars.MINIO_ACCESSKEY"
+      value = random_string.minio_access_key.result
+    },
+    {
+      name  = "envVars.MINIO_SECRETKEY"
+      value = random_password.minio_secret_key.result
+    },
+    {
+      name  = "ingestor-server.envVars.MINIO_ACCESSKEY"
+      value = random_string.minio_access_key.result
+    },
+    {
+      name  = "ingestor-server.envVars.MINIO_SECRETKEY"
+      value = random_password.minio_secret_key.result
+    },
+    {
+      name  = "nv-ingest.milvus.minio.accessKey"
+      value = random_string.minio_access_key.result
+    },
+    {
+      name  = "nv-ingest.milvus.minio.secretKey"
+      value = random_password.minio_secret_key.result
+    }
+  ]
+
+  set = [
+    {
+      name  = "imagePullSecret.create"
+      value = "false"
+    },
+    {
+      name  = "ngcApiSecret.create"
+      value = "false"
+    },
+    {
+      name  = "milvus.standalone.resources.limits.nvidia\\.com/gpu"
+      value = "0"
+    },
+    {
+      name  = "milvus.standalone.resources.limits.cpu"
+      value = "8"
+    },
+    {
+      name  = "milvus.standalone.resources.limits.memory"
+      value = "24Gi"
+    },
+    {
+      name  = "milvus.app_vectorstore_enablegpusearch"
+      value = "False"
+    },
+    {
+      name  = "nim-llm.image.repository"
+      value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+    },
+    {
+      name  = "nim-llm.image.tag"
+      value = "1.14.0"
+    }
+  ]
+  count      = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network]
+}
+
+resource "local_sensitive_file" "kubeconfig_patch" {
+  count    = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  content  = data.oci_containerengine_cluster_kube_config.oke.content
+  filename = "${path.module}/kubeconfig_patch"
+}
+
+resource "terraform_data" "patch_nim_llm_service_selector" {
+  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+
+  triggers_replace = [
+    local.cluster_id,
+    "patch_nim_llm_service_selector_v1"
+  ]
+
+  depends_on = [
+    helm_release.rag,
+    local_sensitive_file.kubeconfig_patch
+  ]
+
+  provisioner "local-exec" {
+    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\"}}}'"
+  }
+}

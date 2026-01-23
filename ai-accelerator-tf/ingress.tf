@@ -104,7 +104,7 @@ resource "kubernetes_ingress_v1" "corrino_cp_ingress" {
     }
   }
   depends_on = [helm_release.ingress_nginx]
-  count = var.ingress_nginx_enabled ? 1 : 0
+  count      = var.ingress_nginx_enabled ? 1 : 0
 }
 
 resource "kubernetes_ingress_v1" "oci_ai_blueprints_portal_ingress" {
@@ -140,7 +140,48 @@ resource "kubernetes_ingress_v1" "oci_ai_blueprints_portal_ingress" {
     }
   }
   depends_on = [helm_release.ingress_nginx]
-  count = var.ingress_nginx_enabled ? 1 : 0
+  count      = var.ingress_nginx_enabled ? 1 : 0
+}
+
+## Enterprise RAG Frontend Ingress
+## Only created when starter_pack_category is enterprise_rag
+resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
+  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+
+  wait_for_load_balancer = true
+  metadata {
+    name      = "enterprise-rag-frontend-ingress"
+    namespace = local.starter_pack_config.app_namespace
+    annotations = {
+      "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    tls {
+      hosts       = [local.public_endpoint.starter_pack]
+      secret_name = "enterprise-rag-frontend-tls"
+    }
+    rule {
+      host = local.public_endpoint.starter_pack
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "rag-frontend"
+              port {
+                number = 3000
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  depends_on = [helm_release.ingress_nginx, helm_release.rag, terraform_data.patch_nim_llm_service_selector]
 }
 
 ## Data source for ingress controller service

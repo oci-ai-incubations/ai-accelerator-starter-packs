@@ -1,5 +1,7 @@
 # ConfigMap to hold the blueprint JSON file
+# Not created for enterprise_rag since it's deployed via Helm, not OCI AI Blueprints
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
+  count = var.starter_pack_category != "enterprise_rag" ? 1 : 0
   metadata {
     name = "blueprint-config"
   }
@@ -22,7 +24,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
           image_pull_policy = "Always"
           command           = ["/bin/sh", "-c"]
           args = [
-            "python3 /app/configure_oke.py"
+            "python3 /app/configure_oke.py -n ${local.starter_pack_config.app_namespace}"
           ]
         }
       }
@@ -41,7 +43,9 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   count = var.is_nvaie_enabled ? 1 : 0
 }
 
+# Blueprint deployment job - not used for enterprise_rag since it's deployed via Helm
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
+  count = var.starter_pack_category != "enterprise_rag" ? 1 : 0
   metadata {
     name = "blueprint-deployment-job"
   }
@@ -80,7 +84,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
         volume {
           name = "blueprint-volume"
           config_map {
-            name = kubernetes_config_map_v1.blueprint_config_map.metadata[0].name
+            name = kubernetes_config_map_v1.blueprint_config_map[0].metadata[0].name
           }
         }
 
@@ -104,5 +108,4 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_service_v1.postgres,
     kubernetes_job_v1.wallet_extractor_job,
   ]
-  count = 1
 }
