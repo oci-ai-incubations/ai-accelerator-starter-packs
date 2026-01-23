@@ -700,7 +700,7 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  # GPU image needed for cuopt and vss categories (GPU workloads)
+  # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
   should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
