@@ -6,6 +6,10 @@ data "oci_core_services" "all_services" {
     }
 }
 
+data "oci_identity_user" "user" {
+    user_id = var.user_ocid
+}
+
 data "oci_identity_availability_domains" "ads" {
     compartment_id = var.tenancy_ocid
 }
@@ -35,4 +39,9 @@ data "oci_core_images" "oracle_linux" {
 data "oci_containerengine_cluster_kube_config" "oke" {
     cluster_id = local.oke_cluster.id
     token_version = "2.0.0"
+}
+
+# Get Object Storage namespace
+data "oci_objectstorage_namespace" "ns" {
+    compartment_id = var.compartment_ocid
 }

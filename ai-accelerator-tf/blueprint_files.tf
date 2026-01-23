@@ -597,7 +597,12 @@ locals {
               { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { "key" = "OCI_REGION", value = var.genai_region },
               { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
-              { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"}
+              { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"},
+              { "key" = "S3_BUCKET_NAME", value = oci_objectstorage_bucket.paas_rag_bucket[0].name },
+              { "key" = "AWS_REGION", value = var.region },
+              { "key" = "AWS_ACCESS_KEY_ID", value = oci_identity_customer_secret_key[0].id },
+              { "key" = "AWS_SECRET_ACCESS_KEY", value = oci_identity_customer_secret_key[0].key },
+              { "key" = "S3_ENDPOINT_URL", value = "https://${oci_objectstorage_bucket.paas_rag_bucket[0].object_storage_namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" }
             ],
             pvcs = {
               retain_after_undeploy = false

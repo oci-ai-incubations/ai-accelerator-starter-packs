@@ -98,10 +98,14 @@ providers:
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
   files:
-  - provider_id: meta-reference-files
-    provider_type: inline::localfs
+  - provider_id: oci
+    provider_type: remote::s3
     config:
-      storage_dir: ${env.FILES_STORAGE_DIR:=~/.llama/distributions/oci/files}
+      bucket_name: "${env.S3_BUCKET_NAME}"
+      region: "${env.AWS_REGION:=us-east-1}"
+      aws_access_key_id: "${env.AWS_ACCESS_KEY_ID:=}"
+      aws_secret_access_key: "${env.AWS_SECRET_ACCESS_KEY:=}"
+      endpoint_url: "${env.S3_ENDPOINT_URL:=}"
       metadata_store:
         table_name: files_metadata
         backend: sql_default
