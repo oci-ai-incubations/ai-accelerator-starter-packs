@@ -81,7 +81,29 @@ locals {
       name = local.starter_pack_deployment_name
       deployments = [
         {
+          name = "llamastack",
+          exports = ["service_name"],
+          recipe = {
+            recipe_id                            = "llamastack",
+            deployment_name                      = "llamastack",
+            recipe_mode                          = "service",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9",
+            recipe_replica_count                 = 1,
+            recipe_flex_shape_ocpu_count         = 1,
+            recipe_flex_shape_memory_size_in_gbs = 8,
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_port                = "8321",
+            recipe_container_env = [
+              { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
+              { key = "OCI_REGION", value = var.genai_region },
+              { key = "OCI_AUTH_TYPE", value = "instance_principal" },
+            ]
+          }
+        },
+        {
           name = "cuopt"
+          exports = ["service_name"]
           recipe = {
             recipe_id                                    = "cuopt"
             recipe_mode                                  = "service"
@@ -131,43 +153,38 @@ locals {
               initial_delay_seconds = 20
             }
           }
-          exports = ["internal_dns_name"]
         },
         {
-          name = "llamastack",
+          name       =    "demo",
+          exports    =    ["service_name"],
+          depends_on =    ["cuopt", "llamastack"],
           recipe = {
-            recipe_id                            = "llamastack",
-            deployment_name                      = "llamastack",
-            recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9",
-            recipe_replica_count                 = 1,
-            recipe_flex_shape_ocpu_count         = 1,
-            recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
-            recipe_use_shared_node_pool          = true,
-            recipe_container_port                = "8321",
-            recipe_container_env = [
-              { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
-              { key = "OCI_REGION", value = var.genai_region },
-              { key = "OCI_AUTH_TYPE", value = "instance_principal" },
-            ]
-          }
-          exports = ["internal_dns_name"]
-        },
-        {
-          name       = "cuopt-demo",
-          depends_on = ["llamastack", "cuopt"],
-          recipe = {
-            recipe_id                            = "cuopt-demo",
-            deployment_name                      = "cuopt-demo",
+            recipe_id                            = "demo",
+            deployment_name                      = "demo",
             recipe_mode                          = "service",
             recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.1",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 1,
             recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "3000",
+            recipe_additional_ingress_ports = [
+              {
+                port_name    = "cuopt"
+                service_name = "$${cuopt.service_name}"
+                port         = 5000
+                path         = "/cuopt"
+                path_type    = "Prefix"
+              },
+              {
+                port_name    = "llamastack"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1"
+                path_type    = "Prefix"
+              }
+            ]
           }
         }
       ]
@@ -176,7 +193,7 @@ locals {
 
   _vss_small_blueprint = jsonencode({
     deployment_group = {
-      name = join("-", [local.starter_pack_deployment_name, "2"])
+      name = join("-", [local.starter_pack_deployment_name, "3"])
       deployments = [
         {
           name = "elasticsearch"
@@ -197,7 +214,7 @@ locals {
             recipe_container_port = "9200"
             recipe_host_port      = "9200"
             recipe_additional_ingress_ports = [
-              { name = "transport", port = 9300, path = "/" }
+              { port_name = "transport", port = 9300, path = "/" }
             ]
           }
           exports = ["internal_dns_name"]
@@ -214,7 +231,7 @@ locals {
             recipe_container_port       = "7687"
             recipe_host_port            = "7687"
             recipe_additional_ingress_ports = [
-              { name = "http", port = 7474, path = "/" }
+              { port_name = "http", port = 7474, path = "/" }
             ]
             recipe_container_command = ["bash", "/opt/scripts/start.sh"]
             recipe_configmaps = [
@@ -560,15 +577,16 @@ locals {
       deployments = [
         {
           name = "llamastack"
+          exports = ["service_name"]
           recipe = {
             recipe_id                   = "llamastack"
-            deployment_name             = "llamastack"
             recipe_mode                 = "service"
+            deployment_name             = "llamastack"
             recipe_node_shape           = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
             recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
             recipe_use_shared_node_pool = true
             recipe_replica_count        = 1
-            recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack26ai_2bd26"
+            recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d5848b"
             recipe_container_env = [
               { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
               { "key" = "OCI26AI_USER", value = var.db_username },
@@ -578,14 +596,82 @@ locals {
               { "key" = "OCI26AI_EWALLET_PEM_LOC", value = "/wallet" },
               { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { "key" = "OCI_REGION", value = var.genai_region },
-              { "key" = "OCI_AUTH_TYPE", value = "instance_principal" }
+              { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
+              { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"}
             ],
+            pvcs = {
+              retain_after_undeploy = false
+              volumes = [
+                { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
+              ]
+            }
             recipe_secret_mounts = [
-              { "name" = "oadb-wallet", "mount_location" = "/wallet" }
+              { "name" = "oadb-wallet", "mount_location" = "/wallet" },
+              { "name" = "llamastack-config", "mount_location" = "/app" }
             ]
             recipe_container_port                = "8321"
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 32
+            recipe_flex_shape_ocpu_count         = 8
+            recipe_flex_shape_memory_size_in_gbs = 64
+          },
+        },
+        {
+          name = "frontend",
+          depends_on = ["llamastack"],
+          recipe = {
+            recipe_id = "frontend",
+            deployment_name = "frontend",
+            recipe_mode = "service",
+            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:skynet-paas",
+            recipe_replica_count = 1,
+            recipe_flex_shape_ocpu_count = 4,
+            recipe_flex_shape_memory_size_in_gbs = 32,
+            recipe_node_shape = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool = true,
+            recipe_container_port = "3000",
+            recipe_additional_ingress_ports = [
+              {
+                port_name    = "models"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1/models"
+                path_type    = "Prefix"
+              },
+              {
+                port_name    = "health"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1/health"
+                path_type    = "Prefix"
+              },
+              {
+                port_name    = "responses"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1/responses"
+                path_type    = "Prefix"
+              },
+              {
+                port_name    = "vectorstores"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1/vector_stores"
+                path_type    = "Prefix"
+              },
+              {
+                port_name    = "files"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1/files"
+                path_type    = "Prefix"
+              },
+              {
+                port_name    = "base"
+                service_name = "$${llamastack.service_name}"
+                port         = 8321
+                path         = "/v1"
+                path_type    = "Prefix"
+              }
+            ]
           }
         }
       ]

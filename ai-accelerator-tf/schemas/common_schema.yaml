@@ -338,6 +338,10 @@ variables:
     type: string
     visible: false
 
+  cuopt_marketing_enabled:
+    type: boolean
+    visible: false
+
   nip_io_domain:
     type: string
     visible: false
