@@ -41,6 +41,18 @@ def get_category_from_tfvars(tfvars_path: Path) -> str:
     return match.group(1)
 
 
+def update_tfvars_category(tfvars_path: Path, category: str) -> None:
+    """Update starter_pack_category in .auto.tfvars file."""
+    content = tfvars_path.read_text()
+    # Replace the category value, preserving the rest of the file
+    updated_content = re.sub(
+        r'(starter_pack_category\s*=\s*)"[^"]*"',
+        f'\\1"{category}"',
+        content
+    )
+    tfvars_path.write_text(updated_content)
+
+
 def represent_str(dumper, data):
     """Custom string representer to handle multiline strings nicely."""
     if '\n' in data:
@@ -60,6 +72,14 @@ def main():
     script_dir = Path(__file__).parent
     tf_dir = script_dir / "ai-accelerator-tf"
     schemas_dir = tf_dir / "schemas"
+    
+    # Update starter_pack_category in .auto.tfvars file
+    tfvars_path = tf_dir / "starter_pack_category.auto.tfvars"
+    if tfvars_path.exists():
+        print(f"Updating {tfvars_path} with category: {category}")
+        update_tfvars_category(tfvars_path, category)
+    else:
+        print(f"Warning: {tfvars_path} not found, skipping update")
     
     # Load common schema
     common_path = schemas_dir / "common_schema.yaml"

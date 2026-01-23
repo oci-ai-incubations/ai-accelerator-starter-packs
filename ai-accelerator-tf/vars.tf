@@ -324,7 +324,7 @@ variable "oci_tag_values" {
 }
 
 variable "stack_version" {
-  default     = "v1.0.10"
+  default     = "v1.0.11"
   description = "backend version"
 }
 
@@ -386,7 +386,8 @@ variable "fqdn_custom_domain" {
 variable "starter_pack_category" {
   description = "The starter pack category. Set via starter_pack_category.auto.tfvars"
   type        = string
-  default     = "cuopt"
+  # No default here - schema.yaml provides the default for Resource Manager portal
+  # Default is set in schema.yaml per category (paas_rag, cuopt, vss)
   validation {
     condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag"], var.starter_pack_category)
     error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', or 'enterprise_rag'."
@@ -456,7 +457,7 @@ variable "db_password" {
 variable "db_compute_count" {
   description = "Number of ECPU cores for the database"
   type        = number
-  default     = 2
+  default     = 4
 }
 
 variable "db_data_storage_size_in_tbs" {
@@ -517,6 +518,8 @@ locals {
           ocpus         = var.cuopt_marketing_enabled ? 4 : 0
           memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
+        database_storage_size_in_tbs = 0
+        database_compute_count = 0
       }
       "medium" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
@@ -538,6 +541,8 @@ locals {
           ocpus         = var.cuopt_marketing_enabled ? 4 : 0
           memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
+        database_storage_size_in_tbs = 0
+        database_compute_count = 0
       }
       # Add "large" here when implemented
     }
@@ -563,6 +568,8 @@ locals {
           ocpus         = 32
           memory        = 128
         }
+        database_storage_size_in_tbs = 0
+        database_compute_count = 0
       }
       # Add "medium" here when implemented
       # Add "large" here when implemented
@@ -573,6 +580,7 @@ locals {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "erag"
         app_namespace                                = "default"
+        deployment_name                              = "paas"
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -586,11 +594,35 @@ locals {
         }
         cpu_worker_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 28
-          memory        = 128
+          ocpus         = 12
+          memory        = 96
         }
+        database_storage_size_in_tbs = 2
+        database_compute_count = 4
       }
-      # Add "medium" here when implemented
+
+      "medium" = {
+        blueprint_file                               = "paas-rag-blueprint.json"
+        deployment_name                              = "paas"
+        worker_node_shape                            = "none"
+        worker_node_pool_size                        = 0
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "100"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 6
+          memory        = 48
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 12
+          memory        = 96
+        }
+        database_storage_size_in_tbs = 8
+        database_compute_count = 16
+      }
       # Add "large" here when implemented
     }
 

@@ -158,7 +158,9 @@ locals {
   )
 
   # Overall capacity validation
+  # Exclude GPU workers from validation if worker_node_shape is "none"
   all_capacity_available = (
+    # (local.starter_pack_config.worker_node_shape == "none" || local.gpu_worker_available) &&
     local.gpu_worker_available &&
     local.control_plane_available &&
     local.cpu_worker_available &&
