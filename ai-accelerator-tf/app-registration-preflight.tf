@@ -64,16 +64,21 @@ EOF
   }
 
   # Store values needed during destroy
+  # Note: These triggers are evaluated at plan/apply time and stored for use during destroy
   triggers = {
-    postflight_filepath        = local.postflight_filepath
-    registration_upload_path   = local.registration_upload_path
-    registration_id            = random_uuid.registration_id.result
-    tenancy_ocid               = var.tenancy_ocid
-    region                     = var.region
-    compartment_ocid           = var.compartment_ocid
-    starter_pack_category      = var.starter_pack_category
-    starter_pack_size          = var.starter_pack_size
-    always_run                 = timestamp()
+    postflight_filepath      = local.postflight_filepath
+    registration_upload_path = local.registration_upload_path
+    registration_id          = random_uuid.registration_id.result
+    tenancy_ocid             = var.tenancy_ocid
+    region                   = var.region
+    compartment_ocid         = var.compartment_ocid
+    starter_pack_category    = var.starter_pack_category
+    starter_pack_size        = var.starter_pack_size
+  }
+
+  # Prevent unnecessary replacement - only replace if triggers actually change
+  lifecycle {
+    create_before_destroy = false
   }
 }
 
