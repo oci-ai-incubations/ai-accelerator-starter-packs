@@ -125,6 +125,14 @@ variables:
     description: "The compartment in which to create resources"
     required: true
 
+  tenancy_ocid:
+    type: string
+    visible: false
+
+  region:
+    type: string
+    visible: false
+
   # Admin Credentials - common across all packs
   corrino_admin_username:
     type: string
@@ -399,11 +407,6 @@ variables:
 
   oci_tag_values:
     type: map
-    visible: false
-
-  # cuOpt-specific variables - hidden by default, overridden in cuopt_schema.yaml
-  cuopt_marketing_enabled:
-    type: boolean
     visible: false
 
   genai_region:

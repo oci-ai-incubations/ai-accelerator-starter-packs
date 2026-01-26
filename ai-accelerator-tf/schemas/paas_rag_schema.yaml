@@ -22,6 +22,7 @@ outputGroups:
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
+      - paas_rag_url
 
   - title: "Management & API"
     outputs:
@@ -120,21 +121,6 @@ variables:
     description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
     required: true
 
-  genai_region:
-    type: enum
-    enum:
-      - uk-london-1
-      - eu-frankfurt-1
-      - eu-frankfurt-2
-      - us-chicago-1
-      - us-ashburn-1
-      - us-phoenix-1
-      - me-dubai-1
-      - me-riyadh-1
-      - ap-osaka-1
-      - ap-hyderbad-1
-      - sa-saopaulo-1
-
 # =============================================================================
 # Outputs - RAG specific titles
 # =============================================================================
@@ -143,3 +129,8 @@ outputs:
     type: link
     title: "Open RAG Service"
     displayText: "Open RAG Service"
+
+  paas_rag_url:
+    type: link
+    title: "Open PaaS RAG Frontend"
+    displayText: "Open PaaS RAG Frontend"

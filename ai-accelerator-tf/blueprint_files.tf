@@ -167,7 +167,6 @@ locals {
           name       =    "demo",
           exports    =    ["service_name"],
           depends_on =    ["cuopt", "llamastack"],
-          recipe = {
           recipe = merge(
             {
               recipe_id                            = "demo",
@@ -212,7 +211,7 @@ locals {
               recipe_replica_count                 = 1,
               recipe_flex_shape_ocpu_count         = 1,
               recipe_flex_shape_memory_size_in_gbs = 8,
-              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape,
+              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
               recipe_container_port                = "3000",
             },
@@ -611,7 +610,6 @@ locals {
       name = local.starter_pack_deployment_name
       deployments = [
         {
-          name = "llamastack"
           name = "llamastack"
           exports = ["service_name"]
           recipe = merge(
