@@ -111,6 +111,12 @@ output "kubeconfig_command" {
   value       = "oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --file $HOME/.kube/config --region ${var.region} --token-version 2.0.0"
 }
 
+# Load Balancer IP Address
+output "external_ip" {
+  description = "Public IP address of the ingress load balancer. Configure DNS A records to point your domain(s) to this IP."
+  value       = local.network.external_ip
+}
+
 # Load Balancer Subnet Information
 output "lb_subnet_bp_control_plane_id" {
   description = "ID of the load balancer subnet for blueprints control plane"

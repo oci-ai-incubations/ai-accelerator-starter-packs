@@ -25,11 +25,18 @@ primaryOutputButton: starter_pack_url
 # Output Groups - Common structure
 # =============================================================================
 outputGroups:
+  - title: "⚠️ DNS Configuration Required"
+    outputs:
+      - external_ip
+    visible:
+      eq:
+        - use_custom_dns
+        - true
+
   - title: "Service"
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
-      - external_ip
 
   - title: "Management & API"
     outputs:
@@ -459,9 +466,12 @@ outputs:
 
   external_ip:
     type: string
-    title: "Load Balancer IP (for DNS configuration)"
-    description: "Configure your DNS A-record to point to this IP address. For custom domains, create a wildcard record: *.yourdomain.com -> this IP"
-    visible: true
+    title: "Load Balancer IP Address"
+    description: "ACTION REQUIRED: Your deployment will fail until you configure DNS. Create an A-record pointing your custom domain to this IP address, then re-apply this stack."
+    visible:
+      eq:
+        - use_custom_dns
+        - true
 
   db_username:
     type: string
