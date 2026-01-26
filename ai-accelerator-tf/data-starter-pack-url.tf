@@ -1,12 +1,12 @@
 # HTTP-based data sources to dynamically fetch the starter pack URL from workspace API
-# Used for starter packs that need dynamic URL lookup (vss, paas_rag)
+# Used for starter packs that need dynamic URL lookup (all blueprint-based packs)
 
 # =============================================================================
 # Configuration locals
 # =============================================================================
 locals {
-  # Categories that need dynamic URL lookup
-  needs_dynamic_url = contains(["vss", "paas_rag"], var.starter_pack_category)
+  # Whether this starter pack uses dynamic URL lookup (from config)
+  needs_dynamic_url = local.starter_pack_config.use_dynamic_url
 
   # Parse blueprint to extract deployment_group.name
   blueprint_json = local.needs_dynamic_url ? (
@@ -133,7 +133,7 @@ locals {
 }
 
 # =============================================================================
-# Starter pack URL for cuopt (static pattern)
+# Static URL patterns for secondary outputs
 # =============================================================================
 locals {
   cuopt_url           = var.cuopt_marketing_enabled ? "cuopt-cuopt.${local.fqdn.name}" : local.public_endpoint.starter_pack

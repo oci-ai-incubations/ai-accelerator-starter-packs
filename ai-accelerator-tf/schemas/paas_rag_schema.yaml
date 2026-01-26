@@ -22,7 +22,6 @@ outputGroups:
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
-      - paas_rag_url
 
   - title: "Management & API"
     outputs:
@@ -129,8 +128,3 @@ outputs:
     type: link
     title: "Open RAG Service"
     displayText: "Open RAG Service"
-
-  paas_rag_url:
-    type: link
-    title: "Open PaaS RAG Frontend"
-    displayText: "Open PaaS RAG Frontend"

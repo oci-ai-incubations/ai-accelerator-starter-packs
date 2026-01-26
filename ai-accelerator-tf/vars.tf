@@ -504,6 +504,7 @@ locals {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -527,6 +528,7 @@ locals {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -554,6 +556,7 @@ locals {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
@@ -582,6 +585,7 @@ locals {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
         app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -605,6 +609,7 @@ locals {
       "medium" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
+        use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -633,6 +638,7 @@ locals {
         blueprint_file                               = ""
         deployment_name                              = "enterprise-rag"
         app_namespace                                = "rag"
+        use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
