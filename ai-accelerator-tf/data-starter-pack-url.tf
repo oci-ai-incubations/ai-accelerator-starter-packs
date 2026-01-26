@@ -8,12 +8,14 @@ locals {
   # Categories that need dynamic URL lookup
   needs_dynamic_url = contains(["vss", "paas_rag"], var.starter_pack_category)
 
-  # Deployment group prefix to search for in workspace recipes
-  deployment_group_prefix = {
-    "vss"      = "vss-deployment-group"
-    "paas_rag" = "erag"
-    "cuopt"    = "cuopt" # for future use
-  }
+  # Parse blueprint to extract deployment_group.name
+  blueprint_json = local.needs_dynamic_url ? (
+    try(jsondecode(local.starter_pack_blueprint_content), null)
+  ) : null
+
+  deployment_group_name = local.blueprint_json != null ? (
+    try(local.blueprint_json.deployment_group.name, "")
+  ) : ""
 }
 
 # =============================================================================
@@ -29,7 +31,7 @@ resource "null_resource" "wait_for_deployment" {
       API_URL="${local.public_endpoint.api_origin_secure}"
       USERNAME="${var.corrino_admin_username}"
       PASSWORD="${var.corrino_admin_password}"
-      DEPLOYMENT_PREFIX="${local.deployment_group_prefix[var.starter_pack_category]}"
+      DEPLOYMENT_PREFIX="${local.deployment_group_name}"
       MAX_ATTEMPTS=40  # 40 attempts * 30 seconds = 20 minutes max wait
       ATTEMPT=0
 
@@ -119,11 +121,11 @@ locals {
   # Get recipes from the workspace data (directly at root, not nested under digest)
   recipes = local.workspace_data != null ? try(local.workspace_data.recipes, {}) : {}
 
-  # Find matching recipes using the category-specific prefix
+  # Find matching recipes using the deployment group name from blueprint
   matching_recipes = local.needs_dynamic_url ? [
     for name, info in local.recipes :
     info.public_endpoint
-    if startswith(name, local.deployment_group_prefix[var.starter_pack_category]) && try(info.type, "") == "Ingress" && try(info.public_endpoint, "") != ""
+    if startswith(name, local.deployment_group_name) && try(info.type, "") == "Ingress" && try(info.public_endpoint, "") != ""
   ] : []
 
   # Single dynamic URL that works for all categories
