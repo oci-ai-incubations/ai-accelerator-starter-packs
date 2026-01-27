@@ -7,8 +7,8 @@ resource "oci_objectstorage_bucket" "paas_rag_bucket" {
   compartment_id = var.compartment_ocid
   name           = "paas-rag-${local.deploy_id}-bucket"
   namespace      = data.oci_objectstorage_namespace.ns.namespace
-  access_type    = var.bucket_access_type
-  storage_tier   = var.bucket_storage_tier
+  access_type    = "NoPublicAccess"
+  storage_tier   = "Standard"
   versioning     = "Enabled"
   
   lifecycle {
@@ -16,7 +16,9 @@ resource "oci_objectstorage_bucket" "paas_rag_bucket" {
   }
 }
 
-resource "oci_identity_customer_secret_key" "oci_identity_customer_secret_key" {
-    display_name = "paas-rag-${local.deploy_id}"
-    user_id = data.oci_identity_user.user.user_id
+resource "oci_identity_customer_secret_key" "aws_compat_access_key" {
+    count           = var.starter_pack_category == "paas_rag" ? 1 : 0
+    provider        = oci.home_region
+    display_name    = "paas-rag-${local.deploy_id}"
+    user_id         = var.current_user_ocid
 }

@@ -600,9 +600,9 @@ locals {
               { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"},
               { "key" = "S3_BUCKET_NAME", value = oci_objectstorage_bucket.paas_rag_bucket[0].name },
               { "key" = "AWS_REGION", value = var.region },
-              { "key" = "AWS_ACCESS_KEY_ID", value = oci_identity_customer_secret_key[0].id },
-              { "key" = "AWS_SECRET_ACCESS_KEY", value = oci_identity_customer_secret_key[0].key },
-              { "key" = "S3_ENDPOINT_URL", value = "https://${oci_objectstorage_bucket.paas_rag_bucket[0].object_storage_namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" }
+              { "key" = "AWS_ACCESS_KEY_ID", value = oci_identity_customer_secret_key.aws_compat_access_key[0].id },
+              { "key" = "AWS_SECRET_ACCESS_KEY", value = oci_identity_customer_secret_key.aws_compat_access_key[0].key },
+              { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" }
             ],
             pvcs = {
               retain_after_undeploy = false

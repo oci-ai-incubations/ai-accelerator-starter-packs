@@ -215,30 +215,7 @@ variable "apps_endpoint_visibility" {
 variable "tenancy_ocid" {}
 variable "compartment_ocid" {}
 variable "region" {}
-variable "user_ocid" {
-  default = ""
-}
-
-# OCI Object Storage Variables
-variable "bucket_access_type" {
-  description = "Access type for Object Storage buckets (NoPublicAccess, ObjectRead, ObjectReadWrite)"
-  type        = string
-  default     = "NoPublicAccess"
-  validation {
-    condition     = contains(["NoPublicAccess", "ObjectRead", "ObjectReadWrite"], var.bucket_access_type)
-    error_message = "Bucket access type must be 'NoPublicAccess', 'ObjectRead', or 'ObjectReadWrite'."
-  }
-}
-
-variable "bucket_storage_tier" {
-  description = "Storage tier for Object Storage buckets (Standard, InfrequentAccess, Archive)"
-  type        = string
-  default     = "Standard"
-  validation {
-    condition     = contains(["Standard", "InfrequentAccess", "Archive"], var.bucket_storage_tier)
-    error_message = "Bucket storage tier must be 'Standard', 'InfrequentAccess', or 'Archive'."
-  }
-}
+variable "current_user_ocid" {}
 
 # ORM Schema visual control variables
 variable "show_advanced" {

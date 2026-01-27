@@ -6,10 +6,6 @@ data "oci_core_services" "all_services" {
     }
 }
 
-data "oci_identity_user" "user" {
-    user_id = var.user_ocid
-}
-
 data "oci_identity_availability_domains" "ads" {
     compartment_id = var.tenancy_ocid
 }

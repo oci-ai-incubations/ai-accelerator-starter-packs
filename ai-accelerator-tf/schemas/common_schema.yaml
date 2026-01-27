@@ -194,7 +194,7 @@ variables:
     type: string
     visible: false
 
-  user_ocid:
+  current_user_ocid:
     type: string
     visible: false
 

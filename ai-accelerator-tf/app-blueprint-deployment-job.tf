@@ -103,6 +103,8 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
     kubernetes_job_v1.wallet_extractor_job,
+    oci_objectstorage_bucket.paas_rag_bucket,
+    oci_identity_customer_secret_key.aws_compat_access_key,
   ]
   count = 1
 }
