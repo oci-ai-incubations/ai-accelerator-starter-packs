@@ -745,7 +745,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = ["nim-llm"]
         },
         {
           name = "rerank"
@@ -843,7 +843,7 @@ locals {
             recipe_node_shape           = local.starter_pack_config.worker_node_shape
             recipe_node_pool_size       = 1
             recipe_replica_count        = 1
-            recipe_nvidia_gpu_count     = 2
+            recipe_nvidia_gpu_count     = 3
             recipe_image_uri            = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/model-store" },
@@ -897,7 +897,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["rerank"]
+          depends_on = ["neo4j"]
         },
         {
           name = "vss"
@@ -908,7 +908,7 @@ locals {
             recipe_replica_count                         = 1
             recipe_node_shape                            = local.starter_pack_config.worker_node_shape
             recipe_use_shared_node_pool                  = true
-            recipe_nvidia_gpu_count                      = 3
+            recipe_nvidia_gpu_count                      = 2
             recipe_storage_group_id                      = 1000
             recipe_container_port                        = "9000"
             recipe_host_port                             = "9000"
@@ -1025,12 +1025,12 @@ locals {
             }
           }
           depends_on = [
-            "elasticsearch",
-            "neo4j",
+            "nim-llm",
             "embedding",
             "rerank",
-            "nim-llm",
-            "riva"
+            "riva",
+            "elasticsearch",
+            "neo4j"
           ]
         }
       ]

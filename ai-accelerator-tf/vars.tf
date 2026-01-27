@@ -585,7 +585,7 @@ locals {
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
-        worker_node_shape                            = "BM.GPU.L40S-NC.4"
+        worker_node_shape                            = "BM.GPU.L40S.4"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
