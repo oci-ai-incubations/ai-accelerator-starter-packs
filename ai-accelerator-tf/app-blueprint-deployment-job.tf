@@ -43,6 +43,42 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   count = var.is_nvaie_enabled ? 1 : 0
 }
 
+# DNS Configuration Warning - outputs the required DNS setup when custom_dns is enabled
+# This runs BEFORE the blueprint deployment job so users see the message even if deployment fails
+resource "null_resource" "custom_dns_configuration_warning" {
+  count = var.use_custom_dns ? 1 : 0
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo ""
+      echo "=============================================================================="
+      echo "                    CUSTOM DNS CONFIGURATION REQUIRED"
+      echo "=============================================================================="
+      echo ""
+      echo "You have enabled custom DNS for your deployment."
+      echo ""
+      echo "To complete the setup, you must add an A record in your DNS registrar:"
+      echo ""
+      echo "    Domain:       ${var.fqdn_custom_domain}"
+      echo "    Record Type:  A"
+      echo "    Value:        ${local.network.external_ip}"
+      echo ""
+      echo "Point your custom domain to the load balancer IP address shown above."
+      echo ""
+      echo "If DNS is not configured, the deployment will fail when attempting to"
+      echo "reach the API at: ${local.public_endpoint.api_origin_secure}"
+      echo ""
+      echo "=============================================================================="
+      echo ""
+    EOT
+  }
+
+  depends_on = [
+    helm_release.ingress_nginx,
+    data.kubernetes_service_v1.ingress,
+  ]
+}
+
 # Blueprint deployment job - not used for enterprise_rag since it's deployed via Helm
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
   count = var.starter_pack_category != "enterprise_rag" ? 1 : 0
@@ -107,5 +143,6 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
     kubernetes_job_v1.wallet_extractor_job,
+    null_resource.custom_dns_configuration_warning,
   ]
 }
