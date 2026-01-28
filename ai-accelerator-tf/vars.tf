@@ -361,20 +361,22 @@ variable "kong_enabled" {
 # Corrino FQDN
 # -----------------------------------
 
-# This is populated from schema.yaml from an enumeration with one of three possible values:
-#    - nip.io
-#    - corrino-oci.com
-#    - custom
-
-variable "fqdn_domain_mode_selector" {
-  type    = string
-  default = "nip.io"
+variable "use_custom_dns" {
+  description = "Enable to use your own custom domain instead of the automatic nip.io domain."
+  type        = bool
+  default     = false
 }
 
 variable "fqdn_custom_domain" {
-  description = "Your custom FQDN can be a simple top-level domain or an A-Record for a top-level domain.  Either method requires that you modify the domain registrar records to send traffic to the load balancer public IP that is provisioned for you."
+  description = "Your custom FQDN can be a simple top-level domain or an A-Record for a top-level domain. Either method requires that you modify the domain registrar records to send traffic to the load balancer public IP that is provisioned for you."
   type        = string
   default     = ""
+}
+
+# Legacy variable - kept for backward compatibility, derived from use_custom_dns
+variable "fqdn_domain_mode_selector" {
+  type    = string
+  default = "nip.io"
 }
 
 # -----------------------------------
@@ -385,10 +387,10 @@ variable "starter_pack_category" {
   description = "The starter pack category. Set via starter_pack_category.auto.tfvars"
   type        = string
   # No default here - schema.yaml provides the default for Resource Manager portal
-  # Default is set in schema.yaml per category (paas_rag, cuopt, vss)
+  # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', or 'paas_rag'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', or 'enterprise_rag'."
   }
 }
 
@@ -499,6 +501,8 @@ locals {
       "small" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
+        app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -515,12 +519,16 @@ locals {
           ocpus         = var.cuopt_marketing_enabled ? 4 : 0
           memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count = 0
+        database_storage_size_in_tbs              = 0
+        database_compute_count                    = 0
+        starter_pack_url_deployment               = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
+        marketing_starter_pack_url_deployment     = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
+        app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
@@ -537,8 +545,10 @@ locals {
           ocpus         = var.cuopt_marketing_enabled ? 4 : 0
           memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count = 0
+        database_storage_size_in_tbs              = 0
+        database_compute_count                    = 0
+        starter_pack_url_deployment               = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
+        marketing_starter_pack_url_deployment     = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented
     }
@@ -547,6 +557,8 @@ locals {
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
+        app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
@@ -563,10 +575,37 @@ locals {
           ocpus         = 32
           memory        = 128
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count = 0
+        database_storage_size_in_tbs              = 0
+        database_compute_count                    = 0
+        starter_pack_url_deployment               = "vss"
+        marketing_starter_pack_url_deployment     = ""
       }
-      # Add "medium" here when implemented
+      "medium" = {
+        blueprint_file                               = "vss-blueprint.json"
+        deployment_name                              = "vss"
+        app_namespace                                = "default"
+        use_dynamic_url                              = true
+        worker_node_shape                            = "BM.GPU.L40S.4"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "200"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 32
+          memory        = 128
+        }
+        database_storage_size_in_tbs              = 0
+        database_compute_count                    = 0
+        starter_pack_url_deployment               = "vss"
+        marketing_starter_pack_url_deployment     = ""
+      }
       # Add "large" here when implemented
     }
 
@@ -574,6 +613,8 @@ locals {
       "small" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
+        app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -590,13 +631,16 @@ locals {
           ocpus         = 12
           memory        = 96
         }
-        database_storage_size_in_tbs = 2
-        database_compute_count = 4
+        database_storage_size_in_tbs              = 2
+        database_compute_count                    = 4
+        starter_pack_url_deployment               = "frontend"
+        marketing_starter_pack_url_deployment     = ""
       }
 
       "medium" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
+        use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -613,10 +657,40 @@ locals {
           ocpus         = 12
           memory        = 96
         }
-        database_storage_size_in_tbs = 8
-        database_compute_count = 16
+        database_storage_size_in_tbs              = 8
+        database_compute_count                    = 16
+        starter_pack_url_deployment               = "frontend"
+        marketing_starter_pack_url_deployment     = ""
       }
       # Add "large" here when implemented
+    }
+
+
+    "enterprise_rag" = {
+      "small" = {
+        blueprint_file                               = ""
+        deployment_name                              = "enterprise-rag"
+        app_namespace                                = "rag"
+        use_dynamic_url                              = false
+        worker_node_shape                            = "BM.GPU4.8"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "120"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "none"
+          ocpus         = 0
+          memory        = 0
+        }
+        starter_pack_url_deployment           = "" # Not used (use_dynamic_url = false)
+        marketing_starter_pack_url_deployment = "" # Not used
+      }
     }
   }
 
@@ -628,6 +702,12 @@ locals {
 
   # Deployment name from config
   starter_pack_deployment_name = local.starter_pack_config.deployment_name
+
+  # Deployment used for starter pack URL (e.g., "frontend" for paas_rag, "cuopt-cuopt" for cuopt with marketing)
+  starter_pack_url_deployment = local.starter_pack_config.starter_pack_url_deployment
+
+  # Deployment used for marketing URL (only used for cuopt with marketing enabled)
+  marketing_starter_pack_url_deployment = local.starter_pack_config.marketing_starter_pack_url_deployment
 
   # Blueprint content - directly from the organized blueprint map in blueprint_files.tf
   # No need to maintain a separate map here - just reference the nested structure
@@ -669,8 +749,8 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  # GPU image needed for cuopt and vss categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss"
+  # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 
