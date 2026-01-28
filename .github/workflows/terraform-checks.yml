@@ -1,0 +1,80 @@
+name: Terraform Checks
+
+on:
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  terraform-checks:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      # Setup TFLint for Terraform linting
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v3
+        with:
+          tflint_version: v0.47.0
+
+      # Setup Checkov for security scanning
+      - name: Setup Checkov
+        run: |
+          pip install checkov
+
+      # Change to the Terraform directory
+      - name: Change to Terraform directory
+        run: cd ai-accelerator-tf
+
+      # Terraform Format Check
+      - name: Terraform Format Check
+        run: |
+          cd ai-accelerator-tf
+          terraform fmt -check -recursive
+
+      # Terraform Init (without backend to avoid state management)
+      - name: Terraform Init
+        run: |
+          cd ai-accelerator-tf
+          terraform init -backend=false
+
+      # Terraform Validate
+      - name: Terraform Validate
+        run: |
+          cd ai-accelerator-tf
+          terraform validate
+
+      # TFLint for additional linting
+      - name: TFLint
+        run: |
+          cd ai-accelerator-tf
+          tflint --recursive
+
+      # Checkov for security scanning
+      - name: Checkov Security Scan
+        run: |
+          cd ai-accelerator-tf
+          checkov -d . --framework terraform
+
+      # Terraform Plan (non-prod/mock setup)
+      # Using a read-only or safe configuration to avoid real changes
+      - name: Terraform Plan (Non-Prod)
+        run: |
+          cd ai-accelerator-tf
+          # Mock variables or use a safe, non-destructive setup
+          # Assuming variables are provided or mocked for a non-prod plan
+          terraform plan -var-file=terraform.tfvars.example -out=tfplan
+        env:
+          TF_VAR_user_ocid: "mock_user_ocid"
+          TF_VAR_tenancy_ocid: "mock_tenancy_ocid"
+          TF_VAR_compartment_ocid: "mock_compartment_ocid"
+          TF_VAR_region: "mock-region"
+          # Add other necessary mock variables as needed
