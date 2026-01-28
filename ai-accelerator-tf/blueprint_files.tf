@@ -901,26 +901,27 @@ locals {
         },
         {
           name = "vss"
-          recipe = {
-            deployment_name                              = "vss-deployment-group"
-            recipe_mode                                  = "service"
-            recipe_image_uri                             = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
-            recipe_replica_count                         = 1
-            recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-            recipe_use_shared_node_pool                  = true
-            recipe_nvidia_gpu_count                      = 2
-            recipe_storage_group_id                      = 1000
-            recipe_container_port                        = "9000"
-            recipe_host_port                             = "9000"
-            recipe_container_command                     = ["bash", "/opt/scripts/start.sh"]
-            recipe_shared_memory_volume_size_limit_in_mb = 16384
+          recipe = merge(
+            {
+              deployment_name                              = "vss-deployment-group"
+              recipe_mode                                  = "service"
+              recipe_image_uri                             = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
+              recipe_replica_count                         = 1
+              recipe_node_shape                            = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool                  = true
+              recipe_nvidia_gpu_count                      = 2
+              recipe_storage_group_id                      = 1000
+              recipe_container_port                        = "9000"
+              recipe_host_port                             = "9000"
+              recipe_container_command                     = ["bash", "/opt/scripts/start.sh"]
+              recipe_shared_memory_volume_size_limit_in_mb = 16384
 
-            pvcs = {
-              retain_after_undeploy = false
-              volumes = [
-                { name = "vss-ngc-model-cache", mount_location = "/tmp/via-ngc-model-cache", volume_size_in_gbs = 1000 }
-              ]
-            }
+              pvcs = {
+                retain_after_undeploy = false
+                volumes = [
+                  { name = "vss-ngc-model-cache", mount_location = "/tmp/via-ngc-model-cache", volume_size_in_gbs = 1000 }
+                ]
+              }
 
             recipe_configmaps = [
               {
@@ -1015,15 +1016,17 @@ locals {
               timeout_seconds   = 1
             }
 
-            recipe_readiness_probe_params = {
-              failure_threshold     = 3
-              endpoint_path         = "/health/ready"
-              port                  = 8000
-              initial_delay_seconds = 5
-              period_seconds        = 5
-              timeout_seconds       = 1
-            }
-          }
+              recipe_readiness_probe_params = {
+                failure_threshold     = 3
+                endpoint_path         = "/health/ready"
+                port                  = 8000
+                initial_delay_seconds = 5
+                period_seconds        = 5
+                timeout_seconds       = 1
+              }
+            },
+            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+          )
           depends_on = [
             "nim-llm",
             "embedding",

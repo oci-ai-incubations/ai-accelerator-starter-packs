@@ -585,6 +585,8 @@ locals {
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
+        app_namespace                                = "default"
+        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.L40S.4"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 1
@@ -601,6 +603,10 @@ locals {
           ocpus         = 32
           memory        = 128
         }
+        database_storage_size_in_tbs              = 0
+        database_compute_count                    = 0
+        starter_pack_url_deployment               = "vss"
+        marketing_starter_pack_url_deployment     = ""
       }
       # Add "large" here when implemented
     }
