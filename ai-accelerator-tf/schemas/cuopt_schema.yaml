@@ -57,10 +57,12 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
-  
-  - title: "cuOpt Marketing"
+
+  - title: "Advanced Options"
     variables:
-      - cuopt_marketing_enabled
+      - skip_capacity_check
+      - use_custom_dns
+      - fqdn_custom_domain
       - genai_region
 
 # =============================================================================

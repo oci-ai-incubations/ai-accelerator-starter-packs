@@ -15,18 +15,67 @@ from pathlib import Path
 from copy import deepcopy
 
 
+def merge_list_by_key(base_list: list, override_list: list, key: str) -> list:
+    """
+    Merge two lists of dicts by a key field.
+    
+    - Items in override with matching key replace base items
+    - Items only in base are preserved
+    - Items only in override are added
+    - Order: base items first (in original order), then new override items
+    """
+    if not base_list:
+        return deepcopy(override_list) if override_list else []
+    if not override_list:
+        return deepcopy(base_list)
+    
+    # Build lookup of override items by key
+    override_by_key = {item.get(key): item for item in override_list if isinstance(item, dict)}
+    
+    result = []
+    seen_keys = set()
+    
+    # Process base items - keep or replace with override
+    for item in base_list:
+        if isinstance(item, dict):
+            item_key = item.get(key)
+            if item_key in override_by_key:
+                result.append(deepcopy(override_by_key[item_key]))
+            else:
+                result.append(deepcopy(item))
+            if item_key:
+                seen_keys.add(item_key)
+        else:
+            result.append(deepcopy(item))
+    
+    # Add new items from override that weren't in base
+    for item in override_list:
+        if isinstance(item, dict):
+            item_key = item.get(key)
+            if item_key and item_key not in seen_keys:
+                result.append(deepcopy(item))
+    
+    return result
+
+
 def deep_merge(base: dict, override: dict) -> dict:
     """
     Deep merge override into base, returning new dict.
     
     - Dicts are recursively merged
-    - Lists are replaced entirely (not appended)
+    - outputGroups and variableGroups are merged by 'title' field
+    - Other lists are replaced entirely
     - All other values are replaced
     """
+    # Keys that should merge lists by 'title' instead of replacing
+    LIST_MERGE_BY_TITLE = {'outputGroups', 'variableGroups'}
+    
     result = deepcopy(base)
     for key, value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = deep_merge(result[key], value)
+        elif key in LIST_MERGE_BY_TITLE and isinstance(result.get(key), list) and isinstance(value, list):
+            result[key] = merge_list_by_key(result[key], value, 'title')
         else:
             result[key] = deepcopy(value)
     return result
@@ -61,7 +110,7 @@ def represent_str(dumper, data):
 
 def get_args():
     parser = argparse.ArgumentParser(description="Generate schema.yaml from common and category-specific schemas")
-    parser.add_argument("-c", "--category", choices=["cuopt", "paas_rag", "vss"], required=True, help="Category to generate schema for (cuopt, vss, paas_rag)")
+    parser.add_argument("-c", "--category", choices=["cuopt", "paas_rag", "vss", "enterprise_rag"], required=True, help="Category to generate schema for (cuopt, vss, paas_rag, enterprise_rag)")
     return parser.parse_args()
 
 def main():

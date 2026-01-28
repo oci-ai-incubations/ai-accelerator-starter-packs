@@ -45,6 +45,39 @@ outputGroups:
       - grafana_admin_password
 
 # =============================================================================
+# Variable Groups - Include database, GenAI region in Advanced Options
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+  - title: "Oracle 26ai Database"
+    variables:
+      - db_username
+      - db_password
+
+  - title: "Advanced Options"
+    variables:
+      - skip_capacity_check
+      - use_custom_dns
+      - fqdn_custom_domain
+      - genai_region
+
+# =============================================================================
 # Variables - RAG specific
 # =============================================================================
 variables:
@@ -58,16 +91,12 @@ variables:
     default: small
     required: true
 
-  # Database password with validation pattern
-  db_password:
-    type: password
-    title: "Database Admin Password"
-    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
-    description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
-    required: true
-
+  # OCI GenAI region selection
   genai_region:
+    title: "OCI GenAI Services Region"
+    description: "Region for OCI GenAI Services. Note: Does not have to match the region of the cluster."
     type: enum
+    default: us-chicago-1
     enum:
       - uk-london-1
       - eu-frankfurt-1
@@ -80,12 +109,21 @@ variables:
       - ap-osaka-1
       - ap-hyderbad-1
       - sa-saopaulo-1
+    required: true
+    visible: true
+
+  # Database password with validation pattern
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
+    description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
+    required: true
 
 # =============================================================================
 # Outputs - RAG specific titles
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open RAG Service"
-    displayText: "Open RAG Service"
+    type: string
+    title: "RAG Service URL"

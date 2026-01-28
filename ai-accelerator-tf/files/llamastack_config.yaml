@@ -1,5 +1,5 @@
 version: 2
-distro_name: oci
+distro_name: oci-blueprints
 apis:
 - agents
 - datasetio

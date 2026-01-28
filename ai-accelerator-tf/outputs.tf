@@ -111,6 +111,18 @@ output "kubeconfig_command" {
   value       = "oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --file $HOME/.kube/config --region ${var.region} --token-version 2.0.0"
 }
 
+# Load Balancer IP Address
+output "external_ip" {
+  description = "Public IP address of the ingress load balancer. Configure DNS A records to point your domain(s) to this IP."
+  value       = local.network.external_ip
+}
+
+# Custom DNS Domain - shows the wildcard A-record domain that needs to be configured
+output "custom_dns_domain" {
+  description = "Create a wildcard A-record for this domain pointing to the Load Balancer IP above."
+  value       = var.use_custom_dns ? "*.${var.fqdn_custom_domain}" : null
+}
+
 # Load Balancer Subnet Information
 output "lb_subnet_bp_control_plane_id" {
   description = "ID of the load balancer subnet for blueprints control plane"
@@ -140,23 +152,12 @@ output "starter_pack_deployment_name" {
 
 output "starter_pack_url" {
   description = "Starter pack FQDN"
-  value = var.starter_pack_category == "vss" ? (
-    local.vss_dynamic_url != "" ?
-    local.vss_dynamic_url :
-    local.public_endpoint.starter_pack
-  ) : local.public_endpoint.starter_pack
-}
-
-output "paas_rag_url" {
-  description = "Paas RAG FQDN"
-  value = var.starter_pack_category == "paas_rag" ? "https://frontend-paas.${local.fqdn.name}" : "#Paas RAG Starter Pack Disabled"
+  value       = local.starter_pack_url_output
 }
 
 output "starter_pack_marketing_url" {
   description = "Starter pack marketing FQDN"
-  value = var.starter_pack_category == "cuopt" ? (
-    var.cuopt_marketing_enabled ? local.cuopt_marketing_url : "#Marketing Disabled"
-  ) : "#Marketing Disabled"
+  value       = local.starter_pack_marketing_url_output
 }
 
 output "blueprints_portal_url" {
