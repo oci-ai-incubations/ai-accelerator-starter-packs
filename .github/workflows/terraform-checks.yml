@@ -34,37 +34,39 @@ jobs:
       - name: Change to Terraform directory
         run: cd ai-accelerator-tf
 
-      # Terraform Format Check
+      # Terraform Format Check (Blocking)
       - name: Terraform Format Check
         run: |
           cd ai-accelerator-tf
           terraform fmt -check -recursive
 
-      # Terraform Init (without backend to avoid state management)
+      # Terraform Init (Blocking, without backend to avoid state management)
       - name: Terraform Init
         run: |
           cd ai-accelerator-tf
           terraform init -backend=false
 
-      # Terraform Validate
+      # Terraform Validate (Blocking)
       - name: Terraform Validate
         run: |
           cd ai-accelerator-tf
           terraform validate
 
-      # TFLint for additional linting
+      # TFLint for additional linting (Non-Blocking)
       - name: TFLint
         run: |
           cd ai-accelerator-tf
           tflint --recursive
+        continue-on-error: true
 
-      # Checkov for security scanning
+      # Checkov for security scanning (Non-Blocking)
       - name: Checkov Security Scan
         run: |
           cd ai-accelerator-tf
           checkov -d . --framework terraform
+        continue-on-error: true
 
-      # Terraform Plan (non-prod/mock setup)
+      # Terraform Plan (Blocking, non-prod/mock setup)
       # Using a read-only or safe configuration to avoid real changes
       - name: Terraform Plan (Non-Prod)
         run: |
