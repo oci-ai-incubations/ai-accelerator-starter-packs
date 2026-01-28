@@ -25,6 +25,15 @@ primaryOutputButton: starter_pack_url
 # Output Groups - Common structure
 # =============================================================================
 outputGroups:
+  - title: "⚠️ DNS Configuration Required - Create a wildcard A-record for this IP"
+    outputs:
+      - external_ip
+      - custom_dns_domain
+    visible:
+      eq:
+        - use_custom_dns
+        - true
+
   - title: "Service"
     outputs:
       - starter_pack_url
@@ -80,6 +89,8 @@ variableGroups:
   - title: "Advanced Options"
     variables:
       - skip_capacity_check
+      - use_custom_dns
+      - fqdn_custom_domain
 
 # =============================================================================
 # Variables - Common definitions
@@ -114,6 +125,14 @@ variables:
     title: "Compartment"
     description: "The compartment in which to create resources"
     required: true
+
+  tenancy_ocid:
+    type: string
+    visible: false
+
+  region:
+    type: string
+    visible: false
 
   # Admin Credentials - common across all packs
   corrino_admin_username:
@@ -330,19 +349,33 @@ variables:
     type: string
     visible: false
 
-  fqdn_domain_mode_selector:
-    type: string
-    visible: false
+  use_custom_dns:
+    type: boolean
+    title: "Use Custom DNS"
+    description: "Enable to use your own domain instead of the automatic nip.io domain. Recommended for production deployments."
+    default: false
+    required: false
 
   fqdn_custom_domain:
     type: string
-    visible: false
+    title: "Custom Domain"
+    description: "Your base domain (e.g., ai.mycompany.com). You must create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in the outputs."
+    pattern: "^[^*]+$"
+    required: true
+    visible:
+      eq:
+        - use_custom_dns
+        - true
 
   cuopt_marketing_enabled:
     type: boolean
     visible: false
 
   nip_io_domain:
+    type: string
+    visible: false
+
+  fqdn_domain_mode_selector:
     type: string
     visible: false
 
@@ -376,6 +409,10 @@ variables:
 
   oci_tag_values:
     type: map
+    visible: false
+
+  genai_region:
+    type: string
     visible: false
 
 # =============================================================================
@@ -433,8 +470,22 @@ outputs:
     visible: true
 
   external_ip:
-    title: "External IP"
-    visible: true
+    type: string
+    title: "Load Balancer IP Address"
+    description: "Point your wildcard A-record to this IP address."
+    visible:
+      eq:
+        - use_custom_dns
+        - true
+
+  custom_dns_domain:
+    type: string
+    title: "Wildcard A-Record Domain"
+    description: "Create a wildcard A-record for this domain in your DNS registrar, pointing to the Load Balancer IP above. Then re-apply this stack."
+    visible:
+      eq:
+        - use_custom_dns
+        - true
 
   db_username:
     type: string

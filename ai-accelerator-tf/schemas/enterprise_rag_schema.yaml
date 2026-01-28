@@ -88,9 +88,8 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open Enterprise RAG Service"
-    displayText: "Open Enterprise RAG Service"
+    type: string
+    title: "Enterprise RAG Service URL"
 
   db_username:
     visible: false
