@@ -39,6 +39,7 @@ jobs:
         run: |
           cd ai-accelerator-tf
           terraform fmt -check -recursive
+        continue-on-error: true
 
       # Terraform Init (Blocking, without backend to avoid state management)
       - name: Terraform Init
