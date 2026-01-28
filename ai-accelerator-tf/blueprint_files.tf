@@ -1078,16 +1078,15 @@ locals {
                 { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
                 ]
               }
-            recipe_secret_mounts = [
-              { "name" = "oadb-wallet", "mount_location" = "/wallet" },
-              { "name" = "llamastack-config", "mount_location" = "/app" }
-            ]
-            recipe_container_port                = "8321"
-            recipe_flex_shape_ocpu_count         = 8
-            recipe_flex_shape_memory_size_in_gbs = 64
-          },
-          var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-          )
+              recipe_secret_mounts = [
+                { "name" = "oadb-wallet", "mount_location" = "/wallet" },
+                { "name" = "llamastack-config", "mount_location" = "/app" }
+              ]
+              recipe_container_port                = "8321"
+              recipe_flex_shape_ocpu_count         = 8
+              recipe_flex_shape_memory_size_in_gbs = 64
+              var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+          }
         },
         {
           name = "frontend",
