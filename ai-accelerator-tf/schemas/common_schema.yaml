@@ -25,9 +25,10 @@ primaryOutputButton: starter_pack_url
 # Output Groups - Common structure
 # =============================================================================
 outputGroups:
-  - title: "⚠️ DNS Configuration Required"
+  - title: "⚠️ DNS Configuration Required - Create a wildcard A-record for this IP"
     outputs:
       - external_ip
+      - custom_dns_domain
     visible:
       eq:
         - use_custom_dns
@@ -358,7 +359,8 @@ variables:
   fqdn_custom_domain:
     type: string
     title: "Custom Domain"
-    description: "Your domain (e.g., ai.mycompany.com). After deployment, create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in outputs."
+    description: "Your base domain (e.g., ai.mycompany.com). You must create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in the outputs."
+    pattern: "^[^*]+$"
     required: true
     visible:
       eq:
@@ -470,7 +472,16 @@ outputs:
   external_ip:
     type: string
     title: "Load Balancer IP Address"
-    description: "ACTION REQUIRED: Your deployment will fail until you configure DNS. Create an A-record pointing your custom domain to this IP address, then re-apply this stack."
+    description: "Point your wildcard A-record to this IP address."
+    visible:
+      eq:
+        - use_custom_dns
+        - true
+
+  custom_dns_domain:
+    type: string
+    title: "Wildcard A-Record Domain"
+    description: "Create a wildcard A-record for this domain in your DNS registrar, pointing to the Load Balancer IP above. Then re-apply this stack."
     visible:
       eq:
         - use_custom_dns

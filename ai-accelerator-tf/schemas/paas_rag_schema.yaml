@@ -125,6 +125,5 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open RAG Service"
-    displayText: "Open RAG Service"
+    type: string
+    title: "RAG Service URL"
