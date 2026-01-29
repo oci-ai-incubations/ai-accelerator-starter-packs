@@ -51,19 +51,14 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
+      - cuopt_marketing_enabled
+      - genai_region
 
   - title: "Administrator Account"
     variables:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
-
-  - title: "Advanced Options"
-    variables:
-      - skip_capacity_check
-      - use_custom_dns
-      - fqdn_custom_domain
-      - genai_region
 
 # =============================================================================
 # Variables - cuOpt specific
