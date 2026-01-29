@@ -506,7 +506,7 @@ resource "helm_release" "rag" {
     }
   ]
   count      = var.starter_pack_category == "enterprise_rag" ? 1 : 0
-  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network]
+  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
