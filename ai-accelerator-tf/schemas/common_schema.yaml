@@ -359,8 +359,8 @@ variables:
   fqdn_custom_domain:
     type: string
     title: "Custom Domain"
-    description: "Your base domain (e.g., ai.mycompany.com). You must create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in the outputs."
-    pattern: "^[^*]+$"
+    description: "Your base domain (e.g., ai.mycompany.com). Must be a fully qualified domain name with a TLD (like .com, .ai, .ml). Do not include the wildcard asterisk (*). However, you must create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in the outputs in your DNS registrar."
+    pattern: "^[a-zA-Z0-9][a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z]{2,}$"
     required: true
     visible:
       eq:
