@@ -1066,18 +1066,19 @@ locals {
                 { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
                 { "key" = "OCI_REGION", value = var.genai_region },
                 { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
-                { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"}
+                { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"},
+                { "key" = "S3_BUCKET_NAME", value = oci_objectstorage_bucket.paas_rag_bucket[0].name },
+                { "key" = "AWS_REGION", value = var.region },
+                { "key" = "AWS_ACCESS_KEY_ID", value = oci_identity_customer_secret_key.aws_compat_access_key[0].id },
+                { "key" = "AWS_SECRET_ACCESS_KEY", value = oci_identity_customer_secret_key.aws_compat_access_key[0].key },
+                { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" }
               ],
               pvcs = {
                 retain_after_undeploy = false
                 volumes = [
                   { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
                 ]
-              }
-              recipe_secret_mounts = [
-                { "name" = "oadb-wallet", "mount_location" = "/wallet" },
-                { "name" = "llamastack-config", "mount_location" = "/app" }
-              ]
+              },
               recipe_container_port                = "8321"
               recipe_flex_shape_ocpu_count         = 8
               recipe_flex_shape_memory_size_in_gbs = 64
@@ -1092,7 +1093,7 @@ locals {
             recipe_id = "frontend",
             deployment_name = "frontend",
             recipe_mode = "service",
-            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:skynet-paas",
+            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:latest",
             recipe_replica_count = 1,
             recipe_flex_shape_ocpu_count = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,

@@ -52,7 +52,7 @@ cp terraform.tfvars.example terraform.tfvars
 tenancy_ocid     = "ocid1.tenancy.oc1..your-tenancy-id"
 compartment_ocid = "ocid1.compartment.oc1..your-compartment-id"
 region          = "us-ashburn-1"
-user_ocid       = "ocid1.user.oc1..your-user-id"
+current_user_ocid       = "ocid1.user.oc1..your-user-id"
 fingerprint     = "your-api-key-fingerprint"
 private_key_path = "~/.oci/oci_api_key.pem"
 

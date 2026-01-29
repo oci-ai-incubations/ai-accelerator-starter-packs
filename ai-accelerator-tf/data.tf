@@ -36,3 +36,8 @@ data "oci_containerengine_cluster_kube_config" "oke" {
     cluster_id = local.oke_cluster.id
     token_version = "2.0.0"
 }
+
+# Get Object Storage namespace
+data "oci_objectstorage_namespace" "ns" {
+    compartment_id = var.compartment_ocid
+}

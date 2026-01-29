@@ -215,9 +215,7 @@ variable "apps_endpoint_visibility" {
 variable "tenancy_ocid" {}
 variable "compartment_ocid" {}
 variable "region" {}
-variable "user_ocid" {
-  default = ""
-}
+variable "current_user_ocid" {}
 
 # ORM Schema visual control variables
 variable "show_advanced" {

@@ -242,3 +242,18 @@ output "db_password" {
   value       = var.db_password
   sensitive   = true
 }
+
+output "paas_rag_bucket_id" {
+  description = "OCID of the PaaS RAG specific Object Storage bucket (if created)"
+  value       = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
+}
+
+output "paas_rag_bucket_name" {
+  description = "Name of the PaaS RAG specific Object Storage bucket (if created)"
+  value       = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
+}
+
+output "object_storage_namespace" {
+  description = "Namespace for Object Storage"
+  value       = data.oci_objectstorage_namespace.ns.namespace
+}

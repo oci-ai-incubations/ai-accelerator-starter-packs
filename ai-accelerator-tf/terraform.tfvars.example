@@ -8,7 +8,7 @@ region          = "us-ashburn-1"
 
 # Authentication (choose one method)
 # Method 1: User credentials
-user_ocid        = "ocid1.user.oc1..aaaaaaaa..."
+current_user_ocid        = "ocid1.user.oc1..aaaaaaaa..."
 fingerprint      = "aa:bb:cc:dd:ee:ff:gg:hh:ii:jj:kk:ll:mm:nn:oo:pp"
 private_key_path = "~/.oci/oci_api_key.pem"
 
