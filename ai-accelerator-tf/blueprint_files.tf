@@ -1078,10 +1078,10 @@ locals {
                 volumes = [
                   { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
                 ]
-                recipe_container_port                = "8321"
-                recipe_flex_shape_ocpu_count         = 8
-                recipe_flex_shape_memory_size_in_gbs = 64
               },
+              recipe_container_port                = "8321"
+              recipe_flex_shape_ocpu_count         = 8
+              recipe_flex_shape_memory_size_in_gbs = 64
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
           )
