@@ -424,6 +424,12 @@ variable "skip_capacity_check" {
   default     = false
 }
 
+variable "worker_node_availability_domain" {
+  description = "Availability domain to use for worker nodes. Required when skip_capacity_check is true. When skip_capacity_check is false, this is automatically determined from capacity checks."
+  type        = string
+  default     = ""
+}
+
 # -----------------------------------
 # 26ai Autonomous Database Variables
 # -----------------------------------

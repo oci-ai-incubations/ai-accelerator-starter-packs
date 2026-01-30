@@ -70,7 +70,11 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
   instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration[0].id
   size                      = local.starter_pack_config.worker_node_pool_size
   dynamic "placement_configurations" {
-    for_each = data.oci_identity_availability_domains.ads.availability_domains
+    for_each = local.starter_pack_config.worker_node_shape == "none" ? [] : [
+      {
+        name = local.worker_node_availability_domain
+      }
+    ]
     content {
       availability_domain = placement_configurations.value.name
       primary_subnet_id   = oci_core_subnet.oke_nodes_subnet[0].id

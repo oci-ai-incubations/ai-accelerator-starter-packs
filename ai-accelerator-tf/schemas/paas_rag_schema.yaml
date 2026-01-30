@@ -58,6 +58,7 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
+      - genai_region
 
   - title: "Administrator Account"
     variables:
@@ -69,13 +70,6 @@ variableGroups:
     variables:
       - db_username
       - db_password
-
-  - title: "Advanced Options"
-    variables:
-      - skip_capacity_check
-      - use_custom_dns
-      - fqdn_custom_domain
-      - genai_region
 
 # =============================================================================
 # Variables - RAG specific

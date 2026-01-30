@@ -64,6 +64,11 @@ output "node_pool_kubernetes_version" {
   value       = oci_containerengine_node_pool.oke_node_pool.kubernetes_version
 }
 
+output "worker_node_availability_domain" {
+  description = "Availability domain selected for worker nodes (either from capacity check or user-provided)"
+  value       = local.starter_pack_config.worker_node_shape != "none" ? local.worker_node_availability_domain : null
+}
+
 # Bastion Information (when created)
 output "bastion_public_ip" {
   description = "Public IP address of the bastion host"
@@ -256,4 +261,9 @@ output "paas_rag_bucket_name" {
 output "object_storage_namespace" {
   description = "Namespace for Object Storage"
   value       = data.oci_objectstorage_namespace.ns.namespace
+}
+
+output "selected_worker_node_availability_domain" {
+  description = "Availability domain selected for worker nodes (for debugging)"
+  value       = local.starter_pack_config.worker_node_shape != "none" ? local.worker_node_availability_domain : null
 }
