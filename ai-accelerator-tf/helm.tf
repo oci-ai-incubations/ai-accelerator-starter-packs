@@ -437,6 +437,7 @@ resource "helm_release" "rag" {
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
 
   repository_username = "$oauthtoken"
+  repository_password = var.ngc_secret
 
   timeout = 5400 # Increase timeout to 90 minutes
 
@@ -468,17 +469,21 @@ resource "helm_release" "rag" {
     {
       name  = "nv-ingest.milvus.minio.secretKey"
       value = random_password.minio_secret_key.result
+    },
+    {
+      name  = "imagePullSecret.password"
+      value = var.ngc_secret
+    },
+    {
+      name  = "ngcApiSecret.password"
+      value = var.ngc_api_secret
     }
   ]
 
   set = [
-    {
-      name  = "imagePullSecret.create"
-      value = "false"
-    },
-    {
-      name  = "ngcApiSecret.create"
-      value = "false"
+     {
+      name  = "global.ngcApiKey"
+      value = var.ngc_api_secret
     },
     {
       name  = "milvus.standalone.resources.limits.nvidia\\.com/gpu"

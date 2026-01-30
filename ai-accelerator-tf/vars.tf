@@ -3,6 +3,20 @@
 # 
 
 # Authentication Configuration
+variable "ngc_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
+}
+
+variable "ngc_api_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
+}
+
 variable "use_instance_principal" {
   type        = bool
   default     = false
