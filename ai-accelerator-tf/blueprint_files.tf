@@ -1082,6 +1082,10 @@ locals {
               recipe_container_port                = "8321"
               recipe_flex_shape_ocpu_count         = 8
               recipe_flex_shape_memory_size_in_gbs = 64
+              recipe_secret_mounts = [
+                { "name" = "oadb-wallet", "mount_location" = "/wallet" },
+                { "name" = "llamastack-config", "mount_location" = "/app" }
+              ]
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
           )
