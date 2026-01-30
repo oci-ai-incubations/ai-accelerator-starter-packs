@@ -106,7 +106,7 @@ envVars:
   # Type of vectordb search to be used
   APP_VECTORSTORE_SEARCHTYPE: "dense"
   # Boolean to control GPU search for milvus vectorstore specific to rag-server
-  APP_VECTORSTORE_ENABLEGPUSEARCH: "True"
+  APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
   # ef: Parameter controlling query time/accuracy trade-off. Higher ef leads to more accurate but slower search.
   APP_VECTORSTORE_EF: "100"
 
@@ -274,8 +274,8 @@ ingestor-server:
     APP_VECTORSTORE_URL: "http://milvus:19530" # Use "http://elasticsearch:9200" for elasticsearch
     APP_VECTORSTORE_NAME: "milvus" # supported values: "milvus" or "elasticsearch"
     APP_VECTORSTORE_SEARCHTYPE: "dense"
-    APP_VECTORSTORE_ENABLEGPUINDEX: "True"
-    APP_VECTORSTORE_ENABLEGPUSEARCH: "True"
+    APP_VECTORSTORE_ENABLEGPUINDEX: "False"
+    APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
     COLLECTION_NAME: "multimodal_data"
     ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
     # === MinIO Configurations ===
@@ -760,7 +760,7 @@ nv-ingest:
     image:
       all:
         repository: docker.io/milvusdb/milvus
-        tag: v2.5.17-gpu
+        tag: v2.5.17
     etcd:
       image:
         repository: "milvusdb/etcd"
@@ -768,7 +768,7 @@ nv-ingest:
     standalone:
       resources:
         limits:
-          nvidia.com/gpu: 1
+          nvidia.com/gpu: 0
     minio:
       image:
         repository: docker.io/minio/minio
