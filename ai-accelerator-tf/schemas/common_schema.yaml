@@ -60,6 +60,10 @@ outputGroups:
       - autonomous_database_name
       - autonomous_database_id
 
+  - title: "Version Info"
+    outputs:
+      - ai_accelerator_stack_version
+
 # =============================================================================
 # Variable Groups - Common structure
 # =============================================================================
@@ -88,6 +92,7 @@ variableGroups:
 
   - title: "Advanced Options"
     variables:
+      - stack_version
       - skip_capacity_check
       - worker_node_availability_domain
       - use_custom_dns
@@ -419,8 +424,13 @@ variables:
     visible: false
 
   stack_version:
-    type: string
-    visible: false
+    title: "Stack Version"
+    type: enum
+    enum:
+      - "v0.0.1"
+    default: "v0.0.1"
+    required: true
+    visible: true
 
   oci_tag_values:
     type: map
@@ -588,3 +598,8 @@ outputs:
 
   app_name:
     visible: false
+
+  ai_accelerator_stack_version:
+    type: string
+    title: "Stack Version"
+    visible: true

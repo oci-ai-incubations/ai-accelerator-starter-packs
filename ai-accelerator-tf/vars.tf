@@ -336,8 +336,8 @@ variable "oci_tag_values" {
 }
 
 variable "stack_version" {
-  default     = "v1.0.11"
-  description = "backend version"
+  default     = "v0.0.1"
+  description = "Stack version for AI Accelerator Starter Packs"
 }
 
 variable "is_nvaie_enabled" {
@@ -539,10 +539,10 @@ locals {
           ocpus         = var.cuopt_marketing_enabled ? 4 : 0
           memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
-        marketing_starter_pack_url_deployment     = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
+        database_storage_size_in_tbs          = 0
+        database_compute_count                = 0
+        starter_pack_url_deployment           = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
+        marketing_starter_pack_url_deployment = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
         blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
@@ -565,10 +565,10 @@ locals {
           ocpus         = var.cuopt_marketing_enabled ? 4 : 0
           memory        = var.cuopt_marketing_enabled ? 32 : 0
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
-        marketing_starter_pack_url_deployment     = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
+        database_storage_size_in_tbs          = 0
+        database_compute_count                = 0
+        starter_pack_url_deployment           = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
+        marketing_starter_pack_url_deployment = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented
     }
@@ -595,10 +595,10 @@ locals {
           ocpus         = 32
           memory        = 128
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = "vss"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs          = 0
+        database_compute_count                = 0
+        starter_pack_url_deployment           = "vss"
+        marketing_starter_pack_url_deployment = ""
       }
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
@@ -621,10 +621,10 @@ locals {
           ocpus         = 32
           memory        = 128
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = "vss"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs          = 0
+        database_compute_count                = 0
+        starter_pack_url_deployment           = "vss"
+        marketing_starter_pack_url_deployment = ""
       }
       # Add "large" here when implemented
     }
@@ -651,10 +651,10 @@ locals {
           ocpus         = 12
           memory        = 96
         }
-        database_storage_size_in_tbs              = 2
-        database_compute_count                    = 4
-        starter_pack_url_deployment               = "frontend"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs          = 2
+        database_compute_count                = 4
+        starter_pack_url_deployment           = "frontend"
+        marketing_starter_pack_url_deployment = ""
       }
 
       "medium" = {
@@ -677,10 +677,10 @@ locals {
           ocpus         = 12
           memory        = 96
         }
-        database_storage_size_in_tbs              = 8
-        database_compute_count                    = 16
-        starter_pack_url_deployment               = "frontend"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs          = 8
+        database_compute_count                = 16
+        starter_pack_url_deployment           = "frontend"
+        marketing_starter_pack_url_deployment = ""
       }
       # Add "large" here when implemented
     }

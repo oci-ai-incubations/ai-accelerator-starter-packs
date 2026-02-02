@@ -267,3 +267,9 @@ output "selected_worker_node_availability_domain" {
   description = "Availability domain selected for worker nodes (for debugging)"
   value       = local.starter_pack_config.worker_node_shape != "none" ? local.worker_node_availability_domain : null
 }
+
+# Version Information
+output "ai_accelerator_stack_version" {
+  description = "AI Accelerator Starter Packs stack version"
+  value       = file("${path.module}/AI_ACCELERATOR_STACK_VERSION")
+}
