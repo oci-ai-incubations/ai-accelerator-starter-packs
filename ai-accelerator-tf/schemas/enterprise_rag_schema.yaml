@@ -83,6 +83,9 @@ variables:
   db_password:
     visible: false
 
+  use_custom_dns:
+    visible: false
+
 # =============================================================================
 # Outputs - Enterprise RAG specific titles, hide database
 # =============================================================================
@@ -102,4 +105,3 @@ outputs:
 
   autonomous_database_id:
     visible: false
-
