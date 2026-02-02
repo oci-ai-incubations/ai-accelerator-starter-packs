@@ -22,3 +22,9 @@ resource "oci_identity_customer_secret_key" "aws_compat_access_key" {
     display_name    = "paas-rag-${local.deploy_id}"
     user_id         = var.current_user_ocid
 }
+
+locals {
+  bucket_name = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : "#Not configured"
+  aws_compat_access_key_id = var.starter_pack_category == "paas_rag" ? oci_identity_customer_secret_key.aws_compat_access_key[0].id : "#Not configured"
+  aws_compat_access_key_key = var.starter_pack_category == "paas_rag" ? oci_identity_customer_secret_key.aws_compat_access_key[0].key : "#Not configured"
+}
