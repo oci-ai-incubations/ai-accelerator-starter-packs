@@ -1055,7 +1055,7 @@ locals {
               recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool = true
               recipe_replica_count        = 1
-              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d5848b"
+              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci"
               recipe_container_env = [
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
@@ -1071,7 +1071,9 @@ locals {
                 { "key" = "AWS_REGION", value = var.region },
                 { "key" = "AWS_ACCESS_KEY_ID", value = oci_identity_customer_secret_key.aws_compat_access_key[0].id },
                 { "key" = "AWS_SECRET_ACCESS_KEY", value = oci_identity_customer_secret_key.aws_compat_access_key[0].key },
-                { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" }
+                { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
+                { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
+                { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
               ],
               pvcs = {
                 retain_after_undeploy = false
