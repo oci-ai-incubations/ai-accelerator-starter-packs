@@ -1067,10 +1067,10 @@ locals {
                 { "key" = "OCI_REGION", value = var.genai_region },
                 { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
                 { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"},
-                { "key" = "S3_BUCKET_NAME", value = oci_objectstorage_bucket.paas_rag_bucket[0].name },
+                { "key" = "S3_BUCKET_NAME", value = local.bucket_name },
                 { "key" = "AWS_REGION", value = var.region },
-                { "key" = "AWS_ACCESS_KEY_ID", value = oci_identity_customer_secret_key.aws_compat_access_key[0].id },
-                { "key" = "AWS_SECRET_ACCESS_KEY", value = oci_identity_customer_secret_key.aws_compat_access_key[0].key },
+                { "key" = "AWS_ACCESS_KEY_ID", value = local.aws_compat_access_key_id },
+                { "key" = "AWS_SECRET_ACCESS_KEY", value = local.aws_compat_access_key_key },
                 { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
                 { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
                 { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
