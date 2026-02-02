@@ -380,6 +380,12 @@ variables:
     type: boolean
     visible: false
 
+  ngc_secret:
+    visible: false
+
+  ngc_api_secret:
+    visible: false
+
   nip_io_domain:
     type: string
     visible: false
