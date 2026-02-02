@@ -660,6 +660,7 @@ locals {
       "medium" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
+        app_namespace                                = "default"
         use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
