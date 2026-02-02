@@ -25,14 +25,10 @@ primaryOutputButton: starter_pack_url
 # Output Groups - Common structure
 # =============================================================================
 outputGroups:
-  - title: "⚠️ DNS Configuration Required - Create a wildcard A-record for this IP"
+  - title: "Custom DNS Configuration Info"
     outputs:
       - external_ip
       - custom_dns_domain
-    visible:
-      eq:
-        - use_custom_dns
-        - true
 
   - title: "Service"
     outputs:
@@ -488,19 +484,13 @@ outputs:
     type: string
     title: "Load Balancer IP Address"
     description: "Point your wildcard A-record to this IP address."
-    visible:
-      eq:
-        - use_custom_dns
-        - true
+    visible: true
 
   custom_dns_domain:
     type: string
     title: "Wildcard A-Record Domain"
     description: "Create a wildcard A-record for this domain in your DNS registrar, pointing to the Load Balancer IP above. Then re-apply this stack."
-    visible:
-      eq:
-        - use_custom_dns
-        - true
+    visible: true
 
   db_username:
     type: string

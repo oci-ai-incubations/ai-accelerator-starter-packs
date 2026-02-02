@@ -118,14 +118,14 @@ output "kubeconfig_command" {
 
 # Load Balancer IP Address
 output "external_ip" {
-  description = "Public IP address of the ingress load balancer. Configure DNS A records to point your domain(s) to this IP."
-  value       = local.network.external_ip
+  description = "Public IP address of the ingress load balancer. If Custom DNS is enabled, configure DNS A records to point your domain(s) to this IP."
+  value       = var.use_custom_dns ? local.network.external_ip : "N/A - Using automatic nip.io domain"
 }
 
 # Custom DNS Domain - shows the wildcard A-record domain that needs to be configured
 output "custom_dns_domain" {
-  description = "Create a wildcard A-record for this domain pointing to the Load Balancer IP above."
-  value       = var.use_custom_dns ? "*.${var.fqdn_custom_domain}" : null
+  description = "If Custom DNS is enabled, create a wildcard A-record for this domain pointing to the Load Balancer IP above."
+  value       = var.use_custom_dns ? "*.${var.fqdn_custom_domain}" : "N/A - Custom DNS not enabled"
 }
 
 # Load Balancer Subnet Information
