@@ -184,6 +184,14 @@ locals {
     pod_util_arm64_image   = "pod-util-arm64"
   }
 
+  # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
+  vss_oracle_ux = {
+    image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-latest"
+    download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-latest"
+    # vss_backend_service is now dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
+    vss_backend_deployment     = "recipe-vss-deployment"
+  }
+
   domain = {
     corrino_oci_mode = "corrino-oci.com"
     corrino_oci_fqdn = format("%s.corrino-oci.com", random_string.subdomain.result)

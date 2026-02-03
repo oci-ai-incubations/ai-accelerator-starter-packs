@@ -573,3 +573,6 @@ outputs:
 
   app_name:
     visible: false
+
+  vss_oracle_ux_url:
+    visible: false

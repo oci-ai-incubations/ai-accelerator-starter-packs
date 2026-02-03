@@ -18,6 +18,7 @@ informationalText: |
 outputGroups:
   - title: "VSS Service"
     outputs:
+      - vss_oracle_ux_url
       - starter_pack_url
       - starter_pack_deployment_name
 
@@ -94,9 +95,14 @@ variables:
 # Outputs - VSS specific titles, hide database
 # =============================================================================
 outputs:
+  vss_oracle_ux_url:
+    type: link
+    title: "VSS Oracle UX Frontend"
+    visible: true
+
   starter_pack_url:
     type: string
-    title: "VSS Service URL"
+    title: "VSS Backend Service URL"
 
   db_username:
     visible: false
