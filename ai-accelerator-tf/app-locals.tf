@@ -9,11 +9,10 @@ locals {
     backend_service_name_origin  = "http://corrino-cp"
     backend_service_name_ingress = "corrino-cp-ingress"
     #    backend_image_uri_base                       = join(":", [local.ocir.base_uri, local.ocir.backend_image])
-    #backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.stack_version}")
-    backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-v1.0.11-ingress"
+    backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.corrino_image_version}-ingress")
     #backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-latest"
     #frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
-    blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.stack_version}")
+    blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.corrino_image_version}")
     deploy_blueprint_image_uri                     = format("${local.ocir.base_uri}:corrino_deployment_scripts-latest")
     recipe_bucket_name                             = "corrino-recipes"
     recipe_validation_enabled                      = "True"
@@ -58,7 +57,7 @@ locals {
       timestamp       = local.ts
       workspace_name  = local.app_name
       deploy_id       = local.deploy_id
-      stack_version   = var.stack_version
+      stack_version   = var.accelerator_pack_stack_version
       fqdn            = local.fqdn.name
 
       # Core OCI Info

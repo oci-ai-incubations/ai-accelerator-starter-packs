@@ -92,7 +92,7 @@ variableGroups:
 
   - title: "Advanced Options"
     variables:
-      - stack_version
+      - accelerator_pack_stack_version
       - skip_capacity_check
       - worker_node_availability_domain
       - use_custom_dns
@@ -423,14 +423,23 @@ variables:
     type: integer
     visible: false
 
-  stack_version:
-    title: "Stack Version"
+  accelerator_pack_stack_version:
+    title: "Accelerator Pack Stack Version"
     type: enum
     enum:
       - "v0.0.1"
     default: "v0.0.1"
     required: true
     visible: true
+
+  corrino_image_version:
+    title: "Corrino Image Version"
+    type: enum
+    enum:
+      - "1.0.11"
+    default: "1.0.11"
+    required: true
+    visible: false
 
   oci_tag_values:
     type: map

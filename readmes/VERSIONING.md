@@ -16,8 +16,11 @@ Versioning is managed through several files that must be kept in sync:
 
 | File | Purpose |
 |------|---------|
-| `AI_ACCELERATOR_STACK_VERSION` | Single source of truth for the current version |
-| `vars.tf` | Default value for `stack_version` variable |
+| `AI_ACCELERATOR_STACK_VERSION` | Single source of truth for the current (stack) version |
+| `vars.tf` | Default values for `accelerator_pack_stack_version` and `corrino_image_version` variables |
+
+
+Also note: `corrino_image_version` controls the Corrino backend image tag (e.g., `1.0.11`), while `accelerator_pack_stack_version` is the starter-pack release (e.g., `v0.0.1`).
 | `schemas/common_schema.yaml` | Enum list of available versions and default |
 | `outputs.tf` | Exposes version as a Terraform output |
 
@@ -46,7 +49,7 @@ v0.1.0
 Update the default value in `vars.tf`:
 
 ```hcl
-variable "stack_version" {
+variable "accelerator_pack_stack_version" {
   default     = "v0.1.0"
   description = "Stack version for AI Accelerator Starter Packs"
 }
@@ -57,7 +60,7 @@ variable "stack_version" {
 In `schemas/common_schema.yaml`, add the new version to the enum list and update the default:
 
 ```yaml
-stack_version:
+accelerator_pack_stack_version:
   title: "Stack Version"
   type: enum
   enum:

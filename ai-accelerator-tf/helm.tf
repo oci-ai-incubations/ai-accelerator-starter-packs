@@ -429,6 +429,13 @@ resource "helm_release" "milvus" {
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
 
+resource "kubernetes_namespace_v1" "app_namespace" {
+  count = local.starter_pack_config.app_namespace != "default" ? 1 : 0
+  metadata {
+    name = local.starter_pack_config.app_namespace
+  }
+}
+
 resource "helm_release" "rag" {
   name             = "rag"
   namespace        = local.starter_pack_config.app_namespace
