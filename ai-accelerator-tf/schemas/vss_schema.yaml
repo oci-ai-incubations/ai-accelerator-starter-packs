@@ -81,7 +81,7 @@ variables:
   genai_region:
     visible: false
 
-  cuopt_marketing_enabled:
+  cuopt_frontend_enabled:
     visible: false
 
   # Hide database variables

@@ -21,7 +21,7 @@ outputGroups:
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
-      - starter_pack_marketing_url
+      - starter_pack_frontend_url
 
   - title: "Management & API"
     outputs:
@@ -51,7 +51,7 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
-      - cuopt_marketing_enabled
+      - cuopt_frontend_enabled
       - genai_region
       - worker_node_availability_domain
 
@@ -75,10 +75,10 @@ variables:
     default: small
     required: true
 
-  cuopt_marketing_enabled:
+  cuopt_frontend_enabled:
     type: boolean
-    title: "Enable cuOpt Marketing"
-    description: "Enable cuOpt marketing frontend"
+    title: "Enable cuOpt Frontend"
+    description: "Enable cuOpt frontend"
     default: false
     visible: true
     required: true
@@ -102,7 +102,7 @@ variables:
       - sa-saopaulo-1
     visible:
       and:
-        - cuopt_marketing_enabled
+        - cuopt_frontend_enabled
 
   # Hide database variables
   db_username:
@@ -126,9 +126,9 @@ outputs:
     type: string
     title: "cuOpt API URL"
   
-  starter_pack_marketing_url:
+  starter_pack_frontend_url:
     type: string
-    title: "cuOpt Marketing Service URL"
+    title: "cuOpt Frontend Service URL"
 
   db_username:
     visible: false
