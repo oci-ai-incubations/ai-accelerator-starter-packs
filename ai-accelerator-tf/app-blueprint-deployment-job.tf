@@ -40,7 +40,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
   ]
-  count = var.is_nvaie_enabled ? 1 : 0
+  count = var.is_nvaie_enabled && var.starter_pack_category != "enterprise_rag" ? 1 : 0
 }
 
 # DNS Configuration Warning - outputs the required DNS setup when custom_dns is enabled

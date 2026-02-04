@@ -335,9 +335,14 @@ variable "oci_tag_values" {
   }
 }
 
-variable "stack_version" {
+variable "accelerator_pack_stack_version" {
   default     = "v0.0.1"
-  description = "Stack version for AI Accelerator Starter Packs"
+  description = "Stack release version for AI Accelerator Starter Packs"
+}
+
+variable "corrino_image_version" {
+  default     = "v1.0.11"
+  description = "Corrino backend image version"
 }
 
 variable "is_nvaie_enabled" {
