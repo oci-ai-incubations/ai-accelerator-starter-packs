@@ -49,13 +49,6 @@ outputGroups:
       - grafana_admin_username
       - grafana_admin_password
 
-  - title: "Oracle 26ai Database"
-    outputs:
-      - db_username
-      - db_password
-      - autonomous_database_name
-      - autonomous_database_id
-
   - title: "Version Info"
     outputs:
       - ai_accelerator_stack_version
@@ -80,11 +73,6 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
-
-  - title: "Oracle 26ai Database"
-    variables:
-      - db_username
-      - db_password
 
   - title: "Advanced Options"
     variables:

@@ -67,9 +67,11 @@ variableGroups:
       - corrino_admin_email
 
   - title: "Oracle 26ai Database"
-    variables:
+    outputs:
       - db_username
       - db_password
+      - autonomous_database_name
+      - autonomous_database_id
 
 # =============================================================================
 # Variables - RAG specific
