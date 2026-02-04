@@ -546,7 +546,7 @@ locals {
         }
         database_storage_size_in_tbs          = 0
         database_compute_count                = 0
-        starter_pack_url_deployment           = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
+        starter_pack_url_deployment           = var.cuopt_marketing_enabled ? "cuopt-2-cuopt" : "cuopt"
         marketing_starter_pack_url_deployment = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
@@ -572,7 +572,7 @@ locals {
         }
         database_storage_size_in_tbs          = 0
         database_compute_count                = 0
-        starter_pack_url_deployment           = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
+        starter_pack_url_deployment           = var.cuopt_marketing_enabled ? "cuopt-2-cuopt" : "cuopt"
         marketing_starter_pack_url_deployment = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented

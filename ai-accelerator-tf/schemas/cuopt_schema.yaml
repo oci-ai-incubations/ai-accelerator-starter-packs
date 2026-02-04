@@ -123,9 +123,8 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open cuOpt Service"
-    displayText: "Open cuOpt Service"
+    type: string
+    title: "cuOpt Service URL"
   
   starter_pack_marketing_url:
     type: link
