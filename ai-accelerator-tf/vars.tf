@@ -560,7 +560,7 @@ locals {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
-        use_dynamic_url                              = true
+        use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
@@ -586,7 +586,7 @@ locals {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
-        use_dynamic_url                              = true
+        use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU.L40S.4"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 1
