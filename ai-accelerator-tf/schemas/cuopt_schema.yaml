@@ -17,7 +17,7 @@ informationalText: |
 # Output Groups - Remove database section
 # =============================================================================
 outputGroups:
-  - title: "cuOpt Service"
+  - title: "Service"
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
@@ -124,12 +124,11 @@ variables:
 outputs:
   starter_pack_url:
     type: string
-    title: "cuOpt Service URL"
+    title: "cuOpt API URL"
   
   starter_pack_marketing_url:
-    type: link
-    title: "Open cuOpt Marketing Service"
-    displayText: "Open cuOpt Marketing Service"
+    type: string
+    title: "cuOpt Marketing Service URL"
 
   db_username:
     visible: false
