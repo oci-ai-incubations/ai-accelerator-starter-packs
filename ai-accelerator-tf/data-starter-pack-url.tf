@@ -249,7 +249,7 @@ locals {
 # =============================================================================
 locals {
   # Marketing URL - use dynamically fetched value when available, otherwise disabled
-  cuopt_marketing_url = local.first_marketing_recipe != null ? local.first_marketing_recipe.public_endpoint : "#Marketing Disabled"
+  cuopt_frontend_url = local.first_marketing_recipe != null ? local.first_marketing_recipe.public_endpoint : "#cuOpt Frontend Disabled"
 }
 
 # =============================================================================
@@ -261,8 +261,8 @@ locals {
     local.dynamic_url != "" ? local.dynamic_url : local.public_endpoint.starter_pack
   ) : local.public_endpoint.starter_pack
 
-  # Final marketing URL - only for cuopt with marketing enabled
+  # Final cuOpt frontend URL - only for cuopt with frontend enabled
   starter_pack_marketing_url_output = var.starter_pack_category == "cuopt" ? (
-    var.cuopt_marketing_enabled ? local.cuopt_marketing_url : "#Marketing Disabled"
-  ) : "#Marketing Disabled"
+    var.cuopt_frontend_enabled ? local.cuopt_frontend_url : "#cuOpt Frontend Disabled"
+  ) : "#cuOpt Frontend Disabled"
 }

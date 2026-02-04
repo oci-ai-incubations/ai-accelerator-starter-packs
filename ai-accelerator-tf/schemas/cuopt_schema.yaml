@@ -51,7 +51,7 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
-      - cuopt_marketing_enabled
+      - cuopt_frontend_enabled
       - genai_region
 
   - title: "Administrator Account"
@@ -74,10 +74,10 @@ variables:
     default: small
     required: true
 
-  cuopt_marketing_enabled:
+  cuopt_frontend_enabled:
     type: boolean
-    title: "Enable cuOpt Marketing"
-    description: "Enable cuOpt marketing frontend"
+    title: "Enable cuOpt Frontend UI"
+    description: "Enable cuOpt frontend UI"
     default: false
     visible: true
     required: true
@@ -101,7 +101,7 @@ variables:
       - sa-saopaulo-1
     visible:
       and:
-        - cuopt_marketing_enabled
+        - cuopt_frontend_enabled
 
   # Hide database variables
   db_username:

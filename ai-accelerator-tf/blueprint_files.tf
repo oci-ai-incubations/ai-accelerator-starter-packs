@@ -6,8 +6,8 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
-      "small"  = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
-      "medium" = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
+      "small"  = var.cuopt_frontend_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
+      "medium" = var.cuopt_frontend_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
       # Add "large" here when implemented
     }
     "vss" = {
