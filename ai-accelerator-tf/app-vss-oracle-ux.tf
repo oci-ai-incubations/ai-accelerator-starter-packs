@@ -267,8 +267,10 @@ resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
   metadata {
     name = "vss-oracle-ux-ingress"
     annotations = {
-      "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+      "cert-manager.io/cluster-issuer"                       = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/rewrite-target"          = "/"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout"      = "1800"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout"      = "1800"
     }
   }
 
