@@ -498,11 +498,11 @@ resource "helm_release" "rag" {
     },
     {
       name  = "milvus.standalone.resources.limits.cpu"
-      value = "8"
+      value = "16"
     },
     {
       name  = "milvus.standalone.resources.limits.memory"
-      value = "24Gi"
+      value = "32Gi"
     },
     {
       name  = "milvus.app_vectorstore_enablegpusearch"
