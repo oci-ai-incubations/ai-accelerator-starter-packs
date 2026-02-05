@@ -78,7 +78,6 @@ variableGroups:
     variables:
       - accelerator_pack_stack_version
       - skip_capacity_check
-      - worker_node_availability_domain
       - use_custom_dns
       - fqdn_custom_domain
 
@@ -111,11 +110,7 @@ variables:
 
   worker_node_availability_domain:
     type: string
-    title: "Worker Node Availability Domain (required if skip_capacity_check is true)"
-    visible:
-      eq:
-        - skip_capacity_check
-        - true
+    visible: false
 
   # OCI Identity (Hidden)
   compartment_ocid:

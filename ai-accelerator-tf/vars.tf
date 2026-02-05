@@ -430,7 +430,7 @@ variable "skip_capacity_check" {
 }
 
 variable "worker_node_availability_domain" {
-  description = "Availability domain to use for worker nodes. Required when skip_capacity_check is true. When skip_capacity_check is false, this is automatically determined from capacity checks."
+  description = "Availability domain to use for worker nodes. Required for GPU starter packs (cuopt, vss, enterprise_rag). Optional for paas_rag. When skip_capacity_check is false, capacity will be validated for this AD. When skip_capacity_check is true, capacity validation is skipped."
   type        = string
   default     = ""
 }

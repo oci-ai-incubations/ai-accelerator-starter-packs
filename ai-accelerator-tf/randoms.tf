@@ -54,17 +54,17 @@ resource "random_string" "postgres_db_password" {
 }
 
 resource "random_string" "postgres_db_username" {
-  length           = 8
-  special          = false
-  min_upper        = 2
-  min_lower        = 2
+  length    = 8
+  special   = false
+  min_upper = 2
+  min_lower = 2
 }
 
 resource "random_string" "postgres_db_name" {
-  length           = 4
-  special          = false
-  min_upper        = 2
-  min_lower        = 2
+  length    = 4
+  special   = false
+  min_upper = 2
+  min_lower = 2
 }
 
 # resource "random_string" "autonomous_database_admin_password" {
