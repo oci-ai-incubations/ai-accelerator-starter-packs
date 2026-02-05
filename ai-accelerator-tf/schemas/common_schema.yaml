@@ -360,7 +360,7 @@ variables:
         - use_custom_dns
         - true
 
-  cuopt_marketing_enabled:
+  cuopt_frontend_enabled:
     type: boolean
     visible: false
 

@@ -160,9 +160,9 @@ output "starter_pack_url" {
   value       = local.starter_pack_url_output
 }
 
-output "starter_pack_marketing_url" {
-  description = "Starter pack marketing FQDN"
-  value       = local.starter_pack_marketing_url_output
+output "starter_pack_frontend_url" {
+  description = "Starter pack frontend FQDN"
+  value       = local.starter_pack_frontend_url_output
 }
 
 output "blueprints_portal_url" {

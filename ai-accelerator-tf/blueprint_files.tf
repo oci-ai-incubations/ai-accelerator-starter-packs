@@ -6,8 +6,8 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
-      "small"  = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
-      "medium" = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
+      "small"  = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
+      "medium" = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
       # Add "large" here when implemented
     }
     "vss" = {
@@ -85,7 +85,7 @@ locals {
     },
     var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
   ))
-  _cuopt_with_marketing_blueprint = jsonencode({
+  _cuopt_with_frontend_blueprint = jsonencode({
     deployment_group = {
       name = local.starter_pack_deployment_name
       deployments = [
