@@ -769,6 +769,9 @@ nv-ingest:
       resources:
         limits:
           nvidia.com/gpu: 0
+        requests:
+          cpu: "8"
+          memory: "16Gi"
     minio:
       image:
         repository: docker.io/minio/minio

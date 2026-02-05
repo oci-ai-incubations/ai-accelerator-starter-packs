@@ -153,8 +153,12 @@ resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
     name      = "enterprise-rag-frontend-ingress"
     namespace = local.starter_pack_config.app_namespace
     annotations = {
-      "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
-      "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+      "cert-manager.io/cluster-issuer"                       = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/rewrite-target"           = "/"
+      "nginx.ingress.kubernetes.io/proxy-body-size"          = "2g"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout"       = "600"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout"       = "600"
+      "nginx.ingress.kubernetes.io/proxy-connect-timeout"    = "600"
     }
   }
   spec {
