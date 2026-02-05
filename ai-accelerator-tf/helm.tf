@@ -488,7 +488,7 @@ resource "helm_release" "rag" {
   ]
 
   set = [
-     {
+    {
       name  = "global.ngcApiKey"
       value = var.ngc_api_secret
     },

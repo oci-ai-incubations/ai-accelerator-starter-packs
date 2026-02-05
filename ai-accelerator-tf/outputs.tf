@@ -65,8 +65,8 @@ output "node_pool_kubernetes_version" {
 }
 
 output "worker_node_availability_domain" {
-  description = "Availability domain selected for worker nodes (either from capacity check or user-provided)"
-  value       = local.starter_pack_config.worker_node_shape != "none" ? local.worker_node_availability_domain : null
+  description = "Availability domain selected for worker nodes (user-provided)"
+  value       = local.worker_node_availability_domain
 }
 
 # Bastion Information (when created)
@@ -265,7 +265,7 @@ output "object_storage_namespace" {
 
 output "selected_worker_node_availability_domain" {
   description = "Availability domain selected for worker nodes (for debugging)"
-  value       = local.starter_pack_config.worker_node_shape != "none" ? local.worker_node_availability_domain : null
+  value       = local.worker_node_availability_domain
 }
 
 # Version Information

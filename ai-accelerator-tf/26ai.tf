@@ -192,7 +192,7 @@ resource "kubernetes_job_v1" "wallet_extractor_job" {
         # Service account token is automatically mounted at /var/run/secrets/kubernetes.io/serviceaccount
       }
     }
-    backoff_limit              = 1
+    backoff_limit = 1
     # Increase TTL to prevent job from being deleted too quickly
     # This helps Terraform maintain state consistency
     ttl_seconds_after_finished = 3600

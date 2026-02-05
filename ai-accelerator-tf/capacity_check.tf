@@ -114,7 +114,7 @@ locals {
       length(oci_core_compute_capacity_report.gpu_worker_capacity) > 0 ?
       anytrue([
         for report in oci_core_compute_capacity_report.gpu_worker_capacity :
-        report.shape_availabilities[0].availability_status == "AVAILABLE"
+        report.shape_availabilities[0].availability_status == "AVAILABLE" && report.availability_domain == var.worker_node_availability_domain
       ]) : true
     )
   )
@@ -157,31 +157,12 @@ locals {
     )
   )
 
-  # Determine which availability domain to use for worker nodes
-  # When skip_capacity_check is true, use the provided variable
-  # When skip_capacity_check is false, find the first AD with capacity
-  # Iterate through ADs in their original order (not map key order) for deterministic selection
-  worker_node_availability_domain = var.skip_capacity_check ? var.worker_node_availability_domain : (
-    local.starter_pack_config.worker_node_shape == "none" ? (
-      # If no GPU workers needed, just use the first AD
-      data.oci_identity_availability_domains.ads.availability_domains[0].name
-    ) : (
-      # Find the first AD (in original order) with available capacity
-      length([
-        for ad in data.oci_identity_availability_domains.ads.availability_domains :
-        ad.name if contains(keys(oci_core_compute_capacity_report.gpu_worker_capacity), ad.name) &&
-        oci_core_compute_capacity_report.gpu_worker_capacity[ad.name].shape_availabilities[0].availability_status == "AVAILABLE"
-      ]) > 0 ? (
-        [
-          for ad in data.oci_identity_availability_domains.ads.availability_domains :
-          ad.name if contains(keys(oci_core_compute_capacity_report.gpu_worker_capacity), ad.name) &&
-          oci_core_compute_capacity_report.gpu_worker_capacity[ad.name].shape_availabilities[0].availability_status == "AVAILABLE"
-        ][0]
-      ) : (
-        # Fallback to first AD if no capacity found (shouldn't happen due to validation)
-        data.oci_identity_availability_domains.ads.availability_domains[0].name
-      )
-    )
+  # Use the user-provided availability domain for worker nodes
+  # For GPU starter packs, this is required. For paas_rag (worker_node_shape == "none"), it's optional.
+  # Capacity checking will validate this AD has capacity when skip_capacity_check is false
+  worker_node_availability_domain = var.worker_node_availability_domain != "" ? var.worker_node_availability_domain : (
+    # Fallback to first AD if not provided (only for paas_rag)
+    data.oci_identity_availability_domains.ads.availability_domains[0].name
   )
 
   # Overall capacity validation
@@ -283,17 +264,15 @@ resource "terraform_data" "capacity_validated" {
   # This resource validates capacity and acts as a dependency gate
 
   lifecycle {
+    # Require worker_node_availability_domain for GPU starter packs (when worker_node_shape != "none")
     precondition {
-      condition     = var.skip_capacity_check ? (
-        local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""
-      ) : true
-      error_message = "When skip_capacity_check is true and worker nodes are required (worker_node_shape != 'none'), worker_node_availability_domain must be provided."
+      condition     = local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""
+      error_message = "worker_node_availability_domain is required for GPU starter packs (cuopt, vss, enterprise_rag). It is optional for paas_rag."
     }
 
+    # Validate that the provided AD exists in the region (only if provided)
     precondition {
-      condition     = var.skip_capacity_check && var.worker_node_availability_domain != "" ? (
-        contains([for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name], var.worker_node_availability_domain)
-      ) : true
+      condition     = var.worker_node_availability_domain == "" || contains([for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name], var.worker_node_availability_domain)
       error_message = "The provided worker_node_availability_domain '${var.worker_node_availability_domain}' is not a valid availability domain in region ${var.region}. Valid ADs: ${join(", ", [for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name])}"
     }
 

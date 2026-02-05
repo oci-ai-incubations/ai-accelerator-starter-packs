@@ -163,7 +163,7 @@ locals {
       public_endpoint = info.public_endpoint
       deployment_uuid = try(info["deployment-uuid"], "")
     }
-    if (
+    if(
       # Match recipe name pattern: starts with "<starter_pack_url_deployment>-"
       startswith(name, "${local.starter_pack_url_deployment}-") &&
       try(info.type, "") == "Ingress" &&
@@ -186,7 +186,7 @@ locals {
       public_endpoint = info.public_endpoint
       deployment_uuid = try(info["deployment-uuid"], "")
     }
-    if (
+    if(
       # Match recipe name pattern: starts with "<marketing_starter_pack_url_deployment>-"
       startswith(name, "${local.marketing_starter_pack_url_deployment}-") &&
       try(info.type, "") == "Ingress" &&
