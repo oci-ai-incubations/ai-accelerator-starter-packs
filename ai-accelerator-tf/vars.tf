@@ -345,11 +345,6 @@ variable "corrino_image_version" {
   description = "Corrino backend image version"
 }
 
-variable "is_nvaie_enabled" {
-  default     = true
-  description = "whether to enable NVAIE"
-}
-
 variable "setup_credential_provider_for_ocir" {
   default     = false
   description = "whether to setup credential provider for OCIR"
@@ -527,6 +522,8 @@ locals {
         blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
@@ -553,6 +550,8 @@ locals {
         blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
@@ -583,6 +582,8 @@ locals {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
@@ -609,6 +610,8 @@ locals {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.L40S.4"
         worker_node_pool_size                        = 2
@@ -639,6 +642,8 @@ locals {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
         app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
         use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
@@ -666,6 +671,8 @@ locals {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
         app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
         use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
@@ -697,6 +704,8 @@ locals {
         blueprint_file                               = ""
         deployment_name                              = "enterprise-rag"
         app_namespace                                = "rag"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = false
         use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
