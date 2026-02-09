@@ -1,7 +1,0 @@
-ingress for prometheus
-fix ingress for grafana + prometheus
-self-managed worker nodes
-deploy blueprint kubernetes job based on flag
-  - flag will correspond to which starter pack someone selects, which will just correlate to a blueprint to be deployed.
-  - job will return an API service endpoint
-  - A separate job will run to check a /health endpoint (bp is live)

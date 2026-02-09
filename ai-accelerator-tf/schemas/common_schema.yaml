@@ -25,14 +25,10 @@ primaryOutputButton: starter_pack_url
 # Output Groups - Common structure
 # =============================================================================
 outputGroups:
-  - title: "⚠️ DNS Configuration Required - Create a wildcard A-record for this IP"
+  - title: "Custom DNS Configuration Info"
     outputs:
       - external_ip
       - custom_dns_domain
-    visible:
-      eq:
-        - use_custom_dns
-        - true
 
   - title: "Service"
     outputs:
@@ -53,12 +49,9 @@ outputGroups:
       - grafana_admin_username
       - grafana_admin_password
 
-  - title: "Oracle 26ai Database"
+  - title: "Version Info"
     outputs:
-      - db_username
-      - db_password
-      - autonomous_database_name
-      - autonomous_database_id
+      - ai_accelerator_stack_version
 
 # =============================================================================
 # Variable Groups - Common structure
@@ -81,15 +74,10 @@ variableGroups:
       - corrino_admin_password
       - corrino_admin_email
 
-  - title: "Oracle 26ai Database"
-    variables:
-      - db_username
-      - db_password
-
   - title: "Advanced Options"
     variables:
+      - accelerator_pack_stack_version
       - skip_capacity_check
-      - worker_node_availability_domain
       - use_custom_dns
       - fqdn_custom_domain
 
@@ -122,11 +110,7 @@ variables:
 
   worker_node_availability_domain:
     type: string
-    title: "Worker Node Availability Domain (required if skip_capacity_check is true)"
-    visible:
-      eq:
-        - skip_capacity_check
-        - true
+    visible: false
 
   # OCI Identity (Hidden)
   compartment_ocid:
@@ -376,8 +360,14 @@ variables:
         - use_custom_dns
         - true
 
-  cuopt_marketing_enabled:
+  cuopt_frontend_enabled:
     type: boolean
+    visible: false
+
+  ngc_secret:
+    visible: false
+
+  ngc_api_secret:
     visible: false
 
   nip_io_domain:
@@ -412,8 +402,22 @@ variables:
     type: integer
     visible: false
 
-  stack_version:
-    type: string
+  accelerator_pack_stack_version:
+    title: "Accelerator Pack Stack Version"
+    type: enum
+    enum:
+      - "v0.0.1"
+    default: "v0.0.1"
+    required: true
+    visible: true
+
+  corrino_image_version:
+    title: "Corrino Image Version"
+    type: enum
+    enum:
+      - "1.0.11"
+    default: "1.0.11"
+    required: true
     visible: false
 
   oci_tag_values:
@@ -482,19 +486,13 @@ outputs:
     type: string
     title: "Load Balancer IP Address"
     description: "Point your wildcard A-record to this IP address."
-    visible:
-      eq:
-        - use_custom_dns
-        - true
+    visible: true
 
   custom_dns_domain:
     type: string
     title: "Wildcard A-Record Domain"
     description: "Create a wildcard A-record for this domain in your DNS registrar, pointing to the Load Balancer IP above. Then re-apply this stack."
-    visible:
-      eq:
-        - use_custom_dns
-        - true
+    visible: true
 
   db_username:
     type: string
@@ -582,3 +580,8 @@ outputs:
 
   app_name:
     visible: false
+
+  ai_accelerator_stack_version:
+    type: string
+    title: "Stack Version"
+    visible: true

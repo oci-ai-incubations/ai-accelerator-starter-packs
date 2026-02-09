@@ -17,11 +17,11 @@ informationalText: |
 # Output Groups - Remove database section
 # =============================================================================
 outputGroups:
-  - title: "cuOpt Service"
+  - title: "Service"
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
-      - starter_pack_marketing_url
+      - starter_pack_frontend_url
 
   - title: "Management & API"
     outputs:
@@ -51,8 +51,9 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
-      - cuopt_marketing_enabled
+      - cuopt_frontend_enabled
       - genai_region
+      - worker_node_availability_domain
 
   - title: "Administrator Account"
     variables:
@@ -74,10 +75,10 @@ variables:
     default: small
     required: true
 
-  cuopt_marketing_enabled:
+  cuopt_frontend_enabled:
     type: boolean
-    title: "Enable cuOpt Marketing"
-    description: "Enable cuOpt marketing frontend"
+    title: "Enable cuOpt Frontend"
+    description: "Enable cuOpt frontend"
     default: false
     visible: true
     required: true
@@ -101,7 +102,7 @@ variables:
       - sa-saopaulo-1
     visible:
       and:
-        - cuopt_marketing_enabled
+        - cuopt_frontend_enabled
 
   # Hide database variables
   db_username:
@@ -110,19 +111,24 @@ variables:
   db_password:
     visible: false
 
+  # Make AD required for cuOpt (GPU starter pack)
+  worker_node_availability_domain:
+    title: "Worker Node Availability Domain where GPU capacity is available (EX: TrcQ:US-ASHBURN-AD-2)"
+    description: "To find ADs, go to Governance & Administration -> Limits, quotas and usage -> Edit Filters -> Service = Compute, Scope = Selected AD -> In Search, type: 'gpu4' or 'a100' depending on pack size."
+    required: true
+    visible: true
+
 # =============================================================================
 # Outputs - cuOpt specific titles, hide database
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
-    title: "Open cuOpt Service"
-    displayText: "Open cuOpt Service"
+    type: string
+    title: "cuOpt API URL"
   
-  starter_pack_marketing_url:
-    type: link
-    title: "Open cuOpt Marketing Service"
-    displayText: "Open cuOpt Marketing Service"
+  starter_pack_frontend_url:
+    type: string
+    title: "cuOpt Frontend Service URL"
 
   db_username:
     visible: false

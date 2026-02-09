@@ -56,7 +56,7 @@ resource "null_resource" "wait_for_deployment" {
           -H "Content-Type: application/json" 2>/dev/null)
 
         # Filter by specific sub-deployment name (e.g., "frontend-paas-*")
-        # For single deployments (cuopt without marketing), DEPLOYMENT_FOR_URL="cuopt" matches "cuopt-<uuid>"
+        # For single deployments (cuopt without frontend), DEPLOYMENT_FOR_URL="cuopt" matches "cuopt-<uuid>"
         # For deployment groups, it matches "<sub_deployment>-<group>-<uuid>" pattern
         DEPLOYMENT_UUID=$(echo "$WORKSPACE" | jq -r ".recipes | to_entries[] | select(.key | startswith(\"$DEPLOYMENT_FOR_URL-\")) | select(.value.type == \"Ingress\") | .value[\"deployment-uuid\"]" 2>/dev/null | head -1)
 
@@ -155,7 +155,7 @@ locals {
   recipes = local.workspace_data != null ? try(local.workspace_data.recipes, {}) : {}
 
   # Find matching recipe and extract deployment-uuid
-  # Filter by starter_pack_url_deployment (e.g., "frontend" for paas_rag, "cuopt" for cuopt without marketing)
+  # Filter by starter_pack_url_deployment (e.g., "frontend" for paas_rag, "cuopt" for cuopt without frontend)
   matching_recipe_info = local.needs_dynamic_url ? [
     for name, info in local.recipes :
     {
@@ -163,7 +163,7 @@ locals {
       public_endpoint = info.public_endpoint
       deployment_uuid = try(info["deployment-uuid"], "")
     }
-    if (
+    if(
       # Match recipe name pattern: starts with "<starter_pack_url_deployment>-"
       startswith(name, "${local.starter_pack_url_deployment}-") &&
       try(info.type, "") == "Ingress" &&
@@ -177,25 +177,25 @@ locals {
   # Extract deployment UUID for status check
   deployment_uuid_to_check = local.first_matching_recipe != null ? local.first_matching_recipe.deployment_uuid : ""
 
-  # Find marketing recipe (for cuopt marketing URL)
-  # Filter by marketing_starter_pack_url_deployment (e.g., "demo-cuopt" for cuopt with marketing)
-  marketing_recipe_info = local.needs_dynamic_url && local.marketing_starter_pack_url_deployment != "" ? [
+  # Find frontend recipe (for cuopt frontend URL)
+  # Filter by frontend_starter_pack_url_deployment (e.g., "demo-cuopt" for cuopt with frontend)
+  frontend_recipe_info = local.needs_dynamic_url && local.frontend_starter_pack_url_deployment != "" ? [
     for name, info in local.recipes :
     {
       name            = name
       public_endpoint = info.public_endpoint
       deployment_uuid = try(info["deployment-uuid"], "")
     }
-    if (
-      # Match recipe name pattern: starts with "<marketing_starter_pack_url_deployment>-"
-      startswith(name, "${local.marketing_starter_pack_url_deployment}-") &&
+    if(
+      # Match recipe name pattern: starts with "<frontend_starter_pack_url_deployment>-"
+      startswith(name, "${local.frontend_starter_pack_url_deployment}-") &&
       try(info.type, "") == "Ingress" &&
       try(info.public_endpoint, "") != ""
     )
   ] : []
 
-  # Get the first marketing recipe's info
-  first_marketing_recipe = length(local.marketing_recipe_info) > 0 ? local.marketing_recipe_info[0] : null
+  # Get the first frontend recipe's info
+  first_frontend_recipe = length(local.frontend_recipe_info) > 0 ? local.frontend_recipe_info[0] : null
 }
 
 # =============================================================================
@@ -245,11 +245,11 @@ locals {
 }
 
 # =============================================================================
-# Marketing URL (dynamically fetched for cuopt with marketing)
+# frontend URL (dynamically fetched for cuopt with frontend)
 # =============================================================================
 locals {
-  # Marketing URL - use dynamically fetched value when available, otherwise disabled
-  cuopt_marketing_url = local.first_marketing_recipe != null ? local.first_marketing_recipe.public_endpoint : "#Marketing Disabled"
+  # frontend URL - use dynamically fetched value when available, otherwise disabled
+  cuopt_frontend_url = local.first_frontend_recipe != null ? local.first_frontend_recipe.public_endpoint : "#Frontend Disabled"
 }
 
 # =============================================================================
@@ -261,8 +261,8 @@ locals {
     local.dynamic_url != "" ? local.dynamic_url : local.public_endpoint.starter_pack
   ) : local.public_endpoint.starter_pack
 
-  # Final marketing URL - only for cuopt with marketing enabled
-  starter_pack_marketing_url_output = var.starter_pack_category == "cuopt" ? (
-    var.cuopt_marketing_enabled ? local.cuopt_marketing_url : "#Marketing Disabled"
-  ) : "#Marketing Disabled"
+  # Final frontend URL - only for cuopt with frontend enabled
+  starter_pack_frontend_url_output = var.starter_pack_category == "cuopt" ? (
+    var.cuopt_frontend_enabled ? local.cuopt_frontend_url : "#Frontend Disabled"
+  ) : "#Frontend Disabled"
 }

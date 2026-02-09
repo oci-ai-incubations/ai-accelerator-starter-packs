@@ -27,7 +27,7 @@ resource "kubernetes_persistent_volume_claim_v1" "postgresql_pv_claim" {
   spec {
     storage_class_name = "oci-bv"
     access_modes       = ["ReadWriteOnce"]
-    
+
     resources {
       requests = {
         storage = "50Gi"
@@ -70,7 +70,7 @@ resource "kubernetes_deployment_v1" "postgres" {
         init_container {
           name  = "init-pgdata-dir"
           image = "docker.io/library/busybox:1.34"
-          
+
           command = [
             "sh",
             "-c",
@@ -139,7 +139,7 @@ resource "kubernetes_service_v1" "postgres" {
 
   spec {
     # type = "ClusterIP"  # Default type, can be omitted
-    
+
     selector = {
       app = "bp-postgres"
     }

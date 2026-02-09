@@ -73,7 +73,7 @@ resource "kubernetes_job_v1" "corrino_migration_job" {
   }
 
   depends_on = [
-    kubernetes_config_map_v1.corrino-configmap, 
+    kubernetes_config_map_v1.corrino-configmap,
     kubernetes_service_v1.postgres,
   ]
   count = 1
