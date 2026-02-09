@@ -90,3 +90,30 @@ This document contains container image versions for each accelerator pack config
 | NeMoRetriever Page Elements | nvcr.io/nim/nvidia/nemoretriever-page-elements-v2 | 1.5.0 |
 | NeMoRetriever Table Structure | nvcr.io/nim/nvidia/nemoretriever-table-structure-v1 | 1.5.0 |
 | NeMoRetriever Parse | nvcr.io/nim/nvidia/nemoretriever-parse | 1.2 |
+
+## Unique nvcr containers
+To extract from this file:
+```bash
+grep 'nvcr\.io' SOFTWARE_VERSIONS.md | awk -F'|' '{print $3"/"$4}' | sed 's/ *//g'| sort -u
+nvcr.io/nim/baidu/paddleocr/1.5.0 
+nvcr.io/nim/meta/llama-3.1-8b-instruct/1.13.1 
+nvcr.io/nim/nvidia/llama-3.1-nemotron-nano-vl-8b-v1/1.3.1 
+nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2/1.10.1 
+nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2/1.9.0 
+nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2/1.7.0 
+nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2/1.8.0 
+nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5/1.14.0 
+nvcr.io/nim/nvidia/nemoretriever-graphic-elements-v1/1.5.0 
+nvcr.io/nim/nvidia/nemoretriever-page-elements-v2/1.5.0 
+nvcr.io/nim/nvidia/nemoretriever-parse/1.2 
+nvcr.io/nim/nvidia/nemoretriever-table-structure-v1/1.5.0 
+nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us/2.0.0 
+nvcr.io/nvidia/blueprint/ingestor-server/2.3.0 
+nvcr.io/nvidia/blueprint/rag-frontend/2.3.0 
+nvcr.io/nvidia/blueprint/rag-server/2.3.0 
+nvcr.io/nvidia/blueprint/vss-engine/2.4.0 
+nvcr.io/nvidia/cuopt/cuopt/25.10.0-cuda12.9-py3.13 
+nvcr.io/nvidia/nemo-microservices/llama-3.2-nemoretriever-1b-vlm-embed-v1/1.7.0 
+nvcr.io/nvidia/nemo-microservices/nemoretriever-ocr-v1/1.1.0 
+nvcr.io/nvidia/nemo-microservices/nv-ingest/25.9.0
+```
