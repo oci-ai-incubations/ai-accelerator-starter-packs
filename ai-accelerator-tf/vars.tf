@@ -409,12 +409,12 @@ variable "starter_pack_category" {
 }
 
 variable "starter_pack_size" {
-  description = "The starter pack size (small, medium, large)"
+  description = "The starter pack size (poc, small, medium, large)"
   type        = string
   default     = "small"
   validation {
-    condition     = contains(["small", "medium", "large"], var.starter_pack_size)
-    error_message = "Starter pack size must be 'small', 'medium', or 'large'."
+    condition     = contains(["poc", "small", "medium", "large"], var.starter_pack_size)
+    error_message = "Starter pack size must be 'poc', 'small', 'medium', or 'large'."
   }
 }
 
@@ -518,6 +518,34 @@ variable "cuopt_frontend_enabled" {
 locals {
   starter_pack_configs = {
     "cuopt" = {
+      "poc" = {
+        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        deployment_name                              = "cuopt"
+        app_namespace                                = "default"
+        nvaie_enabled                                = false
+        configure_deployment_credentials             = true
+        use_dynamic_url                              = true
+        worker_node_shape                            = "VM.GPU.A10.1"
+        worker_node_pool_size                        = 1
+        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
+          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
+          memory        = var.cuopt_frontend_enabled ? 32 : 0
+        }
+        database_storage_size_in_tbs         = 0
+        database_compute_count               = 0
+        starter_pack_url_deployment          = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
+        frontend_starter_pack_url_deployment = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
+      }
       "small" = {
         blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
