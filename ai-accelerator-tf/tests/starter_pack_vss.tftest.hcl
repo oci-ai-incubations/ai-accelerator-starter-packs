@@ -60,4 +60,17 @@ run "plan_vss_small" {
     condition     = output.starter_pack_deployment_name == "vss"
     error_message = "vss deployment name should be 'vss'"
   }
+
+  # Registration trigger assertions
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "vss"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
+
+
 }

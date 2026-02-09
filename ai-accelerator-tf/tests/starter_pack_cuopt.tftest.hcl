@@ -60,4 +60,17 @@ run "plan_cuopt_small" {
     condition     = output.starter_pack_deployment_name == "cuopt"
     error_message = "cuopt deployment name should be 'cuopt'"
   }
+
+  # Registration trigger assertions
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "cuopt"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
+
+
 }

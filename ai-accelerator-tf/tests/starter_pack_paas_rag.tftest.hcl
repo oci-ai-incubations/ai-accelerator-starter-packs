@@ -67,4 +67,17 @@ run "plan_paas_rag_small" {
     condition     = output.db_username == "ADMIN"
     error_message = "DB username should use default value"
   }
+
+  # Registration trigger assertions
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "paas_rag"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
+
+
 }

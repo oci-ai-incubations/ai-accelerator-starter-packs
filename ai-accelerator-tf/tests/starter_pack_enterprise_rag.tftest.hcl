@@ -60,4 +60,17 @@ run "plan_enterprise_rag_small" {
     condition     = output.starter_pack_deployment_name == "enterprise-rag"
     error_message = "enterprise_rag deployment name should be 'enterprise-rag'"
   }
+
+  # Registration trigger assertions
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
+
+
 }
