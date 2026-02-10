@@ -1,0 +1,26 @@
+name: Terraform Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+
+      - name: Terraform Init
+        working-directory: ai-accelerator-tf
+        run: terraform init -backend=false
+
+      - name: Terraform Test
+        working-directory: ai-accelerator-tf
+        run: terraform test
