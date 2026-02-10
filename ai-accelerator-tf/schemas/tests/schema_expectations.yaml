@@ -1,0 +1,83 @@
+# schema_expectations.yaml - Edit this file to add/change schema assertions
+
+required_top_level_keys:
+  - title
+  - variables
+  - outputGroups
+  - variableGroups
+  - schemaVersion
+  - primaryOutputButton
+
+# Per-category: starter_pack_size must match vars.tf starter_pack_configs
+starter_pack_sizes:
+  cuopt: [small, medium]
+  vss: [small, medium]
+  paas_rag: [small, medium]
+  enterprise_rag: [small]
+
+# Outputs that must exist in every schema (referenced in outputGroups)
+required_outputs:
+  - starter_pack_url
+  - starter_pack_deployment_name
+  - blueprints_portal_url
+  - corrino_admin_username
+  - corrino_admin_password
+
+# Variables that must exist in every schema
+required_variables:
+  - starter_pack_size
+  - starter_pack_category
+  - compartment_ocid
+  - corrino_admin_username
+  - corrino_admin_password
+  - corrino_admin_email
+
+# Per-category: required outputs/variables, absent checks, property assertions
+category_specific:
+  cuopt:
+    required_outputs: [starter_pack_frontend_url]
+    required_variables: [cuopt_frontend_enabled, genai_region]
+    absent_outputs: []
+    absent_variables: []
+    variable_properties:
+      db_password:
+        visible: false
+      cuopt_frontend_enabled:
+        visible: true
+        type: boolean
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true
+
+  paas_rag:
+    required_outputs: [autonomous_database_id, autonomous_database_name, db_username]
+    required_variables: [db_password]
+    variable_properties:
+      db_password:
+        visible: true
+        type: password
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true
+
+  vss:
+    absent_outputs: []
+    absent_variables: []
+    variable_properties:
+      db_password:
+        visible: false
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true
+
+  enterprise_rag:
+    variable_properties:
+      db_password:
+        visible: false
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true

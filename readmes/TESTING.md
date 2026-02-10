@@ -1,3 +1,53 @@
+# Testing Guide
+
+This document describes how to run tests for AI Accelerator Starter Packs.
+
+## Schema Tests
+
+Schema tests validate the OCI Resource Manager schemas generated for each starter pack category. They run automatically on push/PR via GitHub Actions when schema-related files change.
+
+### Prerequisites
+
+```bash
+# From repository root
+python3 -m venv venv
+source venv/bin/activate  # or: venv\Scripts\activate on Windows
+pip install -r requirements.txt
+```
+
+### Running Schema Tests
+
+```bash
+# From repository root
+pytest ai-accelerator-tf/schemas/tests/ -v
+
+# Run a specific test file
+pytest ai-accelerator-tf/schemas/tests/test_schema_structure.py -v
+
+# Run with verbose output
+pytest ai-accelerator-tf/schemas/tests/ -v -s
+```
+
+### What the Tests Do
+
+1. **Generate schemas**: The test fixture runs `create_final_schema.py --all` to generate schemas for all categories (cuopt, vss, paas_rag, enterprise_rag) into `schemas/generated/`.
+
+2. **Validate structure**: Tests check that each schema has required keys, valid YAML, and conforms to the OCI meta schema.
+
+3. **Validate references**: Outputs in `outputGroups` and variables in `variableGroups` must exist in the schema.
+
+4. **Category-specific checks**: Per-category assertions (required/absent outputs/variables, property values like `visible`, `type`) are defined in `schema_expectations.yaml`.
+
+### Adding Schema Assertions
+
+Edit `ai-accelerator-tf/schemas/tests/schema_expectations.yaml` to add or change assertions. No Python changes are needed for most cases.
+
+See [RULES.md](../ai-accelerator-tf/schemas/tests/RULES.md) for conventions and guidelines.
+
+### CI
+
+Schema tests run in `.github/workflows/schema-tests.yml` on push and pull requests when files under `ai-accelerator-tf/schemas/`, `create_final_schema.py`, or the workflow file change.
+
 ## Core Mechanics
 
 Test files use the `.tftest.hcl` extension and live alongside your Terraform config (or in a `tests/` directory). You run them with `terraform test`. Each file contains **run blocks** that execute sequentially (by default) against your configuration, and each run block can have **assert blocks** to validate conditions.

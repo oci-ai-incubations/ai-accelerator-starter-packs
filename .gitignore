@@ -47,6 +47,7 @@ ai-accelerator-tf/*-preflight
 ai-accelerator-tf/*-capacity
 
 ai-accelerator-tf/schema.yaml
+ai-accelerator-tf/schemas/generated/
 
 .DS_Store
 
