@@ -1,71 +1,25 @@
-# Terraform Test Rules
+# Terraform Unit Test Rules
 
-Rules to follow when adding or updating tests in `ai-accelerator-tf/tests/`. See [readmes/TESTING.md](../../readmes/TESTING.md) for detailed mechanics and rationale.
+These are **unit tests** that run `terraform plan` with mock providers. No cloud credentials are needed and no infrastructure is created. They validate variable validations, output values, locals, and deterministic resource attributes.
 
-## 1. File Naming and Layout
+Integration tests that deploy real infrastructure and validate end-to-end behavior will be added in a future iteration.
 
-- File extension: `.tftest.hcl`
-- Location: flat in `tests/` (no subdirectories — `terraform test` does not recurse)
-- Naming: `core_*.tftest.hcl` for core behavior, `starter_pack_<category>.tftest.hcl` for starter pack-specific tests
+## Quick Start
 
-## 2. Required Mock Providers
-
-Every test file must declare all providers used by the Terraform config. Use `mock_provider` for unit tests:
-
-- `oci` (with required `override_data` blocks — see below)
-- `kubernetes`, `helm`, `tls`, `local`, `null`, `cloudinit`, `random`, `http`
-
-## 3. OCI Data Source Overrides
-
-The config indexes into these OCI data sources with `[0]`. Mock providers return empty lists by default, so each test file must include:
-
-```hcl
-mock_provider "oci" {
-  override_data {
-    target = data.oci_identity_regions.home_region
-    values = { regions = [{ name = "us-ashburn-1", key = "IAD" }] }
-  }
-  override_data {
-    target = data.oci_identity_availability_domains.ads
-    values = { availability_domains = [{ name = "US-ASHBURN-AD-1" }] }
-  }
-  override_data {
-    target = data.oci_core_images.oracle_linux
-    values = { images = [{ id = "ocid1.image.oc1..test" }] }
-  }
-}
+```bash
+cd ai-accelerator-tf/
+terraform test                                                         # all tests
+terraform test -filter=tests/core_plan.tftest.hcl                      # one file
+terraform test -filter=tests/starter_pack_cuopt.tftest.hcl             # one starter pack
 ```
 
-## 4. File-Level Variables
+Requires Terraform >= 1.7 (for `mock_provider` support).
 
-Use a consistent base `variables` block so plan succeeds. Required variables include:
+## Common Scenarios
 
-- `tenancy_ocid`, `compartment_ocid`, `region`, `current_user_ocid`
-- `corrino_admin_username`, `corrino_admin_password`, `corrino_admin_email`
-- `starter_pack_category` (set per test focus)
-- `worker_node_availability_domain` = `"US-ASHBURN-AD-1"`
-- `skip_capacity_check` = `true`
+### I added a new variable with a validation block
 
-## 5. Command: Always `command = plan`
-
-- Use `command = plan` for all unit tests — no `command = apply`
-- `local-exec` provisioners run real shell commands during apply; mock providers do not prevent that
-- Outputs that depend on `depends_on` chains through apply-time resources (e.g., `output.starter_pack_url` for dynamic URL starter packs) cannot be unit-tested
-
-## 6. Assertion Strategy
-
-- **Safe to assert at plan time**: variable passthroughs, locals from variables, default values, resource attributes computed from variables
-- **Not unit-testable**: outputs downstream of `null_resource` provisioners, `depends_on` chains involving HTTP data sources
-- **Variable validations**: use `expect_failures` — override one variable to an invalid value, list the variable in `expect_failures`
-
-## 7. Run Block Conventions
-
-- **Comment above each run block**: Add a `# Test: <description>` comment immediately before every `run` block describing what the test validates (e.g., `# Test: invalid network_configuration_mode values are rejected by input validation`)
-- Descriptive run names: `plan_succeeds_with_defaults`, `rejects_invalid_*`, `plan_<starter_pack>_small`
-- One concern per run block
-- For validation tests: override exactly one variable per run block and use `expect_failures`
-
-Example:
+Add a `run` block in `core_validations.tftest.hcl`. Override exactly one variable to an invalid value, and list it in `expect_failures`:
 
 ```hcl
 # Test: invalid network_configuration_mode values are rejected by input validation
@@ -80,7 +34,201 @@ run "rejects_invalid_network_mode" {
 }
 ```
 
-## 8. Starter Pack Tests
+### I added a new output
 
-- Static URL packs (e.g., `enterprise_rag`): mock providers suffice
-- Dynamic URL packs (e.g., `cuopt`, `vss`, `paas_rag`): do not assert on `output.starter_pack_url` — only assert on deterministic outputs (deployment name, postflight triggers)
+Add an `assert` block inside a `run` block in the relevant test file. For outputs shared across all packs, add to `core_plan.tftest.hcl`:
+
+```hcl
+# Inside run "plan_succeeds_with_defaults"
+assert {
+  condition     = output.my_new_output == "expected_value"
+  error_message = "my_new_output should match expected value"
+}
+```
+
+For a starter-pack-specific output, add the assert to that pack's test file (e.g. `starter_pack_cuopt.tftest.hcl`).
+
+### I added a new starter pack category
+
+Create a new file `tests/starter_pack_<category>.tftest.hcl`. Copy the boilerplate from an existing file (see [Boilerplate Reference](#boilerplate-reference) below), then change:
+
+1. Set `starter_pack_category` in the `variables` block
+2. Add a `run` block asserting on deployment name and postflight triggers:
+
+```hcl
+# Test: my_pack starter pack plans successfully with correct deployment name
+run "plan_my_pack_small" {
+  command = plan
+
+  assert {
+    condition     = output.starter_pack_deployment_name == "my-pack"
+    error_message = "my_pack deployment name should be 'my-pack'"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "my_pack"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
+}
+```
+
+### I added a new starter pack size
+
+Add a new `run` block in the existing starter pack test file. Override `starter_pack_size` and assert on the same deterministic values:
+
+```hcl
+# Test: cuopt medium size plans successfully
+run "plan_cuopt_medium" {
+  command = plan
+
+  variables {
+    starter_pack_size = "medium"
+  }
+
+  assert {
+    condition     = output.starter_pack_deployment_name == "cuopt"
+    error_message = "cuopt medium deployment name should be 'cuopt'"
+  }
+
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "cuopt"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+}
+```
+
+### I added a new URL output for a starter pack
+
+It depends on whether the URL is **static** or **dynamic**:
+
+- **Static URL** (like `enterprise_rag`, where `use_dynamic_url = false`): The URL is computed from variables/locals at plan time. You can assert on it directly:
+
+```hcl
+assert {
+  condition     = output.my_service_url != ""
+  error_message = "my_service_url should be set"
+}
+```
+
+- **Dynamic URL** (like `cuopt`, `vss`, `paas_rag`, where `use_dynamic_url = true`): The URL flows through `null_resource` provisioners and `data.http` calls that only resolve at apply time. **You cannot unit-test dynamic URLs.** Instead, assert on deterministic values like deployment name and postflight triggers (see examples above).
+
+If you add a new output in `outputs.tf`, also add it to the schema -- see [schemas/tests/RULES.md](../schemas/tests/RULES.md) for schema test instructions.
+
+### I added a new OCI data source indexed with `[0]`
+
+If your code does something like `data.oci_my_resource.foo.items[0].id`, mock providers return empty lists by default and the plan will fail. Add an `override_data` block inside `mock_provider "oci"` in **every** test file:
+
+```hcl
+mock_provider "oci" {
+  # ... existing overrides ...
+
+  override_data {
+    target = data.oci_my_resource.foo
+    values = {
+      items = [{
+        id = "ocid1.myresource.oc1..test"
+      }]
+    }
+  }
+}
+```
+
+### I need to use a new Terraform provider
+
+Add a `mock_provider` line in **every** test file:
+
+```hcl
+mock_provider "my_new_provider" {}
+```
+
+## What CAN and CANNOT Be Tested
+
+All tests use `command = plan` -- no infrastructure is created.
+
+**Safe to assert at plan time:**
+
+- Variable passthroughs (e.g. `output.corrino_admin_username`)
+- Locals derived from variables (e.g. `output.vcn_cidr`, `output.cluster_endpoint_visibility`)
+- Default values (e.g. `output.db_username`)
+- Resource attributes computed from variables (e.g. `null_resource.postflight_registration.triggers`)
+
+**NOT unit-testable (requires apply with real infrastructure):**
+
+- Outputs downstream of `null_resource` provisioners with `local-exec`
+- Dynamic URLs that flow through `depends_on` chains and `data.http` calls
+- Any output that depends on actual cloud API responses
+
+**Why no `command = apply`?** Mock providers do not prevent `local-exec` provisioners from running real shell commands. Using `apply` would attempt real `curl` calls and file operations.
+
+## Boilerplate Reference
+
+Every test file needs this boilerplate. Copy it as a starting point:
+
+```hcl
+mock_provider "oci" {
+  override_data {
+    target = data.oci_identity_regions.home_region
+    values = {
+      regions = [{
+        name = "us-ashburn-1"
+        key  = "IAD"
+      }]
+    }
+  }
+
+  override_data {
+    target = data.oci_identity_availability_domains.ads
+    values = {
+      availability_domains = [{
+        name = "US-ASHBURN-AD-1"
+      }]
+    }
+  }
+
+  override_data {
+    target = data.oci_core_images.oracle_linux
+    values = {
+      images = [{
+        id = "ocid1.image.oc1..test"
+      }]
+    }
+  }
+}
+
+mock_provider "kubernetes" {}
+mock_provider "helm" {}
+mock_provider "tls" {}
+mock_provider "local" {}
+mock_provider "null" {}
+mock_provider "cloudinit" {}
+mock_provider "random" {}
+mock_provider "http" {}
+
+variables {
+  tenancy_ocid                    = "ocid1.tenancy.oc1..test"
+  compartment_ocid                = "ocid1.compartment.oc1..test"
+  region                          = "us-ashburn-1"
+  current_user_ocid               = "ocid1.user.oc1..test"
+  corrino_admin_username          = "testadmin"
+  corrino_admin_password          = "TestP@ssw0rd123!"
+  corrino_admin_email             = "test@example.com"
+  starter_pack_category           = "enterprise_rag"   # change per test file
+  worker_node_availability_domain = "US-ASHBURN-AD-1"
+  skip_capacity_check             = true
+}
+```
+
+## Conventions
+
+- **File extension**: `.tftest.hcl`
+- **Location**: Flat in `tests/` (no subdirectories -- `terraform test` does not recurse)
+- **File naming**: `core_*.tftest.hcl` for shared behavior, `starter_pack_<category>.tftest.hcl` for per-pack tests
+- **Run block naming**: `plan_succeeds_with_defaults`, `rejects_invalid_*`, `plan_<category>_<size>`
+- **Comment before every run block**: `# Test: <what this validates>`
+- **One concern per run block**: Each run block tests one thing
+- **Validation tests**: Override exactly one variable per run block, use `expect_failures`
