@@ -116,14 +116,14 @@ envVars:
   # Top K from vector DB, which goes as input to reranker model - not applicable if ENABLE_RERANKER is set to False
   VECTOR_DB_TOPK: "100"
   # Number of document chunks to insert in LLM prompt
-  APP_RETRIEVER_TOPK: "3"
+  APP_RETRIEVER_TOPK: "10"
 
   ##===LLM Model specific configurations===
   APP_LLM_MODELNAME: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
   # URL on which LLM model is hosted. If "", Nvidia hosted API is used
   APP_LLM_SERVERURL: "nim-llm:8000"
   # LLM model parameters
-  LLM_MAX_TOKENS: "2048"
+  LLM_MAX_TOKENS: "16384"
   LLM_TEMPERATURE: "0"
   LLM_TOP_P: "1.0"
 
@@ -576,20 +576,10 @@ nim-llm:
       nvidia.com/gpu: "8"
   
   env:
-    - name: NIM_QUANTIZATION
-      value: "fp8"
-    - name: NIM_MAX_MODEL_LEN
-      value: "8192"
-    - name: NIM_TENSOR_PARALLEL_SIZE
-      value: "8"
-    - name: NIM_GPU_MEMORY_UTILIZATION
-      value: "0.85"
-    - name: VLLM_USE_V1
-      value: "0"
     - name: NIM_MODEL_PROFILE
-      value: ""
-    - name: PYTORCH_CUDA_ALLOC_CONF
-      value: "expandable_segments:True"
+      value: 089d3c0d578020772271e4637f690b66a5054b68151361ba80df2aff9717aea8
+    - name: NIM_GPU_MEMORY_UTILIZATION
+      value: "0.90"
 
   volumes:
     - name: dshm
