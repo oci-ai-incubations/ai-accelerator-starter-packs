@@ -53,29 +53,35 @@ variables {
   skip_capacity_check             = true
 }
 
+# Test: default configuration plans successfully and deterministic outputs resolve to expected values
 run "plan_succeeds_with_defaults" {
   command = plan
 
+  # Default VCN CIDR should match the standard network range
   assert {
     condition     = output.vcn_cidr == "10.0.0.0/16"
     error_message = "VCN CIDR should match default network_cidrs"
   }
 
+  # New VCN deployments should default to a public cluster endpoint
   assert {
     condition     = output.cluster_endpoint_visibility == "Public"
     error_message = "Default endpoint visibility should be Public for new VCN"
   }
 
+  # Admin username should pass through from the input variable unchanged
   assert {
     condition     = output.corrino_admin_username == "testadmin"
     error_message = "Admin username output should pass through variable"
   }
 
+  # Admin email should pass through from the input variable unchanged
   assert {
     condition     = output.corrino_admin_email == "test@example.com"
     error_message = "Admin email output should pass through variable"
   }
 
+  # Database username should default to ADMIN when not explicitly set
   assert {
     condition     = output.db_username == "ADMIN"
     error_message = "DB username should use default value"

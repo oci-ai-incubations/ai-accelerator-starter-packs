@@ -53,20 +53,23 @@ variables {
   skip_capacity_check             = true
 }
 
+# Test: enterprise_rag starter pack plans successfully with correct deployment name and registration triggers
 run "plan_enterprise_rag_small" {
   command = plan
 
+  # Deployment name should be the kebab-case form of the starter pack category
   assert {
     condition     = output.starter_pack_deployment_name == "enterprise-rag"
     error_message = "enterprise_rag deployment name should be 'enterprise-rag'"
   }
 
-  # Registration trigger assertions
+  # Postflight registration trigger should record the selected starter pack category
   assert {
     condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag"
     error_message = "postflight trigger should capture starter pack category"
   }
 
+  # Postflight registration trigger should record the deployment region
   assert {
     condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"

@@ -55,6 +55,7 @@ variables {
 
 # --- Network configuration mode ---
 
+# Test: invalid network_configuration_mode values are rejected by input validation
 run "rejects_invalid_network_mode" {
   command = plan
 
@@ -67,6 +68,7 @@ run "rejects_invalid_network_mode" {
 
 # --- Cluster visibility ---
 
+# Test: invalid cluster_workers_visibility values are rejected by input validation
 run "rejects_invalid_cluster_workers_visibility" {
   command = plan
 
@@ -77,6 +79,7 @@ run "rejects_invalid_cluster_workers_visibility" {
   expect_failures = [var.cluster_workers_visibility]
 }
 
+# Test: invalid cluster endpoint visibility for new VCN is rejected by input validation
 run "rejects_invalid_cluster_endpoint_visibility_new_vcn" {
   command = plan
 
@@ -87,6 +90,7 @@ run "rejects_invalid_cluster_endpoint_visibility_new_vcn" {
   expect_failures = [var.cluster_endpoint_visibility_new_vcn]
 }
 
+# Test: invalid cluster endpoint visibility for existing VCN is rejected by input validation
 run "rejects_invalid_cluster_endpoint_visibility_existing_vcn" {
   command = plan
 
@@ -99,6 +103,7 @@ run "rejects_invalid_cluster_endpoint_visibility_existing_vcn" {
 
 # --- Endpoint visibility ---
 
+# Test: invalid blueprints_endpoint_visibility values are rejected by input validation
 run "rejects_invalid_blueprints_endpoint_visibility" {
   command = plan
 
@@ -109,6 +114,7 @@ run "rejects_invalid_blueprints_endpoint_visibility" {
   expect_failures = [var.blueprints_endpoint_visibility]
 }
 
+# Test: invalid apps_endpoint_visibility values are rejected by input validation
 run "rejects_invalid_apps_endpoint_visibility" {
   command = plan
 
@@ -121,6 +127,7 @@ run "rejects_invalid_apps_endpoint_visibility" {
 
 # --- Starter pack category and size ---
 
+# Test: invalid starter_pack_category values are rejected by input validation
 run "rejects_invalid_starter_pack_category" {
   command = plan
 
@@ -131,6 +138,7 @@ run "rejects_invalid_starter_pack_category" {
   expect_failures = [var.starter_pack_category]
 }
 
+# Test: invalid starter_pack_size values are rejected by input validation
 run "rejects_invalid_starter_pack_size" {
   command = plan
 
@@ -143,6 +151,7 @@ run "rejects_invalid_starter_pack_size" {
 
 # --- Database password validations ---
 
+# Test: database passwords shorter than the minimum length are rejected
 run "rejects_short_db_password" {
   command = plan
 
@@ -153,6 +162,7 @@ run "rejects_short_db_password" {
   expect_failures = [var.db_password]
 }
 
+# Test: database passwords without an uppercase letter are rejected
 run "rejects_db_password_without_uppercase" {
   command = plan
 
@@ -163,6 +173,7 @@ run "rejects_db_password_without_uppercase" {
   expect_failures = [var.db_password]
 }
 
+# Test: database passwords without a special character are rejected
 run "rejects_db_password_without_special_char" {
   command = plan
 

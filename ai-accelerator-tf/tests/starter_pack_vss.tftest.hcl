@@ -53,20 +53,23 @@ variables {
   skip_capacity_check             = true
 }
 
+# Test: vss starter pack plans successfully with correct deployment name and registration triggers
 run "plan_vss_small" {
   command = plan
 
+  # Deployment name should match the starter pack category
   assert {
     condition     = output.starter_pack_deployment_name == "vss"
     error_message = "vss deployment name should be 'vss'"
   }
 
-  # Registration trigger assertions
+  # Postflight registration trigger should record the selected starter pack category
   assert {
     condition     = null_resource.postflight_registration.triggers.starter_pack_category == "vss"
     error_message = "postflight trigger should capture starter pack category"
   }
 
+  # Postflight registration trigger should record the deployment region
   assert {
     condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
