@@ -4,6 +4,26 @@ These are **unit tests** that run `terraform plan` with mock providers. No cloud
 
 Integration tests that deploy real infrastructure and validate end-to-end behavior will be added in a future iteration.
 
+## Do I Need a Test?
+
+**Changes that NEED a unit test:**
+
+- Added a variable with a `validation {}` block -- test that invalid values are rejected
+- Added or changed an `output {}` block that is deterministic at plan time (variable passthrough, local, default)
+- Added a new starter pack category -- test it plans successfully with correct deployment name
+- Added a new starter pack size -- test it plans successfully
+- Changed `locals` logic that affects outputs (e.g. networking CIDRs, endpoint visibility)
+- Changed default values for variables -- verify the defaults flow through to outputs
+
+**Changes that DO NOT need a unit test:**
+
+- Added a new resource without new `validation {}` blocks on variables or new `output {}` blocks -- no new test needed because `plan_succeeds_with_defaults` already verifies the entire config plans successfully
+- Changed Helm chart values or configmap content (not testable at plan time)
+- Changed `local-exec` provisioner scripts (runs at apply time only)
+- Changed outputs that depend on dynamic URLs / `data.http` / `depends_on` chains (not testable at plan time)
+- Documentation-only changes (README, comments)
+- Schema-only changes (tested separately -- see `schemas/tests/`)
+
 ## Quick Start
 
 ```bash
