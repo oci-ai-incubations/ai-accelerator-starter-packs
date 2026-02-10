@@ -198,25 +198,6 @@ locals {
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
           )
-        },
-        {
-          name       = "cuopt-demo",
-          depends_on = ["llamastack", "cuopt"],
-          recipe = merge(
-            {
-              recipe_id                            = "cuopt-demo",
-              deployment_name                      = "cuopt-demo",
-              recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.1",
-              recipe_replica_count                 = 1,
-              recipe_flex_shape_ocpu_count         = 1,
-              recipe_flex_shape_memory_size_in_gbs = 8,
-              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-              recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "3000",
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-          )
         }
       ]
     }
