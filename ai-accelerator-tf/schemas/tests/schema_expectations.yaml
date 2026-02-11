@@ -70,10 +70,6 @@ category_specific:
         visible: false
       db_username:
         visible: false
-      autonomous_database_name:
-        visible: false
-      autonomous_database_id:
-        visible: false
     output_properties:
       starter_pack_url:
         type: string
