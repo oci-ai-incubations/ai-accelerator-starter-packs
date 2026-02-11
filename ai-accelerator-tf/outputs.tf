@@ -160,11 +160,6 @@ output "starter_pack_marketing_url" {
   value       = local.starter_pack_marketing_url_output
 }
 
-output "vss_oracle_ux_url" {
-  description = "VSS Oracle UX Frontend URL"
-  value       = var.starter_pack_category == "vss" ? "https://${local.public_endpoint.starter_pack}" : null
-}
-
 output "blueprints_portal_url" {
   description = "Portal FQDN"
   value       = local.public_endpoint.blueprint_portal

@@ -257,9 +257,8 @@ locals {
 # =============================================================================
 locals {
   # Final starter pack URL - uses dynamic URL if available, falls back to static.
-  # For VSS, always use the static URL so the link points to the custom VSS Oracle UX
-  # (vss.<fqdn>), not the NVIDIA VSS backend UI (vss-deployment-group-vss-3.<fqdn>).
-  starter_pack_url_output = var.starter_pack_category == "vss" ? local.public_endpoint.starter_pack : (
+  # For VSS, output full URL (VSS Oracle UX).
+  starter_pack_url_output = var.starter_pack_category == "vss" ? "https://${local.public_endpoint.starter_pack}" : (
     local.needs_dynamic_url ? (
       local.dynamic_url != "" ? local.dynamic_url : local.public_endpoint.starter_pack
     ) : local.public_endpoint.starter_pack
