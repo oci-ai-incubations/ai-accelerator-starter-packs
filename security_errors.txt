@@ -1,0 +1,77 @@
+Run checkov -d . --framework terraform
+  
+       _               _
+   ___| |__   ___  ___| | _______   __
+  / __| '_ \ / _ \/ __| |/ / _ \ \ / /
+ | (__| | | |  __/ (__|   < (_) \ V /
+  \___|_| |_|\___|\___|_|\_\___/ \_/
+By Prisma Cloud | version: 3.2.501 
+terraform scan results:
+Passed checks: 98, Failed checks: 85, Skipped checks: 0
+Check: CKV_K8S_49: "Minimize wildcard use in Roles and ClusterRoles"
+	PASSED for resource: kubernetes_cluster_role_v1.secret_creator
+	File: /26ai.tf:99-111
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/ensure-minimized-wildcard-use-in-roles-and-clusterroles
+Check: CKV_K8S_42: "Ensure that default service accounts are not actively used"
+	PASSED for resource: kubernetes_cluster_role_binding_v1.wallet_extractor_crb
+	File: /26ai.tf:113-130
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/ensure-default-service-accounts-are-not-actively-used
+Check: CKV_K8S_41: "Ensure that default service accounts are not actively used"
+	PASSED for resource: kubernetes_service_account_v1.wallet_extractor_sa
+	File: /26ai.tf:132-140
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-38
+Check: CKV_K8S_44: "Ensure that the Tiller Service (Helm v2) is deleted"
+	PASSED for resource: kubernetes_service_v1.corrino_cp_service
+	File: /app-api.tf:1-19
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-41
+Check: CKV_K8S_18: "Do not admit containers wishing to share the host IPC namespace"
+	PASSED for resource: kubernetes_deployment_v1.corrino_cp_deployment
+	File: /app-api.tf:21-98
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-17
+Check: CKV_K8S_22: "Use read-only filesystem for containers where possible"
+	PASSED for resource: kubernetes_deployment_v1.corrino_cp_deployment
+	File: /app-api.tf:21-98
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-21
+Check: CKV_K8S_16: "Do not admit privileged containers"
+	PASSED for resource: kubernetes_deployment_v1.corrino_cp_deployment
+	File: /app-api.tf:21-98
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-15
+Check: CKV_K8S_35: "Prefer using secrets as files over secrets as environment variables"
+	PASSED for resource: kubernetes_deployment_v1.corrino_cp_deployment
+	File: /app-api.tf:21-98
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-33
+Check: CKV_K8S_26: "Do not specify hostPort unless absolutely necessary"
+	PASSED for resource: kubernetes_deployment_v1.corrino_cp_deployment
+	File: /app-api.tf:21-98
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-25
+		85 |       compartment_id = var.compartment_ocid
+		86 |     }))
+		87 |   }
+		88 | 
+		89 |   count = local.create_network_resources && var.create_bastion ? 1 : 0
+		90 | 
+		91 |   depends_on = [
+		92 |     oci_core_subnet.oke_operator_subnet,
+		93 |     oci_containerengine_cluster.oke_cluster,
+		94 |     oci_containerengine_cluster.oke_cluster_existing_vcn,
+		95 |   ]
+		96 | }
+Check: CKV_K8S_21: "The default namespace should not be used"
+	FAILED for resource: kubernetes_ingress_v1.corrino_cp_ingress[0]
+	File: /ingress.tf:74-108
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-20
+		74  | resource "kubernetes_ingress_v1" "corrino_cp_ingress" {
+		75  |   wait_for_load_balancer = true
+		76  |   metadata {
+		77  |     name = "corrino-cp-ingress"
+		78  |     annotations = {
+		79  |       "cert-manager.io/cluster-issuer"             = "letsencrypt-prod"
+		80  |       "nginx.ingress.kubernetes.io/rewrite-target" = "/"
+		81  |     }
+		82  |   }
+		83  |   spec {
+		84  |     ingress_class_name = "nginx"
+		85  |     tls {
+		86  |       hosts       = [local.public_endpoint.api]
+		87  |       secret_name = "corrino-cp-tls"
+Error: Process completed with exit code 1.
