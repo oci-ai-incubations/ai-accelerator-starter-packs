@@ -21,7 +21,7 @@ jobs:
         uses: terraform-linters/setup-tflint@v3
 
       - name: Install Checkov
-        run: pip install checkov
+        run: pip install checkov==3.2.501
 
       - name: Terraform Format Check
         working-directory: ai-accelerator-tf
@@ -41,4 +41,4 @@ jobs:
 
       - name: Checkov Security Scan
         working-directory: ai-accelerator-tf
-        run: checkov -d . --framework terraform
+        run: checkov -d . --framework terraform --config-file .checkov.yml

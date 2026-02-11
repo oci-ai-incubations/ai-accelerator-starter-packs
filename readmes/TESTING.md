@@ -121,13 +121,27 @@ For details on test file roles, how to add assertions, and how to add a new cate
 
 ## CI Pipelines
 
-| Workflow            | File                                   | Trigger                                                                                                       | What it runs                                                                                         |
-| ------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Terraform Tests** | `.github/workflows/terraform-test.yml` | Push/PR to `main` (all files)                                                                                 | `terraform init -backend=false` then `terraform test` with Terraform 1.9, dummy OCI config           |
-| **Terraform Lint**  | `.github/workflows/terraform-lint.yml` | PR to any branch                                                                                              | `terraform fmt -check`, `terraform validate`, TFLint (advisory), Checkov security scan (advisory)    |
-| **Schema Tests**    | `.github/workflows/schema-tests.yml`   | Push/PR to `main` when `ai-accelerator-tf/schemas/**`, `create_final_schema.py`, or the workflow file changes | `pip install -r requirements.txt` then `pytest ai-accelerator-tf/schemas/tests/ -v` with Python 3.11 |
+| Workflow            | File                                   | Trigger                                                                                                       | What it runs                                                                                                                                                                                                    |
+| ------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Terraform Tests** | `.github/workflows/terraform-test.yml` | Push/PR to `main` (all files)                                                                                 | `terraform init -backend=false` then `terraform test` with Terraform 1.9, dummy OCI config                                                                                                                      |
+| **Terraform Lint**  | `.github/workflows/terraform-lint.yml` | PR to any branch                                                                                              | `terraform fmt -check`, `terraform validate`, TFLint (advisory), Checkov security scan (uses `ai-accelerator-tf/.checkov.yml` to skip selected checks; see [security_errors_fix.md](../security_errors_fix.md)) |
+| **Schema Tests**    | `.github/workflows/schema-tests.yml`   | Push/PR to `main` when `ai-accelerator-tf/schemas/**`, `create_final_schema.py`, or the workflow file changes | `pip install -r requirements.txt` then `pytest ai-accelerator-tf/schemas/tests/ -v` with Python 3.11                                                                                                            |
 
 The Terraform CI workflow creates a dummy OCI config (keypair + `~/.oci/config`) so that `terraform init` succeeds without real credentials.
+
+### Terraform Lint / Checkov
+
+The Terraform Lint workflow runs Checkov (version 3.2.501) against the Terraform in `ai-accelerator-tf`. Skips are configured in `ai-accelerator-tf/.checkov.yml` so specific checks can be excluded with documented reasons.
+
+To run Checkov locally:
+
+```bash
+cd ai-accelerator-tf
+pip install checkov==3.2.501
+checkov -d . --framework terraform
+```
+
+To add or adjust skipped checks, edit `.checkov.yml` and add check IDs to the `skip-check` list with a short comment. For the full checklist of known issues and maintenance steps, see **[security_errors_fix.md](../security_errors_fix.md)**.
 
 ---
 

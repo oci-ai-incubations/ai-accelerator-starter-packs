@@ -1,0 +1,8 @@
+framework:
+  - terraform
+skip-check:
+  # The default namespace should not be used - OKE/Corrino starter pack uses default for compatibility
+  - CKV_K8S_21
+  # Add additional check IDs below with brief reason comments.
+  # Run: cd ai-accelerator-tf && checkov -d . --framework terraform
+  # to discover all failing checks, then add each with a documented reason.
