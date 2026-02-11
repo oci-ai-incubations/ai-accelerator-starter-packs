@@ -33,7 +33,7 @@ terraform test -filter=tests/core_plan.tftest.hcl                      # one fil
 terraform test -filter=tests/starter_pack_cuopt.tftest.hcl             # one starter pack
 ```
 
-Requires Terraform >= 1.7 (for `mock_provider` support).
+**Note:** The main module targets Terraform 1.5 for OCI Resource Manager compatibility (`required_version = ">= 1.5"` in `versions.tf`). However, tests require **Terraform >= 1.7** locally because `mock_provider` is a 1.7+ feature. Run tests with a local Terraform install, not through OCI Resource Manager.
 
 ## Common Scenarios
 
