@@ -201,3 +201,42 @@ class TestCategorySpecificExpectations:
                 assert result, (
                     f"{category}: output '{key}' property '{prop_name}' = {actual!r} != expected {expected_val!r}"
                 )
+
+
+class TestVariableTypesComplete:
+    """Verify that all variables have required type properties."""
+
+    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    def test_all_variables_have_type(self, generated_schemas, category):
+        """Every variable must have a 'type' property defined."""
+        schema = generated_schemas[category]
+        variables = schema.get("variables", {})
+
+        missing_type = []
+        for var_name, var_def in variables.items():
+            if "type" not in var_def:
+                missing_type.append(var_name)
+
+        assert not missing_type, (
+            f"{category}: variables without 'type' property: {', '.join(missing_type)}"
+        )
+
+    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    def test_complex_variables_have_required_properties(self, generated_schemas, category):
+        """Map/List variables must have 'valueType'; Object variables must have 'attributes'."""
+        schema = generated_schemas[category]
+        variables = schema.get("variables", {})
+
+        for var_name, var_def in variables.items():
+            var_type = var_def.get("type")
+
+            if var_type == "map" or var_type == "list":
+                assert "valueType" in var_def, (
+                    f"{category}: variable '{var_name}' has type '{var_type}' "
+                    f"but missing required 'valueType' property"
+                )
+            elif var_type == "object":
+                assert "attributes" in var_def, (
+                    f"{category}: variable '{var_name}' has type 'object' "
+                    f"but missing required 'attributes' property"
+                )
