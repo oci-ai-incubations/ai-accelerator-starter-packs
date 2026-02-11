@@ -10,7 +10,7 @@ required_top_level_keys:
 
 # Per-category: starter_pack_size must match vars.tf starter_pack_configs
 starter_pack_sizes:
-  cuopt: [small, medium]
+  cuopt: [poc, small, medium]
   vss: [small, medium]
   paas_rag: [small, medium]
   enterprise_rag: [small]
@@ -68,10 +68,24 @@ category_specific:
     variable_properties:
       db_password:
         visible: false
+      db_username:
+        visible: false
+      autonomous_database_name:
+        visible: false
+      autonomous_database_id:
+        visible: false
     output_properties:
       starter_pack_url:
         type: string
         visible: true
+      db_password:
+        visible: false
+      db_username:
+        visible: false
+      autonomous_database_name:
+        visible: false
+      autonomous_database_id:
+        visible: false
 
   enterprise_rag:
     variable_properties:
