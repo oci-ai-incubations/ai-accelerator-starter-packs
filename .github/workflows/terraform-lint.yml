@@ -2,7 +2,7 @@ name: Terraform Lint and Security Scan
 
 on:
   pull_request:
-    branches: ['*']
+    branches: ["*"]
 
 jobs:
   terraform-lint:
@@ -25,7 +25,7 @@ jobs:
 
       - name: Terraform Format Check
         working-directory: ai-accelerator-tf
-        run: terraform fmt -check -recursive
+        run: terraform fmt -check -diff -recursive
 
       - name: Terraform Init
         working-directory: ai-accelerator-tf
