@@ -6,6 +6,7 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
+      "poc"    = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
       "small"  = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
       "medium" = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
       # Add "large" here when implemented
@@ -43,7 +44,7 @@ locals {
       recipe_node_shape                            = local.starter_pack_config.worker_node_shape
       recipe_replica_count                         = 1
       recipe_container_port                        = "5000"
-      recipe_nvidia_gpu_count                      = 8
+      recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 1 : 8
       recipe_use_shared_node_pool                  = true
       recipe_ephemeral_storage_size                = 200
       recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -61,7 +62,7 @@ locals {
         "-p",
         "5000",
         "-g",
-        "8"
+        var.starter_pack_size == "poc" ? "1" : "8"
       ]
       recipe_liveness_probe_params = {
         port                  = 5000
@@ -122,7 +123,7 @@ locals {
             recipe_node_shape                            = local.starter_pack_config.worker_node_shape
             recipe_replica_count                         = 1
             recipe_container_port                        = "5000"
-            recipe_nvidia_gpu_count                      = 8
+            recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 1 : 8
             recipe_use_shared_node_pool                  = true
             recipe_ephemeral_storage_size                = 200
             recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -140,7 +141,7 @@ locals {
               "-p",
               "5000",
               "-g",
-              "8"
+              var.starter_pack_size == "poc" ? "1" : "8"
             ]
             recipe_liveness_probe_params = {
               port                  = 5000

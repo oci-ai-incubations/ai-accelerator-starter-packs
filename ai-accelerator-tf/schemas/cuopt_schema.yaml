@@ -68,6 +68,7 @@ variables:
   starter_pack_size:
     type: enum
     enum:
+      - poc
       - small
       - medium
     title: "cuOpt Deployment Size"
