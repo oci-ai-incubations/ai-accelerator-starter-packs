@@ -233,9 +233,12 @@ variable "apps_endpoint_visibility" {
 variable "tenancy_ocid" {}
 variable "compartment_ocid" {}
 variable "region" {}
-variable "current_user_ocid" {}
+variable "current_user_ocid" {
+  type = string
+}
 
 # ORM Schema visual control variables
+# tflint-ignore: terraform_unused_declarations
 variable "show_advanced" {
   type    = bool
   default = false
@@ -322,11 +325,13 @@ variable "ingress_tls" {
   default     = true
   description = "If enabled, will generate SSL certificates to enable HTTPS for the ingress using the Certificate Issuer"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_cluster_issuer" {
   type        = string
   default     = "letsencrypt-prod"
   description = "Certificate issuer type. Currently supports the free Let's Encrypt and Self-Signed. Only *letsencrypt-prod* generates valid certificates"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_email_issuer" {
   type        = string
   default     = "no-reply@example.cloud"
@@ -337,13 +342,19 @@ variable "ingress_nginx_enabled" {
   default     = true
   description = "Enable ingress-nginx controller deployment"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "cluster_load_balancer_visibility" {
   type        = string
   default     = "Public"
   description = "Load balancer visibility for the cluster. Options: Public, Private"
 }
 # Deployment Details + Freeform Tags + Defined Tags
+# tflint-ignore: terraform_unused_declarations
 variable "oci_tag_values" {
+  type = object({
+    freeformTags = optional(map(string))
+    definedTags  = optional(map(any))
+  })
   description = "Tags to be added to the resources"
   default = {
     freeformTags = {

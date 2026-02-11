@@ -15,20 +15,12 @@ locals {
   cluster_endpoint_private = try(regex("([^:]+)", local.cluster_endpoint_private_full)[0], "")
 
   # https://ip.ip.ip.ip:6443 - ip is either private or public
-  cluster_endpoint_public_host  = format("https://%s", local.cluster_endpoint_public_full)
-  cluster_endpoint_private_host = format("https://%s", local.cluster_endpoint_private_full)
-
+  cluster_endpoint_public_host = format("https://%s", local.cluster_endpoint_public_full)
 
   # CA certificate and other details from kubeconfig (still needed for authentication)
   cluster_ca_certificate = try(base64decode(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["clusters"][0]["cluster"]["certificate-authority-data"]), "")
   cluster_id             = try(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["users"][0]["user"]["exec"]["args"][4], local.oke_cluster.id)
   cluster_region         = try(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["users"][0]["user"]["exec"]["args"][6], var.region)
-
-  # Validation - this will cause terraform to fail if cluster endpoint is not available
-  cluster_endpoint_validation = local.cluster_endpoint_public_full != "" ? local.cluster_endpoint_public_full : (
-    # This will cause an error if the cluster endpoint is empty
-    can(regex("^https://", "")) ? "" : "ERROR: Cluster endpoint not available"
-  )
 }
 
 resource "kubernetes_namespace_v1" "cluster_tools" {
