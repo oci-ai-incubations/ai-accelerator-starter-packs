@@ -41,6 +41,11 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Registration artifacts generated during terraform apply/test
+ai-accelerator-tf/*-postflight
+ai-accelerator-tf/*-preflight
+ai-accelerator-tf/*-capacity
+
 ai-accelerator-tf/schema.yaml
 
 .DS_Store
