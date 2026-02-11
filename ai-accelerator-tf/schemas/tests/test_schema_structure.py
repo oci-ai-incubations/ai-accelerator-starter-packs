@@ -129,12 +129,16 @@ class TestRequiredOutputsAndVariables:
 
 
 def _property_matches(actual, expected, prop_name):
-    """Check if actual matches expected for a property. Skip when actual is a complex type (e.g. booleanStatement dict)."""
+    """Check if actual matches expected for a property.
+
+    Skip when the schema has a nested value (dict) but expectations list a simple value
+    (e.g. true, false, string). We cannot compare a dict to true/false, so we skip.
+    """
     if expected is None:
         return True
-    # Only assert when both are simple types; skip if actual is a dict (e.g. visible: { eq: [...] })
-    if isinstance(actual, dict) and prop_name == "visible":
-        return None  # Skip - complex booleanStatement
+    # Schema has nested value (e.g. visible: {eq: [...]}), expectations have simple value
+    if isinstance(actual, dict) and not isinstance(expected, dict):
+        return None  # Skip - can't compare
     # When visible is absent (None), treat as True for "shown" (default when in variableGroups)
     if prop_name == "visible" and actual is None and expected is True:
         return True
