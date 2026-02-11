@@ -6,7 +6,7 @@ resource "kubernetes_config_map_v1" "blueprint_config_map" {
     name = "blueprint-config"
   }
   data = {
-    "${local.starter_pack_config.blueprint_file}" = local.starter_pack_blueprint_content
+    (local.starter_pack_config.blueprint_file) = local.starter_pack_blueprint_content
   }
 }
 

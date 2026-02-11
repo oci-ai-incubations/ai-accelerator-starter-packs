@@ -12,10 +12,6 @@ locals {
   blueprint_json = local.needs_dynamic_url ? (
     try(jsondecode(local.starter_pack_blueprint_content), null)
   ) : null
-
-  deployment_group_name = local.blueprint_json != null ? (
-    try(local.blueprint_json.deployment_group.name, "")
-  ) : ""
 }
 
 # =============================================================================
