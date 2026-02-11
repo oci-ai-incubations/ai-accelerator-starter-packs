@@ -38,9 +38,7 @@ jobs:
       - name: TFLint
         working-directory: ai-accelerator-tf
         run: tflint --recursive
-        continue-on-error: true
 
       - name: Checkov Security Scan
         working-directory: ai-accelerator-tf
         run: checkov -d . --framework terraform
-        continue-on-error: true
