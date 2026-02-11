@@ -73,12 +73,14 @@ variable "existing_lb_subnet_id" {
   type        = string
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "existing_pods_subnet_id" {
   default     = ""
   description = "OCID of the existing subnet for pods. Required when network_configuration_mode is 'bring_your_own'"
   type        = string
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "existing_services_subnet_id" {
   default     = ""
   description = "OCID of the existing subnet for services. Required when network_configuration_mode is 'bring_your_own'"
@@ -125,6 +127,7 @@ variable "cluster_options_add_ons_is_kubernetes_dashboard_enabled" {
 
 ## OKE Visibility (Workers and Endpoint)
 
+# tflint-ignore: terraform_unused_declarations
 variable "cluster_workers_visibility" {
   type        = string
   default     = "Private"
@@ -219,6 +222,7 @@ variable "blueprints_endpoint_visibility" {
   }
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "apps_endpoint_visibility" {
   default     = "Private"
   description = "The visibility of the apps endpoint"
@@ -230,9 +234,15 @@ variable "apps_endpoint_visibility" {
 }
 
 # OCI Provider
-variable "tenancy_ocid" {}
-variable "compartment_ocid" {}
-variable "region" {}
+variable "tenancy_ocid" {
+  type = string
+}
+variable "compartment_ocid" {
+  type = string
+}
+variable "region" {
+  type = string
+}
 variable "current_user_ocid" {
   type = string
 }
@@ -305,21 +315,25 @@ variable "ingress_load_balancer_shape_flex_max" {
   default     = "100"
   description = "Enter the maximum size of the flexible shape (Should be bigger than minimum size). The maximum service limit is set by your tenancy limits."
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_hosts" {
   type        = string
   default     = ""
   description = "Enter a valid full qualified domain name (FQDN). You will need to map the domain name to the EXTERNAL-IP address on your DNS provider (DNS Registry type - A). If you have multiple domain names, include separated by comma. e.g.: mushop.example.com,catshop.com"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_hosts_include_nip_io" {
   type        = bool
   default     = true
   description = "Include app_name.HEXXX.nip.io on the ingress hosts. e.g.: mushop.HEXXX.nip.io"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "nip_io_domain" {
   type        = string
   default     = "nip.io"
   description = "Dynamic wildcard DNS for the application hostname. Should support hex notation. e.g.: nip.io"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_tls" {
   type        = bool
   default     = true
@@ -376,12 +390,14 @@ variable "corrino_image_version" {
   description = "Corrino backend image version"
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "setup_credential_provider_for_ocir" {
   type        = bool
   default     = false
   description = "whether to setup credential provider for OCIR"
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "override_hostnames" {
   type        = bool
   default     = false

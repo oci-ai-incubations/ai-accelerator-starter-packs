@@ -15,7 +15,7 @@ provider "oci" {
 provider "oci" {
   alias        = "home_region"
   tenancy_ocid = var.tenancy_ocid
-  region       = lookup(data.oci_identity_regions.home_region.regions[0], "name")
+  region       = data.oci_identity_regions.home_region.regions[0]["name"]
   auth         = var.use_instance_principal ? "InstancePrincipal" : null
 
   user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
@@ -23,6 +23,7 @@ provider "oci" {
   private_key_path = var.use_instance_principal ? null : var.private_key_path
 }
 
+# tflint-ignore: terraform_unused_declarations
 provider "oci" {
   alias        = "current_region"
   tenancy_ocid = var.tenancy_ocid

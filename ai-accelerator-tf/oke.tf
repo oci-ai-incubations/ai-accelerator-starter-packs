@@ -32,8 +32,8 @@ resource "oci_containerengine_cluster" "oke_cluster" {
     }
 
     kubernetes_network_config {
-      pods_cidr     = lookup(var.network_cidrs, "PODS-SUBNET-REGIONAL-CIDR")
-      services_cidr = lookup(var.network_cidrs, "SERVICES-SUBNET-REGIONAL-CIDR")
+      pods_cidr     = var.network_cidrs["PODS-SUBNET-REGIONAL-CIDR"]
+      services_cidr = var.network_cidrs["SERVICES-SUBNET-REGIONAL-CIDR"]
     }
   }
   type  = "ENHANCED_CLUSTER"
@@ -76,8 +76,8 @@ resource "oci_containerengine_cluster" "oke_cluster_existing_vcn" {
     }
 
     kubernetes_network_config {
-      pods_cidr     = lookup(var.network_cidrs, "PODS-SUBNET-REGIONAL-CIDR")
-      services_cidr = lookup(var.network_cidrs, "SERVICES-SUBNET-REGIONAL-CIDR")
+      pods_cidr     = var.network_cidrs["PODS-SUBNET-REGIONAL-CIDR"]
+      services_cidr = var.network_cidrs["SERVICES-SUBNET-REGIONAL-CIDR"]
     }
   }
 
