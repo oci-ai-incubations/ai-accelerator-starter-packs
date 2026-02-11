@@ -378,10 +378,6 @@ variables:
     type: string
     visible: false
 
-  is_nvaie_enabled:
-    type: boolean
-    visible: false
-
   kong_enabled:
     type: boolean
     visible: false

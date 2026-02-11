@@ -23,7 +23,7 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
     instance_type = "compute"
     launch_details {
       compartment_id           = var.compartment_ocid
-      is_ai_enterprise_enabled = var.is_nvaie_enabled
+      is_ai_enterprise_enabled = local.starter_pack_config.nvaie_enabled
       display_name             = "AI-Accel-Worker-Node-${random_string.deploy_id.result}"
       shape                    = local.starter_pack_config.worker_node_shape
       source_details {
