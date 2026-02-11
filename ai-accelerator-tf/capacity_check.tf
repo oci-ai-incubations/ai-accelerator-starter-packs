@@ -114,7 +114,7 @@ locals {
       length(oci_core_compute_capacity_report.gpu_worker_capacity) > 0 ?
       anytrue([
         for report in oci_core_compute_capacity_report.gpu_worker_capacity :
-        report.shape_availabilities[0].availability_status == "AVAILABLE"
+        report.shape_availabilities[0].availability_status == "AVAILABLE" && report.availability_domain == var.worker_node_availability_domain
       ]) : true
     )
   )
@@ -155,6 +155,14 @@ locals {
         report.shape_availabilities[0].availability_status == "AVAILABLE"
       ]) : true
     )
+  )
+
+  # Use the user-provided availability domain for worker nodes
+  # For GPU starter packs, this is required. For paas_rag (worker_node_shape == "none"), it's optional.
+  # Capacity checking will validate this AD has capacity when skip_capacity_check is false
+  worker_node_availability_domain = var.worker_node_availability_domain != "" ? var.worker_node_availability_domain : (
+    # Fallback to first AD if not provided (only for paas_rag)
+    data.oci_identity_availability_domains.ads.availability_domains[0].name
   )
 
   # Overall capacity validation
@@ -256,6 +264,18 @@ resource "terraform_data" "capacity_validated" {
   # This resource validates capacity and acts as a dependency gate
 
   lifecycle {
+    # Require worker_node_availability_domain for GPU starter packs (when worker_node_shape != "none")
+    precondition {
+      condition     = local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""
+      error_message = "worker_node_availability_domain is required for GPU starter packs (cuopt, vss, enterprise_rag). It is optional for paas_rag."
+    }
+
+    # Validate that the provided AD exists in the region (only if provided)
+    precondition {
+      condition     = var.worker_node_availability_domain == "" || contains([for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name], var.worker_node_availability_domain)
+      error_message = "The provided worker_node_availability_domain '${var.worker_node_availability_domain}' is not a valid availability domain in region ${var.region}. Valid ADs: ${join(", ", [for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name])}"
+    }
+
     precondition {
       condition     = var.skip_capacity_check || local.gpu_worker_available
       error_message = "Insufficient capacity for GPU worker nodes (${local.starter_pack_config.worker_node_shape}) in region ${var.region}.${local.capacity_error_message}"

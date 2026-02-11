@@ -205,6 +205,18 @@ resource "oci_containerengine_node_pool" "worker_cpu_pool" {
   ssh_public_key = var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh
 }
 
+resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
+  addon_name                       = "NvidiaGpuPlugin"
+  cluster_id                       = oci_containerengine_cluster.oke_cluster[0].id
+  remove_addon_resources_on_delete = true
+  override_existing                = true
+
+  configurations {
+    key   = "isDcgmExporterDisabled"
+    value = "true"
+  }
+}
+
 data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
   cluster_id = oci_containerengine_cluster.oke_cluster[0].id
 }

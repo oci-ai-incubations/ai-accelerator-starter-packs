@@ -7,7 +7,7 @@ provider "oci" {
   region       = var.region
   auth         = var.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.user_ocid
+  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
   fingerprint      = var.use_instance_principal ? null : var.fingerprint
   private_key_path = var.use_instance_principal ? null : var.private_key_path
 }
@@ -18,7 +18,7 @@ provider "oci" {
   region       = lookup(data.oci_identity_regions.home_region.regions[0], "name")
   auth         = var.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.user_ocid
+  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
   fingerprint      = var.use_instance_principal ? null : var.fingerprint
   private_key_path = var.use_instance_principal ? null : var.private_key_path
 }
@@ -29,7 +29,7 @@ provider "oci" {
   region       = var.region
   auth         = var.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.user_ocid
+  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
   fingerprint      = var.use_instance_principal ? null : var.fingerprint
   private_key_path = var.use_instance_principal ? null : var.private_key_path
 }

@@ -106,7 +106,7 @@ envVars:
   # Type of vectordb search to be used
   APP_VECTORSTORE_SEARCHTYPE: "dense"
   # Boolean to control GPU search for milvus vectorstore specific to rag-server
-  APP_VECTORSTORE_ENABLEGPUSEARCH: "True"
+  APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
   # ef: Parameter controlling query time/accuracy trade-off. Higher ef leads to more accurate but slower search.
   APP_VECTORSTORE_EF: "100"
 
@@ -123,7 +123,7 @@ envVars:
   # URL on which LLM model is hosted. If "", Nvidia hosted API is used
   APP_LLM_SERVERURL: "nim-llm:8000"
   # LLM model parameters
-  LLM_MAX_TOKENS: "32768"
+  LLM_MAX_TOKENS: "16384"
   LLM_TEMPERATURE: "0"
   LLM_TOP_P: "1.0"
 
@@ -274,8 +274,8 @@ ingestor-server:
     APP_VECTORSTORE_URL: "http://milvus:19530" # Use "http://elasticsearch:9200" for elasticsearch
     APP_VECTORSTORE_NAME: "milvus" # supported values: "milvus" or "elasticsearch"
     APP_VECTORSTORE_SEARCHTYPE: "dense"
-    APP_VECTORSTORE_ENABLEGPUINDEX: "True"
-    APP_VECTORSTORE_ENABLEGPUSEARCH: "True"
+    APP_VECTORSTORE_ENABLEGPUINDEX: "False"
+    APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
     COLLECTION_NAME: "multimodal_data"
     ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
     # === MinIO Configurations ===
@@ -571,25 +571,15 @@ nim-llm:
     tag: "1.14.0"
   resources:
     limits:
-      nvidia.com/gpu: "4"
+      nvidia.com/gpu: "8"
     requests:
-      nvidia.com/gpu: "4"
+      nvidia.com/gpu: "8"
   
   env:
-    - name: NIM_QUANTIZATION
-      value: "fp8"
-    - name: NIM_MAX_MODEL_LEN
-      value: "4096"
-    - name: NIM_TENSOR_PARALLEL_SIZE
-      value: "4"
-    - name: NIM_GPU_MEMORY_UTILIZATION
-      value: "0.8"
-    - name: VLLM_USE_V1
-      value: "0"
     - name: NIM_MODEL_PROFILE
-      value: ""
-    - name: PYTORCH_CUDA_ALLOC_CONF
-      value: "expandable_segments:True"
+      value: 089d3c0d578020772271e4637f690b66a5054b68151361ba80df2aff9717aea8
+    - name: NIM_GPU_MEMORY_UTILIZATION
+      value: "0.90"
 
   volumes:
     - name: dshm
@@ -760,7 +750,7 @@ nv-ingest:
     image:
       all:
         repository: docker.io/milvusdb/milvus
-        tag: v2.5.17-gpu
+        tag: v2.5.17
     etcd:
       image:
         repository: "milvusdb/etcd"
@@ -768,7 +758,10 @@ nv-ingest:
     standalone:
       resources:
         limits:
-          nvidia.com/gpu: 1
+          nvidia.com/gpu: 0
+        requests:
+          cpu: "8"
+          memory: "16Gi"
     minio:
       image:
         repository: docker.io/minio/minio

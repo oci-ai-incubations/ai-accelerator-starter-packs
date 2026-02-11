@@ -3,6 +3,20 @@
 # 
 
 # Authentication Configuration
+variable "ngc_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
+}
+
+variable "ngc_api_secret" {
+  type        = string
+  default     = "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"
+  sensitive   = true
+  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
+}
+
 variable "use_instance_principal" {
   type        = bool
   default     = false
@@ -215,9 +229,7 @@ variable "apps_endpoint_visibility" {
 variable "tenancy_ocid" {}
 variable "compartment_ocid" {}
 variable "region" {}
-variable "user_ocid" {
-  default = ""
-}
+variable "current_user_ocid" {}
 
 # ORM Schema visual control variables
 variable "show_advanced" {
@@ -323,14 +335,14 @@ variable "oci_tag_values" {
   }
 }
 
-variable "stack_version" {
-  default     = "v1.0.11"
-  description = "backend version"
+variable "accelerator_pack_stack_version" {
+  default     = "v0.0.1"
+  description = "Stack release version for AI Accelerator Starter Packs"
 }
 
-variable "is_nvaie_enabled" {
-  default     = true
-  description = "whether to enable NVAIE"
+variable "corrino_image_version" {
+  default     = "v1.0.11"
+  description = "Corrino backend image version"
 }
 
 variable "setup_credential_provider_for_ocir" {
@@ -397,12 +409,12 @@ variable "starter_pack_category" {
 }
 
 variable "starter_pack_size" {
-  description = "The starter pack size (small, medium, large)"
+  description = "The starter pack size (poc, small, medium, large)"
   type        = string
   default     = "small"
   validation {
-    condition     = contains(["small", "medium", "large"], var.starter_pack_size)
-    error_message = "Starter pack size must be 'small', 'medium', or 'large'."
+    condition     = contains(["poc", "small", "medium", "large"], var.starter_pack_size)
+    error_message = "Starter pack size must be 'poc', 'small', 'medium', or 'large'."
   }
 }
 
@@ -410,6 +422,12 @@ variable "skip_capacity_check" {
   description = "Skip the compute capacity pre-validation. Enable this only if you are certain capacity exists or want to bypass the pre-check. Note: Deployment may still fail later if capacity is unavailable."
   type        = bool
   default     = false
+}
+
+variable "worker_node_availability_domain" {
+  description = "Availability domain to use for worker nodes. Required for GPU starter packs (cuopt, vss, enterprise_rag). Optional for paas_rag. When skip_capacity_check is false, capacity will be validated for this AD. When skip_capacity_check is true, capacity validation is skipped."
+  type        = string
+  default     = ""
 }
 
 # -----------------------------------
@@ -486,8 +504,8 @@ variable "genai_region" {
   default     = "us-chicago-1"
 }
 
-variable "cuopt_marketing_enabled" {
-  description = "Enable cuopt marketing frontend"
+variable "cuopt_frontend_enabled" {
+  description = "Enable cuopt frontend"
   type        = bool
   default     = false
 }
@@ -500,57 +518,89 @@ variable "cuopt_marketing_enabled" {
 locals {
   starter_pack_configs = {
     "cuopt" = {
-      "small" = {
-        blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+      "poc" = {
+        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
+        nvaie_enabled                                = false
+        configure_deployment_credentials             = true
+        use_dynamic_url                              = true
+        worker_node_shape                            = "VM.GPU.A10.1"
+        worker_node_pool_size                        = 1
+        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
+          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
+          memory        = var.cuopt_frontend_enabled ? 32 : 0
+        }
+        database_storage_size_in_tbs         = 0
+        database_compute_count               = 0
+        starter_pack_url_deployment          = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
+        frontend_starter_pack_url_deployment = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
+      }
+      "small" = {
+        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        deployment_name                              = "cuopt"
+        app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_marketing_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_marketing_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_marketing_enabled ? 4 : 0
-          memory        = var.cuopt_marketing_enabled ? 32 : 0
+          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
+          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
+          memory        = var.cuopt_frontend_enabled ? 32 : 0
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
-        marketing_starter_pack_url_deployment     = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
+        database_storage_size_in_tbs         = 0
+        database_compute_count               = 0
+        starter_pack_url_deployment          = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
+        frontend_starter_pack_url_deployment = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
-        blueprint_file                               = var.cuopt_marketing_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_marketing_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_marketing_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_marketing_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_marketing_enabled ? 4 : 0
-          memory        = var.cuopt_marketing_enabled ? 32 : 0
+          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
+          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
+          memory        = var.cuopt_frontend_enabled ? 32 : 0
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = var.cuopt_marketing_enabled ? "cuopt-cuopt" : "cuopt"
-        marketing_starter_pack_url_deployment     = var.cuopt_marketing_enabled ? "demo-cuopt" : ""
+        database_storage_size_in_tbs         = 0
+        database_compute_count               = 0
+        starter_pack_url_deployment          = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
+        frontend_starter_pack_url_deployment = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented
     }
@@ -560,6 +610,8 @@ locals {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
@@ -577,15 +629,17 @@ locals {
           ocpus         = 32
           memory        = 128
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = "vss"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs         = 0
+        database_compute_count               = 0
+        starter_pack_url_deployment          = "vss"
+        frontend_starter_pack_url_deployment = ""
       }
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.L40S.4"
         worker_node_pool_size                        = 2
@@ -603,10 +657,10 @@ locals {
           ocpus         = 32
           memory        = 128
         }
-        database_storage_size_in_tbs              = 0
-        database_compute_count                    = 0
-        starter_pack_url_deployment               = "vss"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs         = 0
+        database_compute_count               = 0
+        starter_pack_url_deployment          = "vss"
+        frontend_starter_pack_url_deployment = ""
       }
       # Add "large" here when implemented
     }
@@ -616,6 +670,8 @@ locals {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
         app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
         use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
@@ -633,15 +689,18 @@ locals {
           ocpus         = 12
           memory        = 96
         }
-        database_storage_size_in_tbs              = 2
-        database_compute_count                    = 4
-        starter_pack_url_deployment               = "frontend"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs         = 2
+        database_compute_count               = 4
+        starter_pack_url_deployment          = "frontend"
+        frontend_starter_pack_url_deployment = ""
       }
 
       "medium" = {
         blueprint_file                               = "paas-rag-blueprint.json"
         deployment_name                              = "paas"
+        app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
         use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
@@ -659,10 +718,10 @@ locals {
           ocpus         = 12
           memory        = 96
         }
-        database_storage_size_in_tbs              = 8
-        database_compute_count                    = 16
-        starter_pack_url_deployment               = "frontend"
-        marketing_starter_pack_url_deployment     = ""
+        database_storage_size_in_tbs         = 8
+        database_compute_count               = 16
+        starter_pack_url_deployment          = "frontend"
+        frontend_starter_pack_url_deployment = ""
       }
       # Add "large" here when implemented
     }
@@ -673,6 +732,8 @@ locals {
         blueprint_file                               = ""
         deployment_name                              = "enterprise-rag"
         app_namespace                                = "rag"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = false
         use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
@@ -690,8 +751,8 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        starter_pack_url_deployment           = "" # Not used (use_dynamic_url = false)
-        marketing_starter_pack_url_deployment = "" # Not used
+        starter_pack_url_deployment          = "" # Not used (use_dynamic_url = false)
+        frontend_starter_pack_url_deployment = "" # Not used
       }
     }
   }
@@ -705,11 +766,11 @@ locals {
   # Deployment name from config
   starter_pack_deployment_name = local.starter_pack_config.deployment_name
 
-  # Deployment used for starter pack URL (e.g., "frontend" for paas_rag, "cuopt-cuopt" for cuopt with marketing)
+  # Deployment used for starter pack URL (e.g., "frontend" for paas_rag, "cuopt-cuopt" for cuopt with frontend)
   starter_pack_url_deployment = local.starter_pack_config.starter_pack_url_deployment
 
-  # Deployment used for marketing URL (only used for cuopt with marketing enabled)
-  marketing_starter_pack_url_deployment = local.starter_pack_config.marketing_starter_pack_url_deployment
+  # Deployment used for frontend URL (only used for cuopt with frontend enabled)
+  frontend_starter_pack_url_deployment = local.starter_pack_config.frontend_starter_pack_url_deployment
 
   # Blueprint content - directly from the organized blueprint map in blueprint_files.tf
   # No need to maintain a separate map here - just reference the nested structure

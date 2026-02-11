@@ -429,6 +429,13 @@ resource "helm_release" "milvus" {
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
 
+resource "kubernetes_namespace_v1" "app_namespace" {
+  count = local.starter_pack_config.app_namespace != "default" ? 1 : 0
+  metadata {
+    name = local.starter_pack_config.app_namespace
+  }
+}
+
 resource "helm_release" "rag" {
   name             = "rag"
   namespace        = local.starter_pack_config.app_namespace
@@ -437,6 +444,7 @@ resource "helm_release" "rag" {
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
 
   repository_username = "$oauthtoken"
+  repository_password = var.ngc_secret
 
   timeout = 5400 # Increase timeout to 90 minutes
 
@@ -468,17 +476,21 @@ resource "helm_release" "rag" {
     {
       name  = "nv-ingest.milvus.minio.secretKey"
       value = random_password.minio_secret_key.result
+    },
+    {
+      name  = "imagePullSecret.password"
+      value = var.ngc_secret
+    },
+    {
+      name  = "ngcApiSecret.password"
+      value = var.ngc_api_secret
     }
   ]
 
   set = [
     {
-      name  = "imagePullSecret.create"
-      value = "false"
-    },
-    {
-      name  = "ngcApiSecret.create"
-      value = "false"
+      name  = "global.ngcApiKey"
+      value = var.ngc_api_secret
     },
     {
       name  = "milvus.standalone.resources.limits.nvidia\\.com/gpu"
@@ -486,11 +498,11 @@ resource "helm_release" "rag" {
     },
     {
       name  = "milvus.standalone.resources.limits.cpu"
-      value = "8"
+      value = "16"
     },
     {
       name  = "milvus.standalone.resources.limits.memory"
-      value = "24Gi"
+      value = "32Gi"
     },
     {
       name  = "milvus.app_vectorstore_enablegpusearch"
@@ -506,7 +518,7 @@ resource "helm_release" "rag" {
     }
   ]
   count      = var.starter_pack_category == "enterprise_rag" ? 1 : 0
-  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network]
+  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
@@ -529,6 +541,6 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
   ]
 
   provisioner "local-exec" {
-    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\"}}}'"
+    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"  
   }
 }

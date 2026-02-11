@@ -23,7 +23,7 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
     instance_type = "compute"
     launch_details {
       compartment_id           = var.compartment_ocid
-      is_ai_enterprise_enabled = var.is_nvaie_enabled
+      is_ai_enterprise_enabled = local.starter_pack_config.nvaie_enabled
       display_name             = "AI-Accel-Worker-Node-${random_string.deploy_id.result}"
       shape                    = local.starter_pack_config.worker_node_shape
       source_details {
@@ -69,12 +69,9 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
   display_name              = "AI-Accel-Worker-Nodes-Pool-${random_string.deploy_id.result}"
   instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration[0].id
   size                      = local.starter_pack_config.worker_node_pool_size
-  dynamic "placement_configurations" {
-    for_each = data.oci_identity_availability_domains.ads.availability_domains
-    content {
-      availability_domain = placement_configurations.value.name
-      primary_subnet_id   = oci_core_subnet.oke_nodes_subnet[0].id
-    }
+  placement_configurations {
+    availability_domain = local.worker_node_availability_domain
+    primary_subnet_id   = oci_core_subnet.oke_nodes_subnet[0].id
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration, terraform_data.capacity_validated]
   count      = local.should_import_nvidia_gpu_image ? 1 : 0

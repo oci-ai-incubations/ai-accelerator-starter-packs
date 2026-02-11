@@ -64,6 +64,11 @@ output "node_pool_kubernetes_version" {
   value       = oci_containerengine_node_pool.oke_node_pool.kubernetes_version
 }
 
+output "worker_node_availability_domain" {
+  description = "Availability domain selected for worker nodes (user-provided)"
+  value       = local.worker_node_availability_domain
+}
+
 # Bastion Information (when created)
 output "bastion_public_ip" {
   description = "Public IP address of the bastion host"
@@ -113,14 +118,14 @@ output "kubeconfig_command" {
 
 # Load Balancer IP Address
 output "external_ip" {
-  description = "Public IP address of the ingress load balancer. Configure DNS A records to point your domain(s) to this IP."
-  value       = local.network.external_ip
+  description = "Public IP address of the ingress load balancer. If Custom DNS is enabled, configure DNS A records to point your domain(s) to this IP."
+  value       = var.use_custom_dns ? local.network.external_ip : "N/A - Using automatic nip.io domain"
 }
 
 # Custom DNS Domain - shows the wildcard A-record domain that needs to be configured
 output "custom_dns_domain" {
-  description = "Create a wildcard A-record for this domain pointing to the Load Balancer IP above."
-  value       = var.use_custom_dns ? "*.${var.fqdn_custom_domain}" : null
+  description = "If Custom DNS is enabled, create a wildcard A-record for this domain pointing to the Load Balancer IP above."
+  value       = var.use_custom_dns ? "*.${var.fqdn_custom_domain}" : "N/A - Custom DNS not enabled"
 }
 
 # Load Balancer Subnet Information
@@ -155,9 +160,9 @@ output "starter_pack_url" {
   value       = local.starter_pack_url_output
 }
 
-output "starter_pack_marketing_url" {
-  description = "Starter pack marketing FQDN"
-  value       = local.starter_pack_marketing_url_output
+output "starter_pack_frontend_url" {
+  description = "Starter pack frontend FQDN"
+  value       = local.starter_pack_frontend_url_output
 }
 
 output "blueprints_portal_url" {
@@ -241,4 +246,30 @@ output "db_password" {
   description = "Admin password for the Oracle 26ai Autonomous Database"
   value       = var.db_password
   sensitive   = true
+}
+
+output "paas_rag_bucket_id" {
+  description = "OCID of the PaaS RAG specific Object Storage bucket (if created)"
+  value       = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
+}
+
+output "paas_rag_bucket_name" {
+  description = "Name of the PaaS RAG specific Object Storage bucket (if created)"
+  value       = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
+}
+
+output "object_storage_namespace" {
+  description = "Namespace for Object Storage"
+  value       = data.oci_objectstorage_namespace.ns.namespace
+}
+
+output "selected_worker_node_availability_domain" {
+  description = "Availability domain selected for worker nodes (for debugging)"
+  value       = local.worker_node_availability_domain
+}
+
+# Version Information
+output "ai_accelerator_stack_version" {
+  description = "AI Accelerator Starter Packs stack version"
+  value       = file("${path.module}/AI_ACCELERATOR_STACK_VERSION")
 }

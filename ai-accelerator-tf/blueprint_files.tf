@@ -6,18 +6,19 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
-      "small"  = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
-      "medium" = var.cuopt_marketing_enabled ? local._cuopt_with_marketing_blueprint : local._cuopt_small_blueprint
+      "poc"    = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
+      "small"  = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
+      "medium" = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
       # Add "large" here when implemented
     }
     "vss" = {
-      "small" = local._vss_small_blueprint
+      "small"  = local._vss_small_blueprint
       "medium" = local._vss_medium_blueprint
       # Add "large" here when implemented
     }
     "paas_rag" = {
-      "small" = local._paas_rag_small_blueprint
-      # Add "medium" here when implemented
+      "small"  = local._paas_rag_small_blueprint
+      "medium" = local._paas_rag_small_blueprint
       # Add "large" here when implemented
     }
     # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
@@ -43,7 +44,7 @@ locals {
       recipe_node_shape                            = local.starter_pack_config.worker_node_shape
       recipe_replica_count                         = 1
       recipe_container_port                        = "5000"
-      recipe_nvidia_gpu_count                      = 8
+      recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 1 : 8
       recipe_use_shared_node_pool                  = true
       recipe_ephemeral_storage_size                = 200
       recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -61,7 +62,7 @@ locals {
         "-p",
         "5000",
         "-g",
-        "8"
+        var.starter_pack_size == "poc" ? "1" : "8"
       ]
       recipe_liveness_probe_params = {
         port                  = 5000
@@ -85,12 +86,12 @@ locals {
     },
     var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
   ))
-  _cuopt_with_marketing_blueprint = jsonencode({
+  _cuopt_with_frontend_blueprint = jsonencode({
     deployment_group = {
       name = local.starter_pack_deployment_name
       deployments = [
         {
-          name = "llamastack",
+          name    = "llamastack",
           exports = ["service_name"],
           recipe = {
             recipe_id                            = "llamastack",
@@ -111,7 +112,7 @@ locals {
           }
         },
         {
-          name = "cuopt"
+          name    = "cuopt"
           exports = ["service_name"]
           recipe = {
             recipe_id                                    = "cuopt"
@@ -122,7 +123,7 @@ locals {
             recipe_node_shape                            = local.starter_pack_config.worker_node_shape
             recipe_replica_count                         = 1
             recipe_container_port                        = "5000"
-            recipe_nvidia_gpu_count                      = 8
+            recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 1 : 8
             recipe_use_shared_node_pool                  = true
             recipe_ephemeral_storage_size                = 200
             recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -140,7 +141,7 @@ locals {
               "-p",
               "5000",
               "-g",
-              "8"
+              var.starter_pack_size == "poc" ? "1" : "8"
             ]
             recipe_liveness_probe_params = {
               port                  = 5000
@@ -164,9 +165,9 @@ locals {
           }
         },
         {
-          name       =    "demo",
-          exports    =    ["service_name"],
-          depends_on =    ["cuopt", "llamastack"],
+          name       = "demo",
+          exports    = ["service_name"],
+          depends_on = ["cuopt", "llamastack"],
           recipe = merge(
             {
               recipe_id                            = "demo",
@@ -195,25 +196,6 @@ locals {
                   path_type    = "Prefix"
                 }
               ]
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-          )
-        },
-        {
-          name       = "cuopt-demo",
-          depends_on = ["llamastack", "cuopt"],
-          recipe = merge(
-            {
-              recipe_id                            = "cuopt-demo",
-              deployment_name                      = "cuopt-demo",
-              recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.1",
-              recipe_replica_count                 = 1,
-              recipe_flex_shape_ocpu_count         = 1,
-              recipe_flex_shape_memory_size_in_gbs = 8,
-              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-              recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "3000",
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
           )
@@ -811,8 +793,8 @@ locals {
             recipe_nvidia_gpu_count      = 1
             recipe_image_uri             = "nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us:2.0.0"
             recipe_container_secret_name = "ngc-secret"
-            recipe_container_port = "9000"
-            recipe_host_port      = "9000"
+            recipe_container_port        = "9000"
+            recipe_host_port             = "9000"
             recipe_storage_group_id      = 1000
             recipe_container_env = [
               { key = "NIM_HTTP_API_PORT", value = "9000" },
@@ -842,7 +824,7 @@ locals {
               timeout_seconds       = 20
             }
           }
-          exports = ["internal_dns_name"],
+          exports    = ["internal_dns_name"],
           depends_on = ["rerank"]
         },
         {
@@ -965,80 +947,79 @@ locals {
                   "cv_pipeline_tracker_config.yml" = "BaseConfig:\n  minDetectorConfidence: 0.1630084739998828\nDataAssociator:\n  associationMatcherType: 1\n  checkClassMatch: 1\n  dataAssociatorType: 0\n  matchingScoreWeight4Iou: 0.46547889321000563\n  matchingScoreWeight4SizeSimilarity: 0.4463422634549605\n  matchingScoreWeight4VisualSimilarity: 0.7092410997389017\n  minMatchingScore4Iou: 0.29413058985254187\n  minMatchingScore4Overall: 0.06843005365443096\n  minMatchingScore4SizeSimilarity: 0.2929323932012989\n  minMatchingScore4TentativeIou: 0.45510391462097216\n  minMatchingScore4VisualSimilarity: 0.42453250143328114\n  tentativeDetectorConfidence: 0.1721247313806944\nReID:\n  addFeatureNormalization: 1\n  batchSize: 100\n  colorFormat: 0\n  inferDims: [3, 256, 128]\n  inputOrder: 0\n  keepAspc: 1\n  modelEngineFile: /tmp/via/data/models/gdino-sam/resnet50_market1501_aicity156.onnx.engine\n  netScaleFactor: 0.01735207\n  networkMode: 1\n  offsets: [123.675, 116.28, 103.53]\n  onnxFile: /tmp/via/data/models/gdino-sam/resnet50_market1501_aicity156.onnx\n  outputReidTensor: 0\n  reidFeatureSize: 256\n  reidHistorySize: 100\n  reidType: 2\n  tltModelKey: nvidia_tao\n  useVPICropScaler: 1\n  workspaceSize: 1000\nStateEstimator:\n  measurementNoiseVar4Detector: 100.00000584166246\n  measurementNoiseVar4Tracker: 4988.392688178733\n  processNoiseVar4Loc: 6533.099736052837\n  processNoiseVar4Size: 6415.121729390737\n  processNoiseVar4Vel: 2798.795011988113\n  stateEstimatorType: 1\nTargetManagement:\n  earlyTerminationAge: 1\n  enableBboxUnClipping: 0\n  maxShadowTrackingAge: 39\n  maxTargetsPerStream: 150\n  minIouDiff4NewTarget: 0.8176422840795657\n  minTrackerConfidence: 0.19878939278068558\n  preserveStreamUpdateOrder: 0\n  probationAge: 6\nTrajectoryManagement:\n  enableReAssoc: 1\n  matchingScoreWeight4ReidSimilarity: 0.7200658660519842\n  matchingScoreWeight4TrackletSimilarity: 0.23836654600118312\n  maxAngle4TrackletMatching: 142\n  maxTrackletMatchingTimeSearchRange: 20\n  minBboxSizeSimilarity4TrackletMatching: 0.18214484831006444\n  minMatchingScore4Overall: 0.23583585666333318\n  minMatchingScore4ReidSimilarity: 0.24582563724796622\n  minSpeedSimilarity4TrackletMatching: 0.0023058182326161298\n  minTrackletMatchingScore: 0.09979720773093673\n  minTrajectoryLength4Projection: 37\n  prepLength4TrajectoryProjection: 50\n  reidExtractionInterval: 19\n  trackletSpacialSearchRegionScale: 0.2598\n  trajectoryProjectionLength: 43\n  trajectoryProjectionMeasurementNoiseScale: 100\n  trajectoryProjectionProcessNoiseScale: 0.01\n  useUniqueID: 0\nVisualTracker:\n  featureFocusOffsetFactor_y: -0.15647586556568632\n  featureImgSizeLevel: 3\n  filterChannelWeightsLr: 0.07701879646606641\n  filterLr: 0.13560657062953396\n  gaussianSigma: 1.497826153095461\n  useColorNames: 1\n  useHog: 1\n  visualTrackerType: 2\n"
                   "ca_rag_config.yaml"             = "context_manager:\n  functions:\n  - summarization\n  - ingestion_function\n  - retriever_function\n  - notification\nfunctions:\n  ingestion_function:\n    params:\n      batch_size: 1\n      cot: false\n      image: false\n      top_k: 5\n    tools:\n      db: graph_db\n      llm: chat_llm\n    type: graph_ingestion\n  notification:\n    params:\n      events: []\n    tools:\n      llm: notification_llm\n      notification_tool: notification_tool\n    type: notification\n  retriever_function:\n    params:\n      batch_size: 1\n      cot: false\n      image: false\n      top_k: 5\n    tools:\n      db: graph_db\n      llm: chat_llm\n    type: graph_retrieval\n  summarization:\n    params:\n      batch_max_concurrency: 20\n      batch_size: 5\n      prompts:\n        caption: Write a concise and clear dense caption for the provided warehouse video, focusing on irregular or hazardous events such as boxes falling, workers not wearing PPE, workers falling, workers taking photographs, workers chitchatting, forklift stuck, etc. Start and end each sentence with a time stamp.\n        caption_summarization: 'You should summarize the following events of a warehouse in the format start_time:end_time:caption. For start_time and end_time use . to seperate seconds, minutes, hours. If during a time segment only regular activities happen, then ignore them, else note any irregular activities in detail. The output should be bullet points in the format start_time:end_time: detailed_event_description. Don''t return anything else except the bullet points.'\n        summary_aggregation: 'You are a warehouse monitoring system. Given the caption in the form start_time:end_time: caption, Aggregate the following captions in the format start_time:end_time:event_description. If the event_description is the same as another event_description, aggregate the captions in the format start_time1:end_time1,...,start_timek:end_timek:event_description. If any two adjacent end_time1 and start_time2 is within a few tenths of a second, merge the captions in the format start_time1:end_time2. The output should only contain bullet points. Cluster the output into Unsafe Behavior, Operational Inefficiencies, Potential Equipment Damage and Unauthorized Personnel'\n    tools:\n      db: graph_db\n      llm: summarization_llm\n    type: batch_summarization\ntools:\n  chat_llm:\n    params:\n      base_url: http://$${LLM_HOST}:$${LLM_PORT}/v1\n      max_tokens: 2048\n      model: $${LLM_MODEL}\n      temperature: 0.2\n      top_p: 0.7\n    type: llm\n  graph_db:\n    params:\n      host: $${GRAPH_DB_HOST}\n      password: $${GRAPH_DB_PASSWORD}\n      port: $${GRAPH_DB_PORT}\n      username: $${GRAPH_DB_USERNAME}\n    tools:\n      embedding: nvidia_embedding\n    type: neo4j\n  notification_llm:\n    params:\n      base_url: http://$${LLM_HOST}:$${LLM_PORT}/v1\n      max_tokens: 2048\n      model: $${LLM_MODEL}\n      temperature: 0.2\n      top_p: 0.7\n    type: llm\n  notification_tool:\n    params:\n      endpoint: http://127.0.0.1:60000/via-alert-callback\n    type: alert_sse_notifier\n  nvidia_embedding:\n    params:\n      base_url: http://$${EMBED_HOST}:$${EMBED_PORT}/v1\n      model: nvidia/llama-3.2-nv-embedqa-1b-v2\n    type: embedding\n  nvidia_reranker:\n    params:\n      base_url: http://$${RERANK_HOST}:$${RERANK_PORT}/v1\n      model: nvidia/llama-3.2-nv-rerankqa-1b-v2\n    type: reranker\n  summarization_llm:\n    params:\n      base_url: http://$${LLM_HOST}:$${LLM_PORT}/v1\n      max_tokens: 2048\n      model: $${LLM_MODEL}\n      temperature: 0.2\n      top_p: 0.7\n    type: llm\n  vector_db:\n    params:\n      host: $${MILVUS_DB_HOST}\n      port: $${MILVUS_DB_PORT}\n    tools:\n      embedding: nvidia_embedding\n    type: milvus\n"
                 }
+              ]
+
+              recipe_container_env = [
+                { key = "VLM_MODEL_TO_USE", value = "cosmos-reason1" },
+                { key = "MODEL_PATH", value = "git:https://huggingface.co/nvidia/Cosmos-Reason1-7B" },
+                { key = "DISABLE_GUARDRAILS", value = "true" },
+                { key = "OPENAI_API_KEY_NAME", value = "VSS_OPENAI_API_KEY" },
+                { key = "NVIDIA_API_KEY_NAME", value = "VSS_NVIDIA_API_KEY" },
+                { key = "NGC_API_KEY_NAME", value = "VSS_NGC_API_KEY" },
+                { key = "TRT_LLM_MODE", value = "int4_awq" },
+                { key = "DISABLE_CV_PIPELINE", value = "false" },
+                { key = "GDINO_INFERENCE_INTERVAL", value = "1" },
+                { key = "NUM_CV_CHUNKS_PER_GPU", value = "1" },
+                { key = "ENABLE_AUDIO", value = "true" },
+                { key = "LLM_MODEL", value = "meta-llama/llama-3.1-8b-instruct" },
+                { key = "LLM_HOST", value = "$${nim-llm.internal_dns_name}" },
+                { key = "LLM_PORT", value = "8000" },
+                { key = "EMBED_HOST", value = "$${embedding.internal_dns_name}" },
+                { key = "EMBED_PORT", value = "8000" },
+                { key = "RERANK_HOST", value = "$${rerank.internal_dns_name}" },
+                { key = "RERANK_PORT", value = "8000" },
+                { key = "RIVA_ASR_SERVER_URI", value = "$${riva.internal_dns_name}" },
+                { key = "RIVA_ASR_GRPC_PORT", value = "50051" },
+                { key = "RIVA_ASR_HTTP_PORT", value = "9000" },
+                { key = "ENABLE_RIVA_SERVER_READINESS_CHECK", value = "true" },
+                { key = "RIVA_ASR_SERVER_IS_NIM", value = "true" },
+                { key = "RIVA_ASR_SERVER_USE_SSL", value = "false" },
+                { key = "INSTALL_PROPRIETARY_CODECS", value = "false" },
+                { key = "VLLM_GPU_MEMORY_UTILIZATION", value = "0.7" },
+                { key = "FRONTEND_PORT", value = "9000" },
+                { key = "BACKEND_PORT", value = "8000" },
+                { key = "GRAPH_DB_HOST", value = "$${neo4j.internal_dns_name}" },
+                { key = "GRAPH_DB_PORT", value = "7687" },
+                { key = "MILVUS_DB_HOST", value = "my-release-milvus" },
+                { key = "MILVUS_DB_PORT", value = "19530" },
+                { key = "MINIO_HOST", value = "my-release-minio" },
+                { key = "MINIO_PORT", value = "9000" },
+                { key = "MINIO_WEBUI_PORT", value = "9001" },
+                { key = "ARANGO_DB_HOST", value = "arango-db-arango-db-deployment-arango-db-service" },
+                { key = "ARANGO_DB_PORT", value = "8529" },
+                { key = "APP_VECTORSTORE_URL", value = "http://my-release-milvus:19530" },
+                { key = "ES_HOST", value = "$${elasticsearch.internal_dns_name}" },
+                { key = "ES_PORT", value = "9200" },
+                { key = "ES_TRANSPORT_PORT", value = "9300" },
+                { key = "NEO4J_AUTH", value = "neo4j/password" }
+              ]
+
+              recipe_environment_secrets = [
+                { envvar_name = "NVIDIA_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" },
+                { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" },
+                { envvar_name = "GRAPH_DB_USERNAME", secret_name = "neo4j-creds", secret_key = "username" },
+                { envvar_name = "GRAPH_DB_PASSWORD", secret_name = "neo4j-creds", secret_key = "password" },
+                { envvar_name = "MINIO_USERNAME", secret_name = "minio-creds-secret", secret_key = "access-key" },
+                { envvar_name = "MINIO_PASSWORD", secret_name = "minio-creds-secret", secret_key = "secret-key" },
+                { envvar_name = "ARANGO_DB_USERNAME", secret_name = "arango-db-creds-secret", secret_key = "username" },
+                { envvar_name = "ARANGO_DB_PASSWORD", secret_name = "arango-db-creds-secret", secret_key = "password" }
+              ]
+
+              recipe_liveness_probe_params = {
+                failure_threshold = 3
+                endpoint_path     = "/health/live"
+                port              = 8000
+                period_seconds    = 10
+                timeout_seconds   = 1
               }
-            ]
 
-            recipe_container_env = [
-              { key = "VLM_MODEL_TO_USE", value = "cosmos-reason1" },
-              { key = "MODEL_PATH", value = "git:https://huggingface.co/nvidia/Cosmos-Reason1-7B" },
-              { key = "DISABLE_GUARDRAILS", value = "true" },
-              { key = "OPENAI_API_KEY_NAME", value = "VSS_OPENAI_API_KEY" },
-              { key = "NVIDIA_API_KEY_NAME", value = "VSS_NVIDIA_API_KEY" },
-              { key = "NGC_API_KEY_NAME", value = "VSS_NGC_API_KEY" },
-              { key = "TRT_LLM_MODE", value = "int4_awq" },
-              { key = "DISABLE_CV_PIPELINE", value = "false" },
-              { key = "GDINO_INFERENCE_INTERVAL", value = "1" },
-              { key = "NUM_CV_CHUNKS_PER_GPU", value = "1" },
-              { key = "ENABLE_AUDIO", value = "true" },
-              { key = "LLM_MODEL", value = "meta-llama/llama-3.1-8b-instruct" },
-              { key = "LLM_HOST", value = "$${nim-llm.internal_dns_name}" },
-              { key = "LLM_PORT", value = "8000" },
-              { key = "EMBED_HOST", value = "$${embedding.internal_dns_name}" },
-              { key = "EMBED_PORT", value = "8000" },
-              { key = "RERANK_HOST", value = "$${rerank.internal_dns_name}" },
-              { key = "RERANK_PORT", value = "8000" },
-              { key = "RIVA_ASR_SERVER_URI", value = "$${riva.internal_dns_name}" },
-              { key = "RIVA_ASR_GRPC_PORT", value = "50051" },
-              { key = "RIVA_ASR_HTTP_PORT", value = "9000" },
-              { key = "ENABLE_RIVA_SERVER_READINESS_CHECK", value = "true" },
-              { key = "RIVA_ASR_SERVER_IS_NIM", value = "true" },
-              { key = "RIVA_ASR_SERVER_USE_SSL", value = "false" },
-              { key = "INSTALL_PROPRIETARY_CODECS", value = "false" },
-              { key = "VLLM_GPU_MEMORY_UTILIZATION", value = "0.7" },
-              { key = "FRONTEND_PORT", value = "9000" },
-              { key = "BACKEND_PORT", value = "8000" },
-              { key = "GRAPH_DB_HOST", value = "$${neo4j.internal_dns_name}" },
-              { key = "GRAPH_DB_PORT", value = "7687" },
-              { key = "MILVUS_DB_HOST", value = "my-release-milvus" },
-              { key = "MILVUS_DB_PORT", value = "19530" },
-              { key = "MINIO_HOST", value = "my-release-minio" },
-              { key = "MINIO_PORT", value = "9000" },
-              { key = "MINIO_WEBUI_PORT", value = "9001" },
-              { key = "ARANGO_DB_HOST", value = "arango-db-arango-db-deployment-arango-db-service" },
-              { key = "ARANGO_DB_PORT", value = "8529" },
-              { key = "APP_VECTORSTORE_URL", value = "http://my-release-milvus:19530" },
-              { key = "ES_HOST", value = "$${elasticsearch.internal_dns_name}" },
-              { key = "ES_PORT", value = "9200" },
-              { key = "ES_TRANSPORT_PORT", value = "9300" },
-              { key = "NEO4J_AUTH", value = "neo4j/password" }
-            ]
-
-            recipe_environment_secrets = [
-              { envvar_name = "NVIDIA_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" },
-              { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" },
-              { envvar_name = "GRAPH_DB_USERNAME", secret_name = "neo4j-creds", secret_key = "username" },
-              { envvar_name = "GRAPH_DB_PASSWORD", secret_name = "neo4j-creds", secret_key = "password" },
-              { envvar_name = "MINIO_USERNAME", secret_name = "minio-creds-secret", secret_key = "access-key" },
-              { envvar_name = "MINIO_PASSWORD", secret_name = "minio-creds-secret", secret_key = "secret-key" },
-              { envvar_name = "ARANGO_DB_USERNAME", secret_name = "arango-db-creds-secret", secret_key = "username" },
-              { envvar_name = "ARANGO_DB_PASSWORD", secret_name = "arango-db-creds-secret", secret_key = "password" }
-            ]
-
-            recipe_liveness_probe_params = {
-              failure_threshold = 3
-              endpoint_path     = "/health/live"
-              port              = 8000
-              period_seconds    = 10
-              timeout_seconds   = 1
-            }
-
-            recipe_startup_probe_params = {
-              failure_threshold = 360
-              endpoint_path     = "/health/ready"
-              port              = 8000
-              period_seconds    = 10
-              timeout_seconds   = 1
-            }
+              recipe_startup_probe_params = {
+                failure_threshold = 360
+                endpoint_path     = "/health/ready"
+                port              = 8000
+                period_seconds    = 10
+                timeout_seconds   = 1
+              }
 
               recipe_readiness_probe_params = {
                 failure_threshold     = 3
@@ -1068,7 +1049,7 @@ locals {
       name = local.starter_pack_deployment_name
       deployments = [
         {
-          name = "llamastack"
+          name    = "llamastack"
           exports = ["service_name"]
           recipe = merge(
             {
@@ -1079,7 +1060,7 @@ locals {
               recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool = true
               recipe_replica_count        = 1
-              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d5848b"
+              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci"
               recipe_container_env = [
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
@@ -1090,39 +1071,46 @@ locals {
                 { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
                 { "key" = "OCI_REGION", value = var.genai_region },
                 { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
-                { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store"}
+                { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store" },
+                { "key" = "S3_BUCKET_NAME", value = local.bucket_name },
+                { "key" = "AWS_REGION", value = var.region },
+                { "key" = "AWS_ACCESS_KEY_ID", value = local.aws_compat_access_key_id },
+                { "key" = "AWS_SECRET_ACCESS_KEY", value = local.aws_compat_access_key_key },
+                { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
+                { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
+                { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
               ],
               pvcs = {
                 retain_after_undeploy = false
                 volumes = [
                   { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
                 ]
-              }
+              },
+              recipe_container_port                = "8321"
+              recipe_flex_shape_ocpu_count         = 8
+              recipe_flex_shape_memory_size_in_gbs = 64
               recipe_secret_mounts = [
                 { "name" = "oadb-wallet", "mount_location" = "/wallet" },
                 { "name" = "llamastack-config", "mount_location" = "/app" }
               ]
-              recipe_container_port                = "8321"
-              recipe_flex_shape_ocpu_count         = 8
-              recipe_flex_shape_memory_size_in_gbs = 64
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
           )
         },
         {
-          name = "frontend",
+          name       = "frontend",
           depends_on = ["llamastack"],
           recipe = {
-            recipe_id = "frontend",
-            deployment_name = "frontend",
-            recipe_mode = "service",
-            recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:skynet-paas",
-            recipe_replica_count = 1,
-            recipe_flex_shape_ocpu_count = 4,
+            recipe_id                            = "frontend",
+            deployment_name                      = "frontend",
+            recipe_mode                          = "service",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:latest",
+            recipe_replica_count                 = 1,
+            recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
-            recipe_node_shape = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-            recipe_use_shared_node_pool = true,
-            recipe_container_port = "3000",
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_port                = "3000",
             recipe_additional_ingress_ports = [
               {
                 port_name    = "models"
