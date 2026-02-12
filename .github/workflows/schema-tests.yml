@@ -1,0 +1,32 @@
+name: Schema Tests
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "ai-accelerator-tf/schemas/**"
+      - "create_final_schema.py"
+      - ".github/workflows/schema-tests.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "ai-accelerator-tf/schemas/**"
+      - "create_final_schema.py"
+      - ".github/workflows/schema-tests.yml"
+
+jobs:
+  schema-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run schema tests
+        run: pytest ai-accelerator-tf/schemas/tests/ -v

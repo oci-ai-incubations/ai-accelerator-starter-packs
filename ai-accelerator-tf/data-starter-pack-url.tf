@@ -7,15 +7,6 @@
 locals {
   # Whether this starter pack uses dynamic URL lookup (from config)
   needs_dynamic_url = local.starter_pack_config.use_dynamic_url
-
-  # Parse blueprint to extract deployment_group.name
-  blueprint_json = local.needs_dynamic_url ? (
-    try(jsondecode(local.starter_pack_blueprint_content), null)
-  ) : null
-
-  deployment_group_name = local.blueprint_json != null ? (
-    try(local.blueprint_json.deployment_group.name, "")
-  ) : ""
 }
 
 # =============================================================================

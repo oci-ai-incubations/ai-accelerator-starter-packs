@@ -50,7 +50,7 @@ output "vcn_id" {
 
 output "vcn_cidr" {
   description = "CIDR block of the VCN"
-  value       = lookup(var.network_cidrs, "VCN-CIDR")
+  value       = var.network_cidrs["VCN-CIDR"]
 }
 
 # Node Pool Information

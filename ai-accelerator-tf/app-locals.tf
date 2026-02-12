@@ -120,10 +120,6 @@ locals {
     "corrino_uuid"      = random_uuid.registration_id.result
   }
 
-  db = {
-    app_name_for_db = regex("[[:alnum:]]{1,10}", local.app_name)
-  }
-
   addon = {
     grafana_user  = "admin"
     grafana_token = local.grafana_admin_password
@@ -152,14 +148,6 @@ locals {
     loopback_origin    = "http://127.0.0.1"
     external_ip        = var.ingress_nginx_enabled ? local.ingress_controller_load_balancer_ip : "#Ingress_Not_Deployed"
     oke_node_subnet_id = local.create_network_resources ? oci_core_subnet.oke_nodes_subnet[0].id : var.existing_node_subnet_id
-  }
-
-  inference_gateway = {
-    localhost        = "localhost"
-    localhost_origin = "http://localhost"
-    loopback         = "127.0.0.1"
-    loopback_origin  = "http://127.0.0.1"
-    # external_ip        = var.kong_enabled ? "" : data.kubernetes_service.kong_proxy_service.0.status.0.load_balancer.0.ingress.0.ip
   }
 
   registry = {

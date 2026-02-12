@@ -23,6 +23,7 @@ resource "oci_identity_policy" "operator_policy" {
   ]
 }
 
+# tflint-ignore: terraform_unused_declarations
 data "oci_identity_compartment" "oci_compartment" {
   id = var.compartment_ocid
 }
