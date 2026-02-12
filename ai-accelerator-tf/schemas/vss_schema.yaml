@@ -103,7 +103,7 @@ variables:
 # =============================================================================
 outputs:
   starter_pack_url:
-    type: link
+    type: string
     title: "VSS Service URL"
     visible: true
 
