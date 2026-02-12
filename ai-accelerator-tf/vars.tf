@@ -576,9 +576,9 @@ locals {
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = false
-        configure_deployment_credentials             = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
-        worker_node_shape                            = "VM.GPU.A10.1"
+        worker_node_shape                            = "VM.GPU.A10.2"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
         control_plane_node_pool_size                 = 2
