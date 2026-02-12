@@ -39,5 +39,15 @@ terraform {
       version = ">= 3.4"
       # https://registry.terraform.io/providers/hashicorp/http/
     }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0"
+      # https://registry.terraform.io/providers/hashicorp/null/
+    }
+    cloudinit = {
+      source  = "hashicorp/cloudinit"
+      version = ">= 2.3"
+      # https://registry.terraform.io/providers/hashicorp/cloudinit/
+    }
   }
 }

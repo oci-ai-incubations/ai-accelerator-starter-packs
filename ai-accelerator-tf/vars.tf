@@ -73,12 +73,14 @@ variable "existing_lb_subnet_id" {
   type        = string
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "existing_pods_subnet_id" {
   default     = ""
   description = "OCID of the existing subnet for pods. Required when network_configuration_mode is 'bring_your_own'"
   type        = string
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "existing_services_subnet_id" {
   default     = ""
   description = "OCID of the existing subnet for services. Required when network_configuration_mode is 'bring_your_own'"
@@ -119,12 +121,15 @@ variable "share_data_with_corrino_team_enabled" {
 # OKE Variables
 ## OKE Cluster Details
 variable "cluster_options_add_ons_is_kubernetes_dashboard_enabled" {
+  type    = bool
   default = false
 }
 
 ## OKE Visibility (Workers and Endpoint)
 
+# tflint-ignore: terraform_unused_declarations
 variable "cluster_workers_visibility" {
+  type        = string
   default     = "Private"
   description = "The Kubernetes worker nodes that are created will be hosted in public or private subnet(s)"
 
@@ -163,10 +168,12 @@ locals {
 
 ## OKE Node Pool Details
 variable "node_pool_name" {
+  type        = string
   default     = "control-plane"
   description = "Name of the node pool"
 }
 variable "k8s_version" {
+  type        = string
   default     = "v1.34.1"
   description = "Kubernetes version installed on your master and worker nodes"
 }
@@ -215,6 +222,7 @@ variable "blueprints_endpoint_visibility" {
   }
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "apps_endpoint_visibility" {
   default     = "Private"
   description = "The visibility of the apps endpoint"
@@ -226,13 +234,23 @@ variable "apps_endpoint_visibility" {
 }
 
 # OCI Provider
-variable "tenancy_ocid" {}
-variable "compartment_ocid" {}
-variable "region" {}
-variable "current_user_ocid" {}
+variable "tenancy_ocid" {
+  type = string
+}
+variable "compartment_ocid" {
+  type = string
+}
+variable "region" {
+  type = string
+}
+variable "current_user_ocid" {
+  type = string
+}
 
 # ORM Schema visual control variables
+# tflint-ignore: terraform_unused_declarations
 variable "show_advanced" {
+  type    = bool
   default = false
 }
 
@@ -270,62 +288,87 @@ variable "operator_instance_shape" {
 }
 
 variable "bastion_boot_volume_size_in_gbs" {
+  type        = string
   default     = "50"
   description = "Boot volume size for bastion instance (in GB)"
 }
 
 variable "operator_boot_volume_size_in_gbs" {
+  type        = string
   default     = "100"
   description = "Boot volume size for operator instance (in GB)"
 }
 
 # Ingress Nginx Configuration
 variable "ingress_load_balancer_shape" {
+  type        = string
   default     = "flexible" # Flexible, 10Mbps, 100Mbps, 400Mbps or 8000Mps
   description = "Shape that will be included on the Ingress annotation for the OCI Load Balancer creation"
 }
 variable "ingress_load_balancer_shape_flex_min" {
+  type        = string
   default     = "10"
   description = "Enter the minimum size of the flexible shape."
 }
 variable "ingress_load_balancer_shape_flex_max" {
+  type        = string
   default     = "100"
   description = "Enter the maximum size of the flexible shape (Should be bigger than minimum size). The maximum service limit is set by your tenancy limits."
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_hosts" {
+  type        = string
   default     = ""
   description = "Enter a valid full qualified domain name (FQDN). You will need to map the domain name to the EXTERNAL-IP address on your DNS provider (DNS Registry type - A). If you have multiple domain names, include separated by comma. e.g.: mushop.example.com,catshop.com"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_hosts_include_nip_io" {
+  type        = bool
   default     = true
   description = "Include app_name.HEXXX.nip.io on the ingress hosts. e.g.: mushop.HEXXX.nip.io"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "nip_io_domain" {
+  type        = string
   default     = "nip.io"
   description = "Dynamic wildcard DNS for the application hostname. Should support hex notation. e.g.: nip.io"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_tls" {
+  type        = bool
   default     = true
   description = "If enabled, will generate SSL certificates to enable HTTPS for the ingress using the Certificate Issuer"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_cluster_issuer" {
+  type        = string
   default     = "letsencrypt-prod"
   description = "Certificate issuer type. Currently supports the free Let's Encrypt and Self-Signed. Only *letsencrypt-prod* generates valid certificates"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "ingress_email_issuer" {
+  type        = string
   default     = "no-reply@example.cloud"
   description = "You must replace this email address with your own. The certificate provider will use this to contact you about expiring certificates, and issues related to your account."
 }
 variable "ingress_nginx_enabled" {
+  type        = bool
   default     = true
   description = "Enable ingress-nginx controller deployment"
 }
+# tflint-ignore: terraform_unused_declarations
 variable "cluster_load_balancer_visibility" {
+  type        = string
   default     = "Public"
   description = "Load balancer visibility for the cluster. Options: Public, Private"
 }
 # Deployment Details + Freeform Tags + Defined Tags
+# tflint-ignore: terraform_unused_declarations
 variable "oci_tag_values" {
+  type = object({
+    freeformTags = optional(map(string))
+    definedTags  = optional(map(any))
+  })
   description = "Tags to be added to the resources"
   default = {
     freeformTags = {
@@ -336,26 +379,33 @@ variable "oci_tag_values" {
 }
 
 variable "accelerator_pack_stack_version" {
+  type        = string
   default     = "v0.0.1"
   description = "Stack release version for AI Accelerator Starter Packs"
 }
 
 variable "corrino_image_version" {
+  type        = string
   default     = "v1.0.11"
   description = "Corrino backend image version"
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "setup_credential_provider_for_ocir" {
+  type        = bool
   default     = false
   description = "whether to setup credential provider for OCIR"
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "override_hostnames" {
+  type        = bool
   default     = false
   description = "whether to override hostnames"
 }
 
 variable "nvme_raid_level" {
+  type        = number
   default     = 10
   description = "NVMe RAID level"
 }
@@ -366,7 +416,9 @@ variable "nvme_raid_level" {
 # }
 
 # Helm installs
+# tflint-ignore: terraform_unused_declarations
 variable "kong_enabled" {
+  type        = bool
   default     = false
   description = "Install kong inference gateway"
 }
@@ -388,6 +440,7 @@ variable "fqdn_custom_domain" {
 }
 
 # Legacy variable - kept for backward compatibility, derived from use_custom_dns
+# tflint-ignore: terraform_unused_declarations
 variable "fqdn_domain_mode_selector" {
   type    = string
   default = "nip.io"
@@ -523,9 +576,9 @@ locals {
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = false
-        configure_deployment_credentials             = true
+        create_ngc_secrets_in_cluster                = true
         use_dynamic_url                              = true
-        worker_node_shape                            = "VM.GPU.A10.1"
+        worker_node_shape                            = "VM.GPU.A10.2"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
         control_plane_node_pool_size                 = 2
@@ -757,9 +810,6 @@ locals {
     }
   }
 
-  # Backward compatibility - combined key for existing conditionals
-  starter_pack_choice = "${var.starter_pack_category}_${var.starter_pack_size}"
-
   # Resolved config (maintains existing interface for all consuming resources)
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
@@ -779,9 +829,7 @@ locals {
 
 # App Name Locals
 locals {
-  app_name               = random_string.app_name_autogen.result
-  app_name_normalized    = random_string.app_name_autogen.result
-  oci_ai_blueprints_link = file("${path.module}/OCI_AI_BLUEPRINTS_LINK")
+  app_name = random_string.app_name_autogen.result
 }
 
 # Networking Locals
@@ -799,15 +847,6 @@ locals {
 
   # Only create new network resources when in create_new mode
   create_network_resources = var.network_configuration_mode == "create_new"
-}
-
-# Dictionary Locals
-locals {
-  compute_flexible_shapes = [
-    "VM.Standard.E3.Flex",
-    "VM.Standard.E4.Flex",
-    "VM.Standard.A1.Flex"
-  ]
 }
 
 # Accelerator specific stuff

@@ -248,6 +248,7 @@ variables:
 
   bastion_instance_shape:
     type: map
+    valueType: string
     visible: false
 
   operator_boot_volume_size_in_gbs:
@@ -256,6 +257,7 @@ variables:
 
   operator_instance_shape:
     type: map
+    valueType: string
     visible: false
 
   ssh_public_key:
@@ -280,6 +282,7 @@ variables:
 
   network_cidrs:
     type: map
+    valueType: string
     visible: false
 
   existing_vcn_id:
@@ -358,16 +361,18 @@ variables:
     visible:
       eq:
         - use_custom_dns
-        - true
+        - "true"
 
   cuopt_frontend_enabled:
     type: boolean
     visible: false
 
   ngc_secret:
+    type: password
     visible: false
 
   ngc_api_secret:
+    type: password
     visible: false
 
   nip_io_domain:
@@ -418,6 +423,7 @@ variables:
 
   oci_tag_values:
     type: map
+    valueType: string
     visible: false
 
   genai_region:
@@ -512,69 +518,91 @@ outputs:
 
   # Hidden outputs
   cluster_id:
+    type: string
     visible: false
 
   cluster_name:
+    type: string
     visible: false
 
   public_cluster_endpoint_full:
+    type: string
     visible: false
 
   private_cluster_endpoint_full:
+    type: string
     visible: false
 
   public_cluster_endpoint:
+    type: string
     visible: false
 
   private_cluster_endpoint:
+    type: string
     visible: false
 
   cluster_endpoint_visibility:
+    type: string
     visible: false
 
   vcn_id:
+    type: string
     visible: false
 
   vcn_cidr:
+    type: string
     visible: false
 
   node_pool_id:
+    type: string
     visible: false
 
   node_pool_kubernetes_version:
+    type: string
     visible: false
 
   bastion_public_ip:
+    type: string
     visible: false
 
   bastion_private_ip:
+    type: string
     visible: false
 
   operator_private_ip:
+    type: string
     visible: false
 
   ssh_private_key:
+    type: string
     visible: false
 
   ssh_public_key:
+    type: string
     visible: false
 
   connection_instructions:
+    type: string
     visible: false
 
   kubeconfig_command:
+    type: string
     visible: false
 
   lb_subnet_bp_control_plane_id:
+    type: string
     visible: false
 
   lb_subnet_apps_id:
+    type: string
     visible: false
 
   deployment_id:
+    type: string
     visible: false
 
   app_name:
+    type: string
     visible: false
 
   ai_accelerator_stack_version:

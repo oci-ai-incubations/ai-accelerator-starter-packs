@@ -108,64 +108,79 @@ def represent_str(dumper, data):
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag"]
+
+
 def get_args():
     parser = argparse.ArgumentParser(description="Generate schema.yaml from common and category-specific schemas")
-    parser.add_argument("-c", "--category", choices=["cuopt", "paas_rag", "vss", "enterprise_rag"], required=True, help="Category to generate schema for (cuopt, vss, paas_rag, enterprise_rag)")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-c", "--category", choices=CATEGORIES, help="Category to generate schema for")
+    group.add_argument("--all", action="store_true", help="Generate schemas for all categories to schemas/generated/")
     return parser.parse_args()
+
+
+def generate_schema_for_category(common: dict, category: str, schemas_dir: Path, output_path: Path) -> None:
+    """Generate merged schema for a single category and write to output_path."""
+    category_path = schemas_dir / f"{category}_schema.yaml"
+    if category_path.exists():
+        with open(category_path) as f:
+            category_schema = yaml.safe_load(f)
+        final = deep_merge(common, category_schema)
+    else:
+        final = common
+
+    with open(output_path, 'w') as f:
+        f.write("# AUTO-GENERATED - Do not edit directly!\n")
+        f.write(f"# Generated from: common_schema.yaml + {category}_schema.yaml\n")
+        f.write("# Regenerate with: python create_final_schema.py --all\n")
+        f.write("#\n")
+        f.write(f"# Category: {category}\n")
+        f.write("\n")
+        yaml.dump(final, f, default_flow_style=False, sort_keys=False, allow_unicode=True, width=120)
+
 
 def main():
     args = get_args()
-    category = args.category
-    print(f"Building schema for category: {category}")
-    
     script_dir = Path(__file__).parent
     tf_dir = script_dir / "ai-accelerator-tf"
     schemas_dir = tf_dir / "schemas"
-    
-    # Update starter_pack_category in .auto.tfvars file
-    tfvars_path = tf_dir / "starter_pack_category.auto.tfvars"
-    if tfvars_path.exists():
-        print(f"Updating {tfvars_path} with category: {category}")
-        update_tfvars_category(tfvars_path, category)
-    else:
-        print(f"Warning: {tfvars_path} not found, skipping update")
-    
+
     # Load common schema
     common_path = schemas_dir / "common_schema.yaml"
     if not common_path.exists():
         print(f"Error: Common schema not found at {common_path}")
         sys.exit(1)
-    
+
     with open(common_path) as f:
         common = yaml.safe_load(f)
-    
-    # Load category-specific schema
-    category_path = schemas_dir / f"{category}_schema.yaml"
-    if category_path.exists():
-        print(f"Loading category overrides from: {category_path}")
-        with open(category_path) as f:
-            category_schema = yaml.safe_load(f)
-        final = deep_merge(common, category_schema)
-    else:
-        print(f"Warning: No category schema found at {category_path}, using common only")
-        final = common
-    
-    # Set up custom YAML dumper
+
     yaml.add_representer(str, represent_str)
-    
-    # Write final schema
-    output_path = tf_dir / "schema.yaml"
-    with open(output_path, 'w') as f:
-        f.write("# AUTO-GENERATED - Do not edit directly!\n")
-        f.write(f"# Generated from: common_schema.yaml + {category}_schema.yaml\n")
-        f.write("# Regenerate with: python create_final_schema.py\n")
-        f.write("#\n")
-        f.write(f"# Category: {category}\n")
-        f.write("\n")
-        yaml.dump(final, f, default_flow_style=False, sort_keys=False, allow_unicode=True, width=120)
-    
-    print(f"Generated: {output_path}")
-    print("Done!")
+
+    if args.all:
+        generated_dir = schemas_dir / "generated"
+        generated_dir.mkdir(exist_ok=True)
+        for category in CATEGORIES:
+            print(f"Building schema for category: {category}")
+            output_path = generated_dir / f"{category}_schema.yaml"
+            generate_schema_for_category(common, category, schemas_dir, output_path)
+            print(f"  Generated: {output_path}")
+        print("Done!")
+    else:
+        category = args.category
+        print(f"Building schema for category: {category}")
+
+        # Update starter_pack_category in .auto.tfvars file
+        tfvars_path = tf_dir / "starter_pack_category.auto.tfvars"
+        if tfvars_path.exists():
+            print(f"Updating {tfvars_path} with category: {category}")
+            update_tfvars_category(tfvars_path, category)
+        else:
+            print(f"Warning: {tfvars_path} not found, skipping update")
+
+        output_path = tf_dir / "schema.yaml"
+        generate_schema_for_category(common, category, schemas_dir, output_path)
+        print(f"Generated: {output_path}")
+        print("Done!")
 
 
 if __name__ == "__main__":

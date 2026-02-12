@@ -44,7 +44,7 @@ locals {
       recipe_node_shape                            = local.starter_pack_config.worker_node_shape
       recipe_replica_count                         = 1
       recipe_container_port                        = "5000"
-      recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 1 : 8
+      recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
       recipe_use_shared_node_pool                  = true
       recipe_ephemeral_storage_size                = 200
       recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -62,7 +62,7 @@ locals {
         "-p",
         "5000",
         "-g",
-        var.starter_pack_size == "poc" ? "1" : "8"
+        var.starter_pack_size == "poc" ? "2" : "8"
       ]
       recipe_liveness_probe_params = {
         port                  = 5000
@@ -123,7 +123,7 @@ locals {
             recipe_node_shape                            = local.starter_pack_config.worker_node_shape
             recipe_replica_count                         = 1
             recipe_container_port                        = "5000"
-            recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 1 : 8
+            recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
             recipe_use_shared_node_pool                  = true
             recipe_ephemeral_storage_size                = 200
             recipe_shared_memory_volume_size_limit_in_mb = 16384
@@ -141,7 +141,7 @@ locals {
               "-p",
               "5000",
               "-g",
-              var.starter_pack_size == "poc" ? "1" : "8"
+              var.starter_pack_size == "poc" ? "2" : "8"
             ]
             recipe_liveness_probe_params = {
               port                  = 5000
@@ -173,7 +173,7 @@ locals {
               recipe_id                            = "demo",
               deployment_name                      = "demo",
               recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.1",
+              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2",
               recipe_replica_count                 = 1,
               recipe_flex_shape_ocpu_count         = 1,
               recipe_flex_shape_memory_size_in_gbs = 8,

@@ -155,7 +155,7 @@ resource "kubernetes_service_v1" "postgres" {
   depends_on = [kubernetes_deployment_v1.postgres, oci_containerengine_node_pool.oke_node_pool]
 }
 
-# Data source to get the service information (used in locals.tf)
+# tflint-ignore: terraform_unused_declarations
 data "kubernetes_service_v1" "postgres_service" {
   metadata {
     name = kubernetes_service_v1.postgres.metadata[0].name

@@ -1,0 +1,42 @@
+name: Terraform Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5"
+
+      - name: Terraform Init
+        working-directory: ai-accelerator-tf
+        run: terraform init -backend=false
+
+      - name: Create dummy OCI config for unit tests
+        run: |
+          mkdir -p ~/.oci /tmp/oci
+          openssl genrsa -out /tmp/oci/dummy_key.pem 2048
+          FINGERPRINT=$(openssl rsa -pubout -outform DER -in /tmp/oci/dummy_key.pem 2>/dev/null | openssl md5 -c | awk '{print $NF}' | tr -d '\n')
+          {
+            echo '[DEFAULT]'
+            echo 'user=ocid1.user.oc1..test'
+            echo "fingerprint=$FINGERPRINT"
+            echo 'key_file=/tmp/oci/dummy_key.pem'
+            echo 'tenancy=ocid1.tenancy.oc1..test'
+            echo 'region=us-ashburn-1'
+          } > ~/.oci/config
+          echo "TF_VAR_fingerprint=$FINGERPRINT" >> $GITHUB_ENV
+          echo "TF_VAR_private_key_path=/tmp/oci/dummy_key.pem" >> $GITHUB_ENV
+
+      - name: Terraform Test
+        working-directory: ai-accelerator-tf
+        run: terraform test
