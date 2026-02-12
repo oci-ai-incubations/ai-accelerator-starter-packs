@@ -51,5 +51,7 @@ ai-accelerator-tf/schema.yaml
 ai-accelerator-tf/schemas/generated/
 
 .DS_Store
+.cursor/
 
 *.tfplan
+
