@@ -455,17 +455,20 @@ locals {
           name = "vss"
           recipe = merge(
             {
-              deployment_name                              = "vss-deployment-group"
-              recipe_mode                                  = "service"
-              recipe_image_uri                             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
-              recipe_container_secret_name                 = "ngc-secret"
-              recipe_replica_count                         = 1
-              recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-              recipe_use_shared_node_pool                  = true
-              recipe_nvidia_gpu_count                      = 2
-              recipe_storage_group_id                      = 1000
-              recipe_container_port                        = "9000"
-              recipe_host_port                             = "9000"
+              deployment_name              = "vss-deployment-group"
+              recipe_mode                  = "service"
+              recipe_image_uri             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
+              recipe_container_secret_name = "ngc-secret"
+              recipe_replica_count         = 1
+              recipe_node_shape            = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool  = true
+              recipe_nvidia_gpu_count      = 2
+              recipe_storage_group_id      = 1000
+              recipe_container_port        = "9000"
+              recipe_host_port             = "9000"
+              recipe_additional_ingress_ports = [
+                { port_name = "api", port = 8000, path = "/" }
+              ]
               recipe_container_command                     = ["bash", "/opt/scripts/start.sh"]
               recipe_shared_memory_volume_size_limit_in_mb = 16384
 
@@ -475,6 +478,15 @@ locals {
                   { name = "vss-ngc-model-cache", mount_location = "/tmp/via-ngc-model-cache", volume_size_in_gbs = 1000 }
                 ]
               }
+
+              input_file_system = [
+                {
+                  file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
+                  mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
+                  mount_location     = "/mnt/fss"
+                  volume_size_in_gbs = 1000
+                }
+              ]
 
               recipe_configmaps = [
                 {
@@ -885,16 +897,19 @@ locals {
           name = "vss"
           recipe = merge(
             {
-              deployment_name                              = "vss-deployment-group"
-              recipe_mode                                  = "service"
-              recipe_image_uri                             = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
-              recipe_replica_count                         = 1
-              recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-              recipe_use_shared_node_pool                  = true
-              recipe_nvidia_gpu_count                      = 2
-              recipe_storage_group_id                      = 1000
-              recipe_container_port                        = "9000"
-              recipe_host_port                             = "9000"
+              deployment_name             = "vss-deployment-group"
+              recipe_mode                 = "service"
+              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
+              recipe_replica_count        = 1
+              recipe_node_shape           = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool = true
+              recipe_nvidia_gpu_count     = 2
+              recipe_storage_group_id     = 1000
+              recipe_container_port       = "9000"
+              recipe_host_port            = "9000"
+              recipe_additional_ingress_ports = [
+                { port_name = "api", port = 8000, path = "/" }
+              ]
               recipe_container_command                     = ["bash", "/opt/scripts/start.sh"]
               recipe_shared_memory_volume_size_limit_in_mb = 16384
 
@@ -904,6 +919,15 @@ locals {
                   { name = "vss-ngc-model-cache", mount_location = "/tmp/via-ngc-model-cache", volume_size_in_gbs = 1000 }
                 ]
               }
+
+              input_file_system = [
+                {
+                  file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
+                  mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
+                  mount_location     = "/mnt/fss"
+                  volume_size_in_gbs = 1000
+                }
+              ]
 
               recipe_configmaps = [
                 {

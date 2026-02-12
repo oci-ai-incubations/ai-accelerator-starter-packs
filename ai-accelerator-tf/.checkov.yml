@@ -26,3 +26,4 @@ skip-check:
   - CKV2_OCI_3  # OKE cluster NSG(s) - endpoint_config has empty nsg_ids
   - CKV2_OCI_5  # OKE node pool boot volume in-transit encryption
   - CKV2_OCI_6  # Pod security policy - admission_controller has is_pod_security_policy_enabled=false
+  - CKV_OCI_15  # FSS encryption with customer managed keys

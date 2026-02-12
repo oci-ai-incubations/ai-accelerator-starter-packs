@@ -105,6 +105,7 @@ outputs:
   starter_pack_url:
     type: string
     title: "VSS Service URL"
+    visible: true
 
   db_username:
     visible: false

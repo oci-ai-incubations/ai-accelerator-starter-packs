@@ -247,10 +247,13 @@ locals {
 # Final computed URLs for outputs
 # =============================================================================
 locals {
-  # Final starter pack URL - uses dynamic URL if available, falls back to static
-  starter_pack_url_output = local.needs_dynamic_url ? (
-    local.dynamic_url != "" ? local.dynamic_url : local.public_endpoint.starter_pack
-  ) : local.public_endpoint.starter_pack
+  # Final starter pack URL - uses dynamic URL if available, falls back to static.
+  # For VSS, output full URL (VSS Oracle UX).
+  starter_pack_url_output = var.starter_pack_category == "vss" ? "https://${local.public_endpoint.starter_pack}" : (
+    local.needs_dynamic_url ? (
+      local.dynamic_url != "" ? local.dynamic_url : local.public_endpoint.starter_pack
+    ) : local.public_endpoint.starter_pack
+  )
 
   # Final frontend URL - only for cuopt with frontend enabled
   starter_pack_frontend_url_output = var.starter_pack_category == "cuopt" ? (
