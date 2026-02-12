@@ -161,6 +161,13 @@ class TestCategorySpecificExpectations:
 
     @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
     def test_category_absent_not_exist(self, generated_schemas, schema_expectations, category):
+        """Assert variables/outputs in absent_* do not exist in this category.
+
+        Use absent for: (1) regression guard after removing something,
+        (2) guarding against category-inappropriate vars/outputs leaking in.
+        This is different from visible: false - absent means not in schema at all;
+        visible: false means the variable/output exists but is hidden in the UI.
+        """
         cat = schema_expectations.get("category_specific", {}).get(category, {})
         absent_outputs = cat.get("absent_outputs", [])
         absent_variables = cat.get("absent_variables", [])

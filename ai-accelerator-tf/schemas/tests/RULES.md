@@ -33,9 +33,9 @@ category_specific:
         visible: true
 ```
 
-### I hid a variable for a category
+### I hid a variable or output for a category (visible: false)
 
-Add a property check asserting `visible: false`:
+The variable/output exists in the schema but is hidden from the UI. Add it in the category schema (e.g. `cuopt_schema.yaml`) by using `visible: false`, then assert it in expectations:
 
 ```yaml
 category_specific:
@@ -43,17 +43,27 @@ category_specific:
     variable_properties:
       db_password:
         visible: false
+    output_properties:
+      db_username:
+        visible: false
 ```
 
-### I removed a variable from a category
+This is different from absent (`absent_variables` / `absent_outputs`): by using `visible: false`, the variable/output will still stay in the schema; it is just hidden. Use absent (`absent_variables` / `absent_outputs`) only when the variable/output must not exist in the schema at all for that starter pack category.
 
-Add it to `absent_variables` to make sure it stays gone:
+### I removed a variable (or output) from a starter pack category schema.yaml
+
+Add it to `absent_variables` or `absent_outputs` so it does not come back in the schema.yaml for that specific starter pack category:
 
 ```yaml
 category_specific:
   cuopt:
     absent_variables: [legacy_variable]
+    absent_outputs: [deprecated_output]
 ```
+
+Use this when you deliberately removed something and want a regression guard. It also applies when a variable/output would break or confuse a category if it ever appeared in the schema for that starter pack category (e.g. from a bad merge or common-schema change).
+
+**Note:** Absent is not the same as `visible: false`. Absent means the variable/output must NOT exist in the schema at all. If you want a variable to exist but be hidden from the UI, add it in the category schema (e.g. `cuopt_schema.yaml`) and set `visible: false`. Use `variable_properties` / `output_properties` to assert that.
 
 ### I added a new output
 
@@ -132,14 +142,22 @@ The test fixture runs `create_final_schema.py --all` once per session, generatin
 
 **Per-category (under `category_specific.<category>`):**
 
-| Key                   | What it checks                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| `required_outputs`    | These outputs must exist in this category                                          |
-| `required_variables`  | These variables must exist in this category                                        |
-| `absent_outputs`      | These outputs must NOT exist in this category                                      |
-| `absent_variables`    | These variables must NOT exist in this category                                    |
-| `variable_properties` | For each variable, assert property values (visible, type, required, default, etc.) |
-| `output_properties`   | For each output, assert property values (visible, type, title, etc.)               |
+| Key                   | What it checks                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `required_outputs`    | These outputs must exist in this category                                                                                                     |
+| `required_variables`  | These variables must exist in this category                                                                                                   |
+| `absent_outputs`      | These outputs must NOT exist in this category. Use for regression (removed outputs) or to guard against category-inappropriate outputs.       |
+| `absent_variables`    | These variables must NOT exist in this category. Use for regression (removed variables) or to guard against category-inappropriate variables. |
+| `variable_properties` | For each variable, assert property values (visible, type, required, default, etc.)                                                            |
+| `output_properties`   | For each output, assert property values (visible, type, title, etc.)                                                                          |
+
+**What does "absent" mean?**  
+Variables/outputs listed as absent must NOT exist in that category's schema at all. Two main use cases:
+
+1. **Regression guard**: You removed a variable or output from a category. Adding it to absent ensures it does not reappear (e.g. after a merge or refactor).
+2. **Category-inappropriate**: A variable or output would break or confuse a category if it appeared (e.g. cuOpt should not expose a DB variable). Absent catches it if a merge or common-schema change ever adds it.
+
+**Absent vs. visible: false:** Absent means the variable/output does not exist in the schema. To hide something that exists (from common or the category schema), use `visible: false` in the category schema (e.g. `cuopt_schema.yaml`) and assert it with `variable_properties` or `output_properties`.
 
 ## When to Write Python
 

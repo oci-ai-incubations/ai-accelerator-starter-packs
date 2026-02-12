@@ -33,6 +33,7 @@ required_variables:
   - corrino_admin_email
 
 # Per-category: required outputs/variables, absent checks, property assertions
+# absent_* = names that must NOT exist (different from visible:false, which hides but keeps in schema)
 category_specific:
   cuopt:
     required_outputs: [starter_pack_frontend_url]
