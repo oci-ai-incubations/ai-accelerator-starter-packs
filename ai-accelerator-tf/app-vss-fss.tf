@@ -59,7 +59,7 @@ resource "kubernetes_persistent_volume_v1" "vss_fss_pv" {
 
   spec {
     capacity = {
-      storage = "1Ti"  # FSS is elastic, this is nominal
+      storage = "1Ti" # FSS is elastic, this is nominal
     }
 
     access_modes       = ["ReadWriteMany"]
