@@ -147,11 +147,6 @@ registered_resources:
 server:
   port: 8321
 vector_stores:
-  default_provider_id: oci
-  default_embedding_model:
-    provider_id: oci
-    model_id: openai.text-embedding-3-small
-    embedding_dimensions: 768
   file_search_params:
     header_template: 'knowledge_search tool found {num_chunks} chunks:
 
@@ -177,8 +172,8 @@ vector_stores:
   annotation_prompt_params:
     enable_annotations: true
     annotation_instruction_template: Cite sources immediately at the end of sentences
-      before punctuation, using `<|file-id|>` format like 'This is a fact <|file-Cn3MSNn72ENTiiq11Qda4A|>.'.
-      Do not add extra punctuation. Use only the file IDs provided, do not invent
+      before punctuation, using `<|file-id|filename|>` format like 'This is a fact <|file-Cn3MSNn72ENTiiq11Qda4A|filename.txt|>.'.
+      Do not add extra punctuation. Use only the file IDs and filenames provided, do not invent
       new ones.
     chunk_annotation_template: '[{index}] {metadata_text} cite as <|{file_id}|>
 
