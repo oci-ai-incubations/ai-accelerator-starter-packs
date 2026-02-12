@@ -69,7 +69,7 @@ This document contains container image versions for each accelerator pack config
 |-----------|-------|---------|
 | RAG Server | nvcr.io/nvidia/blueprint/rag-server | 2.3.0 |
 | Ingestor Server | nvcr.io/nvidia/blueprint/ingestor-server | 2.3.0 |
-| RAG Frontend | nvcr.io/nvidia/blueprint/rag-frontend | 2.3.0 |
+| RAG Frontend | iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend | v0.0.1 |
 | Elasticsearch | docker.io/bitnamilegacy/elasticsearch | 9.0.3-debian-12-r1 |
 | Elasticsearch Volume Permissions | docker.io/bitnamilegacy/os-shell | 12-debian-12-r48 |
 | Elasticsearch Sysctl | docker.io/bitnamilegacy/os-shell | 12-debian-12-r48 |
