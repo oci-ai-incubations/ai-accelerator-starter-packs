@@ -1,0 +1,29 @@
+framework:
+  - terraform
+skip-check:
+  # The default namespace should not be used - OKE/Corrino starter pack uses default for compatibility
+  - CKV_K8S_21
+  # Kubernetes deployments
+  - CKV_K8S_8   # Liveness Probe - not configured on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_9   # Readiness Probe - not configured on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_10  # CPU requests - not set on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_11  # CPU Limits - not set on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_12  # Memory Limits - not set on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_13  # Memory requests - not set on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_15  # Image Pull Policy Always - postgres deployment uses different policy
+  - CKV_K8S_28  # NET_RAW capability - containers may have default capabilities
+  - CKV_K8S_29  # Security context on pods/deployments/daemon_sets
+  - CKV_K8S_30  # Security context on pods and containers
+  - CKV_K8S_42  # Default service account - corrino uses default SA for cluster role binding
+  - CKV_K8S_43  # Image digest - deployments use tag-based images
+  - CKV_K8S_49  # Wildcard in Roles/ClusterRoles - corrino cluster role uses wildcard for flexibility
+  # OCI compute instances (bastion, operator)
+  - CKV_OCI_4   # Boot volume in-transit encryption - source_details lacks boot_volume encryption config
+  - CKV_OCI_5   # Legacy MetaData service endpoint - compute instances lack metadata_options config
+  # OCI security lists
+  - CKV_OCI_17  # VCN security lists stateless - rules use stateless=false (stateful) by design
+  # OCI OKE
+  - CKV2_OCI_3  # OKE cluster NSG(s) - endpoint_config has empty nsg_ids
+  - CKV2_OCI_5  # OKE node pool boot volume in-transit encryption
+  - CKV2_OCI_6  # Pod security policy - admission_controller has is_pod_security_policy_enabled=false
+  - CKV_OCI_15  # FSS encryption with customer managed keys
