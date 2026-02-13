@@ -479,14 +479,14 @@ locals {
                 ]
               }
 
-              input_file_system = [
+              input_file_system = var.starter_pack_category == "vss" ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
                   mount_location     = "/mnt/fss"
                   volume_size_in_gbs = 1000
                 }
-              ]
+              ] : []
 
               recipe_configmaps = [
                 {
@@ -920,14 +920,14 @@ locals {
                 ]
               }
 
-              input_file_system = [
+              input_file_system = var.starter_pack_category == "vss" ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
                   mount_location     = "/mnt/fss"
                   volume_size_in_gbs = 1000
                 }
-              ]
+              ] : []
 
               recipe_configmaps = [
                 {
