@@ -1061,7 +1061,8 @@ locals {
               recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool = true
               recipe_replica_count        = 1
-              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-test:pr-b9e654e"
+              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:latest"
+              recipe_container_command_args = ["/config/config.yaml"]
               recipe_container_env = [
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
@@ -1092,7 +1093,7 @@ locals {
               recipe_flex_shape_memory_size_in_gbs = 64
               recipe_secret_mounts = [
                 { "name" = "oadb-wallet", "mount_location" = "/wallet" },
-                { "name" = "llamastack-config", "mount_location" = "/app" }
+                { "name" = "llamastack-config", "mount_location" = "/config" }
               ]
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
@@ -1105,7 +1106,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:pr-40790c6",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:latest",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
