@@ -27,3 +27,5 @@ skip-check:
   - CKV2_OCI_5  # OKE node pool boot volume in-transit encryption
   - CKV2_OCI_6  # Pod security policy - admission_controller has is_pod_security_policy_enabled=false
   - CKV_OCI_15  # FSS encryption with customer managed keys
+  - CKV_OCI_9   # Ensure OCI Object Storage is encrypted with a customer-managed key
+  - CKV_OCI_7   # Ensure OCI Object Storage can emit object events
