@@ -11,7 +11,7 @@ resource "kubernetes_config_map_v1" "corrino-configmap" {
     BACKEND_SERVICE_NAME                           = local.app.backend_service_name
     COMPARTMENT_ID                                 = local.oci.compartment_id
     CONTROL_PLANE_VERSION                          = var.corrino_image_version
-    RELEASE_VERSION                                = var.accelerator_pack_stack_version
+    RELEASE_VERSION                                = var.corrino_image_version
     DJANGO_ALLOWED_HOSTS                           = local.django.allowed_hosts
     DJANGO_CSRF_TRUSTED_ORIGINS                    = local.django.csrf_trusted_origins
     DJANGO_SECRET                                  = local.django.secret
