@@ -43,6 +43,23 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   count = local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
 }
 
+# =============================================================================
+# Blueprint lifecycle: Job runs only when canonical blueprint content changes.
+# random_id keepers use a hash of the canonical blueprint so the job is re-run
+# only when the blueprint (or its inputs) actually change, not on every apply.
+# =============================================================================
+
+# Unique suffix for deployment names - changes only when the canonical blueprint content changes,
+# so the blueprint deployment job is not re-run on every apply.
+resource "random_id" "blueprint_deploy_id" {
+  count       = var.starter_pack_category != "enterprise_rag" ? 1 : 0
+  byte_length = 4
+
+  keepers = {
+    blueprint_hash = var.starter_pack_category != "enterprise_rag" ? sha256(local.canonical_blueprint_content) : "enterprise_rag"
+  }
+}
+
 # DNS Configuration Warning - outputs the required DNS setup when custom_dns is enabled
 # This runs BEFORE the blueprint deployment job so users see the message even if deployment fails
 resource "null_resource" "custom_dns_configuration_warning" {
@@ -83,20 +100,77 @@ resource "null_resource" "custom_dns_configuration_warning" {
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
   count = var.starter_pack_category != "enterprise_rag" ? 1 : 0
   metadata {
-    name = "blueprint-deployment-job"
+    name = "blueprint-deployment-job-${random_id.blueprint_deploy_id[0].hex}"
+  }
+
+  lifecycle {
+    replace_triggered_by = [random_id.blueprint_deploy_id]
   }
   spec {
     template {
       metadata {}
       spec {
 
+        # the undeploy logic in the python script is:
+        # 1. login and get the workspace
+        # 2. get the deployment uuids for the Ingress recipes which correspond to the recipes in the blueprint file
+        # 3. undeploy the deployments (if any exist)
+        # 4. Ensure they are undeployed by polling until they are all cleared
+        # 5. When they are all gone, deploy the new blueprint
         container {
           name              = "blueprint-deployment-job"
           image             = local.app.deploy_blueprint_image_uri
           image_pull_policy = "Always"
           command           = ["/bin/sh", "-c"]
           args = [<<-EOT
-            python3 /app/corrino_api_client.py -y -a ${local.public_endpoint.api_origin_secure} -d /blueprints/${local.starter_pack_config.blueprint_file}
+            set -e
+            API_URL="${local.public_endpoint.api_origin_secure}"
+            echo "Blueprint lifecycle: undeploying existing Ingress deployments before deploy..."
+            python3 - "$API_URL" "$CORRINO_USERNAME" "$CORRINO_PASSWORD" << 'PYTHON_UNDEPLOY'
+            import json, ssl, sys, time, urllib.request
+            from urllib.error import HTTPError
+            from urllib.parse import urlencode
+            api_url = sys.argv[1].rstrip('/')
+            username, password = sys.argv[2], sys.argv[3]
+            ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+            try:
+              login = urllib.request.urlopen(urllib.request.Request(api_url + '/login/', data=urlencode({'username': username, 'password': password}).encode(), headers={'Content-Type': 'application/x-www-form-urlencoded'}, method='POST'), context=ctx)
+              token = json.load(login).get('token') if login else None
+            except Exception as e:
+              print('API not reachable, skipping undeploy:', e); sys.exit(0)
+            if not token:
+              print('No token, skipping undeploy.'); sys.exit(0)
+            try:
+              req = urllib.request.Request(api_url + '/workspace/', headers={'Authorization': 'Token %s' % token}, method='GET')
+              ws = json.load(urllib.request.urlopen(req, context=ctx))
+              recipes = ws.get('recipes') or {}
+            except Exception as e:
+              print('No workspace, skipping undeploy:', e); sys.exit(0)
+            uuids = [r.get('deployment-uuid', '') for r in recipes.values() if r.get('type') == 'Ingress' and r.get('deployment-uuid')]
+            for uuid in uuids:
+              try:
+                r = urllib.request.urlopen(urllib.request.Request(api_url + '/undeploy/', data=json.dumps({'deployment_uuid': uuid}).encode(), headers={'Authorization': 'Token %s' % token, 'Content-Type': 'application/json'}, method='POST'), context=ctx)
+                print('Undeploy %s succeeded' % uuid)
+              except HTTPError as e:
+                if e.code == 404: print('Deployment %s not found (already undeployed)' % uuid)
+                else: print('Undeploy %s failed: %s' % (uuid, e)); sys.exit(1)
+              except Exception as e: print('Undeploy %s failed: %s' % (uuid, e)); sys.exit(1)
+            if uuids:
+              print('Waiting for workspace recipes to clear...')
+              for attempt in range(60):
+                try:
+                  ws = json.load(urllib.request.urlopen(urllib.request.Request(api_url + '/workspace/', headers={'Authorization': 'Token %s' % token}, method='GET'), context=ctx))
+                  recipes = ws.get('recipes') or {}
+                  if not recipes:
+                    print('Workspace recipes cleared after %ds.' % (attempt * 10)); break
+                  print('  Attempt %d: %d recipe(s) remaining, waiting 10s...' % (attempt + 1, len(recipes)))
+                except Exception as e: print('  Poll failed:', e)
+                time.sleep(10)
+              else:
+                print('Timeout waiting for workspace to clear.'); sys.exit(1)
+            print('Undeploy complete.')
+            PYTHON_UNDEPLOY
+            python3 /app/corrino_api_client.py -y -a "$API_URL" -d /blueprints/${local.starter_pack_config.blueprint_file}
             EXIT_CODE=$?
             if [ $EXIT_CODE -ne 0 ] && [ "$USE_CUSTOM_DNS" = "true" ]; then
               echo ""

@@ -15,6 +15,10 @@ locals {
 resource "null_resource" "wait_for_deployment" {
   count = local.needs_dynamic_url ? 1 : 0
 
+  triggers = {
+    blueprint_deploy_id = random_id.blueprint_deploy_id[0].hex
+  }
+
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
     command     = <<-EOT

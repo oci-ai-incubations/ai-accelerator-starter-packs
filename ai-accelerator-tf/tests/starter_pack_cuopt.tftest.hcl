@@ -57,10 +57,10 @@ variables {
 run "plan_cuopt_small" {
   command = plan
 
-  # Deployment name should match the starter pack category
+  # Deployment name should start with the starter pack category (suffixed with random_id hex)
   assert {
-    condition     = output.starter_pack_deployment_name == "cuopt"
-    error_message = "cuopt deployment name should be 'cuopt'"
+    condition     = startswith(output.starter_pack_deployment_name, "cuopt-")
+    error_message = "cuopt deployment name should start with 'cuopt-'"
   }
 
   # Postflight registration trigger should record the selected starter pack category
