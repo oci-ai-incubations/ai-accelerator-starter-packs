@@ -33,6 +33,14 @@ locals {
     password = random_string.postgres_db_password.result
   }
 
+  vss_postgres_db = {
+    host     = "vss-postgres"
+    port     = "5432"
+    db_name  = format("%s_db", random_string.vss_postgres_db_name.result)
+    user     = format("%s_user", random_string.vss_postgres_db_username.result)
+    password = random_string.vss_postgres_db_password.result
+  }
+
   ngc_secrets = {
     docker_secret_name         = "ngc-secret"
     nvidia_api_key_envvar_name = "NVIDIA_API_KEY"

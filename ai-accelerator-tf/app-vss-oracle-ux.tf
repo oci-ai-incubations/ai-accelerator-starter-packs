@@ -206,6 +206,17 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             }
           }
 
+          # Database URL for Prisma (VSS review/summary persistence)
+          env {
+            name = "DATABASE_URL"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.vss_db_url[0].metadata[0].name
+                key  = "DATABASE_URL"
+              }
+            }
+          }
+
           # Volume mount for FSS cache
           volume_mount {
             name       = "fss-cache"
@@ -252,7 +263,8 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
   depends_on = [
     kubernetes_config_map_v1.vss_oracle_ux_config,
     kubernetes_deployment_v1.vss_download_service_deployment,
-    kubernetes_persistent_volume_claim_v1.vss_fss_pvc
+    kubernetes_persistent_volume_claim_v1.vss_fss_pvc,
+    kubernetes_secret_v1.vss_db_url
   ]
 }
 
