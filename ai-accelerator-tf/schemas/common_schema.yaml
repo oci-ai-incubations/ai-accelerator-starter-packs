@@ -18,8 +18,6 @@ source:
 
 locale: "en"
 
-# Primary action button - links to the deployed service
-primaryOutputButton: starter_pack_url
 
 # =============================================================================
 # Output Groups - Common structure
