@@ -6,7 +6,6 @@ required_top_level_keys:
   - outputGroups
   - variableGroups
   - schemaVersion
-  - primaryOutputButton
 
 # Per-category: starter_pack_size must match vars.tf starter_pack_configs
 starter_pack_sizes:
