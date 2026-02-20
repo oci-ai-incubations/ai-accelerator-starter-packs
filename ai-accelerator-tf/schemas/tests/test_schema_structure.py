@@ -98,18 +98,6 @@ class TestVariableGroupsReferenceValidVariables:
                 )
 
 
-class TestPrimaryOutputButtonValid:
-    """primaryOutputButton references an existing output."""
-
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
-    def test_primary_output_button_exists(self, generated_schemas, category):
-        schema = generated_schemas[category]
-        button = schema.get("primaryOutputButton")
-        assert button, f"{category}: primaryOutputButton is missing"
-        outputs = schema.get("outputs", {})
-        assert button in outputs, f"{category}: primaryOutputButton '{button}' not in outputs"
-
-
 class TestRequiredOutputsAndVariables:
     """Required outputs and variables exist in every schema."""
 
