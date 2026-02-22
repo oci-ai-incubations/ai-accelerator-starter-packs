@@ -10,7 +10,7 @@ resource "kubernetes_secret_v1" "llamastack_config" {
   }
 
   data = {
-    "config.yaml" = filebase64("${path.module}/files/llamastack_config.yaml")
+    "config.yaml" = file("${path.module}/files/llamastack_config.yaml")
   }
 
   type = "Opaque"

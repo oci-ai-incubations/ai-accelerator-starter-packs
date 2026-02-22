@@ -405,8 +405,9 @@ variables:
     title: "Accelerator Pack Stack Version"
     type: enum
     enum:
+      - "v0.0.2"
       - "v0.0.1"
-    default: "v0.0.1"
+    default: "v0.0.2"
     required: true
     visible: true
 
