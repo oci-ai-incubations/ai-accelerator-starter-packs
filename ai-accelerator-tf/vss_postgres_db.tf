@@ -93,7 +93,7 @@ resource "kubernetes_deployment_v1" "vss_postgres" {
         container {
           name              = "vss-postgres"
           image             = "docker.io/library/postgres:14"
-          image_pull_policy  = "IfNotPresent"
+          image_pull_policy = "IfNotPresent"
 
           env {
             name  = "PGDATA"
