@@ -75,6 +75,27 @@ output "bastion_public_ip" {
   value       = var.create_bastion && local.create_network_resources ? oci_core_instance.bastion[0].public_ip : null
 }
 
+output "bastion_ssh_target" {
+  description = "Bastion SSH target (username@ip) for easy copy-paste: opc@<bastion_public_ip>"
+  value       = var.create_bastion && local.create_network_resources ? "opc@${oci_core_instance.bastion[0].public_ip}" : null
+}
+
+output "bastion_private_ssh_key" {
+  description = "Private SSH key for bastion access (save as .pem file). Only set when bastion is enabled and no custom SSH public key was provided."
+  value       = var.create_bastion && local.create_network_resources && var.ssh_public_key == "" ? tls_private_key.oke_ssh_key[0].private_key_pem : null
+  sensitive   = true
+}
+
+output "worker_ssh_target_format" {
+  description = "SSH target format for worker nodes — substitute <username> (e.g. opc) and <worker_ip> with actual node IP from: kubectl get nodes -o wide"
+  value       = var.create_bastion && local.create_network_resources ? "<username>@<worker_ip>" : null
+}
+
+output "worker_ssh_via_bastion_command" {
+  description = "SSH command template to jump to a worker node via bastion. Replace <path_to_key.pem> and <user>@<worker_ip> with your key path and target (e.g. opc@10.0.97.217)"
+  value       = var.create_bastion && local.create_network_resources ? "ssh -o 'ProxyCommand=ssh -i <path_to_key.pem> -o IdentitiesOnly=yes -W %h:%p opc@${oci_core_instance.bastion[0].public_ip}' -i <path_to_key.pem> -o IdentitiesOnly=yes <user>@<worker_ip>" : null
+}
+
 output "bastion_private_ip" {
   description = "Private IP address of the bastion host"
   value       = var.create_bastion && local.create_network_resources ? oci_core_instance.bastion[0].private_ip : null

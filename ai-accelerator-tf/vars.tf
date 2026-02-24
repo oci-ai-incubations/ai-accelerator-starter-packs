@@ -257,7 +257,7 @@ variable "show_advanced" {
 # Bastion and Operator Configuration
 variable "create_bastion" {
   type        = bool
-  default     = true
+  default     = false
   description = "Whether to create bastion and operator instances for private cluster access"
 }
 

@@ -33,6 +33,18 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
+  - title: "Bastion Access"
+    outputs:
+      - bastion_ssh_target
+      - bastion_public_ip
+      - bastion_private_ssh_key
+      - worker_ssh_target_format
+      - worker_ssh_via_bastion_command
+    visible:
+      eq:
+        - create_bastion
+        - "true"
+
   - title: "Management & API"
     outputs:
       - blueprints_portal_url
@@ -75,6 +87,7 @@ variableGroups:
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
+      - create_bastion
       - skip_capacity_check
       - use_custom_dns
       - fqdn_custom_domain
@@ -238,7 +251,10 @@ variables:
 
   create_bastion:
     type: boolean
-    visible: false
+    title: "Enable Bastion Host"
+    description: "Create a bastion host and operator instance for SSH access to the cluster. When enabled, the private SSH key (if auto-generated) is available as a downloadable output."
+    default: false
+    required: false
 
   bastion_boot_volume_size_in_gbs:
     type: string
@@ -560,9 +576,36 @@ outputs:
     type: string
     visible: false
 
+  bastion_ssh_target:
+    type: string
+    title: "Bastion SSH Target"
+    description: "SSH target as opc@<ip> — copy for: ssh -i <key.pem> <target>"
+    visible: true
+
   bastion_public_ip:
     type: string
-    visible: false
+    title: "Bastion Public IP"
+    description: "Public IP of the bastion host"
+    visible: true
+
+  bastion_private_ssh_key:
+    type: string
+    title: "Bastion Private SSH Key"
+    description: "Private SSH key for bastion access. Copy and save as a .pem file (e.g., bastion_key.pem) with chmod 600. Only shown when bastion is enabled and no custom SSH key was provided."
+    sensitive: true
+    visible: true
+
+  worker_ssh_target_format:
+    type: string
+    title: "Worker SSH Target Format"
+    description: "Format for worker node SSH target. Use <username>@<worker_ip> — get worker IPs from: kubectl get nodes -o wide"
+    visible: true
+
+  worker_ssh_via_bastion_command:
+    type: string
+    title: "SSH to Worker via Bastion"
+    description: "Full SSH command template. Replace <path_to_key.pem> with your key and <user>@<worker_ip> with e.g. opc@10.0.97.217"
+    visible: true
 
   bastion_private_ip:
     type: string

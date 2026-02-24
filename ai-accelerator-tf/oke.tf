@@ -132,7 +132,7 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
     value = var.node_pool_name
   }
 
-  ssh_public_key = var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh
+  ssh_public_key = var.create_bastion ? (var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh) : null
 }
 
 # Generate SSH key pair if not provided
@@ -202,7 +202,7 @@ resource "oci_containerengine_node_pool" "worker_cpu_pool" {
     }
   }
 
-  ssh_public_key = var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh
+  ssh_public_key = var.create_bastion ? (var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh) : null
 }
 
 resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
