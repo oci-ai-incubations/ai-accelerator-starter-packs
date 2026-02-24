@@ -19,6 +19,10 @@ required_outputs:
   - starter_pack_url
   - starter_pack_deployment_name
   - blueprints_portal_url
+  - bastion_ssh_target
+  - bastion_private_ssh_key
+  - worker_ssh_target_format
+  - worker_ssh_via_bastion_command
   - corrino_admin_username
   - corrino_admin_password
 
@@ -27,6 +31,7 @@ required_variables:
   - starter_pack_size
   - starter_pack_category
   - compartment_ocid
+  - create_bastion
   - corrino_admin_username
   - corrino_admin_password
   - corrino_admin_email
