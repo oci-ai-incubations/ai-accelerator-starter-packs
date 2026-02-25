@@ -33,14 +33,6 @@ locals {
     password = random_string.postgres_db_password.result
   }
 
-  vss_postgres_db = {
-    host     = "vss-postgres"
-    port     = "5432"
-    db_name  = format("%s_db", random_string.vss_postgres_db_name.result)
-    user     = format("%s_user", random_string.vss_postgres_db_username.result)
-    password = random_string.vss_postgres_db_password.result
-  }
-
   ngc_secrets = {
     docker_secret_name         = "ngc-secret"
     nvidia_api_key_envvar_name = "NVIDIA_API_KEY"
@@ -173,14 +165,6 @@ locals {
     cli_util_arm64_image   = "oci-util-arm64"
     pod_util_amd64_image   = "pod-util-amd64"
     pod_util_arm64_image   = "pod-util-arm64"
-  }
-
-  # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
-  vss_oracle_ux = {
-    image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-latest"
-    download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-latest"
-    # vss_backend_service is now dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
-    vss_backend_deployment = "recipe-vss-deployment"
   }
 
   domain = {

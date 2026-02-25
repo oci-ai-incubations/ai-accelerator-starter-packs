@@ -3,6 +3,16 @@
 # Only deployed when starter_pack_category = "vss"
 # =============================================================================
 
+locals {
+  vss_postgres_db = {
+    host     = "vss-postgres"
+    port     = "5432"
+    db_name  = format("%s_db", random_string.vss_postgres_db_name.result)
+    user     = format("%s_user", random_string.vss_postgres_db_username.result)
+    password = random_string.vss_postgres_db_password.result
+  }
+}
+
 # ConfigMap for VSS Postgres credentials (used by the Postgres container)
 resource "kubernetes_config_map_v1" "vss_postgres_config" {
   count = var.starter_pack_category == "vss" ? 1 : 0

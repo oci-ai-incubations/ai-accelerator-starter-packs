@@ -67,7 +67,7 @@ resource "random_string" "postgres_db_name" {
   min_lower = 2
 }
 
-# VSS Oracle UX dedicated Postgres (Option B: separate instance)
+# VSS Oracle UX dedicated Postgres
 resource "random_string" "vss_postgres_db_password" {
   length      = 24
   special     = false
