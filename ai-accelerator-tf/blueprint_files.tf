@@ -48,6 +48,7 @@ locals {
       recipe_use_shared_node_pool                  = true
       recipe_ephemeral_storage_size                = 200
       recipe_shared_memory_volume_size_limit_in_mb = 16384
+      service_endpoint_subdomain                   = local.starter_pack_config.frontend_starter_pack_url_deployment
       recipe_environment_secrets = [
         {
           envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
@@ -180,6 +181,7 @@ locals {
               recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
               recipe_container_port                = "3000",
+              service_endpoint_subdomain           = local.starter_pack_config.frontend_starter_pack_url_deployment
               recipe_additional_ingress_ports = [
                 {
                   port_name    = "cuopt"
@@ -466,6 +468,7 @@ locals {
               recipe_storage_group_id      = 1000
               recipe_container_port        = "9000"
               recipe_host_port             = "9000"
+              service_endpoint_subdomain   = local.starter_pack_config.frontend_starter_pack_url_deployment
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -907,6 +910,7 @@ locals {
               recipe_storage_group_id     = 1000
               recipe_container_port       = "9000"
               recipe_host_port            = "9000"
+              service_endpoint_subdomain  = local.starter_pack_config.frontend_starter_pack_url_deployment
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -1113,6 +1117,7 @@ locals {
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "3000",
+            service_endpoint_subdomain           = local.starter_pack_config.frontend_starter_pack_url_deployment
             recipe_additional_ingress_ports = [
               {
                 port_name    = "models"

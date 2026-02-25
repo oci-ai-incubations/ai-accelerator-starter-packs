@@ -386,7 +386,7 @@ variable "accelerator_pack_stack_version" {
 
 variable "corrino_image_version" {
   type        = string
-  default     = "v1.0.11"
+  default     = "v1.0.12"
   description = "Corrino backend image version"
 }
 
@@ -597,7 +597,7 @@ locals {
         database_storage_size_in_tbs         = 0
         database_compute_count               = 0
         starter_pack_url_deployment          = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
-        frontend_starter_pack_url_deployment = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
+        frontend_starter_pack_url_deployment = var.cuopt_frontend_enabled ? "demo-cuopt" : "cuopt"
       }
       "small" = {
         blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
@@ -685,7 +685,7 @@ locals {
         database_storage_size_in_tbs         = 0
         database_compute_count               = 0
         starter_pack_url_deployment          = "vss"
-        frontend_starter_pack_url_deployment = ""
+        frontend_starter_pack_url_deployment = "vss-frontend"
       }
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
@@ -713,7 +713,7 @@ locals {
         database_storage_size_in_tbs         = 0
         database_compute_count               = 0
         starter_pack_url_deployment          = "vss"
-        frontend_starter_pack_url_deployment = ""
+        frontend_starter_pack_url_deployment = "vss-frontend"
       }
       # Add "large" here when implemented
     }
@@ -745,7 +745,7 @@ locals {
         database_storage_size_in_tbs         = 2
         database_compute_count               = 4
         starter_pack_url_deployment          = "frontend"
-        frontend_starter_pack_url_deployment = ""
+        frontend_starter_pack_url_deployment = "frontend-paas"
       }
 
       "medium" = {
@@ -774,7 +774,7 @@ locals {
         database_storage_size_in_tbs         = 8
         database_compute_count               = 16
         starter_pack_url_deployment          = "frontend"
-        frontend_starter_pack_url_deployment = ""
+        frontend_starter_pack_url_deployment = "frontend-paas"
       }
       # Add "large" here when implemented
     }
@@ -804,8 +804,8 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        starter_pack_url_deployment          = "" # Not used (use_dynamic_url = false)
-        frontend_starter_pack_url_deployment = "" # Not used
+        starter_pack_url_deployment          = ""              # Not used (use_dynamic_url = false)
+        frontend_starter_pack_url_deployment = "frontend-paas" # Not used
       }
     }
   }
@@ -820,9 +820,6 @@ locals {
 
   # Deployment used for starter pack URL (e.g., "frontend" for paas_rag, "cuopt-cuopt" for cuopt with frontend)
   starter_pack_url_deployment = local.starter_pack_config.starter_pack_url_deployment
-
-  # Deployment used for frontend URL (only used for cuopt with frontend enabled)
-  frontend_starter_pack_url_deployment = local.starter_pack_config.frontend_starter_pack_url_deployment
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
