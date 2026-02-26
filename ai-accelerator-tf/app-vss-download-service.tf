@@ -108,6 +108,11 @@ resource "kubernetes_deployment_v1" "vss_download_service_deployment" {
             }
           }
 
+          env {
+            name  = "VSS_ORACLE_UX_URL"
+            value = "http://vss-oracle-ux"
+          }
+
           # Volume mount for FSS cache
           volume_mount {
             name       = "fss-cache"

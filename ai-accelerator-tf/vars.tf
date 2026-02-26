@@ -851,8 +851,10 @@ locals {
   # Resolved config (maintains existing interface for all consuming resources)
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
-  # Deployment name from config
-  starter_pack_deployment_name = local.starter_pack_config.deployment_name
+  # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
+  starter_pack_deployment_name = var.starter_pack_category != "enterprise_rag" ? (
+    "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
+  ) : local.starter_pack_config.deployment_name
 
   # Deployment used for starter pack URL (e.g., "frontend" for paas_rag, "cuopt-cuopt" for cuopt with frontend)
   starter_pack_url_deployment = local.starter_pack_config.starter_pack_url_deployment
@@ -860,9 +862,11 @@ locals {
   # Deployment used for frontend URL (only used for cuopt with frontend enabled)
   frontend_starter_pack_url_deployment = local.starter_pack_config.frontend_starter_pack_url_deployment
 
-  # Blueprint content - directly from the organized blueprint map in blueprint_files.tf
-  # No need to maintain a separate map here - just reference the nested structure
-  starter_pack_blueprint_content = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
+  # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
+  # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
+  starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
+  canonical_blueprint_content    = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
+  starter_pack_blueprint_content = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
 }
 
 # App Name Locals

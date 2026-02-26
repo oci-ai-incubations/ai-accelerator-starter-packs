@@ -1,0 +1,213 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+AI Accelerator Starter Packs — a Terraform-based infrastructure-as-code project that deploys AI workloads on Oracle Cloud Infrastructure (OCI) using Oracle Kubernetes Engine (OKE). It provisions networking, compute, Kubernetes clusters, Helm charts, and application services (Corrino platform) for multiple "starter pack" categories: `enterprise_rag`, `paas_rag`, `cuopt`, and `vss`.
+
+All Terraform code lives in `ai-accelerator-tf/`. The repo root contains support scripts, schema generation tooling, and zip artifacts.
+
+## Build & Deploy Commands
+
+```bash
+cd ai-accelerator-tf/
+terraform init -backend=false   # no real backend needed for local dev
+terraform plan
+terraform apply
+terraform destroy               # use --refresh=false if destroy fails on k8s provider
+```
+
+## Testing Commands
+
+### Terraform Unit Tests (requires Terraform >= 1.7, module targets >= 1.5)
+
+```bash
+cd ai-accelerator-tf/
+terraform init -backend=false
+terraform test                                            # all tests
+terraform test -filter=tests/core_plan.tftest.hcl         # single file
+terraform test -filter=tests/starter_pack_cuopt.tftest.hcl  # single starter pack
+```
+
+All providers are mocked — no cloud credentials needed. Tests are plan-only (`command = plan`).
+
+### Schema Tests (requires Python 3.11+)
+
+```bash
+# from repo root
+source venv/bin/activate        # or create: python3 -m venv venv && pip install -r requirements.txt
+pytest ai-accelerator-tf/schemas/tests/ -v          # all schema tests
+pytest ai-accelerator-tf/schemas/tests/ -v -k "test_name"  # single test
+```
+
+### Integration Tests (OCI Resource Manager)
+
+Integration tests deploy real infrastructure via OCI Resource Manager. Each PR may have additional testing parameters — ask the user for any PR-specific requirements before starting.
+
+**Baseline cycle:**
+
+1. **Generate schema** for the target category:
+   ```bash
+   source venv/bin/activate
+   python3 create_final_schema.py -c <category>   # e.g., paas_rag
+   ```
+
+2. **Populate `ai-accelerator-tf/terraform.tfvars`** — ask the user for values. Required vars come from the generated `schema.yaml` and include at minimum: `compartment_ocid`, `tenancy_ocid`, `region`, `current_user_ocid`, `corrino_admin_username`, `corrino_admin_password`, `corrino_admin_email`, `db_password`, plus any category-specific vars. This is a one-time step per test cycle.
+
+3. **Create the zip** (exclude Terraform cache):
+   ```bash
+   rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
+   zip -r lifecycle.zip ai-accelerator-tf
+   ```
+
+4. **Create stack:**
+   ```bash
+   oci resource-manager stack create \
+     -c ocid1.compartment.oc1..aaaaaaaa5rwhi5wj3grdiqzvz244gwzycpfl2ctlb4nvl7vi7wu55tqi375a \
+     --config-source lifecycle.zip
+   ```
+
+5. **Plan:**
+   ```bash
+   oci resource-manager job create-plan-job --stack-id <stack-id>
+   ```
+
+6. **Watch plan logs:**
+   ```bash
+   oci resource-manager job get-job-logs --job-id <plan-job-id>
+   ```
+
+7. **If plan errors:** fix Terraform, re-zip (step 3), then update the stack:
+   ```bash
+   oci resource-manager stack update --stack-id <stack-id> --config-source lifecycle.zip
+   ```
+   Then re-plan (step 5).
+
+8. **Apply** (after successful plan):
+   ```bash
+   oci resource-manager job create-apply-job --stack-id <stack-id>
+   ```
+
+9. **Watch apply logs:**
+   ```bash
+   oci resource-manager job get-job-logs --job-id <apply-job-id>
+   ```
+
+10. **Configure kubectl** using the OKE cluster OCID from apply output:
+    ```bash
+    oci ce cluster create-kubeconfig \
+      --cluster-id <cluster-ocid> \
+      --file $HOME/.kube/config \
+      --region us-sanjose-1 \
+      --token-version 2.0.0 \
+      --kube-endpoint PUBLIC_ENDPOINT
+    ```
+
+11. **Verify pods** — all pods should be Running in the `default` namespace:
+    - Core pods (always present): `bp-postgres-*`, `corrino-cp-*`, `corrino-cp-background-*`, `oci-ai-blueprints-portal-*`
+    - Blueprint pods (category-dependent): one additional pod per recipe JSON in the blueprint. For example, `_paas_rag_small_blueprint` creates 3 additional pods; `_cuopt_small_blueprint` creates 1 additional pod.
+    ```bash
+    kubectl get pods -n default
+    ```
+12. When this completes, prompt the user for additional tests (if any) to run.
+
+13. **Destroy** — after all testing is complete, tear down the infrastructure:
+    ```bash
+    oci resource-manager job create-destroy-job \
+      --stack-id <stack-id> \
+      --execution-plan-strategy AUTO_APPROVED
+    ```
+    Watch destroy logs with `oci resource-manager job get-job-logs --job-id <destroy-job-id>`. If destroy fails on the Kubernetes provider, update the stack with `--terraform-version 1.5.x` and retry, or use `--refresh=false` if available.
+
+### Linting
+
+```bash
+cd ai-accelerator-tf/
+terraform fmt -check -diff -recursive
+terraform validate
+tflint --recursive
+checkov -d . --framework terraform --config-file .checkov.yml
+```
+
+## Architecture
+
+### Terraform Structure (`ai-accelerator-tf/`)
+
+- **`vars.tf`** — All input variables with validation blocks. Central configuration point.
+- **`app-locals.tf`** — Core locals including `local.app`, `local.postgres_db`, starter pack mappings, image URIs, and deployment logic.
+- **`outputs.tf`** — All Terraform outputs exposed to OCI Resource Manager UI.
+- **`versions.tf`** — Provider requirements (OCI ~>7.0, 9 providers total). Module targets TF >= 1.5.
+- **`providers.tf`** — OCI provider (supports instance principal auth), Kubernetes/Helm providers configured via OKE cluster endpoint.
+- **`network.tf`** — VCN, subnets, security lists, route tables, gateways. Supports "create_new" or "bring_your_own" VCN modes.
+- **`oke.tf`** — OKE cluster and node pool definitions.
+- **`helm.tf`** — Helm releases: ingress-nginx, cert-manager, prometheus, grafana, NVIDIA DCGM.
+- **`blueprint_files.tf`** — Blueprint JSON definitions for each starter pack category/size, deployed via OCI AI Blueprints (corrino-cp). See [Blueprints & Corrino](#blueprints--corrino) below.
+- **`app-blueprint-deployment-job.tf`** — Kubernetes jobs that deploy blueprints onto the cluster.
+- **`capacity_check.tf`** — Pre-deploy GPU/shape capacity validation.
+- **`data-starter-pack-url.tf`** — Dynamic URL resolution for deployed starter pack services.
+- **`app-*.tf`** — Application-layer resources (API, background workers, user service, migrations, configmaps, portal, VSS components).
+
+### Schema System (`ai-accelerator-tf/schemas/`)
+
+OCI Resource Manager UI schemas are generated by merging a common base with per-category overrides:
+
+1. `common_schema.yaml` — shared variables, outputs, variable groups
+2. `<category>_schema.yaml` — category-specific overrides (title, sizes, hidden variables)
+3. `create_final_schema.py` — deep-merge script that produces `schema.yaml`
+
+```bash
+python create_final_schema.py cuopt          # generate for specific category
+python create_final_schema.py --all          # generate all (used by tests)
+```
+
+The generated `schema.yaml` is gitignored. Category selection is stored in `starter_pack_category.auto.tfvars`.
+
+### Test Architecture
+
+**Terraform unit tests** (`ai-accelerator-tf/tests/*.tftest.hcl`):
+- Use `mock_provider` blocks for all 9 providers — no real infrastructure
+- Three OCI data sources (`home_region`, `ads`, `oracle_linux`) require `override_data` blocks in every test file
+- `core_plan.tftest.hcl` — shared output assertions with defaults
+- `core_validations.tftest.hcl` — `expect_failures` runs for variable validation blocks
+- `starter_pack_<category>.tftest.hcl` — per-pack plan tests asserting deployment name and postflight triggers
+- Test files must be flat in `tests/` (Terraform does not recurse subdirectories)
+
+**Schema tests** (`ai-accelerator-tf/schemas/tests/`):
+- Data-driven via `schema_expectations.yaml` — add assertions there, not in Python
+- `conftest.py` auto-generates all schemas before tests run
+- `test_schema_structure.py` reads expectations and runs parametrized assertions
+- `meta_schema.yaml` validates against OCI JSON Schema Draft 7
+
+### Blueprints & Corrino
+
+Starter packs (except `enterprise_rag`, which uses Helm directly) are deployed as **OCI AI Blueprints** through the Corrino control plane (`corrino-cp`), which runs on the OKE cluster. The Corrino API source lives at `~/code/corrino/api/`. A blueprint submitted to the Corrino API deploys multiple Kubernetes components (pods, services, etc.) onto the cluster.
+
+**Deployment flow:**
+1. `vars.tf` defines `local.starter_pack_configs` — a `category → size → config` map containing infrastructure settings (node shape, GPU count, worker count, etc.) for each pack/size combination.
+2. `blueprint_files.tf` defines `local.starter_pack_blueprints` — consumes the config from step 1 and builds the full JSON blueprint payloads as `jsonencode(merge(...))` calls, adding recipe config, environment secrets, node pool settings, and container commands.
+3. `app-blueprint-deployment-job.tf` creates Kubernetes jobs that connect to the Corrino API server running on OKE and submit the JSON blueprint payload for deployment.
+
+**Key rules:**
+- **Deployments are immutable.** The only way to modify a deployment is to undeploy it and redeploy it. There is no in-place update.
+- **`deployment_name` must be unique.** Submitting a blueprint with a `deployment_name` that already exists will cause a validation error from the Corrino API.
+- Blueprint payloads must conform to the schema at `~/code/corrino/api/json_schema/combined_schema.json` (JSON Schema Draft 2020-12). Key fields: `recipe_id`, `deployment_name`, `recipe_mode` (service/job/update/shared_node_pool/team), `recipe_node_shape`, `recipe_nvidia_gpu_count`, etc.
+
+### CI Pipelines (`.github/workflows/`)
+
+- **terraform-test.yml** — push/PR to `main`: `terraform init` + `terraform test` (creates dummy OCI config)
+- **terraform-lint.yml** — PR to any branch: `fmt -check`, `validate`, TFLint, Checkov
+- **schema-tests.yml** — push/PR to `main` (when schemas change): `pytest` schema tests
+
+## Git Workflow
+
+- Never commit directly to `main`. Always create a feature branch and open a PR.
+
+## Key Conventions
+
+- Starter pack categories: `enterprise_rag`, `paas_rag`, `cuopt`, `vss`. Adding a new category requires changes in `vars.tf` (validation), `app-locals.tf` (mappings), `blueprint_files.tf`, a new schema YAML, `create_final_schema.py` CATEGORIES list, schema expectations, and a new test file.
+- Version is tracked in `AI_ACCELERATOR_STACK_VERSION` and must be kept in sync with `vars.tf` default and `schemas/common_schema.yaml` enum. See `readmes/VERSIONING.md`.
+- Checkov skip rules are in `ai-accelerator-tf/.checkov.yml`.
+- Helm values live in `ai-accelerator-tf/helm-values/` as standalone YAML files (some are Terraform-templated).
+- `schema.yaml` and `schemas/generated/` are gitignored — always regenerate, never edit directly.
+- Detailed test writing guides: `ai-accelerator-tf/tests/RULES.md` (Terraform tests) and `ai-accelerator-tf/schemas/tests/RULES.md` (schema tests).

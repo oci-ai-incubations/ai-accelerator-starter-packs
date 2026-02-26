@@ -116,7 +116,7 @@ locals {
   }
 
   corrino_tags = {
-    "corrino_installed" = timestamp()
+    "corrino_installed" = "true"
     "corrino_uuid"      = random_uuid.registration_id.result
   }
 
@@ -167,14 +167,6 @@ locals {
     pod_util_arm64_image   = "pod-util-arm64"
   }
 
-  # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
-  vss_oracle_ux = {
-    image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-latest"
-    download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-latest"
-    # vss_backend_service is now dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
-    vss_backend_deployment = "recipe-vss-deployment"
-  }
-
   domain = {
     corrino_oci_mode = "corrino-oci.com"
     corrino_oci_fqdn = format("%s.corrino-oci.com", random_string.subdomain.result)
@@ -204,7 +196,7 @@ locals {
     mlflow           = join(".", ["mlflow", local.fqdn.name])
     prometheus       = join(".", ["prometheus", local.fqdn.name])
     grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_deployment_name, local.fqdn.name])
+    starter_pack     = join(".", [local.starter_pack_config.deployment_name, local.fqdn.name])
     aiq_frontend     = join(".", ["aiq", local.fqdn.name])
   }
 
@@ -216,10 +208,6 @@ locals {
     {
       name  = "OCI_CLI_PROFILE"
       value = "instance_principal"
-    },
-    {
-      name  = "TERRAFORM_TIMESTAMP"
-      value = local.ts
     }
   ]
 
