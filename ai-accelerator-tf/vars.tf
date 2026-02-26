@@ -456,8 +456,8 @@ variable "starter_pack_category" {
   # No default here - schema.yaml provides the default for Resource Manager portal
   # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', or 'enterprise_rag'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', or 'enterprise_rag_aiq'."
   }
 }
 
@@ -484,6 +484,13 @@ variable "worker_node_availability_domain" {
 }
 
 # -----------------------------------
+variable "tavily_api_key" {
+  description = "Tavily API key used by the AIQ Research Assistant for web search integration. Optional; leave empty to disable Tavily-powered search."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 # 26ai Autonomous Database Variables
 # -----------------------------------
 
@@ -779,7 +786,6 @@ locals {
       # Add "large" here when implemented
     }
 
-
     "enterprise_rag" = {
       "small" = {
         blueprint_file                               = ""
@@ -808,7 +814,39 @@ locals {
         frontend_starter_pack_url_deployment = "" # Not used
       }
     }
+
+    "enterprise_rag_aiq" = {
+      "small" = {
+        blueprint_file                               = ""
+        deployment_name                              = "enterprise-rag"
+        app_namespace                                = "rag"
+        aiq_namespace                                = "aiq"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = false
+        use_dynamic_url                              = false
+        worker_node_shape                            = "BM.GPU4.8"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "120"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "none"
+          ocpus         = 0
+          memory        = 0
+        }
+        starter_pack_url_deployment          = "enterprise-rag"
+        frontend_starter_pack_url_deployment = "rag-frontend"
+      }
+    }
+
   }
+
 
   # Resolved config (maintains existing interface for all consuming resources)
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
@@ -852,7 +890,7 @@ locals {
 # Accelerator specific stuff
 locals {
   # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag"
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag" || var.starter_pack_category == "enterprise_rag_aiq"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 

@@ -1,0 +1,80 @@
+# =============================================================================
+# NVIDIA Enterprise RAG + AIQ Research Assistant - Schema Overrides
+# =============================================================================
+# Extends enterprise_rag baseline with additional outputs/description for AIQ
+
+title: "NVIDIA Enterprise RAG + AIQ Starter Pack"
+description: "Enterprise RAG with optional AIQ Research Assistant UI"
+informationalText: |
+  Deploy NVIDIA Enterprise RAG on OCI's high-performance GPU infrastructure with the
+  optional AIQ Research Assistant user experience.
+  
+  This starter pack deploys a complete RAG pipeline including:
+  - NVIDIA NIM for LLM inference (Llama 3.3 Nemotron)
+  - Embedding and Reranking NIMs
+  - Milvus vector database
+  - NV-Ingest for document processing
+  - RAG Server and Frontend
+  - AIQ Research Assistant backend, instruct NIM, and frontend experience
+  
+  Note: This deployment is managed via Helm charts, not OCI AI Blueprints.
+
+outputGroups:
+  - title: "Enterprise RAG Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+      - aiq_frontend_url
+
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "Enterprise RAG + AIQ Deployment Size"
+    description: "<strong>SMALL</strong> - Same compute footprint as Enterprise RAG, with additional GPUs reserved for AIQ instruct NIM."
+    default: small
+    required: true
+
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+  use_custom_dns:
+    visible: false
+
+  worker_node_availability_domain:
+    title: "Worker Node Availability Domain where GPU capacity is available (EX: TrcQ:US-ASHBURN-AD-2)"
+    description: "To find ADs, go to Governance & Administration -> Limits, quotas and usage -> Edit Filters -> Service = Compute, Scope = Selected AD -> In Search, type: 'gpu4'."
+    required: true
+    visible: true
+
+outputs:
+  starter_pack_url:
+    type: string
+    title: "Enterprise RAG Service URL"
+
+  aiq_frontend_url:
+    type: string
+    title: "AIQ Research Assistant URL"
+    visible: true

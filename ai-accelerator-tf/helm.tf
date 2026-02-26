@@ -517,18 +517,18 @@ resource "helm_release" "rag" {
       value = "1.14.0"
     }
   ]
-  count      = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
-  count    = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  count    = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   content  = data.oci_containerengine_cluster_kube_config.oke.content
   filename = "${path.module}/kubeconfig_patch"
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector" {
-  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -544,3 +544,58 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
     command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
   }
 }
+
+resource "helm_release" "aiq" {
+  name             = "aiq-aira"
+  namespace        = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
+  create_namespace = true
+
+  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq-aira-v1.2.1.tgz"
+
+  repository_username = "$oauthtoken"
+  repository_password = var.ngc_secret
+
+  timeout = 3600
+
+  values = [
+    file("${path.module}/helm-values/aiq-aira-values.yaml")
+  ]
+
+  set_sensitive = [
+    {
+      name  = "imagePullSecret.password"
+      value = var.ngc_secret
+    },
+    {
+      name  = "ngcApiSecret.password"
+      value = var.ngc_api_secret
+    },
+    {
+      name  = "tavilyApiSecret.password"
+      value = var.tavily_api_key
+    }
+  ]
+
+  set = [
+    {
+      name  = "backendEnvVars.RAG_SERVER_URL"
+      value = "http://rag-server.${local.starter_pack_config.app_namespace}.svc.cluster.local:8081"
+    },
+    {
+      name  = "backendEnvVars.RAG_INGEST_URL"
+      value = "http://ingestor-server.${local.starter_pack_config.app_namespace}.svc.cluster.local:8082"
+    },
+    {
+      name  = "backendEnvVars.NEMOTRON_BASE_URL"
+      value = "http://nim-llm.${local.starter_pack_config.app_namespace}.svc.cluster.local:8000"
+    }
+  ]
+
+  count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+
+  depends_on = [
+    helm_release.rag,
+    terraform_data.patch_nim_llm_service_selector
+  ]
+}
+
