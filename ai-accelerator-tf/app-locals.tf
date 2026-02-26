@@ -116,7 +116,7 @@ locals {
   }
 
   corrino_tags = {
-    "corrino_installed" = timestamp()
+    "corrino_installed" = "true"
     "corrino_uuid"      = random_uuid.registration_id.result
   }
 
@@ -196,7 +196,7 @@ locals {
     mlflow           = join(".", ["mlflow", local.fqdn.name])
     prometheus       = join(".", ["prometheus", local.fqdn.name])
     grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_deployment_name, local.fqdn.name])
+    starter_pack     = join(".", [local.starter_pack_config.deployment_name, local.fqdn.name])
   }
 
   third_party_namespaces = {
@@ -207,10 +207,6 @@ locals {
     {
       name  = "OCI_CLI_PROFILE"
       value = "instance_principal"
-    },
-    {
-      name  = "TERRAFORM_TIMESTAMP"
-      value = local.ts
     }
   ]
 

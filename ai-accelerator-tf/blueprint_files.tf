@@ -38,7 +38,7 @@ locals {
     {
       recipe_id                                    = "cuopt"
       recipe_mode                                  = "service"
-      deployment_name                              = local.starter_pack_deployment_name
+      deployment_name                              = "DEPLOY_NAME"
       recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
       recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
       recipe_node_shape                            = local.starter_pack_config.worker_node_shape
@@ -88,7 +88,7 @@ locals {
   ))
   _cuopt_with_frontend_blueprint = jsonencode({
     deployment_group = {
-      name = local.starter_pack_deployment_name
+      name = "DEPLOY_NAME"
       deployments = [
         {
           name    = "llamastack",
@@ -117,7 +117,7 @@ locals {
           recipe = {
             recipe_id                                    = "cuopt"
             recipe_mode                                  = "service"
-            deployment_name                              = "${local.starter_pack_deployment_name}-2"
+            deployment_name                              = "DEPLOY_NAME-2"
             recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
             recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
             recipe_node_shape                            = local.starter_pack_config.worker_node_shape
@@ -206,7 +206,7 @@ locals {
 
   _vss_small_blueprint = jsonencode({
     deployment_group = {
-      name = join("-", [local.starter_pack_deployment_name, "3"])
+      name = "DEPLOY_NAME"
       deployments = [
         {
           name = "elasticsearch"
@@ -602,7 +602,7 @@ locals {
 
   _vss_medium_blueprint = jsonencode({
     deployment_group = {
-      name = join("-", [local.starter_pack_deployment_name, "2"])
+      name = "DEPLOY_NAME"
       deployments = [
         {
           name = "elasticsearch"
@@ -1047,7 +1047,7 @@ locals {
   })
   _paas_rag_small_blueprint = jsonencode({
     deployment_group = {
-      name = local.starter_pack_deployment_name
+      name = "DEPLOY_NAME"
       deployments = [
         {
           name    = "llamastack"
