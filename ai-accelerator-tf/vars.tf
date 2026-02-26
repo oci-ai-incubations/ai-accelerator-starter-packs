@@ -89,7 +89,7 @@ variable "existing_services_subnet_id" {
 
 variable "create_policies" {
   default     = true
-  description = "Whether to create policies"
+  description = "If policy creation is disabled, an admin will have to create the required policies found at https://github.com/oracle-quickstart/oci-ai-blueprints/blob/main/docs/iam_policies.md prior to launching the stack."
   type        = bool
 }
 

@@ -87,6 +87,7 @@ variableGroups:
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
+      - create_policies
       - create_bastion
       - skip_capacity_check
       - use_custom_dns
@@ -200,7 +201,10 @@ variables:
 
   create_policies:
     type: boolean
-    visible: false
+    title: "Create IAM Policies"
+    description: "If policy creation is disabled, an admin will have to create the required policies found at https://github.com/oracle-quickstart/oci-ai-blueprints/blob/main/docs/iam_policies.md prior to launching the stack."
+    default: true
+    required: false
 
   # ---------------------------------
   # Hidden Variables
