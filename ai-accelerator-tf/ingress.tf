@@ -207,11 +207,11 @@ resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
   spec {
     ingress_class_name = "nginx"
     tls {
-      hosts       = [local.public_endpoint.aiq_frontend]
+      hosts       = [local.public_endpoint.starter_pack]
       secret_name = "aiq-frontend-tls"
     }
     rule {
-      host = local.public_endpoint.aiq_frontend
+      host = local.public_endpoint.starter_pack
       http {
         path {
           path      = "/"

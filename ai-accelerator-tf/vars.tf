@@ -810,8 +810,10 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        api_url      = ""              # Not used (use_dynamic_url = false)
-        frontend_url = "frontend-erag" # Not used
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        api_url                      = ""              # Not used (use_dynamic_url = false)
+        frontend_url                 = "frontend-erag" # Not used
       }
     }
 
@@ -840,8 +842,10 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        starter_pack_url_deployment          = "enterprise-rag"
-        frontend_starter_pack_url_deployment = "rag-frontend"
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        api_url                      = ""              # Not used (use_dynamic_url = false)
+        frontend_url                 = "aiq"
       }
     }
 

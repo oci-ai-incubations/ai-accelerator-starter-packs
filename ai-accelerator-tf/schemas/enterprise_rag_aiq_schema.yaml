@@ -24,7 +24,6 @@ outputGroups:
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
-      - aiq_frontend_url
 
 variableGroups:
   - title: "Basic Hidden"
@@ -77,8 +76,3 @@ outputs:
   starter_pack_url:
     type: string
     title: "Enterprise RAG Service URL"
-
-  aiq_frontend_url:
-    type: string
-    title: "AIQ Research Assistant URL"
-    visible: true
