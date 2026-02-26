@@ -238,7 +238,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
       }
     }
     backoff_limit              = 0
-    ttl_seconds_after_finished = 120
+    ttl_seconds_after_finished = 31536000 # 1 year — Job must persist so Terraform doesn't recreate it on subsequent applies
   }
   wait_for_completion = true
   timeouts {
