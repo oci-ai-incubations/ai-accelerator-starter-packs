@@ -91,7 +91,6 @@ variableGroups:
       - skip_capacity_check
       - use_custom_dns
       - fqdn_custom_domain
-      - api_endpoint_allowed_cidrs
       - lb_allowed_cidrs
 
 # =============================================================================
@@ -447,18 +446,11 @@ variables:
     type: string
     visible: false
 
-  api_endpoint_allowed_cidrs:
-    type: string
-    title: "Kubernetes API Allowed CIDRs"
-    description: "Comma-separated CIDR ranges allowed to access the Kubernetes API endpoint (port 6443). Default 0.0.0.0/0 allows all traffic. Example: 72.68.21.10/32,80.112.0.0/16,172.12.128.0/24"
-    default: "0.0.0.0/0"
-    required: false
-
   lb_allowed_cidrs:
     type: string
     title: "Load Balancer Allowed CIDRs"
-    description: "Comma-separated CIDR ranges allowed to access the load balancer (HTTP/HTTPS ports 80 and 443). Default 0.0.0.0/0 allows all traffic. Example: 72.68.21.10/32,80.112.0.0/16,172.12.128.0/24"
-    default: "0.0.0.0/0"
+    description: "Comma-separated CIDR ranges allowed to access the load balancer (HTTP/HTTPS ports 80 and 443). Leave empty for unrestricted access (0.0.0.0/0). Example: 72.68.21.10/32,80.112.0.0/16,172.12.128.0/24"
+    default: ""
     required: false
 
 # =============================================================================

@@ -35,7 +35,6 @@ required_variables:
   - corrino_admin_username
   - corrino_admin_password
   - corrino_admin_email
-  - api_endpoint_allowed_cidrs
   - lb_allowed_cidrs
 
 # Per-category: required outputs/variables, absent checks, property assertions

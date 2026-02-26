@@ -833,22 +833,15 @@ locals {
 }
 
 # CIDR Filter Variables
-variable "api_endpoint_allowed_cidrs" {
-  default     = "0.0.0.0/0"
-  description = "Comma-separated CIDR ranges allowed to access the Kubernetes API endpoint (port 6443)."
-  type        = string
-}
-
 variable "lb_allowed_cidrs" {
-  default     = "0.0.0.0/0"
-  description = "Comma-separated CIDR ranges allowed to access the load balancer (HTTP/HTTPS)."
+  default     = ""
+  description = "Comma-separated CIDR ranges allowed to access the load balancer (HTTP/HTTPS). Leave empty for unrestricted access (0.0.0.0/0)."
   type        = string
 }
 
 # Networking Locals
 locals {
-  api_endpoint_allowed_cidrs = [for cidr in split(",", var.api_endpoint_allowed_cidrs) : trimspace(cidr)]
-  lb_allowed_cidrs           = [for cidr in split(",", var.lb_allowed_cidrs) : trimspace(cidr)]
+  lb_allowed_cidrs = var.lb_allowed_cidrs == "" ? ["0.0.0.0/0"] : [for cidr in split(",", var.lb_allowed_cidrs) : trimspace(cidr) if trimspace(cidr) != ""]
   # Determine which VCN and subnets to use based on configuration mode
   vcn_id = var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
 

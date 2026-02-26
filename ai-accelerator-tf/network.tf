@@ -261,18 +261,15 @@ resource "oci_core_security_list" "oke_endpoint_security_list" {
   compartment_id = var.compartment_ocid
   display_name   = "AI-Accel-ENDPOINT-SECURITY-LIST-${random_string.deploy_id.result}"
 
-  dynamic "ingress_security_rules" {
-    for_each = local.api_endpoint_allowed_cidrs
-    content {
-      description = "External access to Kubernetes API endpoint from ${ingress_security_rules.value}"
-      source      = ingress_security_rules.value
-      source_type = "CIDR_BLOCK"
-      protocol    = local.tcp_protocol
-      stateless   = false
-      tcp_options {
-        min = local.k8s_api_port
-        max = local.k8s_api_port
-      }
+  ingress_security_rules {
+    description = "External access to Kubernetes API endpoint"
+    source      = var.network_cidrs["ALL-CIDR"]
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol
+    stateless   = false
+    tcp_options {
+      min = local.k8s_api_port
+      max = local.k8s_api_port
     }
   }
   ingress_security_rules {
