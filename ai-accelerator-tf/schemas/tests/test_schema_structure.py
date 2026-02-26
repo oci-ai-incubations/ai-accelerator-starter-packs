@@ -5,6 +5,9 @@ import jsonschema
 from jsonschema import Draft7Validator, FormatChecker
 
 
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"]
+
+
 def _get_format_checker():
     """Return FormatChecker with OCI custom format: variablereference."""
     checker = FormatChecker()
@@ -26,8 +29,7 @@ class TestSchemaValidYaml:
     """All generated schemas parse as valid YAML (verified by loaded fixture)."""
 
     def test_all_categories_generated(self, generated_schemas):
-        expected = {"cuopt", "vss", "paas_rag", "enterprise_rag"}
-        assert set(generated_schemas.keys()) == expected
+        assert set(generated_schemas.keys()) == set(CATEGORIES)
 
     def test_schemas_are_dicts(self, generated_schemas):
         for category, schema in generated_schemas.items():
@@ -37,7 +39,7 @@ class TestSchemaValidYaml:
 class TestSchemaConformsToMetaSchema:
     """Each schema validates against OCI meta schema."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_schema_validates_against_meta_schema(self, generated_schemas, meta_schema, category):
         schema = generated_schemas[category]
         errors = _validate_against_meta_schema(schema, meta_schema)
@@ -51,7 +53,7 @@ class TestSchemaConformsToMetaSchema:
 class TestSchemaHasRequiredKeys:
     """Top-level keys from expectations exist."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_required_keys_present(self, generated_schemas, schema_expectations, category):
         schema = generated_schemas[category]
         required = schema_expectations["required_top_level_keys"]
@@ -62,7 +64,7 @@ class TestSchemaHasRequiredKeys:
 class TestStarterPackSizeMatchesConfig:
     """starter_pack_size.enum matches vars.tf for that category."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_starter_pack_size_enum(self, generated_schemas, schema_expectations, category):
         schema = generated_schemas[category]
         expected_sizes = schema_expectations["starter_pack_sizes"][category]
@@ -73,7 +75,7 @@ class TestStarterPackSizeMatchesConfig:
 class TestOutputGroupsReferenceValidOutputs:
     """Every output in outputGroups exists in schema outputs."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_output_references_valid(self, generated_schemas, category):
         schema = generated_schemas[category]
         outputs = schema.get("outputs", {})
@@ -87,7 +89,7 @@ class TestOutputGroupsReferenceValidOutputs:
 class TestVariableGroupsReferenceValidVariables:
     """Every variable in variableGroups exists in schema variables."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_variable_references_valid(self, generated_schemas, category):
         schema = generated_schemas[category]
         variables = schema.get("variables", {})
@@ -101,14 +103,14 @@ class TestVariableGroupsReferenceValidVariables:
 class TestRequiredOutputsAndVariables:
     """Required outputs and variables exist in every schema."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_required_outputs_exist(self, generated_schemas, schema_expectations, category):
         schema = generated_schemas[category]
         outputs = schema.get("outputs", {})
         for name in schema_expectations["required_outputs"]:
             assert name in outputs, f"{category}: required output '{name}' missing"
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_required_variables_exist(self, generated_schemas, schema_expectations, category):
         schema = generated_schemas[category]
         variables = schema.get("variables", {})
@@ -136,7 +138,7 @@ def _property_matches(actual, expected, prop_name):
 class TestCategorySpecificExpectations:
     """Category-specific required/absent and property checks."""
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_category_required_exist(self, generated_schemas, schema_expectations, category):
         cat = schema_expectations.get("category_specific", {}).get(category, {})
         required_outputs = cat.get("required_outputs", [])
@@ -147,7 +149,7 @@ class TestCategorySpecificExpectations:
         for name in required_variables:
             assert name in schema.get("variables", {}), f"{category}: category required variable '{name}' missing"
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_category_absent_not_exist(self, generated_schemas, schema_expectations, category):
         """Assert variables/outputs in absent_* do not exist in this category.
 
@@ -165,7 +167,7 @@ class TestCategorySpecificExpectations:
         for name in absent_variables:
             assert name not in schema.get("variables", {}), f"{category}: variable '{name}' must NOT exist"
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_category_variable_properties(self, generated_schemas, schema_expectations, category):
         cat = schema_expectations.get("category_specific", {}).get(category, {})
         props = cat.get("variable_properties", {})
@@ -183,7 +185,7 @@ class TestCategorySpecificExpectations:
                     f"{category}: variable '{key}' property '{prop_name}' = {actual!r} != expected {expected_val!r}"
                 )
 
-    @pytest.mark.parametrize("category", ["cuopt", "vss", "paas_rag", "enterprise_rag"])
+    @pytest.mark.parametrize("category", CATEGORIES)
     def test_category_output_properties(self, generated_schemas, schema_expectations, category):
         cat = schema_expectations.get("category_specific", {}).get(category, {})
         props = cat.get("output_properties", {})
