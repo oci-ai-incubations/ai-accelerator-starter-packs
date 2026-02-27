@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(terraform init:*)",
+      "Bash(terraform test:*)",
+      "Bash(terraform fmt:*)",
+      "Bash(terraform validate:*)",
+      "Bash(tflint:*)",
+      "Bash(checkov:*)",
+      "Bash(pytest:*)",
+      "Bash(python3 create_final_schema.py:*)",
+      "Bash(zip:*)",
+      "Bash(rm -rf ai-accelerator-tf/.terraform:*)",
+      "Bash(rm -f lifecycle.zip:*)",
+      "Bash(source venv/bin/activate:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(oci resource-manager:*)",
+      "Bash(oci ce:*)",
+      "Bash(oci iam:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}
