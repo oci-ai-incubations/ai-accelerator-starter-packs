@@ -196,7 +196,7 @@ locals {
     mlflow           = join(".", ["mlflow", local.fqdn.name])
     prometheus       = join(".", ["prometheus", local.fqdn.name])
     grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_config.frontend_starter_pack_url_deployment, local.fqdn.name])
+    starter_pack     = join(".", [local.starter_pack_config.frontend_url, local.fqdn.name])
   }
 
   third_party_namespaces = {

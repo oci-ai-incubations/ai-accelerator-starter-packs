@@ -26,7 +26,7 @@ resource "null_resource" "wait_for_deployment" {
       API_URL="${local.public_endpoint.api_origin_secure}"
       USERNAME="${var.corrino_admin_username}"
       PASSWORD="${var.corrino_admin_password}"
-      DEPLOYMENT_FOR_URL="${local.starter_pack_url_deployment}"
+      DEPLOYMENT_FOR_URL="${local.api_url}"
       MAX_ATTEMPTS=40  # 40 attempts * 30 seconds = 20 minutes max wait
       ATTEMPT=0
 
