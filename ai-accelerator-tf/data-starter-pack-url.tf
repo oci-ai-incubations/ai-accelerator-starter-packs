@@ -150,26 +150,3 @@ locals {
   recipes = local.workspace_data != null ? try(local.workspace_data.recipes, {}) : {}
 
 }
-
-# =============================================================================
-# Step 3b: Verify deployment health via deployment API
-# =============================================================================
-# Expected response format from /deployment/<uuid>/ API:
-# {
-#   "mode": "service",
-#   "recipe_id": "frontend",
-#   "deployment_uuid": "f593b84c9a1ed4ec5db2afe598a87a03",
-#   "deployment_name": "frontend-paas",
-#   "deployment_status": "monitoring",  # Can be: "creating", "scheduled", "active", "monitoring"
-#   "deployment_directive": "commission",
-#   "creation_date": "2026-01-27 06:52 PM UTC"
-# }
-
-# =============================================================================
-# Final computed URLs for outputs
-# =============================================================================
-locals {
-  # Static starter pack URL derived from service_endpoint_subdomain config
-  starter_pack_url_output          = local.public_endpoint.starter_pack
-  starter_pack_frontend_url_output = local.public_endpoint.starter_pack
-}

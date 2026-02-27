@@ -178,12 +178,7 @@ output "starter_pack_deployment_name" {
 
 output "starter_pack_url" {
   description = "Starter pack FQDN"
-  value       = local.starter_pack_url_output
-}
-
-output "starter_pack_frontend_url" {
-  description = "Starter pack frontend FQDN"
-  value       = local.starter_pack_frontend_url_output
+  value       = local.public_endpoint.starter_pack
 }
 
 output "blueprints_portal_url" {
