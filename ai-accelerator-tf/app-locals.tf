@@ -9,7 +9,7 @@ locals {
     backend_service_name_origin  = "http://corrino-cp"
     backend_service_name_ingress = "corrino-cp-ingress"
     #    backend_image_uri_base                       = join(":", [local.ocir.base_uri, local.ocir.backend_image])
-    backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.corrino_image_version}-ingress")
+    backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.corrino_image_version}")
     #backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-latest"
     #frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
     blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.corrino_image_version}")
@@ -196,7 +196,7 @@ locals {
     mlflow           = join(".", ["mlflow", local.fqdn.name])
     prometheus       = join(".", ["prometheus", local.fqdn.name])
     grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_config.deployment_name, local.fqdn.name])
+    starter_pack     = join(".", [local.starter_pack_config.frontend_url, local.fqdn.name])
     aiq_frontend     = join(".", ["aiq", local.fqdn.name])
   }
 
