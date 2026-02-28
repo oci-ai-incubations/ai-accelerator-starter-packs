@@ -561,20 +561,24 @@ resource "helm_release" "aiq" {
     file("${path.module}/helm-values/aiq-aira-values.yaml")
   ]
 
-  set_sensitive = [
-    {
-      name  = "imagePullSecret.password"
-      value = var.ngc_secret
-    },
-    {
-      name  = "ngcApiSecret.password"
-      value = var.ngc_api_secret
-    },
-    {
-      name  = "tavilyApiSecret.password"
-      value = var.tavily_api_key
-    }
-  ]
+  set_sensitive = concat(
+    [
+      {
+        name  = "imagePullSecret.password"
+        value = var.ngc_secret
+      },
+      {
+        name  = "ngcApiSecret.password"
+        value = var.ngc_api_secret
+      }
+    ],
+    var.tavily_api_key != "" ? [
+      {
+        name  = "tavilyApiSecret.password"
+        value = var.tavily_api_key
+      }
+    ] : []
+  )
 
   set = [
     {
@@ -592,11 +596,10 @@ resource "helm_release" "aiq" {
   ]
 
   count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
-  
+
   # The aiq stack depends on the rag stack deployment to complete.
   depends_on = [
     helm_release.rag,
     terraform_data.patch_nim_llm_service_selector
   ]
 }
-
