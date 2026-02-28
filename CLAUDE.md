@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Accelerator Starter Packs — a Terraform-based infrastructure-as-code project that deploys AI workloads on Oracle Cloud Infrastructure (OCI) using Oracle Kubernetes Engine (OKE). It provisions networking, compute, Kubernetes clusters, Helm charts, and application services (Corrino platform) for multiple "starter pack" categories: `enterprise_rag`, `paas_rag`, `cuopt`, and `vss`.
+AI Accelerator Starter Packs — a Terraform-based infrastructure-as-code project that deploys AI workloads on Oracle Cloud Infrastructure (OCI) using Oracle Kubernetes Engine (OKE). It provisions networking, compute, Kubernetes clusters, Helm charts, and application services (Corrino platform) for multiple "starter pack" categories: `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, and `vss`.
 
 All Terraform code lives in `ai-accelerator-tf/`. The repo root contains support scripts, schema generation tooling, and zip artifacts.
 
@@ -132,7 +132,7 @@ Starter packs (except `enterprise_rag`, which uses Helm directly) are deployed a
 
 ## Key Conventions
 
-- Starter pack categories: `enterprise_rag`, `paas_rag`, `cuopt`, `vss`. Adding a new category requires changes in `vars.tf` (validation), `app-locals.tf` (mappings), `blueprint_files.tf`, a new schema YAML, `create_final_schema.py` CATEGORIES list, schema expectations, and a new test file.
+- Starter pack categories: `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`. Adding a new category requires changes in `vars.tf` (validation), `app-locals.tf` (mappings), `blueprint_files.tf`, a new schema YAML, `create_final_schema.py` CATEGORIES list, schema expectations, and a new test file.
 - Version is tracked in `AI_ACCELERATOR_STACK_VERSION` and must be kept in sync with `vars.tf` default and `schemas/common_schema.yaml` enum. See `readmes/VERSIONING.md`.
 - Checkov skip rules are in `ai-accelerator-tf/.checkov.yml`.
 - Helm values live in `ai-accelerator-tf/helm-values/` as standalone YAML files (some are Terraform-templated).

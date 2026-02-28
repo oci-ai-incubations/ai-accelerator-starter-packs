@@ -844,7 +844,7 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = ""              # Not used (use_dynamic_url = false)
+        api_url                      = "" # Not used (use_dynamic_url = false)
         frontend_url                 = "aiq"
       }
     }
