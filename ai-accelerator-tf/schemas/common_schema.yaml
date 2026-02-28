@@ -159,6 +159,13 @@ variables:
     description: "Email address for admin account notifications and password recovery"
     required: true
 
+  tavily_api_key:
+    type: password
+    title: "Tavily API Key"
+    description: "Optional API key for enabling Tavily-powered web search integrations. Leave blank to disable."
+    required: false
+    visible: false
+
   # Oracle 26ai Database Credentials
   db_username:
     type: string

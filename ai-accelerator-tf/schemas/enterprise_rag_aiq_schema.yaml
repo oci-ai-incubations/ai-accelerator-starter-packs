@@ -37,6 +37,7 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
+      - tavily_api_key
 
   - title: "Administrator Account"
     variables:
@@ -67,6 +68,9 @@ variables:
     title: "Worker Node Availability Domain where GPU capacity is available (EX: TrcQ:US-ASHBURN-AD-2)"
     description: "To find ADs, go to Governance & Administration -> Limits, quotas and usage -> Edit Filters -> Service = Compute, Scope = Selected AD -> In Search, type: 'gpu4'."
     required: true
+    visible: true
+
+  tavily_api_key:
     visible: true
 
 outputs:

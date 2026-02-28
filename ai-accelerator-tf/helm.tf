@@ -592,7 +592,8 @@ resource "helm_release" "aiq" {
   ]
 
   count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
-
+  
+  # The aiq stack depends on the rag stack deployment to complete.
   depends_on = [
     helm_release.rag,
     terraform_data.patch_nim_llm_service_selector
