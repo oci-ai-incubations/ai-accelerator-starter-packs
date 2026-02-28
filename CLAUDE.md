@@ -43,82 +43,9 @@ pytest ai-accelerator-tf/schemas/tests/ -v -k "test_name"  # single test
 
 ### Integration Tests (OCI Resource Manager)
 
-Integration tests deploy real infrastructure via OCI Resource Manager. Each PR may have additional testing parameters — ask the user for any PR-specific requirements before starting.
+Integration tests deploy real infrastructure via OCI Resource Manager. Use `/integration-test [category]` to run the full lifecycle (schema gen, zip, stack create, plan, apply, pod verification, destroy). Related skills: `/update-stack`, `/destroy-stack`.
 
-**Baseline cycle:**
-
-1. **Generate schema** for the target category:
-   ```bash
-   source venv/bin/activate
-   python3 create_final_schema.py -c <category>   # e.g., paas_rag
-   ```
-
-2. **Populate `ai-accelerator-tf/terraform.tfvars`** — ask the user for values. Required vars come from the generated `schema.yaml` and include at minimum: `compartment_ocid`, `tenancy_ocid`, `region`, `current_user_ocid`, `corrino_admin_username`, `corrino_admin_password`, `corrino_admin_email`, `db_password`, plus any category-specific vars. This is a one-time step per test cycle.
-
-3. **Create the zip** (exclude Terraform cache):
-   ```bash
-   rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
-   zip -r lifecycle.zip ai-accelerator-tf
-   ```
-
-4. **Create stack:**
-   ```bash
-   oci resource-manager stack create \
-     -c ocid1.compartment.oc1..aaaaaaaa5rwhi5wj3grdiqzvz244gwzycpfl2ctlb4nvl7vi7wu55tqi375a \
-     --config-source lifecycle.zip
-   ```
-
-5. **Plan:**
-   ```bash
-   oci resource-manager job create-plan-job --stack-id <stack-id>
-   ```
-
-6. **Watch plan logs:**
-   ```bash
-   oci resource-manager job get-job-logs --job-id <plan-job-id>
-   ```
-
-7. **If plan errors:** fix Terraform, re-zip (step 3), then update the stack:
-   ```bash
-   oci resource-manager stack update --stack-id <stack-id> --config-source lifecycle.zip
-   ```
-   Then re-plan (step 5).
-
-8. **Apply** (after successful plan):
-   ```bash
-   oci resource-manager job create-apply-job --stack-id <stack-id>
-   ```
-
-9. **Watch apply logs:**
-   ```bash
-   oci resource-manager job get-job-logs --job-id <apply-job-id>
-   ```
-
-10. **Configure kubectl** using the OKE cluster OCID from apply output:
-    ```bash
-    oci ce cluster create-kubeconfig \
-      --cluster-id <cluster-ocid> \
-      --file $HOME/.kube/config \
-      --region us-sanjose-1 \
-      --token-version 2.0.0 \
-      --kube-endpoint PUBLIC_ENDPOINT
-    ```
-
-11. **Verify pods** — all pods should be Running in the `default` namespace:
-    - Core pods (always present): `bp-postgres-*`, `corrino-cp-*`, `corrino-cp-background-*`, `oci-ai-blueprints-portal-*`
-    - Blueprint pods (category-dependent): one additional pod per recipe JSON in the blueprint. For example, `_paas_rag_small_blueprint` creates 3 additional pods; `_cuopt_small_blueprint` creates 1 additional pod.
-    ```bash
-    kubectl get pods -n default
-    ```
-12. When this completes, prompt the user for additional tests (if any) to run.
-
-13. **Destroy** — after all testing is complete, tear down the infrastructure:
-    ```bash
-    oci resource-manager job create-destroy-job \
-      --stack-id <stack-id> \
-      --execution-plan-strategy AUTO_APPROVED
-    ```
-    Watch destroy logs with `oci resource-manager job get-job-logs --job-id <destroy-job-id>`. If destroy fails on the Kubernetes provider, update the stack with `--terraform-version 1.5.x` and retry, or use `--refresh=false` if available.
+Requires a populated `ai-accelerator-tf/terraform.tfvars` with at minimum: `compartment_ocid`, `tenancy_ocid`, `region`, `current_user_ocid`, `corrino_admin_username`, `corrino_admin_password`, `corrino_admin_email`, `db_password`, plus any category-specific vars. Each PR may have additional testing parameters — ask the user for any PR-specific requirements before starting.
 
 ### Linting
 
@@ -145,7 +72,7 @@ checkov -d . --framework terraform --config-file .checkov.yml
 - **`blueprint_files.tf`** — Blueprint JSON definitions for each starter pack category/size, deployed via OCI AI Blueprints (corrino-cp). See [Blueprints & Corrino](#blueprints--corrino) below.
 - **`app-blueprint-deployment-job.tf`** — Kubernetes jobs that deploy blueprints onto the cluster.
 - **`capacity_check.tf`** — Pre-deploy GPU/shape capacity validation.
-- **`data-starter-pack-url.tf`** — Dynamic URL resolution for deployed starter pack services.
+- **`data-starter-pack-url.tf`** — Deployment readiness checks and static URL outputs for starter pack services.
 - **`app-*.tf`** — Application-layer resources (API, background workers, user service, migrations, configmaps, portal, VSS components).
 
 ### Schema System (`ai-accelerator-tf/schemas/`)

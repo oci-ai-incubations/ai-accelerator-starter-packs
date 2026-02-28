@@ -21,7 +21,6 @@ outputGroups:
     outputs:
       - starter_pack_url
       - starter_pack_deployment_name
-      - starter_pack_frontend_url
 
   - title: "Management & API"
     outputs:
