@@ -1,3 +1,7 @@
+---
+globs: ["ai-accelerator-tf/**/*.tf", "ai-accelerator-tf/schemas/**/*.yaml", "create_final_schema.py"]
+---
+
 # Terraform Rules
 
 - All Terraform code lives in `ai-accelerator-tf/`. Never create .tf files outside this directory.

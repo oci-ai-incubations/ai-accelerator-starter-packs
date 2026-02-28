@@ -1,3 +1,7 @@
+---
+globs: ["ai-accelerator-tf/tests/**", "ai-accelerator-tf/schemas/tests/**"]
+---
+
 # Testing Rules
 
 ## Terraform Unit Tests
