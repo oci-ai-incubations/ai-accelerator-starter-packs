@@ -146,7 +146,7 @@ resource "kubernetes_ingress_v1" "oci_ai_blueprints_portal_ingress" {
 ## Enterprise RAG Frontend Ingress
 ## Only created when starter_pack_category is enterprise_rag
 resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
 
   wait_for_load_balancer = true
   metadata {

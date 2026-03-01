@@ -12,3 +12,4 @@ globs: ["ai-accelerator-tf/**/*.tf", "ai-accelerator-tf/schemas/**/*.yaml", "cre
 - Deployments are immutable — the only way to modify a deployment is to undeploy and redeploy. There is no in-place update.
 - `deployment_name` must be unique per blueprint submission.
 - When creating ORM zips, TF files must be at the zip root (zip from inside `ai-accelerator-tf/`, not the parent directory).
+- `worker_node_availability_domain` is required in `terraform.tfvars` for all starter packs except `paas_rag`. Without it, the capacity check precondition will fail during plan.
