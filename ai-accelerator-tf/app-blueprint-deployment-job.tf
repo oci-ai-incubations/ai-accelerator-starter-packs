@@ -1,7 +1,7 @@
 # ConfigMap to hold the blueprint JSON file
 # Not created for enterprise_rag since it's deployed via Helm, not OCI AI Blueprints
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
-  count = var.starter_pack_category != "enterprise_rag" ? 1 : 0
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 0 : 1
   metadata {
     name = "blueprint-config"
   }
@@ -98,7 +98,7 @@ resource "null_resource" "custom_dns_configuration_warning" {
 
 # Blueprint deployment job - not used for enterprise_rag since it's deployed via Helm
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
-  count = var.starter_pack_category != "enterprise_rag" ? 1 : 0
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 0 : 1
   metadata {
     name = "blueprint-deployment-job-${random_id.blueprint_deploy_id[0].hex}"
   }

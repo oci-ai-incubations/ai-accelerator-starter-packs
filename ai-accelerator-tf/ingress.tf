@@ -188,6 +188,49 @@ resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
   depends_on = [helm_release.ingress_nginx, helm_release.rag, terraform_data.patch_nim_llm_service_selector]
 }
 
+resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
+  count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+
+  wait_for_load_balancer = true
+  metadata {
+    name      = "aiq-frontend-ingress"
+    namespace = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
+    annotations = {
+      "cert-manager.io/cluster-issuer"                    = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/rewrite-target"        = "/"
+      "nginx.ingress.kubernetes.io/proxy-body-size"       = "2g"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout"    = "600"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout"    = "600"
+      "nginx.ingress.kubernetes.io/proxy-connect-timeout" = "600"
+    }
+  }
+  spec {
+    ingress_class_name = "nginx"
+    tls {
+      hosts       = [local.public_endpoint.starter_pack]
+      secret_name = "aiq-frontend-tls"
+    }
+    rule {
+      host = local.public_endpoint.starter_pack
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = "aiq-aira-aira-frontend"
+              port {
+                number = 3000
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  depends_on = [helm_release.ingress_nginx, helm_release.aiq]
+}
+
 ## Data source for ingress controller service
 data "kubernetes_service_v1" "ingress" {
   metadata {

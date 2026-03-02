@@ -1,4 +1,4 @@
-# Enterprise RAG starter pack test
+# Enterprise RAG + AIQ starter pack test
 # Static URL path (use_dynamic_url = false) -- no HTTP mocks needed.
 
 mock_provider "oci" {
@@ -48,33 +48,28 @@ variables {
   corrino_admin_username          = "testadmin"
   corrino_admin_password          = "TestP@ssw0rd123!"
   corrino_admin_email             = "test@example.com"
-  starter_pack_category           = "enterprise_rag"
-  tavily_api_key                  = ""
+  starter_pack_category           = "enterprise_rag_aiq"
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
+  tavily_api_key                  = ""
 }
 
-# Test: enterprise_rag starter pack plans successfully with correct deployment name and registration triggers
-run "plan_enterprise_rag_small" {
+# Test: enterprise_rag_aiq starter pack plans successfully with correct deployment name and registration triggers
+run "plan_enterprise_rag_aiq_small" {
   command = plan
 
-  # Deployment name should be the kebab-case form of the starter pack category
   assert {
     condition     = output.starter_pack_deployment_name == "enterprise-rag"
-    error_message = "enterprise_rag deployment name should be 'enterprise-rag'"
+    error_message = "enterprise_rag_aiq deployment name should be 'enterprise-rag'"
   }
 
-  # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag"
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag_aiq"
     error_message = "postflight trigger should capture starter pack category"
   }
 
-  # Postflight registration trigger should record the deployment region
   assert {
     condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
-
-
 }
