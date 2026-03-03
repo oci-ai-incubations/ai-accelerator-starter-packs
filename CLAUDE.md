@@ -137,7 +137,7 @@ Starter packs (except `enterprise_rag`, which uses Helm directly) are deployed a
 
 ## Key Conventions
 
-- Starter pack categories: `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`. Adding a new category requires changes in `vars.tf` (validation), `app-locals.tf` (mappings), `blueprint_files.tf`, a new schema YAML, `create_final_schema.py` CATEGORIES list, schema expectations, and a new test file.
+- Starter pack categories: `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss` (released); `warehouse-pick-path` (IN PROGRESS). Adding a new category requires changes in `vars.tf` (validation), `app-locals.tf` (mappings), `blueprint_files.tf`, a new schema YAML, `create_final_schema.py` CATEGORIES list, schema expectations, and a new test file.
 - Version is tracked in `AI_ACCELERATOR_STACK_VERSION` and must be kept in sync with `vars.tf` default and `schemas/common_schema.yaml` enum. See `readmes/VERSIONING.md`.
 - Checkov skip rules are in `ai-accelerator-tf/.checkov.yml`.
 - Helm values live in `ai-accelerator-tf/helm-values/` as standalone YAML files (some are Terraform-templated).

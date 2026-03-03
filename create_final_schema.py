@@ -146,7 +146,8 @@ def inject_frontend_skin(merged_schema, skins_data, category, learn_more_url):
             break
 
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"]
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"]
+
 
 
 def get_args():
