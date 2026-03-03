@@ -494,8 +494,8 @@ variable "starter_pack_category" {
   # No default here - schema.yaml provides the default for Resource Manager portal
   # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', or 'enterprise_rag_aiq'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', or 'warehouse_pick_path'."
   }
 }
 
@@ -983,6 +983,37 @@ locals {
       }
     }
 
+    "warehouse_pick_path" = {
+      "small" = {
+        blueprint_file                               = "warehouse-pick-path-blueprint.json"
+        deployment_name                              = "wpp"
+        app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
+        use_dynamic_url                              = true
+        worker_node_shape                            = "VM.GPU.A10.1"
+        worker_node_pool_size                        = 1
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 8
+          memory        = 64
+        }
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
+        api_url                      = "wpp-backend"
+        frontend_url                 = "wpp"
+      }
+    }
+
   }
 
 
@@ -1038,11 +1069,11 @@ locals {
 # Accelerator specific stuff
 locals {
   # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag" || var.starter_pack_category == "enterprise_rag_aiq"
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag" || var.starter_pack_category == "enterprise_rag_aiq" || var.starter_pack_category == "warehouse_pick_path"
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 
 locals {
   # 26ai database needed for paas_rag, enterprise_rag, and enterprise_rag_aiq categories
-  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"], var.starter_pack_category)
 }

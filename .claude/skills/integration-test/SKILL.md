@@ -12,7 +12,8 @@ Run the full OCI Resource Manager integration test lifecycle for a starter pack 
 
 ## Arguments
 
-- `$0` - Starter pack category: `paas_rag`, `cuopt`, `vss`, `enterprise_rag` or `enterprise_rag_aiq`
+- `$0` - Starter pack category: `paas_rag`, `cuopt`, `vss`, `enterprise_rag`, `enterprise_rag_aiq`, or `warehouse_pick_path`
+
 
 If no category is provided, ask the user which category to test.
 
@@ -44,6 +45,7 @@ Before starting, verify:
 - **paas_rag**: `recipe-frontend-paas-*`, `recipe-llamastack-paas-*`, plus `blueprint-deployment-job-*` (Completed)
 - **cuopt**: `recipe-cuopt-*` (+ `recipe-demo-cuopt-*` if frontend enabled)
 - **vss**: `recipe-vss-*`
+- **warehouse_pick_path**: `recipe-wpp-backend-*` (GPU node, port 8000), `recipe-wpp-frontend-*` (CPU node, port 3000)
 
 ## Error Handling
 

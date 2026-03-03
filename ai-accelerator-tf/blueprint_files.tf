@@ -33,6 +33,9 @@ locals {
       "medium" = ""
       # Helm-managed deployment; no blueprint artefact required
     }
+    "warehouse_pick_path" = {
+      "small" = local._warehouse_pick_path_small_blueprint
+    }
   }
 }
 
@@ -1486,6 +1489,88 @@ locals {
       ]
     }
   })
+  _warehouse_pick_path_small_blueprint = jsonencode({
+    deployment_group = {
+      name = "DEPLOY_NAME"
+      deployments = [
+        {
+          name    = "backend"
+          exports = ["service_name"]
+          recipe = {
+            recipe_id                   = "wpp-backend"
+            recipe_mode                 = "service"
+            deployment_name             = "wpp-backend"
+            recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be:569c2ec"
+            recipe_replica_count        = 1
+            recipe_node_shape           = local.starter_pack_config.worker_node_shape
+            recipe_nvidia_gpu_count     = 1
+            recipe_use_shared_node_pool = true
+            recipe_container_port       = "8000"
+            recipe_container_env = [
+              { key = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
+              { key = "OCI26AI_USER", value = var.db_username },
+              { key = "OCI26AI_PASSWORD", value = var.db_password },
+              { key = "OCI26AI_EWALLET_PWD", value = var.db_password },
+              { key = "OCI26AI_TNSNAMES_LOC", value = "/wallet" },
+              { key = "OCI26AI_EWALLET_PEM_LOC", value = "/wallet" },
+            ]
+            recipe_secret_mounts = [
+              { name = "oadb-wallet", mount_location = "/wallet" }
+            ]
+            recipe_liveness_probe_params = {
+              port                  = 8000
+              scheme                = "HTTP"
+              endpoint_path         = "/healthz"
+              period_seconds        = 30
+              timeout_seconds       = 10
+              failure_threshold     = 3
+              success_threshold     = 1
+              initial_delay_seconds = 60
+            }
+            recipe_readiness_probe_params = {
+              port                  = 8000
+              scheme                = "HTTP"
+              endpoint_path         = "/readyz"
+              period_seconds        = 15
+              timeout_seconds       = 10
+              success_threshold     = 1
+              initial_delay_seconds = 30
+            }
+          }
+        },
+        {
+          name       = "frontend"
+          depends_on = ["backend"]
+          recipe = merge(
+            {
+              recipe_id                            = "wpp-frontend"
+              recipe_mode                          = "service"
+              deployment_name                      = "wpp-frontend"
+              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:569c2ec"
+              recipe_replica_count                 = 1
+              recipe_flex_shape_ocpu_count         = 2
+              recipe_flex_shape_memory_size_in_gbs = 16
+              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+              recipe_use_shared_node_pool          = true
+              recipe_container_port                = "3000"
+              service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+              recipe_additional_ingress_ports = [
+                {
+                  port_name    = "api"
+                  service_name = "$${backend.service_name}"
+                  port         = 8000
+                  path         = "/api"
+                  path_type    = "Prefix"
+                }
+              ]
+            },
+            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+          )
+        }
+      ]
+    }
+  })
+
   _paas_rag_small_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
