@@ -472,7 +472,7 @@ locals {
               recipe_storage_group_id      = 1000
               recipe_container_port        = "9000"
               recipe_host_port             = "9000"
-              service_endpoint_subdomain   = local.starter_pack_config.frontend_url
+              service_endpoint_subdomain   = "vss-engine"
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -593,7 +593,7 @@ locals {
                 timeout_seconds       = 1
               }
             },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+            var.use_custom_dns ? { service_endpoint_domain = join(".", ["vss-engine", local.fqdn.name]) } : {}
           )
           depends_on = [
             "elasticsearch",
@@ -914,7 +914,7 @@ locals {
               recipe_storage_group_id     = 1000
               recipe_container_port       = "9000"
               recipe_host_port            = "9000"
-              service_endpoint_subdomain  = local.starter_pack_config.frontend_url
+              service_endpoint_subdomain  = "vss-engine"
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -1039,7 +1039,7 @@ locals {
                 timeout_seconds       = 1
               }
             },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+            var.use_custom_dns ? { service_endpoint_domain = join(".", ["vss-engine", local.fqdn.name]) } : {}
           )
           depends_on = [
             "nim-llm",
