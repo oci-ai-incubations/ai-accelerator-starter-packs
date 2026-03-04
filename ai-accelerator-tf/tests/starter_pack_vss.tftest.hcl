@@ -78,18 +78,18 @@ run "plan_vss_small" {
 
 }
 
-# Test: vss extra-small size plans successfully with correct deployment name and registration triggers
-run "plan_vss_extra_small" {
+# Test: vss poc size plans successfully with correct deployment name and registration triggers
+run "plan_vss_poc" {
   command = plan
 
   variables {
-    starter_pack_size = "extra-small"
+    starter_pack_size = "poc"
   }
 
   # Deployment name should start with the starter pack category (suffixed with random_id hex)
   assert {
     condition     = startswith(output.starter_pack_deployment_name, "vss-")
-    error_message = "vss extra-small deployment name should start with 'vss-'"
+    error_message = "vss poc deployment name should start with 'vss-'"
   }
 
   # Postflight registration trigger should record the selected starter pack category

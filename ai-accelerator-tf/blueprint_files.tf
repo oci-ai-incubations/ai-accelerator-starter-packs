@@ -12,7 +12,7 @@ locals {
       # Add "large" here when implemented
     }
     "vss" = {
-      "extra-small" = local._vss_extra_small_blueprint
+      "poc"         = local._vss_poc_blueprint
       "small"       = local._vss_small_blueprint
       "medium"      = local._vss_medium_blueprint
       # Add "large" here when implemented
@@ -211,7 +211,7 @@ locals {
     }
   })
 
-  _vss_extra_small_blueprint = jsonencode({
+  _vss_poc_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
       deployments = [

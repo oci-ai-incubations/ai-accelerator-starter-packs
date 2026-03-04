@@ -462,12 +462,12 @@ variable "starter_pack_category" {
 }
 
 variable "starter_pack_size" {
-  description = "The starter pack size (poc, extra-small, small, medium, large)"
+  description = "The starter pack size (poc, small, medium, large)"
   type        = string
   default     = "small"
   validation {
-    condition     = contains(["poc", "extra-small", "small", "medium", "large"], var.starter_pack_size)
-    error_message = "Starter pack size must be 'poc', 'extra-small', 'small', 'medium', or 'large'."
+    condition     = contains(["poc", "small", "medium", "large"], var.starter_pack_size)
+    error_message = "Starter pack size must be 'poc', 'small', 'medium', or 'large'."
   }
 }
 
@@ -660,7 +660,7 @@ locals {
     }
 
     "vss" = {
-      "extra-small" = {
+      "poc" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
