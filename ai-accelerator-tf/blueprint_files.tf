@@ -503,7 +503,7 @@ locals {
                 }
               ]
               recipe_additional_ingress_ports = [
-                { port_name = "api", port = 8000, path = "/${local.starter_pack_config.api_url}(/|$)(.*)", path_type = "ImplementationSpecific", rewrite_target = "/$2" }
+                { port_name = "api", port = 8000, path = "/vss(/|$)(.*)", path_type = "ImplementationSpecific", rewrite_target = "/$2" }
               ]
               recipe_node_shape       = local.starter_pack_config.worker_node_shape
               recipe_nvidia_gpu_count = 1

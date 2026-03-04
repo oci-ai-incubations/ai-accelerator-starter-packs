@@ -1,5 +1,5 @@
 # VSS starter pack test
-# Dynamic URL path (use_dynamic_url = true).
+# Dynamic URL path (blueprint_file != "").
 
 mock_provider "oci" {
   override_data {

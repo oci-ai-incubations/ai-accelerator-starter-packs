@@ -1,5 +1,5 @@
 # Enterprise RAG + AIQ starter pack test
-# Static URL path (use_dynamic_url = false) -- no HTTP mocks needed.
+# Static URL path (blueprint_file == "") -- no HTTP mocks needed.
 
 mock_provider "oci" {
   override_data {
