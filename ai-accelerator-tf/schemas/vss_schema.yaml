@@ -70,10 +70,11 @@ variables:
   starter_pack_size:
     type: enum
     enum:
+      - extra-small
       - small
       - medium
     title: "VSS Deployment Size"
-    description: "<strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 300GB storage, 1 Flexible Load Balancer | <strong>MEDIUM</strong> - 2x BM.GPU.L40S.4 (8x L40S 48GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 300GB storage, 1 Flexible Load Balancer"
+    description: "<strong>EXTRA-SMALL</strong> - 1x VM.GPU.A10.2 (2x NVIDIA A10 24GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (8 OCPU, 32GB Mem), 300GB storage, 1 Flexible Load Balancer | <strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 300GB storage, 1 Flexible Load Balancer | <strong>MEDIUM</strong> - 2x BM.GPU.L40S.4 (8x L40S 48GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 300GB storage, 1 Flexible Load Balancer"
     default: small
     required: true
 

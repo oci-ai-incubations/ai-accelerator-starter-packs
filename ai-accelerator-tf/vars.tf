@@ -386,7 +386,7 @@ variable "accelerator_pack_stack_version" {
 
 variable "corrino_image_version" {
   type        = string
-  default     = "v1.0.12"
+  default     = "v1.0.12-hotfix1"
   description = "Corrino backend image version"
 }
 
@@ -462,12 +462,12 @@ variable "starter_pack_category" {
 }
 
 variable "starter_pack_size" {
-  description = "The starter pack size (poc, small, medium, large)"
+  description = "The starter pack size (poc, extra-small, small, medium, large)"
   type        = string
   default     = "small"
   validation {
-    condition     = contains(["poc", "small", "medium", "large"], var.starter_pack_size)
-    error_message = "Starter pack size must be 'poc', 'small', 'medium', or 'large'."
+    condition     = contains(["poc", "extra-small", "small", "medium", "large"], var.starter_pack_size)
+    error_message = "Starter pack size must be 'poc', 'extra-small', 'small', 'medium', or 'large'."
   }
 }
 
@@ -666,6 +666,34 @@ locals {
     }
 
     "vss" = {
+      "extra-small" = {
+        blueprint_file                               = "vss-blueprint.json"
+        deployment_name                              = "vss"
+        app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
+        use_dynamic_url                              = true
+        worker_node_shape                            = "VM.GPU.A10.2"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 16
+          memory        = 260
+        }
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        api_url                      = "vss"
+        frontend_url                 = "vss-frontend"
+      }
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
