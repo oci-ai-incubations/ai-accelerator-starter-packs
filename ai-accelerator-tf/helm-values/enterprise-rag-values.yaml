@@ -37,8 +37,8 @@ ngcApiSecret:
 
 # -- RAG server container image
 image:
-  repository: nvcr.io/nvidia/blueprint/rag-server
-  tag: "2.3.0"
+  repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
+  tag: "latest"
   pullPolicy: Always
 
 # -- RAG server service configuration
@@ -79,11 +79,26 @@ server:
 promptConfig:
   enabled: true
 
-# -- Environment variables for rag-server
 envVars:
   EXAMPLE_PATH: "./nvidia_rag/rag_server"
   PROMPT_CONFIG_FILE: "/prompt.yaml"
   PROMETHEUS_MULTIPROC_DIR: "/tmp-data/prom_data"
+
+  ORACLE_USER:
+    valueFrom:
+      secretKeyRef:
+        name: oci-config-secret
+        key: oracle-user
+  ORACLE_PASSWORD:
+    valueFrom:
+      secretKeyRef:
+        name: oci-config-secret
+        key: oracle-password
+  ORACLE_DSN:
+    valueFrom:
+      secretKeyRef:
+        name: oci-config-secret
+        key: oracle-dsn
 
   ##===Authentication===
   # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -96,20 +111,10 @@ envVars:
   MINIO_ACCESSKEY: REPLACE_HERE
   MINIO_SECRETKEY: REPLACE_HERE
 
-  ##===Vector DB specific configurations===
-  # URL on which vectorstore is hosted
-  APP_VECTORSTORE_URL: "http://milvus:19530" # Use "http://elasticsearch:9200" for elasticsearch
-  # Type of vectordb used to store embedding supported type "milvus" or "elasticsearch"
-  APP_VECTORSTORE_NAME: "milvus"
-  # Index type (e.g., GPU_CAGRA)
-  APP_VECTORSTORE_INDEXTYPE: "GPU_CAGRA"
-  # Type of vectordb search to be used
-  APP_VECTORSTORE_SEARCHTYPE: "dense"
-  # Boolean to control GPU search for milvus vectorstore specific to rag-server
-  APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
-  # ef: Parameter controlling query time/accuracy trade-off. Higher ef leads to more accurate but slower search.
-  APP_VECTORSTORE_EF: "100"
-
+  APP_VECTORSTORE_NAME: "oracle"
+  ORACLE_VECTOR_INDEX_TYPE: "IVF" 
+  ORACLE_DISTANCE_METRIC: "COSINE" 
+  APP_VECTORSTORE_SEARCH_TYPE: "hybrid"
   # vectorstore collection name to store embeddings
   COLLECTION_NAME: "multimodal_data"
   APP_RETRIEVER_SCORETHRESHOLD: "0.25"
@@ -141,7 +146,7 @@ envVars:
 
   ##===Embedding Model specific configurations===
   # URL on which embedding model is hosted. If "", Nvidia hosted API is used
-  APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000"
+  APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000/v1"
   APP_EMBEDDINGS_MODELNAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
 
   ##===Reranking Model specific configurations===
@@ -220,7 +225,16 @@ envVars:
   ENABLE_QUERY_DECOMPOSITION: "false"
   # maximum recursion depth for iterative query decomposition
   MAX_RECURSION_DEPTH: "3"
+  
+volumes:
+  - name: oci-config
+    secret:
+      secretName: oci-config-secret
 
+volumeMounts:
+  - name: oci-config
+    mountPath: "/wallet"
+    readOnly: true
 # -- Ingestor Server
 # subsection: ingestor-server
 # Ingestor API Service
@@ -243,8 +257,8 @@ ingestor-server:
     password: ""
 
   image:
-    repository: nvcr.io/nvidia/blueprint/ingestor-server
-    tag: "2.3.0"
+    repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
+    tag: "latest"
     pullPolicy: Always
 
   # -- Service config for ingestor-server
@@ -271,11 +285,25 @@ ingestor-server:
     # Absolute path to custom prompt.yaml file
     PROMPT_CONFIG_FILE: "/prompt.yaml"
     # === Vector Store Configurations ===
-    APP_VECTORSTORE_URL: "http://milvus:19530" # Use "http://elasticsearch:9200" for elasticsearch
-    APP_VECTORSTORE_NAME: "milvus" # supported values: "milvus" or "elasticsearch"
-    APP_VECTORSTORE_SEARCHTYPE: "dense"
-    APP_VECTORSTORE_ENABLEGPUINDEX: "False"
-    APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
+    ORACLE_USER:
+      valueFrom:
+        secretKeyRef:
+          name: oci-config-secret
+          key: oracle-user
+    ORACLE_PASSWORD:
+      valueFrom:
+        secretKeyRef:
+          name: oci-config-secret
+          key: oracle-password
+    ORACLE_DSN:
+      valueFrom:
+        secretKeyRef:
+          name: oci-config-secret
+          key: oracle-dsn
+    APP_VECTORSTORE_NAME: "oracle"
+    ORACLE_VECTOR_INDEX_TYPE: "IVF"
+    ORACLE_DISTANCE_METRIC: "COSINE"
+    APP_VECTORSTORE_SEARCH_TYPE: "hybrid"
     COLLECTION_NAME: "multimodal_data"
     ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
     # === MinIO Configurations ===
@@ -289,7 +317,7 @@ ingestor-server:
     LLM_API_KEY: ""
 
     # === Embeddings Configurations ===
-    APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000"
+    APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000/v1"
     APP_EMBEDDINGS_MODELNAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
     APP_EMBEDDINGS_DIMENSIONS: "2048"
 
@@ -365,7 +393,17 @@ ingestor-server:
     mountPath: "/data/"
     # Optional subPath within the PVC
     subPath: ""
-
+  
+  volumes:
+    - name: oci-config
+      secret:
+        secretName: oci-config-secret
+  
+  volumeMounts:
+    - name: oci-config
+      mountPath: "/wallet"
+      readOnly: true
+    
 # -- Frontend
 # subsection: frontend
 # rag frontend Frontend
@@ -663,8 +701,6 @@ nim-vlm:
 # NV-Ingest Service
 nv-ingest:
   enabled: true
-  imagePullSecrets:
-    - name: "ngc-secret"
   ngcApiSecret:
     create: false
   ngcImagePullSecret:
@@ -672,6 +708,9 @@ nv-ingest:
   image:
     repository: "nvcr.io/nvidia/nemo-microservices/nv-ingest"
     tag: "25.9.0"
+    # repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-ingest-oci
+    # tag: "latest"
+    # pullPolicy: Always
   resources:
     limits:
       nvidia.com/gpu: 0
@@ -698,10 +737,25 @@ nv-ingest:
     MINIO_INTERNAL_ADDRESS: "rag-minio:9000"
     MINIO_PUBLIC_ADDRESS: "http://localhost:9000"
     MINIO_BUCKET: "nv-ingest"
-    MILVUS_ENDPOINT: "http://milvus:19530"
     OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
     MODEL_PREDOWNLOAD_PATH: "/workspace/models/"
     INSTALL_AUDIO_EXTRACTION_DEPS: "true"
+
+    ORACLE_USER:
+      valueFrom:
+        secretKeyRef:
+          name: oci-config-secret
+          key: oracle-user
+    ORACLE_PASSWORD:
+      valueFrom:
+        secretKeyRef:
+          name: oci-config-secret
+          key: oracle-password
+    ORACLE_DSN:
+      valueFrom:
+        secretKeyRef:
+          name: oci-config-secret
+          key: oracle-dsn
 
     # Paddle OCR endpoints
     PADDLE_GRPC_ENDPOINT: nv-ingest-ocr:8001
@@ -739,33 +793,6 @@ nv-ingest:
     AUDIO_INFER_PROTOCOL: grpc
 
   # Expose internal Milvus/MinIO config managed by nv-ingest subchart
-  milvusDeployed: true
-  milvus:
-    image:
-      all:
-        repository: docker.io/milvusdb/milvus
-        tag: v2.5.17
-    etcd:
-      image:
-        repository: "milvusdb/etcd"
-        tag: "3.5.22-r1"
-    standalone:
-      resources:
-        limits:
-          nvidia.com/gpu: 0
-        requests:
-          cpu: "8"
-          memory: "16Gi"
-    minio:
-      image:
-        repository: docker.io/minio/minio
-        tag: "RELEASE.2025-09-07T16-13-09Z" 
-      ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
-      accessKey: REPLACE_HERE
-      secretKey: REPLACE_HERE
-      bucketName: nv-ingest
-    fullnameOverride: milvus
-
   # Redis Master
   redis:
     image:
@@ -952,3 +979,18 @@ nv-ingest:
     image:
       repository: nvcr.io/nim/nvidia/nemoretriever-parse
       tag: "1.2"
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oci-config-secret
+  namespace: rag
+type: Opaque
+data:
+  oracle-user: "ADMIN"
+  oracle-password: "AI-incubations-123!"
+  oracle-dsn: "adb.us-chicago-1.oraclecloud.com:1521/g2ec18f17g06c18c_demo_high.adb.oraclecloud.com"
+  ewallet.pem: |
+    LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQpNSUlFNmpBY0Jnb3Foa2lHOXcwQkRBRURNQTRFQ0Y5dmh1Y1MrSkk1QWdJbkVBU0NCTWcwM1ppbmhZM2o4QkhIClpVYm1yRHBjV2FLeDlrejBGNlh6TS9ON0R2R1M4TEV4Z0toTm1ObzZVcGVUdUtZREl4NXcrQXdTL1NlTm1jZFAKb0dDSmQxRGVCYTk2U0loZDNBUUtrcTJkdUs2Z3pKeFJobWlnY3ZTY2prNEFncnVqYVdxUldOdk5pY04wa1NDKwp5QnF5ZGJiWlREUTZ1cmw1YndBOE5MU0t6cVZPbGE0QXo0MWRkMmwzWUxIUjk0MWRxTjRtY3Q3WkJnSitDWUpSClhqSUVtQmh6T1ZWSWJPN2ZNS3FyamVLUnVINnZyc0gzS0VRUSs2U3E4R1ROWjBJdFFORUErbEhGOXhaL29yMFkKYUxtZzNHUGtHclh2ckc5OXY3WURNZ1pTMDlWL2dTNWVGd0t6dUR3dEp6STlWTnR0cmpsWmtYYnE5Vlo5bFBoOQp0TWZuS3IwWUZnNndUR3VJay8yWUd5UzR6SFVzdDYzT3BiVjZJMXljZjZuQlBGZjR2RG5pb2R2M2NXdnlyVFpwCjZVbmR3TXhqSkVFL09HU3FHV1E5bngrN2sxZVV1WStaV3RMeTd6N1AvOTd0VU5FS0NiOUwvWFVIVTc3blcrelYKNkx4M3hzT0ZSM0NoNFEyL09LaWNlcm5sMU1OaFduZENkOWhjRDJuSTRldHpoQ2IzTWpGV2Q3enhrSW9tVzVYeQovSjVGNnVGR2RiZlhsUHM0YVlzMEgwN1dHZ0NhZFdTZG1tTTVON2JOcE94RHEzUkZpS0JieEc3SDBrM3hFV2xiClY1SjdVa3BtdEoxcjVCV0dNeEc3ZXZVa2hwQ2cxOXltc3RGNVZoa3JmQlM1bVhtWDFlQml1WVorRDJQWkF4bUEKYVlqT0FacWlNcm8zU09qMVRJR3F6UkRHblljajJndnlDd0ZraVFaM1RTMmpQeGdYTTNVRDloL0dSY1U2b3Zmegp1NGp4SGNpWmwvbDZieFhaK2NmSHJMNmNEUzRmaXQzL1NQOEdiMjIwOWYrejJhaHVUdURESXlaM2tGcmFLcDFiCmd6S0Jvci9rSklBaWpyQ1Z6SUMvaUFHdVlya3R0L3h2MXBrNmd4M2ZXT3hSYU56azFrZWVLS2lVM3hQR1J2TWIKTzdmNEZYTDZqelAvSVVEOC82OGJUUXNsZWZCNmxVYUJVM29jNUZoczlCczB0Q0NuN3ptaDRDMVRvOVRLdU95ZAoxWncrRmhUMHppU01Gbm11UnFadWRYdHU5azFDWlJCUU5sa2dxd3BoekVTYTZYSFBiUVdpTi9zQXlFTVF1TG43CjBJSzFXb0R5UVo3M3pvVHNueDRNb2xpS1FTSmIvMVVNaUpleElDQndSM1hndXFnaEljQTJNdUpibkpSc0V0RmwKbnRmUnNXSUd2eGcxOVpzK3E3T1Z2VVA5QVVnZm1vWUVtYVBjTUNqaGJQa2hFV2dtYVNTNVhEcTRHQ1IwZWdtRwpDMGZpZlRJOGF0YUc5WmpOMVRjSlJxNzNqaHd1OXk4MTRwS1NaMWdjY3JvdHlKa25VbTdEMXVOR1FiclFsQWNwCnNjOWNOclh3ZXU3SDc1TmJ4aWVyeGs3aG5OWUVqL215NWZPM3dDWVhLdnpta2FaUk1MdWxjTlZybzZ4RjB2YW0KYnRzZnhpK0tNaDJYT3ZNS3JLN0JrbG1MSzkxRUtIUGw4ZHhJZWF5NW9uVnluSDcvVmtuOGpZVmg0Yk9raTNMMApHWDdPTDlaTGF5Q0t0MHl4TENyL0RkMjJNZlZoMGtyWEp6U05ydTNlNlNqRmlrdEtYd2llZmRpM1NOVW05RXdFCkhmTjdGalQwQ3cvQkN5MjlqdmpvRlRhZk1iU0QwdUZ3em1MdWQ1bGhrd1Z0RVlFL2Y5ZnE0dzVwYnhpcWxtT0QKcmsrdlZwWitUaDRlMkh0V0MwT3Z5OXYzUXl2NkxqL1dLQUdselI0MTNQaUlPelhNUHVKNUJXNm1YWGg1OTc5VQpMdGRnV213ZlhKa3RmNlRvUTNaaExMeGZ3RUxFeVpaTGhucHE3aVZrYzBkOXgwZ3hCdU9pM010blorWHF5NkVGCkEzbEMvclBNWjhwN2FWcFk3dUtKQUNYWGJLSW55NFo0MGY0M2FxYlhhQ3BuelZ6Uk15Q283MVNGS3hid2xLMloKWFlWS0thY251K3lrQ21WcG5zYz0KLS0tLS1FTkQgRU5DUllQVEVEIFBSSVZBVEUgS0VZLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURVRENDQWpnQ0FRQXdEUVlKS29aSWh2Y05BUUVMQlFBd2dhTXhIekFkQmdOVkJBTVRGa0YxZEc5dWIyMXYKZFhNZ1JHRjBZV0poYzJVZ1EwRXhSVEJEQmdOVkJBb1RQRTl5WVdOc1pTQkRiM0p3YjNKaGRHbHZiaUJCZFhSdgpibTl0YjNWeklFUmhkR0ZpWVhObElFZHNiMkpoYkNCVFpXeG1MWE5wWjI1bFpDQkRRVEVYTUJVR0ExVUVCeE1PClVtVmtkMjl2WkNCVGFHOXlaWE14RXpBUkJnTlZCQWdUQ2tOaGJHbG1iM0p1YVdFeEN6QUpCZ05WQkFZVEFsVlQKTUI0WERUSTFNVEl4TWpFNU1ESTBPVm9YRFRNd01USXhNVEU1TURJME9Wb3dPREVMTUFrR0ExVUVMaE1DVmpFeApLVEFuQmdOVkJBTVRJRVEzUWtKQk16RkZRVVJEUkRSRVEwSTRNMEUwTXpWRU1rUkRRalkxTWtFd01JSUJJakFOCkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXZXbFZnQXNUQ0czL254Y2dKVmRISXJDbGNJNEgKUmt2T1ZaM2MxanFhaGNWQ21Ud1RhbG1CeXd4MVpXUk1EK0wxOHZCRDZ5ZzVXaEYzcS80NE1HNzdPOEdNRHR2SApGcWt1UzRxNVVISFQzdDRaQ3N4clRrUTVmVkhIRVR4aEd2RmZERTZ6VnRsZ0RxMGkwQldVOE1aQkh3OVQ5SXNSCncvMzA5dmJHRHZqRjlBd0dpdnJ6b0dwdnlQMXc5ZlQ0Y1Vhb2tIbVdiOUkwUFNwSXdBb1FrU3QyWFlZZ0FPazEKeWpzUXhHaVlidjYvL0NicmJHNS9JQXZKeGNvUC9yQlh6b2k2VXgzTkpXbGMyNmFKbDJHYVVwN1V0RFdLTHJGTgo3bW9WQWNJUkkvcEllcXg1a1Mwa2VodU1yY2dFd1lheHFYcEtVemdBQUg3N2pJZmg5OGk5YzByZE93SURBUUFCCk1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQXhEMFZyWVJtWWg0TEpRUzQ1amFOd2paaGFxR1ByU3NZVEJLZ3gKTDB2VUdYR0ttTG5Ib004NFlTbkFRVkxLME1QRlFBT3hCUm1BTHdsTnBSdjdzOEhsdzJPQndjeWpacFZKaUxPNwpQL1hWS3NtR3RvOFR3bW1aQzdQN1NBbzlERWp5TlRWWVRoUzl3Z2dqcENSTkVXTzZBMGR3S1prQ21LN1FMK003CjlhVWJiSFBuOTl1eTlUM1R2cmR3YUhaOGhPNTV0TWFsT0FtZUJMa0tNSHZxUU1lZ3NUNXpJMUlYcG51M1V1dVAKRDVod25HWWxYVkdERTc4bVNXTUdVcGRCY3NxbnNKVUp4Q3U5S0xETUFKeTRFVWhBSHlza1RUdWtjVUNjeHlIcApxcnVjWXlNVDdSNHd4c3RpOE1aZjRrSEVIY0p5ZERsdDdITjdya2MrdWxsYzgwMmoKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQotLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KTUlJRHpEQ0NBclFDRVFEZzRwYWVPaHY4bVFuTGJCUkZKV3J4TUEwR0NTcUdTSWIzRFFFQkN3VUFNSUdqTVI4dwpIUVlEVlFRREV4WkJkWFJ2Ym05dGIzVnpJRVJoZEdGaVlYTmxJRU5CTVVVd1F3WURWUVFLRXp4UGNtRmpiR1VnClEyOXljRzl5WVhScGIyNGdRWFYwYjI1dmJXOTFjeUJFWVhSaFltRnpaU0JIYkc5aVlXd2dVMlZzWmkxemFXZHUKWldRZ1EwRXhGekFWQmdOVkJBY1REbEpsWkhkdmIyUWdVMmh2Y21Wek1STXdFUVlEVlFRSUV3cERZV3hwWm05eQpibWxoTVFzd0NRWURWUVFHRXdKVlV6QWVGdzB5TVRBM01ESXdNekUwTkRoYUZ3MDBNVEEyTWpjd016RTBORGhhCk1JR2pNUjh3SFFZRFZRUURFeFpCZFhSdmJtOXRiM1Z6SUVSaGRHRmlZWE5sSUVOQk1VVXdRd1lEVlFRS0V6eFAKY21GamJHVWdRMjl5Y0c5eVlYUnBiMjRnUVhWMGIyNXZiVzkxY3lCRVlYUmhZbUZ6WlNCSGJHOWlZV3dnVTJWcwpaaTF6YVdkdVpXUWdRMEV4RnpBVkJnTlZCQWNURGxKbFpIZHZiMlFnVTJodmNtVnpNUk13RVFZRFZRUUlFd3BECllXeHBabTl5Ym1saE1Rc3dDUVlEVlFRR0V3SlZVekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0MKQVFvQ2dnRUJBS1R6Vy8yNytBQ3U0ZGdHejY5Sm55bXQ0ZE1wcVVtN0RRejJZU0Vmbm9YaFBaY1htQ3kraVhkLwpZbVpUNWlBa3VoSTFYVW9BZzhuZWtQUHp0S1RVcDkrR21Qem9MZTQwSUNaZVBMQ08xQm5Cb09zUGVnNWE2Yk1FCjZzSTEwWDVDa2ovOUlIVjVpay9zTzVUZ0dJalIzNlZaeUc5ajVzRzVTdDI1WXFWQVBOMC83WWlpVXBPd2lrRE8KNjlaUXlocUNUQmRzSGloRTFuWWlGMHRENHdYUTdvcmFXKzl3OUZleFQ3WlNHSXIxNTg4UEZISEhaRjFraU1HeQorT0thbUladmdsaW05VzdFdTVtKzhTSUw1VzV2d09CVnMvR2JBY1JaWW5aRkkyN1lqV1dReEFkSDRkMmc0TXhKCjBpK1k5bUpxR1R3dnhIZlBkVUxrbWpFMEdKcHYrU01DQXdFQUFUQU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUEKRU9TSllKQTRxL2hJcURQaGhkcDZMQVRlZ0EvbHU3WjVLL1dFL3ltclZXMG5NWEc1THJzMkhYZWptaEYvMHloLwp6UThBQ054alNjTEVpNWY4ZzlRdzFsK1NZMnlLNXBoYjhmQ1duL01nalV3KzFzWU10RFZpWU05VWRGK1NYOXB5CitvenBOcmIvaU1EODhCUk5IdVNaYi9CeXJ3c29lOVE3RjJrZGE4ZExoejJzZFIwM0tSMTE3cWxoQmFzMTN5MzQKU1E2SnVHcFk2RHJ2N3Z6dmlmald4c3Z3bHgxMDJsbGpoWTBwdTNkWm9acE1IRHlYWFhva01rV1dBZ1BMeEcvWgpZbmJmMlY5UG15NzBTRFM0UkdDUHI4VHdhN3ZDU3Z6bVdSQkg4cU1FTXRKM0JNMmNLdzRNdnJqUm1GTHNLMTd6ClUxMXFjRHd1SVJUc2ppdTFMTW5yVmc9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCi0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlEcnpDQ0FwZWdBd0lCQWdJUUNEdmdWcEJDUnJHaGRXckpXWkhIU2pBTkJna3Foa2lHOXcwQkFRVUZBREJoCk1Rc3dDUVlEVlFRR0V3SlZVekVWTUJNR0ExVUVDaE1NUkdsbmFVTmxjblFnU1c1ak1Sa3dGd1lEVlFRTEV4QjMKZDNjdVpHbG5hV05sY25RdVkyOXRNU0F3SGdZRFZRUURFeGRFYVdkcFEyVnlkQ0JIYkc5aVlXd2dVbTl2ZENCRApRVEFlRncwd05qRXhNVEF3TURBd01EQmFGdzB6TVRFeE1UQXdNREF3TURCYU1HRXhDekFKQmdOVkJBWVRBbFZUCk1SVXdFd1lEVlFRS0V3eEVhV2RwUTJWeWRDQkpibU14R1RBWEJnTlZCQXNURUhkM2R5NWthV2RwWTJWeWRDNWoKYjIweElEQWVCZ05WQkFNVEYwUnBaMmxEWlhKMElFZHNiMkpoYkNCU2IyOTBJRU5CTUlJQklqQU5CZ2txaGtpRwo5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBNGp2aEVYTGVxS1RUbzFlcVVLS1BDM2VReWFLbDdoTE9sbHNCCkNTRE1BWk9uVGpDM1UvZER4R2tBVjUzaWpTTGRod1pBQUlFSnpzNGJnNy9melR0eFJ1TFdac2NGczNZbkZvOTcKbmg2VmZlNjNTS01JMnRhdmVndzVCbVYvU2wwZnZCZjRxNzd1S05kMGYzcDRtVm1GYUc1Y0l6Skx2MDdBNkZwdAo0M0MvZHhDLy9BSDJoZG1vUkJCWU1xbDFHTlhSb3I1SDRpZHE5Sm96K0VrSVlJdlVYN1E2aEwraHFrcE1mVDdQClQxOXNkbDZnU3plUm50d2k1bTNPRkJxT2Fzdit6Yk1VWkJmSFd5bWVNci95N3ZyVEMwTFVxN2RCTXRvTTFPLzQKZ2RXN2pWZy90UnZvU1NpaWNOb3hCTjMzc2hieVRBcE9CNmp0U2oxZXRYK2prTU92SndJREFRQUJvMk13WVRBTwpCZ05WSFE4QkFmOEVCQU1DQVlZd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUE5NVFOVmJSClRMdG04S1BpR3h2RGw3STkwVlV3SHdZRFZSMGpCQmd3Rm9BVUE5NVFOVmJSVEx0bThLUGlHeHZEbDdJOTBWVXcKRFFZSktvWklodmNOQVFFRkJRQURnZ0VCQU11Y042cElFeElLK3QxRW5FOVNzUFRmcmdUMWVYa0lveVFZL0VzcgpoTUF0dWRYSC92VEJIMWpMdUcyY2VuVG5tQ21yRWJYamNLQ2h6VXlJbVpPTWtYRGlxdzhjdnBPcC8yUFY1QWRnCjA2Ty9uVnNKOGRXTzQxUDBqbVA2UDZmYnRHYmZZbWJXMFc1QmpmSXR0ZXAzU3ArZFdPSXJXY0JBSSswdEtJSkYKUG5sVWtpYVk0SUJJcURmdjhOWjVZQmJlck9nT3pXNnNSQmM0TDBuYTRVVStLcmsyVTg4NlVBYjNMdWpFVjBscwpZU0VZMVFTdGVEd3NPb0JycCt1dkZSVHAySW5CdVRoczRwRnNpdjlrdVhjbFZ6REFHeVNqNGR6cDMwZDh0YlFrCkNBVXc3QzI5Qzc5RnYxQzVxZlBybUFFU3JjaUl4cGcwWDQwS1BNYnAxWldWYmQ0PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  tnsnames.ora: |
+    ZGVtb19oaWdoID0gKGRlc2NyaXB0aW9uPSAocmV0cnlfY291bnQ9MjApKHJldHJ5X2RlbGF5PTMpKGFkZHJlc3M9KHByb3RvY29sPXRjcHMpKHBvcnQ9MTUyMikoaG9zdD1hZGIudXMtY2hpY2Fnby0xLm9yYWNsZWNsb3VkLmNvbSkpKGNvbm5lY3RfZGF0YT0oc2VydmljZV9uYW1lPWcyZWMxOGYxNzA2YzE4Y19kZW1vX2hpZ2guYWRiLm9yYWNsZWNsb3VkLmNvbSkpKHNlY3VyaXR5PShzc2xfc2VydmVyX2RuX21hdGNoPXllcykpKQ0KDQpkZW1vX2xvdyA9IChkZXNjcmlwdGlvbj0gKHJldHJ5X2NvdW50PTIwKShyZXRyeV9kZWxheT0zKShhZGRyZXNzPShwcm90b2NvbD10Y3BzKShwb3J0PTE1MjIpKGhvc3Q9YWRiLnVzLWNoaWNhZ28tMS5vcmFjbGVjbG91ZC5jb20pKShjb25uZWN0X2RhdGE9KHNlcnZpY2VfbmFtZT1nMmVjMThmMTcwNmMxOGNfZGVtb19sb3cuYWRiLm9yYWNsZWNsb3VkLmNvbSkpKHNlY3VyaXR5PShzc2xfc2VydmVyX2RuX21hdGNoPXllcykpKQ0KDQpkZW1vX21lZGl1bSA9IChkZXNjcmlwdGlvbj0gKHJldHJ5X2NvdW50PTIwKShyZXRyeV9kZWxheT0zKShhZGRyZXNzPShwcm90b2NvbD10Y3BzKShwb3J0PTE1MjIpKGhvc3Q9YWRiLnVzLWNoaWNhZ28tMS5vcmFjbGVjbG91ZC5jb20pKShjb25uZWN0X2RhdGE9KHNlcnZpY2VfbmFtZT1nMmVjMThmMTcwNmMxOGNfZGVtb19tZWRpdW0uYWRiLm9yYWNsZWNsb3VkLmNvbSkpKHNlY3VyaXR5PShzc2xfc2VydmVyX2RuX21hdGNoPXllcykpKQ0KDQpkZW1vX3RwID0gKGRlc2NyaXB0aW9uPSAocmV0cnlfY291bnQ9MjApKHJldHJ5X2RlbGF5PTMpKGFkZHJlc3M9KHByb3RvY29sPXRjcHMpKHBvcnQ9MTUyMikoaG9zdD1hZGIudXMtY2hpY2Fnby0xLm9yYWNsZWNsb3VkLmNvbSkpKGNvbm5lY3RfZGF0YT0oc2VydmljZV9uYW1lPWcyZWMxOGYxNzA2YzE4Y19kZW1vX3RwLmFkYi5vcmFjbGVjbG91ZC5jb20pKShzZWN1cml0eT0oc3NsX3NlcnZlcl9kbl9tYXRjaD15ZXMpKSkNCg0KZGVtb190cHVyZ2VudCA9IChkZXNjcmlwdGlvbj0gKHJldHJ5X2NvdW50PTIwKShyZXRyeV9kZWxheT0zKShhZGRyZXNzPShwcm90b2NvbD10Y3BzKShwb3J0PTE1MjIpKGhvc3Q9YWRiLnVzLWNoaWNhZ28tMS5vcmFjbGVjbG91ZC5jb20pKShjb25uZWN0X2RhdGE9KHNlcnZpY2VfbmFtZT1nMmVjMThmMTcwNmMxOGNfZGVtb190cHVyZ2VudC5hZGIub3JhY2xlY2xvdWQuY29tKSkoc2VjdXJpdHk9KHNzbF9zZXJ2ZXJfZG5fbWF0Y2g9eWVzKSkpDQoNCg0KDQo=
