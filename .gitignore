@@ -54,5 +54,8 @@ ai-accelerator-tf/schemas/generated/
 .DS_Store
 .cursor/
 
+# Test artifacts from /deploy-and-test (reports, recordings)
+.claude/test-artifacts/
+
 *.tfplan
 
