@@ -573,7 +573,6 @@ locals {
                 timeout_seconds   = 1
                 failure_threshold = 360
               }
-              service_endpoint_subdomain  = local.starter_pack_config.frontend_url
               recipe_use_shared_node_pool = true
               recipe_liveness_probe_params = {
                 port              = 8000
@@ -591,8 +590,7 @@ locals {
                 initial_delay_seconds = 5
               }
               recipe_shared_memory_volume_size_limit_in_mb = 16384
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+            }
           )
         }
       ]
@@ -861,7 +859,6 @@ locals {
               recipe_storage_group_id      = 1000
               recipe_container_port        = "9000"
               recipe_host_port             = "9000"
-              service_endpoint_subdomain   = local.starter_pack_config.frontend_url
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -981,8 +978,7 @@ locals {
                 period_seconds        = 5
                 timeout_seconds       = 1
               }
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+            }
           )
           depends_on = [
             "elasticsearch",
@@ -1303,7 +1299,6 @@ locals {
               recipe_storage_group_id     = 1000
               recipe_container_port       = "9000"
               recipe_host_port            = "9000"
-              service_endpoint_subdomain  = local.starter_pack_config.frontend_url
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -1427,8 +1422,7 @@ locals {
                 period_seconds        = 5
                 timeout_seconds       = 1
               }
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+            }
           )
           depends_on = [
             "nim-llm",
