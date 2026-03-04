@@ -1,5 +1,5 @@
 # VSS starter pack test
-# Dynamic URL path (use_dynamic_url = true).
+# Dynamic URL path (blueprint_file != "").
 
 mock_provider "oci" {
   override_data {
@@ -76,4 +76,31 @@ run "plan_vss_small" {
   }
 
 
+}
+
+# Test: vss poc size plans successfully with correct deployment name and registration triggers
+run "plan_vss_poc" {
+  command = plan
+
+  variables {
+    starter_pack_size = "poc"
+  }
+
+  # Deployment name should start with the starter pack category (suffixed with random_id hex)
+  assert {
+    condition     = startswith(output.starter_pack_deployment_name, "vss-")
+    error_message = "vss poc deployment name should start with 'vss-'"
+  }
+
+  # Postflight registration trigger should record the selected starter pack category
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "vss"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  # Postflight registration trigger should record the deployment region
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
 }

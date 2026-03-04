@@ -126,7 +126,7 @@ run "plan_cuopt_medium" {
 
 It depends on whether the URL is **static** or **dynamic**:
 
-- **Static URL** (like `enterprise_rag`, where `use_dynamic_url = false`): The URL is computed from variables/locals at plan time. You can assert on it directly:
+- **Static URL** (like `enterprise_rag`, where `blueprint_file == ""`): The URL is computed from variables/locals at plan time. You can assert on it directly:
 
 ```hcl
 assert {
@@ -135,7 +135,7 @@ assert {
 }
 ```
 
-- **Dynamic URL** (like `cuopt`, `vss`, `paas_rag`, where `use_dynamic_url = true`): The URL flows through `null_resource` provisioners and `data.http` calls that only resolve at apply time. **You cannot unit-test dynamic URLs.** Instead, assert on deterministic values like deployment name and postflight triggers (see examples above).
+- **Dynamic URL** (like `cuopt`, `vss`, `paas_rag`, where `blueprint_file != ""`): The URL flows through `null_resource` provisioners and `data.http` calls that only resolve at apply time. **You cannot unit-test dynamic URLs.** Instead, assert on deterministic values like deployment name and postflight triggers (see examples above).
 
 If you add a new output in `outputs.tf`, also add it to the schema -- see [schemas/tests/RULES.md](../schemas/tests/RULES.md) for schema test instructions.
 

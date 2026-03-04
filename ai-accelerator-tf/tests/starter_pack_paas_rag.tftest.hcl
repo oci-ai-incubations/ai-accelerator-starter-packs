@@ -1,5 +1,5 @@
 # PaaS RAG starter pack test
-# Dynamic URL path (use_dynamic_url = true).
+# Dynamic URL path (blueprint_file != "").
 # Supplies db_password to satisfy the 26ai.tf lifecycle precondition.
 
 mock_provider "oci" {
