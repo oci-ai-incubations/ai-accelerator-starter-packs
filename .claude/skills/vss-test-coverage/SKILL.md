@@ -301,7 +301,7 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 **Preconditions:** Deployed VSS stack, valid bucket with video files, all NIM pods Running, bucket configured in Settings.
 
 1. Navigate to `/` (Home)
-2. Verify file list auto-loads from the bucket configured in Settings (no need to enter bucket name or click "List Files" — the bucket is already set in localStorage)
+2. Verify file list auto-loads from the bucket configured in Settings (no need to enter bucket name, the bucket is already set in localStorage. Click refresh files to get the list of files)
 3. Verify file list appears (≥1 file)
 4. Select a video file from the list
 5. (Optional) Adjust parameters: model, chunk_duration, prompts

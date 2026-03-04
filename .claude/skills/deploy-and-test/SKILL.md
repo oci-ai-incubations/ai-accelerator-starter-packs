@@ -395,7 +395,7 @@ For infrastructure test rows (IDs like `VI-*`):
 5. This merged list is the single flow you will execute.
 
 > **ONE `browser_run_code` CALL. ONE RECORDING. ONE FLOW.** All UI tests — base spec and user-provided — go into a **single** `mcp__playwright__browser_run_code` call that produces a **single** `.webm` video recording. Do NOT split UI tests across multiple `browser_run_code` calls. Do NOT create multiple browser contexts. The entire UI test session is one sequential flow in one function.
->
+
 > **FAILURE RECOVERY INSIDE THE SINGLE RUN.** If a test fails, record the failure, **refresh the page** (`p.goto(BASE_URL, { waitUntil: 'networkidle' })`) to reset state, and continue to the next test within the same function. If a failure blocks subsequent tests (e.g., the page is stuck in an unrecoverable state after refresh), stop the run, close the context to finalize the recording, and **ask the user** what to do — do NOT launch a second `browser_run_code` call. A second call creates a second browser context and a second `.webm` file, violating the single-recording rule. The final artifact directory should contain exactly **one** `.webm` file.
 
 > **NO SCREENSHOTS.** The continuous video recording with banner overlay captures everything — screenshots are redundant and clutter the sandbox.

@@ -386,7 +386,7 @@ variable "accelerator_pack_stack_version" {
 
 variable "corrino_image_version" {
   type        = string
-  default     = "v1.0.12"
+  default     = "v1.0.12-hotfix1"
   description = "Corrino backend image version"
 }
 
@@ -584,7 +584,6 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = true
-        use_dynamic_url                              = true
         worker_node_shape                            = "VM.GPU.A10.2"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
@@ -603,7 +602,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
         frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : "cuopt"
       }
       "small" = {
@@ -612,7 +610,6 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
-        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
@@ -631,7 +628,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
         frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
@@ -640,7 +636,6 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
-        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
@@ -659,20 +654,44 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = var.cuopt_frontend_enabled ? "cuopt-2-cuopt" : "cuopt"
         frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented
     }
 
     "vss" = {
+      "poc" = {
+        blueprint_file                               = "vss-blueprint.json"
+        deployment_name                              = "vss"
+        app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
+        worker_node_shape                            = "VM.GPU.A10.2"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 16
+          memory        = 260
+        }
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        frontend_url                 = "vss-frontend"
+      }
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
-        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
@@ -691,7 +710,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = "vss"
         frontend_url                 = "vss-frontend"
       }
       "medium" = {
@@ -700,7 +718,6 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
-        use_dynamic_url                              = true
         worker_node_shape                            = "BM.GPU.L40S.4"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 1
@@ -719,7 +736,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = "vss"
         frontend_url                 = "vss-frontend"
       }
       # Add "large" here when implemented
@@ -732,7 +748,6 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = false
-        use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -751,7 +766,6 @@ locals {
         }
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
-        api_url                      = "frontend"
         frontend_url                 = "frontend-paas"
       }
 
@@ -761,7 +775,6 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = false
-        use_dynamic_url                              = true
         worker_node_shape                            = "none"
         worker_node_pool_size                        = 0
         cpu_worker_node_pool_size                    = 1
@@ -780,7 +793,6 @@ locals {
         }
         database_storage_size_in_tbs = 8
         database_compute_count       = 16
-        api_url                      = "frontend"
         frontend_url                 = "frontend-paas"
       }
       # Add "large" here when implemented
@@ -793,7 +805,6 @@ locals {
         app_namespace                                = "rag"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = false
-        use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -812,7 +823,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = ""              # Not used (use_dynamic_url = false)
         frontend_url                 = "frontend-erag" # Not used
       }
     }
@@ -825,7 +835,6 @@ locals {
         aiq_namespace                                = "aiq"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = false
-        use_dynamic_url                              = false
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -844,7 +853,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        api_url                      = "" # Not used (use_dynamic_url = false)
         frontend_url                 = "aiq"
       }
     }
@@ -859,9 +867,6 @@ locals {
   starter_pack_deployment_name = var.starter_pack_category != "enterprise_rag" ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
-
-  # Subdomain for API endpoint (used for deployment status polling)
-  api_url = local.starter_pack_config.api_url
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.

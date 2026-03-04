@@ -8,7 +8,7 @@
 # Queries Corrino workspace API to get the actual VSS service name
 # =============================================================================
 locals {
-  # Extract VSS recipe info from workspace data (reuses data from data-starter-pack-url.tf)
+  # Extract VSS recipe info from workspace data (reuses data from blueprint-readiness.tf)
   vss_recipe_info = var.starter_pack_category == "vss" ? [
     for name, info in local.recipes :
     {

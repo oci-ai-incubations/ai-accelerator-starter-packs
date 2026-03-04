@@ -1,19 +1,19 @@
-# Deployment readiness checks and URL outputs for blueprint-based starter packs
-# Polls the workspace API to verify deployment health before completing
+# Blueprint deployment readiness gate for starter packs
+# Polls the Corrino API to verify deployment health, then fetches workspace data
 
 # =============================================================================
 # Configuration locals
 # =============================================================================
 locals {
-  # Whether this starter pack uses dynamic URL lookup (from config)
-  needs_dynamic_url = local.starter_pack_config.use_dynamic_url
+  # Whether this starter pack deploys via a blueprint and needs readiness polling
+  uses_blueprint_deployment = local.starter_pack_config.blueprint_file != ""
 }
 
 # =============================================================================
 # Step 1: Wait for the deployment to become available (polls the API)
 # =============================================================================
 resource "null_resource" "wait_for_deployment" {
-  count = local.needs_dynamic_url ? 1 : 0
+  count = local.uses_blueprint_deployment ? 1 : 0
 
   triggers = {
     blueprint_deploy_id = random_id.blueprint_deploy_id[0].hex
@@ -26,7 +26,7 @@ resource "null_resource" "wait_for_deployment" {
       API_URL="${local.public_endpoint.api_origin_secure}"
       USERNAME="${var.corrino_admin_username}"
       PASSWORD="${var.corrino_admin_password}"
-      DEPLOYMENT_FOR_URL="${local.api_url}"
+      DEPLOYMENT_FOR_URL="${local.starter_pack_config.deployment_name}"
       MAX_ATTEMPTS=40  # 40 attempts * 30 seconds = 20 minutes max wait
       ATTEMPT=0
 
@@ -50,9 +50,9 @@ resource "null_resource" "wait_for_deployment" {
           -H "Authorization: Token $TOKEN" \
           -H "Content-Type: application/json" 2>/dev/null)
 
-        # Filter by specific sub-deployment name (e.g., "frontend-paas-*")
-        # For single deployments (cuopt without frontend), DEPLOYMENT_FOR_URL="cuopt" matches "cuopt-<uuid>"
-        # For deployment groups, it matches "<sub_deployment>-<group>-<uuid>" pattern
+        # Filter by deployment_name-derived canonical prefix
+        # For single deployments, DEPLOYMENT_FOR_URL="cuopt" matches "cuopt-<uuid>"
+        # For deployment groups, it matches "<sub_deployment>-<group>-<uuid>" names generated from deployment_name
         DEPLOYMENT_UUID=$(echo "$WORKSPACE" | jq -r ".recipes | to_entries[] | select(.key | startswith(\"$DEPLOYMENT_FOR_URL-\")) | select(.value.type == \"Ingress\") | .value[\"deployment-uuid\"]" 2>/dev/null | head -1)
 
         if [ -n "$DEPLOYMENT_UUID" ] && [ "$DEPLOYMENT_UUID" != "null" ]; then
@@ -88,7 +88,7 @@ resource "null_resource" "wait_for_deployment" {
 # Step 2: Authenticate with the Corrino API to get a token
 # =============================================================================
 data "http" "starter_pack_auth" {
-  count  = local.needs_dynamic_url ? 1 : 0
+  count  = local.uses_blueprint_deployment ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/login/"
   method = "POST"
 
@@ -123,7 +123,7 @@ data "http" "starter_pack_auth" {
 #   }
 # }
 data "http" "starter_pack_workspace" {
-  count  = local.needs_dynamic_url ? 1 : 0
+  count  = local.uses_blueprint_deployment ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/workspace/"
   method = "GET"
 
@@ -138,11 +138,11 @@ data "http" "starter_pack_workspace" {
 }
 
 # =============================================================================
-# Extract the deployment URL from the workspace response
+# Extract recipe data from the workspace response
 # =============================================================================
 locals {
   # Parse workspace response - it's a single object with recipes directly at root level
-  workspace_data = local.needs_dynamic_url ? (
+  workspace_data = local.uses_blueprint_deployment ? (
     try(jsondecode(data.http.starter_pack_workspace[0].response_body), null)
   ) : null
 
