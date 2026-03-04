@@ -157,9 +157,60 @@ Available regions for BM.GPU4.8 (need 2 nodes):
 
 If no regions qualify, report to the user and stop.
 
+### Step 4b: Check service limit quota for qualifying regions
+
+The capacity dashboard shows hardware availability, but deployments also require **tenancy quota**. For each region that passed Step 4's capacity filter, check the OCI service limit to confirm sufficient quota exists.
+
+**GPU shape → limit name mapping:**
+
+| GPU Shape | OCI Limit Name | GPUs per Node |
+|---|---|---|
+| `VM.GPU.A10.2` | `gpu-a10-count` | 2 |
+| `BM.GPU4.8` | `gpu4-count` | 8 |
+| `BM.GPU.A100-v2.8` | `gpu-a100-v2-8-count` | 8 |
+| `BM.GPU.L40S-NC.4` | `gpu-l40s-nc-count` | 4 |
+
+> **Note:** If the limit name is wrong (API returns `InvalidParameter`), discover the correct name with:
+> ```bash
+> oci limits definition list --service-name compute --compartment-id <TENANCY_OCID> --region <region> --all \
+>   | python3 -c "import json,sys; [print(i['name'],'-',i['description']) for i in json.load(sys.stdin)['data'] if '<shape-keyword>' in i['name'].lower()]"
+> ```
+> Replace `<shape-keyword>` with `gpu4`, `a10`, `a100`, or `l40s` as appropriate.
+
+**Query for each qualifying region:**
+
+```bash
+# Get tenancy OCID from terraform.tfvars
+TENANCY_OCID=$(grep 'tenancy_ocid' ai-accelerator-tf/terraform.tfvars | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+
+# For each region + AD from Step 4:
+oci limits resource-availability get \
+  --service-name compute \
+  --limit-name <limit-name> \
+  --compartment-id "$TENANCY_OCID" \
+  --availability-domain "<full-AD-name>" \
+  --region <region>
+```
+
+The response contains `available` (remaining quota) and `used` (current usage). A region is **deployable** only if `available` >= (nodes needed × GPUs per node).
+
+**Present a combined table:**
+
+```
+GPU Capacity + Quota for BM.GPU4.8 (need 1 node = 8 GPUs):
+
+| # | Region         | AD   | Capacity Available | Quota Available | Quota Used | Deployable? |
+|---|----------------|------|--------------------|-----------------|------------|-------------|
+| 1 | us-sanjose-1   | AD-1 | 3                  | 8               | 24         | Yes         |
+| 2 | ap-osaka-1     | AD-1 | 2                  | 0               | 16         | No — quota exhausted |
+| 3 | uk-london-1    | AD-1 | 1                  | 0               | 0          | No — no quota |
+```
+
+If no region has both capacity AND quota, report to the user and stop.
+
 ### Step 5: User selects region
 
-Ask the user to choose a region. Record:
+Ask the user to choose from **deployable** regions only (those with both capacity and quota). Record:
 - **Region** (e.g., `us-ashburn-1`) → use as `region` in deployment
 - **Availability Domain** (e.g., `AD-1`) → use as `worker_node_availability_domain`
 
@@ -344,6 +395,8 @@ For infrastructure test rows (IDs like `VI-*`):
 5. This merged list is the single flow you will execute.
 
 > **ONE `browser_run_code` CALL. ONE RECORDING. ONE FLOW.** All UI tests — base spec and user-provided — go into a **single** `mcp__playwright__browser_run_code` call that produces a **single** `.webm` video recording. Do NOT split UI tests across multiple `browser_run_code` calls. Do NOT create multiple browser contexts. The entire UI test session is one sequential flow in one function.
+>
+> **FAILURE RECOVERY INSIDE THE SINGLE RUN.** If a test fails, record the failure, **refresh the page** (`p.goto(BASE_URL, { waitUntil: 'networkidle' })`) to reset state, and continue to the next test within the same function. If a failure blocks subsequent tests (e.g., the page is stuck in an unrecoverable state after refresh), stop the run, close the context to finalize the recording, and **ask the user** what to do — do NOT launch a second `browser_run_code` call. A second call creates a second browser context and a second `.webm` file, violating the single-recording rule. The final artifact directory should contain exactly **one** `.webm` file.
 
 > **NO SCREENSHOTS.** The continuous video recording with banner overlay captures everything — screenshots are redundant and clutter the sandbox.
 

@@ -235,15 +235,19 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 **Component:** `FileBrowserCard` inside `(vss)/page.tsx`
 **Context provider:** `VssContext` wraps all `(vss)` routes
 
+> **IMPORTANT — Bucket auto-loading behavior:**
+> The bucket name is configured in the **Settings page** (`/settings`) and persisted to `localStorage` key `vss-bucket`. When the Home page loads, it **automatically reads the bucket from localStorage and lists files** — there is no manual "enter bucket name → click List Files" step needed. If the bucket is already set in Settings (which it is for deployed stacks), the Home page will show the file list immediately on load.
+>
+> The Home page is **not for configuring the bucket** — it is for **browsing and processing files** that are already in the configured bucket. The bucket name input (VU-3) and "List Files" button (VU-4) exist as a fallback but are typically pre-populated and auto-triggered.
 | ID | Element | Selector Hint | Interaction | Verification |
 |---|---|---|---|---|
 | VU-1 | Page title / header | `text="AI Broadcast Compliance"` or Oracle logo | None (visual) | Text or image visible after load |
 | VU-2 | Navigation sidebar | Links: Home, Content Review, Analytics, Settings | Click each link | URL changes to correct route |
-| VU-3 | Bucket name input | `input` with placeholder containing "bucket" | Type bucket name | Value persists to localStorage key `vss-bucket` |
-| VU-4 | "List Files" button | `button` with text "List Files" | Click after entering bucket | Triggers POST `/api/list-bucket-files`; file list appears or error message |
+| VU-3 | Bucket name in Settings | Navigate to `/settings` | Check bucket field | Verify the bucket name field on the Settings page is populated. This confirms the bucket is configured. **No interaction needed on the Home page for this check.** |
+| VU-4 | File list loads on Home | Navigate to `/`, click refresh button | Verify file list | Click the **refresh button** on the Home page. Verify the file list populates with files from the configured bucket. If an error appears saying "bucket does not exist in compartment" or similar, **stop and ask the user** to create the bucket — do not continue. |
 | VU-5 | File search input | `input` with placeholder containing "Search" or "Filter" | Type filename | Filters displayed file list |
 | VU-6 | File list table/grid | Table rows or cards showing file names, sizes, dates | Click row to select | Selected file highlighted; enables action buttons |
-| VU-7 | Parameter sections (collapsible) | Accordion/collapsible sections for VLM, RAG, Summarize params | Expand/collapse | Section content toggles visibility |
+| VU-7 | Parameter sections (collapsible) | Accordion/collapsible sections for VLM, RAG, Summarize params | Expand/collapse | Section content toggles visibility. **Note:** Current UI may show a simplified batch mode without exposed parameter accordion — mark N/A if no collapsible parameter sections are visible. |
 | VU-8 | Prompt text areas (3) | `textarea` elements for caption, summarization, aggregation prompts | Edit text | Values persist to localStorage key `vss-params` |
 | VU-9 | "Upload & Summarize" button | `button` with text containing "Summarize" | Click after selecting file | Triggers download-and-upload → summarize chain; shows progress; auto-navigates to /content-review on success |
 | VU-10 | Batch "Upload & Analyze" button | `button` with text containing "Analyze" | Click with multiple files selected (checkboxes) | Enqueues jobs via POST `/api/jobs`; shows queue progress |
@@ -293,10 +297,10 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 
 ### Flow F-1: Single Video Analysis (P0) → tested as VU-9
 
-**Preconditions:** Deployed VSS stack, valid bucket with video files, all NIM pods Running.
+**Preconditions:** Deployed VSS stack, valid bucket with video files, all NIM pods Running, bucket configured in Settings.
 
 1. Navigate to `/` (Home)
-2. Enter bucket name in input → click "List Files"
+2. Verify file list auto-loads from the bucket configured in Settings (no need to enter bucket name or click "List Files" — the bucket is already set in localStorage)
 3. Verify file list appears (≥1 file)
 4. Select a video file from the list
 5. (Optional) Adjust parameters: model, chunk_duration, prompts
@@ -313,7 +317,7 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 **Preconditions:** Same as F-1.
 
 1. Navigate to `/` (Home)
-2. Enter bucket name → click "List Files"
+2. Verify file list auto-loads from the configured bucket
 3. Select multiple videos via checkboxes
 4. Click "Upload & Analyze"
 5. Verify jobs enqueued (job count matches selected files)
@@ -431,9 +435,9 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 | # | ID | Test | Page | Verification | P | Type | Timeout |
 |---|---|---|---|---|---|---|---|
 | 1 | VU-1 | Header/title visible | `/` | "AI Broadcast Compliance" or Oracle logo visible | P0 | smoke | 30s |
-| 2 | VU-3 | Bucket input visible | `/` | Input field for bucket name exists and is editable | P0 | smoke | 30s |
+| 2 | VU-3 | Bucket configured in Settings | `/settings` | Navigate to Settings page. Verify the bucket name field is populated. This confirms the bucket is configured for the deployment. | P0 | smoke | 30s |
 | 3 | VU-2 | Sidebar navigation (all pages) | all | All 4 links (Home, Content Review, Analytics, Settings) navigate to correct URLs; each page renders without error | P1 | smoke | 30s |
-| 4 | VU-4 | List Files | `/` | Enter bucket name → click "List Files" → file list appears or error message (not blank) | P0 | e2e | 60s |
+| 4 | VU-4 | File list loads on refresh | `/` | Navigate to Home page and click the **refresh button**. Verify the file list populates with files from the configured bucket. If an error appears saying "bucket does not exist in compartment" or similar, **stop the test run and ask the user** to create the bucket before continuing. | P0 | e2e | 60s |
 | 5 | VU-6 | File selection | `/` | Click a file row → visual selection indicator | P1 | smoke | 30s |
 | 6 | VU-7 | Parameter sections toggle | `/` | Collapsible sections expand/collapse on click | P2 | smoke | 30s |
 | 7 | VU-10 | Batch Upload & Analyze (multi-video) | `/` | Select ≥2 video files via checkboxes → click "Upload & Analyze" → verify jobs are queued (job count matches selected files) → watch jobs process consecutively (each transitions PENDING → PROCESSING → COMPLETED in order) → wait until ALL jobs reach COMPLETED status → navigate to `/content-review` → verify a new tab exists for each processed video. **Do NOT use API calls — verify entirely through the UI.** Poll the queue/progress UI, not `/api/jobs`. | P0 | e2e | **90min** |
