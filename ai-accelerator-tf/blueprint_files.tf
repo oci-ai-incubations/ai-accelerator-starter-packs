@@ -12,9 +12,9 @@ locals {
       # Add "large" here when implemented
     }
     "vss" = {
-      "poc"         = local._vss_poc_blueprint
-      "small"       = local._vss_small_blueprint
-      "medium"      = local._vss_medium_blueprint
+      "poc"    = local._vss_poc_blueprint
+      "small"  = local._vss_small_blueprint
+      "medium" = local._vss_medium_blueprint
       # Add "large" here when implemented
     }
     "paas_rag" = {
