@@ -706,11 +706,9 @@ nv-ingest:
   ngcImagePullSecret:
     create: false
   image:
-    repository: "nvcr.io/nvidia/nemo-microservices/nv-ingest"
-    tag: "25.9.0"
-    # repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-ingest-oci
-    # tag: "latest"
-    # pullPolicy: Always
+    repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-ingest-oci
+    tag: "latest"
+    pullPolicy: Always
   resources:
     limits:
       nvidia.com/gpu: 0
