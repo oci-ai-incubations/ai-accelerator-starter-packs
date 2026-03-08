@@ -157,9 +157,60 @@ Available regions for BM.GPU4.8 (need 2 nodes):
 
 If no regions qualify, report to the user and stop.
 
+### Step 4b: Check service limit quota for qualifying regions
+
+The capacity dashboard shows hardware availability, but deployments also require **tenancy quota**. For each region that passed Step 4's capacity filter, check the OCI service limit to confirm sufficient quota exists.
+
+**GPU shape → limit name mapping:**
+
+| GPU Shape | OCI Limit Name | GPUs per Node |
+|---|---|---|
+| `VM.GPU.A10.2` | `gpu-a10-count` | 2 |
+| `BM.GPU4.8` | `gpu4-count` | 8 |
+| `BM.GPU.A100-v2.8` | `gpu-a100-v2-8-count` | 8 |
+| `BM.GPU.L40S-NC.4` | `gpu-l40s-nc-count` | 4 |
+
+> **Note:** If the limit name is wrong (API returns `InvalidParameter`), discover the correct name with:
+> ```bash
+> oci limits definition list --service-name compute --compartment-id <TENANCY_OCID> --region <region> --all \
+>   | python3 -c "import json,sys; [print(i['name'],'-',i['description']) for i in json.load(sys.stdin)['data'] if '<shape-keyword>' in i['name'].lower()]"
+> ```
+> Replace `<shape-keyword>` with `gpu4`, `a10`, `a100`, or `l40s` as appropriate.
+
+**Query for each qualifying region:**
+
+```bash
+# Get tenancy OCID from terraform.tfvars
+TENANCY_OCID=$(grep 'tenancy_ocid' ai-accelerator-tf/terraform.tfvars | head -1 | sed 's/.*= *"//' | sed 's/".*//')
+
+# For each region + AD from Step 4:
+oci limits resource-availability get \
+  --service-name compute \
+  --limit-name <limit-name> \
+  --compartment-id "$TENANCY_OCID" \
+  --availability-domain "<full-AD-name>" \
+  --region <region>
+```
+
+The response contains `available` (remaining quota) and `used` (current usage). A region is **deployable** only if `available` >= (nodes needed × GPUs per node).
+
+**Present a combined table:**
+
+```
+GPU Capacity + Quota for BM.GPU4.8 (need 1 node = 8 GPUs):
+
+| # | Region         | AD   | Capacity Available | Quota Available | Quota Used | Deployable? |
+|---|----------------|------|--------------------|-----------------|------------|-------------|
+| 1 | us-sanjose-1   | AD-1 | 3                  | 8               | 24         | Yes         |
+| 2 | ap-osaka-1     | AD-1 | 2                  | 0               | 16         | No — quota exhausted |
+| 3 | uk-london-1    | AD-1 | 1                  | 0               | 0          | No — no quota |
+```
+
+If no region has both capacity AND quota, report to the user and stop.
+
 ### Step 5: User selects region
 
-Ask the user to choose a region. Record:
+Ask the user to choose from **deployable** regions only (those with both capacity and quota). Record:
 - **Region** (e.g., `us-ashburn-1`) → use as `region` in deployment
 - **Availability Domain** (e.g., `AD-1`) → use as `worker_node_availability_domain`
 
@@ -214,26 +265,37 @@ oci ce cluster create-kubeconfig --cluster-id <cluster-ocid> --kube-endpoint PUB
 
 ---
 
-## Phase 3: Pack-Specific Testing (API + UI)
+## Phase 3: Pack-Specific Testing (API + Infra + UI)
 
-This phase executes tests against the live deployment. Tests come from **two sources** that are merged together:
+This phase executes tests against the live deployment using **just-in-time file loading** — each sub-phase reads only the file it needs.
 
-1. **Base coverage file** — a pack-specific SKILL.md with the known API endpoints, UI pages, and infra checks for the pack.
-2. **User-provided test matrix** — additional tests the user wants to run (e.g., PR-specific regressions, custom endpoints, one-off checks).
+Tests come from **two sources** that are merged together:
+
+1. **Base coverage files** — pack-specific split test files in `.claude/skills/<category>-test-coverage/`:
+   - `SKILL.md` — overview, env vars, known issues
+   - `api-tests.md` — API test specs for curl execution
+   - `infra-tests.md` — Infrastructure test specs for kubectl execution
+   - `ui-tests.md` — UI test specs for Playwright execution
+2. **User-provided test matrix** — additional tests the user wants to run.
 
 Both are tested when both are present.
 
 ### Step 12: Locate base coverage spec + ask for user test matrix
 
-#### 12a. Check for the base coverage file
+#### 12a. Check for the base coverage files
+
+Check if the split test coverage directory exists:
 
 ```
 .claude/skills/<category>-test-coverage/SKILL.md
+.claude/skills/<category>-test-coverage/api-tests.md
+.claude/skills/<category>-test-coverage/ui-tests.md
+.claude/skills/<category>-test-coverage/infra-tests.md
 ```
 
-For example: `.claude/skills/vss-test-coverage/SKILL.md`, `.claude/skills/paas-rag-test-coverage/SKILL.md`, etc.
+For example: `.claude/skills/vss-test-coverage/`, `.claude/skills/paas-rag-test-coverage/`, etc.
 
-- **If found:** Read the file. It contains the full test matrix with API endpoints, UI tests (including end-to-end flows), and infrastructure checks — each with IDs, verification criteria, priorities, and timeouts.
+- **If found:** Read **only** `SKILL.md` (the overview file). Note which sub-files exist. Do NOT read `api-tests.md`, `ui-tests.md`, or `infra-tests.md` yet — they will be loaded just-in-time in their respective phases.
 - **If not found:** Note it — the user-provided matrix (Step 12b) becomes the only source.
 
 #### 12b. Ask the user for a test matrix (MANDATORY — DO NOT SKIP)
@@ -270,9 +332,9 @@ Present the **combined** test inventory and ask:
 > Tests available for `<category>`:
 >
 > **Base coverage spec** (if present):
-> - API tests: N items
-> - Infra tests: N items
-> - UI tests: N items (includes end-to-end flows)
+> - API tests: N items (from api-tests.md)
+> - Infra tests: N items (from infra-tests.md)
+> - UI tests: N items (from ui-tests.md)
 >
 > **User-provided tests** (if present):
 > - API: N items
@@ -289,7 +351,7 @@ Also ask if the user has any **additional test parameters** (e.g., bucket names,
 
 ### Step 14: Gather test inputs
 
-From Phase 2 outputs and the coverage spec, collect:
+From Phase 2 outputs and the coverage spec overview (SKILL.md), collect:
 
 | Input | Source |
 |---|---|
@@ -300,25 +362,17 @@ From Phase 2 outputs and the coverage spec, collect:
 
 ### Step 15: Execute API tests
 
-For every test row in the coverage spec's **API test matrix** (IDs like `VA-*`, `PA-*`, etc.) that matches the chosen scope:
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/api-tests.md` NOW. This file is self-contained — it has every API test with endpoint, method, request body, verification criteria, priorities, timeouts, and curl commands. Execute directly from it.
 
-1. Read the endpoint, method, request body, and expected response from the spec.
-2. Execute via `curl` (responses saved to sandbox):
+For every test in `api-tests.md` that matches the chosen scope:
 
-```bash
-# Example: GET endpoint
-curl -sk -o "${DAT_SANDBOX}/api-results/VA-1.json" -w '%{http_code}' \
-  "${FRONTEND_URL}/api/vss/config"
-
-# Example: POST endpoint
-curl -sk -X POST -H 'Content-Type: application/json' \
-  -d '{"bucketName":"test-bucket"}' \
-  -o "${DAT_SANDBOX}/api-results/VA-5b.json" -w '%{http_code}' \
-  "${FRONTEND_URL}/api/list-bucket-files"
-```
-
-3. Compare HTTP status code and response body against the spec's verification criteria.
+1. Read the endpoint, method, request body, and expected response from the file.
+2. Execute via `curl` (responses saved to sandbox). The file includes ready-to-use curl commands for each test.
+3. Compare HTTP status code and response body against the verification criteria.
 4. Record result per test ID.
+5. **Pass forward any outputs** needed by later tests (e.g., `fileId` from VA-4, `summaryId` from VA-9a).
+
+Also execute any user-provided API tests (UT-* IDs).
 
 **API Test Report:**
 
@@ -328,22 +382,31 @@ curl -sk -X POST -H 'Content-Type: application/json' \
 
 ### Step 16: Execute Infra tests (if selected)
 
-For infrastructure test rows (IDs like `VI-*`):
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/infra-tests.md` NOW. This file is self-contained — it has every infrastructure test with kubectl/OCI CLI commands, expected output, and failure hints.
 
-- Run `kubectl` or OCI CLI commands as specified in the coverage spec.
+For every test in `infra-tests.md` that matches the chosen scope:
+
+- Run `kubectl` or OCI CLI commands as specified.
 - Record pass/fail per test ID.
+- If a test fails, note the failure hint from the spec for the test report.
+
+Also execute any user-provided infra tests (UT-* IDs).
 
 ### Step 17: Execute UI tests
 
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with page, selectors, interactions, verification criteria, and timeouts. **Pass ONLY this file's content to the Playwright sub-agent** — do NOT include api-tests.md, infra-tests.md, or the full SKILL.md.
+
 **Before writing any UI test code**, merge the base coverage spec UI tests and user-provided UI tests into a single sequential flow:
 
-1. List all UI tests from the base spec (by ID, in order).
+1. List all UI tests from `ui-tests.md` (by ID, in order).
 2. List all UI tests from the user's test matrix.
 3. If any user test overlaps with a base test (same page, same interaction), **use the user's version** — it may have different or additional verification criteria. Do not run both.
 4. Combine the deduplicated tests into **one ordered list** that forms a logical user journey (e.g., Home → file selection → batch process → Content Review → editing → delete → Settings → Analytics).
 5. This merged list is the single flow you will execute.
 
 > **ONE `browser_run_code` CALL. ONE RECORDING. ONE FLOW.** All UI tests — base spec and user-provided — go into a **single** `mcp__playwright__browser_run_code` call that produces a **single** `.webm` video recording. Do NOT split UI tests across multiple `browser_run_code` calls. Do NOT create multiple browser contexts. The entire UI test session is one sequential flow in one function.
+>
+> **FAILURE RECOVERY INSIDE THE SINGLE RUN.** If a test fails, record the failure, **refresh the page** (`p.goto(BASE_URL, { waitUntil: 'networkidle' })`) to reset state, and continue to the next test within the same function. If a failure blocks subsequent tests (e.g., the page is stuck in an unrecoverable state after refresh), stop the run, close the context to finalize the recording, and **ask the user** what to do — do NOT launch a second `browser_run_code` call. A second call creates a second browser context and a second `.webm` file, violating the single-recording rule. The final artifact directory should contain exactly **one** `.webm` file.
 
 > **NO SCREENSHOTS.** The continuous video recording with banner overlay captures everything — screenshots are redundant and clutter the sandbox.
 
@@ -380,12 +443,11 @@ var banner = async function(label) {
 **Rules for the `browser_run_code` block:**
 - Use `var` (not `const`/`let`) and string concatenation (not template literals) to avoid escaping issues
 - Wrap everything in `try/catch/finally` — `finally` must close the recording context
-- Use the spec's "Selector Hint" column to find elements; fall back to generic selectors if needed
+- Use the spec's "Selector" column to find elements; fall back to generic selectors if needed
 - For packs requiring login (check spec for auth requirements): fill credentials before navigating to protected pages
 - **Do NOT call `p.screenshot()`** — the continuous video recording captures everything; the banner labels each check
 - **NEVER skip a test because it takes a long time.** Some operations (video summarization, batch processing) take 30+ minutes — that is expected. Use the Timeout column from the coverage spec to set `page.setDefaultTimeout()` and `page.setDefaultNavigationTimeout()` appropriately. Wait patiently for progress indicators, status changes, and page navigations to complete. Use `page.waitForURL()`, `page.waitForSelector()`, or polling loops with generous timeouts instead of skipping.
-- When a test involves a long-running operation, update the banner overlay periodically (e.g., "VU-9: Summarizing... 5min elapsed") so the video recording shows progress.
-- **Batch queue completion = UI queue empty.** When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a processing queue in the UI, the operation is complete as soon as the queue clears (no more "Processing..." or "Queued" items visible). Do NOT poll the API separately or add extra wait logic — just watch the UI queue. Once it's empty, proceed to the next test.
+- When a test involves a long-running operation, update the banner overlay periodically (e.g., "VU-10: Processing... 5min elapsed") so the video recording shows progress.
 
 ### Step 18: Compile test report
 
@@ -398,10 +460,10 @@ Save the report to `${DAT_SANDBOX}/logs/test-report.txt` and display it:
   Sandbox:       ${DAT_SANDBOX}
 ═══════════════════════════════════════════════════
 
-  BASE SPEC (.claude/skills/<category>-test-coverage/SKILL.md):
-    API Tests:     X/Y passed
-    Infra Tests:   X/Y passed
-    UI Tests:      X/Y passed
+  BASE SPEC (.claude/skills/<category>-test-coverage/):
+    API Tests:     X/Y passed   (from api-tests.md)
+    Infra Tests:   X/Y passed   (from infra-tests.md)
+    UI Tests:      X/Y passed   (from ui-tests.md)
 
   USER-PROVIDED TESTS:
     API Tests:     X/Y passed   (UT-1, UT-3, ...)
