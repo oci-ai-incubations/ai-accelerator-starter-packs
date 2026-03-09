@@ -32,7 +32,7 @@ network_configuration_mode = "create_new"  # Options: "create_new", "bring_your_
 # existing_services_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
 
 # Cluster Configuration
-k8s_version = "v1.33.3"
+k8s_version = "v1.34.2"
 
 # Endpoint Visibility (for new VCN, only "Public" is supported)
 cluster_endpoint_visibility_new_vcn = "Public"
