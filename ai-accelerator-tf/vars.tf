@@ -89,7 +89,7 @@ variable "existing_services_subnet_id" {
 
 variable "create_policies" {
   default     = true
-  description = "Whether to create policies"
+  description = "Does not create IAM policies with stack. Requires an admin to create policies."
   type        = bool
 }
 
