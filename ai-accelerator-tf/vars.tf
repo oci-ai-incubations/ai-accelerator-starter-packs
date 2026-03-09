@@ -821,8 +821,8 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
         frontend_url                 = "frontend-erag" # Not used
       }
     }

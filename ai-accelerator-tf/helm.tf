@@ -454,6 +454,18 @@ resource "helm_release" "rag" {
 
   set_sensitive = [
     {
+      name  = "envVars.ORACLE_USER"
+      value = var.ORACLE_USER
+    },
+    {
+      name  = "envVars.ORACLE_PASSWORD"
+      value = var.ORACLE_PASSWORD
+    },
+    {
+      name  = "envVars.ORACLE_DSN"
+      value = var.ORACLE_DSN
+    },
+    {
       name  = "envVars.MINIO_ACCESSKEY"
       value = random_string.minio_access_key.result
     },
@@ -518,7 +530,10 @@ resource "helm_release" "rag" {
     }
   ]
   count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
-  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
+  depends_on = [
+    oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
+    oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet
+  ]
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {

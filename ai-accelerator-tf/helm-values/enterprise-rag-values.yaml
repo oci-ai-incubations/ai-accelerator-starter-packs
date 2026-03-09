@@ -83,7 +83,8 @@ envVars:
   EXAMPLE_PATH: "./nvidia_rag/rag_server"
   PROMPT_CONFIG_FILE: "/prompt.yaml"
   PROMETHEUS_MULTIPROC_DIR: "/tmp-data/prom_data"
-
+  ORACLE_TNSNAMES_LOC: /wallet
+  ORACLE_EWALLET_PEM_LOC: /wallet
   ORACLE_USER:
     valueFrom:
       secretKeyRef:
@@ -285,6 +286,8 @@ ingestor-server:
     # Absolute path to custom prompt.yaml file
     PROMPT_CONFIG_FILE: "/prompt.yaml"
     # === Vector Store Configurations ===
+    ORACLE_TNSNAMES_LOC: /wallet
+    ORACLE_EWALLET_PEM_LOC: /wallet
     ORACLE_USER:
       valueFrom:
         secretKeyRef:
@@ -738,22 +741,6 @@ nv-ingest:
     OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
     MODEL_PREDOWNLOAD_PATH: "/workspace/models/"
     INSTALL_AUDIO_EXTRACTION_DEPS: "true"
-
-    ORACLE_USER:
-      valueFrom:
-        secretKeyRef:
-          name: oci-config-secret
-          key: oracle-user
-    ORACLE_PASSWORD:
-      valueFrom:
-        secretKeyRef:
-          name: oci-config-secret
-          key: oracle-password
-    ORACLE_DSN:
-      valueFrom:
-        secretKeyRef:
-          name: oci-config-secret
-          key: oracle-dsn
 
     # Paddle OCR endpoints
     PADDLE_GRPC_ENDPOINT: nv-ingest-ocr:8001
