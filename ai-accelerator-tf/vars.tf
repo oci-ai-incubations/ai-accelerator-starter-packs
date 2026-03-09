@@ -855,6 +855,33 @@ locals {
         database_compute_count       = 0
         frontend_url                 = "aiq"
       }
+      "medium" = {
+        blueprint_file                               = ""
+        deployment_name                              = "enterprise-rag"
+        app_namespace                                = "rag"
+        aiq_namespace                                = "aiq"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = false
+        worker_node_shape                            = "BM.GPU.A100-v2.8"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 0
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "120"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "none"
+          ocpus         = 0
+          memory        = 0
+        }
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        frontend_url                 = "aiq"
+      }
     }
 
   }

@@ -592,6 +592,13 @@ resource "helm_release" "aiq" {
     {
       name  = "backendEnvVars.NEMOTRON_BASE_URL"
       value = "http://nim-llm.${local.starter_pack_config.app_namespace}.svc.cluster.local:8000"
+    },
+    {
+      # Checksum of the Tavily secret — when the key changes, this annotation changes,
+      # which modifies the Deployment spec and triggers a Helm rolling restart so the
+      # pod picks up the updated secret without any manual intervention.
+      name  = "podAnnotations.checksum-tavily-secret"
+      value = sha256(var.tavily_api_key)
     }
   ]
 
