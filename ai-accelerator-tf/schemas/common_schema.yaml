@@ -209,7 +209,7 @@ variables:
   create_policies:
     type: boolean
     title: "Create IAM Policies"
-    description: "Does not create IAM policies with stack. Requires an admin to create policies."
+    description: "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
     default: true
     required: false
     visible: true
