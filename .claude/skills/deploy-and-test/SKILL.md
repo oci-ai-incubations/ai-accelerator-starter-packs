@@ -221,7 +221,7 @@ Ask the user to choose from **deployable** regions only (those with both capacit
 ### Step 6: Generate schema
 
 ```bash
-cd /Users/sankaza/ai-accelerator-starter-packs
+cd "$(git rev-parse --show-toplevel)"
 source venv/bin/activate
 python3 create_final_schema.py -c $0
 ```
@@ -238,7 +238,7 @@ cd ai-accelerator-tf && zip -r "${DAT_SANDBOX}/zips/lifecycle.zip" . -x '.terraf
 ```bash
 export OCI_CLI_PROFILE=<profile>
 oci resource-manager stack create \
-  --compartment-id ocid1.compartment.oc1..aaaaaaaa5rwhi5wj3grdiqzvz244gwzycpfl2ctlb4nvl7vi7wu55tqi375a \
+  --compartment-id "${COMPARTMENT_OCID}" \
   --config-source "${DAT_SANDBOX}/zips/lifecycle.zip" \
   --terraform-version "1.5.x" \
   --display-name "deploy-and-test-$0-$1" \
