@@ -19,6 +19,9 @@ ngcApiSecret:
   create: true
 
 # -- Tavily API secret configuration (optional)
+# Secret is created so the chart can mount it, but the key is also passed via
+# backendEnvVars.TAVILY_SEARCH_API_KEY to bake it into the Deployment spec and
+# trigger rolling restarts automatically when the key changes.
 tavilyApiSecret:
   name: "tavily-secret"
   password: ""
