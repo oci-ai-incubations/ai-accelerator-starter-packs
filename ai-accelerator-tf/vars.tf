@@ -718,7 +718,7 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU.L40S.4"
+        worker_node_shape                            = "BM.GPU.L40S-NC.4"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2

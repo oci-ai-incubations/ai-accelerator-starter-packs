@@ -1015,7 +1015,7 @@ locals {
             recipe_container_port = "9200"
             recipe_host_port      = "9200"
             recipe_additional_ingress_ports = [
-              { name = "transport", port = 9300, path = "/" }
+              { port_name = "transport", port = 9300, path = "/" }
             ]
           }
           exports = ["internal_dns_name"]
@@ -1032,7 +1032,7 @@ locals {
             recipe_container_port       = "7687"
             recipe_host_port            = "7687"
             recipe_additional_ingress_ports = [
-              { name = "http", port = 7474, path = "/" }
+              { port_name = "http", port = 7474, path = "/" }
             ]
             recipe_container_command = ["bash", "/opt/scripts/start.sh"]
             recipe_configmaps = [
@@ -1195,7 +1195,7 @@ locals {
               { key = "NIM_TAGS_SELECTOR", value = "name=parakeet-0-6b-ctc-riva-en-us,mode=all" }
             ]
             recipe_additional_ingress_ports = [
-              { name = "grpc", port = 50051, path = "/" }
+              { port_name = "grpc", port = 50051, path = "/" }
             ]
             recipe_environment_secrets = [
               { envvar_name = "NGC_API_KEY", secret_name = "ngc-api-secret", secret_key = "NGC_API_KEY" }
