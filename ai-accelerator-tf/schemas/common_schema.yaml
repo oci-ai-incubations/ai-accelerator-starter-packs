@@ -91,6 +91,7 @@ variableGroups:
       - skip_capacity_check
       - use_custom_dns
       - fqdn_custom_domain
+      - create_policies
 
 # =============================================================================
 # Variables - Common definitions
@@ -207,7 +208,11 @@ variables:
 
   create_policies:
     type: boolean
-    visible: false
+    title: "Create IAM Policies"
+    description: "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
+    default: true
+    required: false
+    visible: true
 
   # ---------------------------------
   # Hidden Variables

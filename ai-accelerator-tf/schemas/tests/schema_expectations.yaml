@@ -33,6 +33,7 @@ required_variables:
   - starter_pack_category
   - compartment_ocid
   - create_bastion
+  - create_policies
   - corrino_admin_username
   - corrino_admin_password
   - corrino_admin_email
