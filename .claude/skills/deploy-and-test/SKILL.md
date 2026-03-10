@@ -221,7 +221,7 @@ Ask the user to choose from **deployable** regions only (those with both capacit
 ### Step 6: Generate schema
 
 ```bash
-cd /Users/sankaza/ai-accelerator-starter-packs
+cd "$(git rev-parse --show-toplevel)"
 source venv/bin/activate
 python3 create_final_schema.py -c $0
 ```
@@ -238,7 +238,7 @@ cd ai-accelerator-tf && zip -r "${DAT_SANDBOX}/zips/lifecycle.zip" . -x '.terraf
 ```bash
 export OCI_CLI_PROFILE=<profile>
 oci resource-manager stack create \
-  --compartment-id ocid1.compartment.oc1..aaaaaaaa5rwhi5wj3grdiqzvz244gwzycpfl2ctlb4nvl7vi7wu55tqi375a \
+  --compartment-id "${COMPARTMENT_OCID}" \
   --config-source "${DAT_SANDBOX}/zips/lifecycle.zip" \
   --terraform-version "1.5.x" \
   --display-name "deploy-and-test-$0-$1" \
@@ -265,26 +265,37 @@ oci ce cluster create-kubeconfig --cluster-id <cluster-ocid> --kube-endpoint PUB
 
 ---
 
-## Phase 3: Pack-Specific Testing (API + UI)
+## Phase 3: Pack-Specific Testing (API + Infra + UI)
 
-This phase executes tests against the live deployment. Tests come from **two sources** that are merged together:
+This phase executes tests against the live deployment using **just-in-time file loading** — each sub-phase reads only the file it needs.
 
-1. **Base coverage file** — a pack-specific SKILL.md with the known API endpoints, UI pages, and infra checks for the pack.
-2. **User-provided test matrix** — additional tests the user wants to run (e.g., PR-specific regressions, custom endpoints, one-off checks).
+Tests come from **two sources** that are merged together:
+
+1. **Base coverage files** — pack-specific split test files in `.claude/skills/<category>-test-coverage/`:
+   - `SKILL.md` — overview, env vars, known issues
+   - `api-tests.md` — API test specs for curl execution
+   - `infra-tests.md` — Infrastructure test specs for kubectl execution
+   - `ui-tests.md` — UI test specs for Playwright execution
+2. **User-provided test matrix** — additional tests the user wants to run.
 
 Both are tested when both are present.
 
 ### Step 12: Locate base coverage spec + ask for user test matrix
 
-#### 12a. Check for the base coverage file
+#### 12a. Check for the base coverage files
+
+Check if the split test coverage directory exists:
 
 ```
 .claude/skills/<category>-test-coverage/SKILL.md
+.claude/skills/<category>-test-coverage/api-tests.md
+.claude/skills/<category>-test-coverage/ui-tests.md
+.claude/skills/<category>-test-coverage/infra-tests.md
 ```
 
-For example: `.claude/skills/vss-test-coverage/SKILL.md`, `.claude/skills/paas-rag-test-coverage/SKILL.md`, etc.
+For example: `.claude/skills/vss-test-coverage/`, `.claude/skills/paas-rag-test-coverage/`, etc.
 
-- **If found:** Read the file. It contains the full test matrix with API endpoints, UI tests (including end-to-end flows), and infrastructure checks — each with IDs, verification criteria, priorities, and timeouts.
+- **If found:** Read **only** `SKILL.md` (the overview file). Note which sub-files exist. Do NOT read `api-tests.md`, `ui-tests.md`, or `infra-tests.md` yet — they will be loaded just-in-time in their respective phases.
 - **If not found:** Note it — the user-provided matrix (Step 12b) becomes the only source.
 
 #### 12b. Ask the user for a test matrix (MANDATORY — DO NOT SKIP)
@@ -321,9 +332,9 @@ Present the **combined** test inventory and ask:
 > Tests available for `<category>`:
 >
 > **Base coverage spec** (if present):
-> - API tests: N items
-> - Infra tests: N items
-> - UI tests: N items (includes end-to-end flows)
+> - API tests: N items (from api-tests.md)
+> - Infra tests: N items (from infra-tests.md)
+> - UI tests: N items (from ui-tests.md)
 >
 > **User-provided tests** (if present):
 > - API: N items
@@ -340,7 +351,7 @@ Also ask if the user has any **additional test parameters** (e.g., bucket names,
 
 ### Step 14: Gather test inputs
 
-From Phase 2 outputs and the coverage spec, collect:
+From Phase 2 outputs and the coverage spec overview (SKILL.md), collect:
 
 | Input | Source |
 |---|---|
@@ -351,25 +362,17 @@ From Phase 2 outputs and the coverage spec, collect:
 
 ### Step 15: Execute API tests
 
-For every test row in the coverage spec's **API test matrix** (IDs like `VA-*`, `PA-*`, etc.) that matches the chosen scope:
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/api-tests.md` NOW. This file is self-contained — it has every API test with endpoint, method, request body, verification criteria, priorities, timeouts, and curl commands. Execute directly from it.
 
-1. Read the endpoint, method, request body, and expected response from the spec.
-2. Execute via `curl` (responses saved to sandbox):
+For every test in `api-tests.md` that matches the chosen scope:
 
-```bash
-# Example: GET endpoint
-curl -sk -o "${DAT_SANDBOX}/api-results/VA-1.json" -w '%{http_code}' \
-  "${FRONTEND_URL}/api/vss/config"
-
-# Example: POST endpoint
-curl -sk -X POST -H 'Content-Type: application/json' \
-  -d '{"bucketName":"test-bucket"}' \
-  -o "${DAT_SANDBOX}/api-results/VA-5b.json" -w '%{http_code}' \
-  "${FRONTEND_URL}/api/list-bucket-files"
-```
-
-3. Compare HTTP status code and response body against the spec's verification criteria.
+1. Read the endpoint, method, request body, and expected response from the file.
+2. Execute via `curl` (responses saved to sandbox). The file includes ready-to-use curl commands for each test.
+3. Compare HTTP status code and response body against the verification criteria.
 4. Record result per test ID.
+5. **Pass forward any outputs** needed by later tests (e.g., `fileId` from VA-4, `summaryId` from VA-9a).
+
+Also execute any user-provided API tests (UT-* IDs).
 
 **API Test Report:**
 
@@ -379,16 +382,23 @@ curl -sk -X POST -H 'Content-Type: application/json' \
 
 ### Step 16: Execute Infra tests (if selected)
 
-For infrastructure test rows (IDs like `VI-*`):
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/infra-tests.md` NOW. This file is self-contained — it has every infrastructure test with kubectl/OCI CLI commands, expected output, and failure hints.
 
-- Run `kubectl` or OCI CLI commands as specified in the coverage spec.
+For every test in `infra-tests.md` that matches the chosen scope:
+
+- Run `kubectl` or OCI CLI commands as specified.
 - Record pass/fail per test ID.
+- If a test fails, note the failure hint from the spec for the test report.
+
+Also execute any user-provided infra tests (UT-* IDs).
 
 ### Step 17: Execute UI tests
 
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with page, selectors, interactions, verification criteria, and timeouts. **Pass ONLY this file's content to the Playwright sub-agent** — do NOT include api-tests.md, infra-tests.md, or the full SKILL.md.
+
 **Before writing any UI test code**, merge the base coverage spec UI tests and user-provided UI tests into a single sequential flow:
 
-1. List all UI tests from the base spec (by ID, in order).
+1. List all UI tests from `ui-tests.md` (by ID, in order).
 2. List all UI tests from the user's test matrix.
 3. If any user test overlaps with a base test (same page, same interaction), **use the user's version** — it may have different or additional verification criteria. Do not run both.
 4. Combine the deduplicated tests into **one ordered list** that forms a logical user journey (e.g., Home → file selection → batch process → Content Review → editing → delete → Settings → Analytics).
@@ -433,12 +443,11 @@ var banner = async function(label) {
 **Rules for the `browser_run_code` block:**
 - Use `var` (not `const`/`let`) and string concatenation (not template literals) to avoid escaping issues
 - Wrap everything in `try/catch/finally` — `finally` must close the recording context
-- Use the spec's "Selector Hint" column to find elements; fall back to generic selectors if needed
+- Use the spec's "Selector" column to find elements; fall back to generic selectors if needed
 - For packs requiring login (check spec for auth requirements): fill credentials before navigating to protected pages
 - **Do NOT call `p.screenshot()`** — the continuous video recording captures everything; the banner labels each check
 - **NEVER skip a test because it takes a long time.** Some operations (video summarization, batch processing) take 30+ minutes — that is expected. Use the Timeout column from the coverage spec to set `page.setDefaultTimeout()` and `page.setDefaultNavigationTimeout()` appropriately. Wait patiently for progress indicators, status changes, and page navigations to complete. Use `page.waitForURL()`, `page.waitForSelector()`, or polling loops with generous timeouts instead of skipping.
-- When a test involves a long-running operation, update the banner overlay periodically (e.g., "VU-9: Summarizing... 5min elapsed") so the video recording shows progress.
-- **Batch queue completion = UI queue empty.** When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a processing queue in the UI, the operation is complete as soon as the queue clears (no more "Processing..." or "Queued" items visible). Do NOT poll the API separately or add extra wait logic — just watch the UI queue. Once it's empty, proceed to the next test.
+- When a test involves a long-running operation, update the banner overlay periodically (e.g., "VU-10: Processing... 5min elapsed") so the video recording shows progress.
 
 ### Step 18: Compile test report
 
@@ -451,10 +460,10 @@ Save the report to `${DAT_SANDBOX}/logs/test-report.txt` and display it:
   Sandbox:       ${DAT_SANDBOX}
 ═══════════════════════════════════════════════════
 
-  BASE SPEC (.claude/skills/<category>-test-coverage/SKILL.md):
-    API Tests:     X/Y passed
-    Infra Tests:   X/Y passed
-    UI Tests:      X/Y passed
+  BASE SPEC (.claude/skills/<category>-test-coverage/):
+    API Tests:     X/Y passed   (from api-tests.md)
+    Infra Tests:   X/Y passed   (from infra-tests.md)
+    UI Tests:      X/Y passed   (from ui-tests.md)
 
   USER-PROVIDED TESTS:
     API Tests:     X/Y passed   (UT-1, UT-3, ...)

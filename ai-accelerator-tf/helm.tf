@@ -675,3 +675,17 @@ resource "helm_release" "aiq" {
     terraform_data.patch_nim_llm_service_selector
   ]
 }
+
+# Restart AIQ backend pods whenever the Tavily key changes so they pick up the
+# updated secret. Helm upgrades the secret but running pods don't restart
+# automatically when only a Secret value changes.
+resource "terraform_data" "aiq_restart_on_tavily_change" {
+  triggers_replace = [var.tavily_api_key]
+
+  provisioner "local-exec" {
+    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl rollout restart deployment -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")} && kubectl rollout status deployment -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")} --timeout=300s"
+  }
+
+  depends_on = [helm_release.aiq]
+  count      = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+}
