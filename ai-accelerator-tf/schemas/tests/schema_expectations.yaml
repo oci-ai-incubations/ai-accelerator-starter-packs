@@ -13,7 +13,7 @@ starter_pack_sizes:
   vss: [poc, small, medium]
   paas_rag: [small, medium]
   enterprise_rag: [small]
-  enterprise_rag_aiq: [small]
+  enterprise_rag_aiq: [small, medium]
 
 # Outputs that must exist in every schema (referenced in outputGroups)
 required_outputs:
