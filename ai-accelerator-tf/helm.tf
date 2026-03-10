@@ -455,15 +455,27 @@ resource "helm_release" "rag" {
   set_sensitive = [
     {
       name  = "envVars.ORACLE_USER"
-      value = var.ORACLE_USER
+      value = var.db_username
     },
     {
       name  = "envVars.ORACLE_PASSWORD"
-      value = var.ORACLE_PASSWORD
+      value = var.db_password
     },
     {
-      name  = "envVars.ORACLE_DSN"
-      value = var.ORACLE_DSN
+      name  = "envVars.ORACLE_EWALLET_PASSWORD"
+      value = var.db_password
+    },
+    {
+      name  = "ingestor-server.envVars.ORACLE_USER"
+      value = var.db_username
+    },
+    {
+      name  = "ingestor-server.envVars.ORACLE_PASSWORD"
+      value = var.db_password
+    },
+    {
+      name  = "ingestor-server.envVars.ORACLE_EWALLET_PASSWORD"
+      value = var.db_password
     },
     {
       name  = "envVars.MINIO_ACCESSKEY"
@@ -501,6 +513,14 @@ resource "helm_release" "rag" {
 
   set = [
     {
+      name  = "envVars.ORACLE_CS"
+      value = local.oracle26ai_high_connection_string
+    },
+    {
+      name  = "ingestor-server.envVars.ORACLE_CS"
+      value = local.oracle26ai_high_connection_string
+    },
+    {
       name  = "global.ngcApiKey"
       value = var.ngc_api_secret
     },
@@ -532,7 +552,8 @@ resource "helm_release" "rag" {
   count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-    oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet
+    oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet,
+    kubernetes_secret_v1.oci_config_secret
   ]
 }
 
@@ -559,6 +580,7 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
     command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
   }
 }
+
 
 resource "helm_release" "aiq" {
   name             = "aiq-aira"

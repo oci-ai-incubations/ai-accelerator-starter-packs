@@ -905,6 +905,6 @@ locals {
 }
 
 locals {
-  # 26ai database needed for paas_rag category
-  needs_26ai = var.starter_pack_category == "paas_rag"
+  # 26ai database needed for paas_rag and enterprise_rag categories
+  needs_26ai = contains(["paas_rag", "enterprise_rag"], var.starter_pack_category)
 }

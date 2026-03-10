@@ -85,21 +85,9 @@ envVars:
   PROMETHEUS_MULTIPROC_DIR: "/tmp-data/prom_data"
   ORACLE_TNSNAMES_LOC: /wallet
   ORACLE_EWALLET_PEM_LOC: /wallet
-  ORACLE_USER:
-    valueFrom:
-      secretKeyRef:
-        name: oci-config-secret
-        key: oracle-user
-  ORACLE_PASSWORD:
-    valueFrom:
-      secretKeyRef:
-        name: oci-config-secret
-        key: oracle-password
-  ORACLE_DSN:
-    valueFrom:
-      secretKeyRef:
-        name: oci-config-secret
-        key: oracle-dsn
+  ORACLE_USER: ""
+  ORACLE_PASSWORD: ""
+  ORACLE_EWALLET_PASSWORD: ""
 
   ##===Authentication===
   # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -236,6 +224,7 @@ volumeMounts:
   - name: oci-config
     mountPath: "/wallet"
     readOnly: true
+
 # -- Ingestor Server
 # subsection: ingestor-server
 # Ingestor API Service
@@ -288,21 +277,10 @@ ingestor-server:
     # === Vector Store Configurations ===
     ORACLE_TNSNAMES_LOC: /wallet
     ORACLE_EWALLET_PEM_LOC: /wallet
-    ORACLE_USER:
-      valueFrom:
-        secretKeyRef:
-          name: oci-config-secret
-          key: oracle-user
-    ORACLE_PASSWORD:
-      valueFrom:
-        secretKeyRef:
-          name: oci-config-secret
-          key: oracle-password
-    ORACLE_DSN:
-      valueFrom:
-        secretKeyRef:
-          name: oci-config-secret
-          key: oracle-dsn
+    ORACLE_USER: ""
+    ORACLE_PASSWORD: ""
+    ORACLE_EWALLET_PASSWORD: ""
+
     APP_VECTORSTORE_NAME: "oracle"
     ORACLE_VECTOR_INDEX_TYPE: "IVF"
     ORACLE_DISTANCE_METRIC: "COSINE"
@@ -703,15 +681,18 @@ nim-vlm:
 # subsection: nv-ingest
 # NV-Ingest Service
 nv-ingest:
+  # remove milvus
+  milvusDeployed: False
+  imagePullSecrets:
+    - name: "ngc-secret"
   enabled: true
   ngcApiSecret:
     create: false
   ngcImagePullSecret:
     create: false
   image:
-    repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-ingest-oci
-    tag: "latest"
-    pullPolicy: Always
+    repository: "nvcr.io/nvidia/nemo-microservices/nv-ingest"
+    tag: "25.9.0"
   resources:
     limits:
       nvidia.com/gpu: 0
