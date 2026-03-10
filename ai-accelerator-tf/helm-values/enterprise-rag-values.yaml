@@ -237,7 +237,7 @@ ingestor-server:
     password: ""
 
   image:
-    repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
+    repository: ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
     tag: "0.0.3"
     pullPolicy: Always
 
