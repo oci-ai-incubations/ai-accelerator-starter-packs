@@ -10,7 +10,7 @@ required_top_level_keys:
 # Per-category: starter_pack_size must match vars.tf starter_pack_configs
 starter_pack_sizes:
   cuopt: [poc, small, medium]
-  vss: [poc, small, medium]
+  vss: [poc, poc-dedicated, small, medium]
   paas_rag: [small, medium]
   enterprise_rag: [small]
   enterprise_rag_aiq: [small, medium]

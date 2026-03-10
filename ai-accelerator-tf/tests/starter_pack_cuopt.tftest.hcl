@@ -29,6 +29,19 @@ mock_provider "oci" {
       }]
     }
   }
+
+  override_data {
+    target = data.oci_generative_ai_models.genai_models
+    values = {
+      model_collection = [{
+        items = [{
+          id           = "ocid1.generativeaimodel.oc1..test"
+          display_name = "meta.llama-4-maverick-17b-128e-instruct"
+          vendor       = "meta"
+        }]
+      }]
+    }
+  }
 }
 
 mock_provider "kubernetes" {}

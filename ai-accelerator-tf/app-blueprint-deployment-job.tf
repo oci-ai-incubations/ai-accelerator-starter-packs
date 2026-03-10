@@ -255,5 +255,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     oci_objectstorage_bucket.paas_rag_bucket,
     oci_identity_customer_secret_key.aws_compat_access_key,
     null_resource.custom_dns_configuration_warning,
+    oci_generative_ai_dedicated_ai_cluster.vss_genai_cluster,
+    oci_generative_ai_endpoint.vss_genai_endpoint,
   ]
 }
