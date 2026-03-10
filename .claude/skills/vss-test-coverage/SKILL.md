@@ -256,8 +256,6 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 >
 > The Home page is **not for configuring the bucket** — it is for **browsing and processing files** that are already in the configured bucket. The bucket name input (VU-3) and "List Files" button (VU-4) exist as a fallback but are typically pre-populated and auto-triggered.
 <<<<<<< HEAD
-=======
-<<<<<<< HEAD
 > | ID | Element | Selector Hint | Interaction | Verification |
 > |---|---|---|---|---|
 > | VU-1 | Page title / header | `text="AI Broadcast Compliance"` or Oracle logo | None (visual) | Text or image visible after load |
@@ -274,7 +272,6 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 > | VU-12 | Chunk duration input | Number input for chunk_duration | Enter value | Updates summarization params |
 > | VU-13 | Audio/CV toggles | Checkbox/toggle for `enable_audio` and `enable_cv_metadata` | Toggle | Only shown when backend capabilities are enabled (from `/api/vss/config`) |
 =======
->>>>>>> main
 
 | ID    | Element                          | Selector Hint                                                       | Interaction                                     | Verification                                                                                                                                                                                                                                                         |
 | ----- | -------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -291,10 +288,7 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 | VU-11 | Model selector                   | Dropdown/select for model (default: `cosmos-reason1`)               | Change selection                                | Updates summarization params                                                                                                                                                                                                                                         |
 | VU-12 | Chunk duration input             | Number input for chunk_duration                                     | Enter value                                     | Updates summarization params                                                                                                                                                                                                                                         |
 | VU-13 | Audio/CV toggles                 | Checkbox/toggle for `enable_audio` and `enable_cv_metadata`         | Toggle                                          | Only shown when backend capabilities are enabled (from `/api/vss/config`)                                                                                                                                                                                            |
-<<<<<<< HEAD
-=======
 >>>>>>> f851ea1 (rebase conflicts)
->>>>>>> main
 
 ### 4.2 Content Review Page (`/content-review`)
 
