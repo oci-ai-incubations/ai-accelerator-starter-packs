@@ -28,6 +28,7 @@ Skills are invoked as slash commands (e.g., `/deploy-and-test`). Each has a `SKI
 | **lint** | `/lint` | Run all Terraform linting — fmt, validate, tflint, checkov |
 | **schema-gen** | `/schema-gen [category]` | Generate OCI Resource Manager schema for a starter pack category |
 | **vss-test-coverage** | `/vss-test-coverage [section]` | VSS test specification — API endpoints, UI pages, user flows, and infra components with verification steps |
+| **sync-versions** | `/sync-versions` | Parse `blueprint_files.tf`, compare container image versions against `SOFTWARE_VERSIONS.md`, and update the doc. Run before deploying. |
 
 ### Typical workflow
 
