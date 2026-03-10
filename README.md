@@ -1,8 +1,6 @@
 # OCI AI Accelerator Starter Packs
 
 [![License: UPL-1.0](https://img.shields.io/badge/license-UPL--1.0-blue.svg)](LICENSE.md)
-[![Terraform CI](https://github.com/oracle-devrel/oci-ai-accelerator/actions/workflows/terraform-test.yml/badge.svg)](https://github.com/oracle-devrel/oci-ai-accelerator/actions/workflows/terraform-test.yml)
-[![Lint](https://github.com/oracle-devrel/oci-ai-accelerator/actions/workflows/terraform-lint.yml/badge.svg)](https://github.com/oracle-devrel/oci-ai-accelerator/actions/workflows/terraform-lint.yml)
 
 Terraform-based infrastructure-as-code that deploys production-ready AI workloads on [Oracle Cloud Infrastructure (OCI)](https://www.oracle.com/cloud/) using [Oracle Kubernetes Engine (OKE)](https://www.oracle.com/cloud/cloud-native/container-engine-kubernetes/). It provisions networking, compute, a Kubernetes cluster, Helm-managed platform services, and deploys an AI application stack (the OCI AI Blueprints platform) — all from a single `terraform apply`.
 
@@ -27,7 +25,6 @@ Each pack comes in **small** and **medium** sizes. See [`SOFTWARE_VERSIONS.md`](
 ## Prerequisites
 
 - An **OCI tenancy** with sufficient [service limits](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/servicelimits.htm) for GPU shapes (for GPU packs) and OKE clusters.
-- An **NVIDIA NGC API key** — sign up at [ngc.nvidia.com](https://ngc.nvidia.com) and generate an API key under your organization settings. Required for pulling NVIDIA NIM and Blueprint container images.
 - **Terraform >= 1.5** installed locally (only for CLI deployments).
 - **OCI CLI** configured with API key credentials, or an OCI Resource Manager stack (no local tooling needed for console deployments).
 
@@ -37,7 +34,7 @@ Each pack comes in **small** and **medium** sizes. See [`SOFTWARE_VERSIONS.md`](
 
 The fastest way to deploy is through **OCI Resource Manager**, which provides a guided UI form.
 
-1. Download the latest stack zip for your chosen starter pack from the [Releases page](https://github.com/oracle-devrel/oci-ai-accelerator/releases).
+1. Download the latest stack zip for your chosen starter pack from the [Releases page](https://github.com/oci-ai-incubations/ai-accelerator-starter-packs/releases).
 2. In the OCI Console, navigate to **Developer Services → Resource Manager → Stacks**.
 3. Click **Create Stack**, select **Upload a .zip**, and upload the downloaded zip.
 4. Fill in the form:
@@ -59,8 +56,8 @@ Deployment takes approximately **20–40 minutes** depending on the starter pack
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/oracle-devrel/oci-ai-accelerator.git
-cd oci-ai-accelerator/ai-accelerator-tf
+git clone https://github.com/oci-ai-incubations/ai-accelerator-starter-packs.git
+cd oci-ai-incubations/ai-accelerator-starter-packs
 cp terraform.tfvars.example terraform.tfvars
 ```
 
@@ -234,20 +231,20 @@ See [docs/iam-policies.md](docs/iam-policies.md) for the full policy reference w
 │  │  │  OKE Cluster    │  │  Bastion /     │  │  │
 │  │  │                 │  │  Operator      │  │  │
 │  │  │  ┌───────────┐  │  │  (optional)    │  │  │
-│  │  │  │ Helm Stack │  │  └────────────────┘  │  │
-│  │  │  │ - nginx    │  │                      │  │
-│  │  │  │ - cert-mgr │  │  ┌────────────────┐  │  │
-│  │  │  │ - prometheus│  │  │  Autonomous DB │  │  │
-│  │  │  │ - grafana  │  │  │  (paas_rag)    │  │  │
+│  │  │  │ Helm Stack│  │  └────────────────┘  │  │
+│  │  │  │ - nginx   │  │                      │  │
+│  │  │  │ - cert-mgr│  │  ┌────────────────┐  │  │
+│  │  │  │ - prom    │  │  │  Autonomous DB │  │  │
+│  │  │  │ - grafana │  │  │  (paas_rag)    │  │  │
 │  │  │  └───────────┘  │  └────────────────┘  │  │
-│  │  │                 │                       │  │
-│  │  │  ┌───────────┐  │                       │  │
-│  │  │  │ AI Blpts  │  │                       │  │
-│  │  │  │ Platform  │  │                       │  │
-│  │  │  │ + Pack    │  │                       │  │
-│  │  │  └───────────┘  │                       │  │
-│  │  └─────────────────┘                       │  │
-│  │         ↑ Load Balancers ↑                 │  │
+│  │  │                 │                      │  │
+│  │  │  ┌───────────┐  │                      │  │
+│  │  │  │ AI Blpts  │  │                      │  │
+│  │  │  │ Platform  │  │                      │  │
+│  │  │  │ + Pack    │  │                      │  │
+│  │  │  └───────────┘  │                      │  │
+│  │  └─────────────────┘                      │  │
+│  │         ↑ Load Balancers ↑                │  │
 │  └───────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────┘
 ```
@@ -286,7 +283,7 @@ See [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md) for the complete list of cont
 
 Contributions are welcome. Before submitting a pull request, please read [CONTRIBUTING.md](CONTRIBUTING.md) — all contributors must sign the [Oracle Contributor Agreement (OCA)](https://oca.opensource.oracle.com) and include a `Signed-off-by` line in their commits.
 
-For bugs and feature requests, [open a GitHub issue](https://github.com/oracle-devrel/oci-ai-accelerator/issues) first.
+For bugs and feature requests, [open a GitHub issue](https://github.com/oci-ai-incubations/ai-accelerator-starter-packs/issues) first.
 
 ---
 
