@@ -556,6 +556,13 @@ zipkin:
 # NIM LLM
 nim-llm:
   enabled: true
+  nodeSelector:
+    workload: nim-llm
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: nim-llm
+      effect: NoSchedule
   service:
     name: "nim-llm"
   image:

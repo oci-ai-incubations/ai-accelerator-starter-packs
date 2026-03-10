@@ -436,6 +436,34 @@ resource "kubernetes_namespace_v1" "app_namespace" {
   }
 }
 
+# Reserve the first GPU node (sorted by name) exclusively for the nim-llm pod.
+# The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
+# scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
+resource "terraform_data" "label_nim_llm_node" {
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+
+  triggers_replace = [
+    local.cluster_id,
+    "label_nim_llm_node_v1"
+  ]
+
+  depends_on = [
+    oci_core_instance_pool.worker_nodes_pool,
+    oci_core_cluster_network.worker_nodes_cluster_network,
+    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
+    local_sensitive_file.kubeconfig_patch
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename}
+      NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')
+      kubectl label node "$NODE" workload=nim-llm --overwrite
+      kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
+    EOT
+  }
+}
+
 resource "helm_release" "rag" {
   name             = "rag"
   namespace        = local.starter_pack_config.app_namespace
@@ -553,7 +581,8 @@ resource "helm_release" "rag" {
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     oci_database_autonomous_database.oracle_26ai, oci_database_autonomous_database_wallet.oracle_26ai_wallet,
-    kubernetes_secret_v1.oci_config_secret
+    kubernetes_secret_v1.oci_config_secret,
+    terraform_data.label_nim_llm_node
   ]
 }
 
