@@ -12,22 +12,24 @@ Run the full OCI Resource Manager integration test lifecycle for a starter pack 
 
 ## Arguments
 
-- `$0` - Starter pack category: `paas_rag`, `cuopt`, `vss`, or `enterprise_rag`
+- `$0` - Starter pack category: `paas_rag`, `cuopt`, `vss`, `enterprise_rag` or `enterprise_rag_aiq`
 
 If no category is provided, ask the user which category to test.
 
 ## Prerequisites
 
 Before starting, verify:
+
 1. `ai-accelerator-tf/terraform.tfvars` exists and is populated
 2. Ask the user for `OCI_CLI_PROFILE` if not already set (common values: `SANJOSE`, `DEFAULT`)
 3. Ask for any PR-specific testing requirements
+4. Ask what compartment they want to run it in
 
 ## Steps
 
 1. **Generate schema**: `cd /Users/dkennetz/code/ai-accelerator && source venv/bin/activate && python3 create_final_schema.py -c $0`
 2. **Create zip**: Clean `.terraform` and `.terraform.lock.hcl`, then `cd ai-accelerator-tf && zip -r /Users/dkennetz/code/ai-accelerator/lifecycle.zip . -x '.terraform/*' '.terraform.lock.hcl'`
-3. **Create or update stack**: If a stack ID is known from a previous run, update it. Otherwise create a new one in compartment `ocid1.compartment.oc1..aaaaaaaa5rwhi5wj3grdiqzvz244gwzycpfl2ctlb4nvl7vi7wu55tqi375a`
+3. **Create or update stack**: If a stack ID is known from a previous run, update it. Otherwise create a new one in the compartment the user gave you (if you don't have it, ask for it)
 4. **Plan**: Create plan job, poll until completion, check logs for errors
 5. **Apply**: Create apply job with `AUTO_APPROVED`, poll in background until completion, check logs
 6. **Configure kubectl**: Extract cluster OCID from apply logs, run `oci ce cluster create-kubeconfig`
