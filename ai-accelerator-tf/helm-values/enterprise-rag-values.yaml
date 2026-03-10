@@ -37,8 +37,8 @@ ngcApiSecret:
 
 # -- RAG server container image
 image:
-  repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
-  tag: "latest"
+  repository: ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
+  tag: "0.0.3"
   pullPolicy: Always
 
 # -- RAG server service configuration
@@ -238,7 +238,7 @@ ingestor-server:
 
   image:
     repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
-    tag: "latest"
+    tag: "0.0.3"
     pullPolicy: Always
 
   # -- Service config for ingestor-server
@@ -364,7 +364,7 @@ ingestor-server:
     mountPath: "/data/"
     # Optional subPath within the PVC
     subPath: ""
-    
+
 # -- Frontend
 # subsection: frontend
 # rag frontend Frontend
