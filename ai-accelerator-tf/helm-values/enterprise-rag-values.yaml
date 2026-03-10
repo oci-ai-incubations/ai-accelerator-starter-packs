@@ -214,16 +214,6 @@ envVars:
   ENABLE_QUERY_DECOMPOSITION: "false"
   # maximum recursion depth for iterative query decomposition
   MAX_RECURSION_DEPTH: "3"
-  
-volumes:
-  - name: oci-config
-    secret:
-      secretName: oci-config-secret
-
-volumeMounts:
-  - name: oci-config
-    mountPath: "/wallet"
-    readOnly: true
 
 # -- Ingestor Server
 # subsection: ingestor-server
@@ -374,16 +364,6 @@ ingestor-server:
     mountPath: "/data/"
     # Optional subPath within the PVC
     subPath: ""
-  
-  volumes:
-    - name: oci-config
-      secret:
-        secretName: oci-config-secret
-  
-  volumeMounts:
-    - name: oci-config
-      mountPath: "/wallet"
-      readOnly: true
     
 # -- Frontend
 # subsection: frontend
