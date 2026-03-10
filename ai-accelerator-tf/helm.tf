@@ -602,11 +602,17 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
 
   depends_on = [
     helm_release.rag,
-    local_sensitive_file.kubeconfig_patch
+    local_sensitive_file.kubeconfig_patch,
+    kubernetes_secret_v1.oci_config_secret,
   ]
 
   provisioner "local-exec" {
-    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
+    command = <<-EOT
+      export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename}
+      kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{"spec":{"selector":{"statefulset.kubernetes.io/pod-name":"rag-nim-llm-0","app.kubernetes.io/name":null}}}'
+      kubectl patch deployment rag-server -n ${local.starter_pack_config.app_namespace} --type=strategic --patch-file=${path.module}/helm-values/rag-server-wallet-patch.yaml
+      kubectl patch deployment ingestor-server -n ${local.starter_pack_config.app_namespace} --type=strategic --patch-file=${path.module}/helm-values/ingestor-server-wallet-patch.yaml
+    EOT
   }
 }
 
