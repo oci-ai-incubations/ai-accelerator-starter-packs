@@ -36,42 +36,14 @@ If this key has ever been committed to version history, it should be considered 
 **Git history note:** If the key exists in git history on this branch, history must be rewritten (e.g., `git filter-repo`) before the repo goes public, or the key must be rotated immediately after publishing.
 
 ---
+## HIGH -- Highly Recommended Before Publishing
 
-## HIGH — Address Before or Shortly After Publishing
+### 2. Copy all docs from https://github.com/oracle-quickstart/oci-ai-blueprints/tree/main/docs/ai_accelerator_packs to docs
 
-### 2. Internal OCIR Registry Paths in `SOFTWARE_VERSIONS.md` and `blueprint_files.tf`
-
-Several container images reference an internal Oracle OCIR namespace:
-
-```
-iad.ocir.io/iduyx1qnmway/corrino-devops-repository/...
-iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend/...
-```
-
-These images are either:
-- **Internal Oracle images** that external users cannot pull — the stack will fail for anyone outside Oracle.
-- **Images that will be migrated** to a public registry before GA.
-
-**Action required:** Clarify the plan for each internal image:
-- Will they be published to a public registry (Docker Hub, Oracle Container Registry public repos, GHCR)?
-- Will users need to build them from source?
-- If they'll remain internal for now, add a clear notice in the README and SOFTWARE_VERSIONS.md that some images require Oracle-internal access.
-
-Affected packs: `cuopt` (LlamaStack, cuOpt Frontend), `vss` (VSS Engine medium), `paas_rag` (LlamaStack, Frontend), `enterprise_rag` (Frontend).
-
-### 3. Internal URLs in `app-locals.tf`
-
-Review `app-locals.tf` for any hardcoded internal Oracle endpoints, S3/OCIR bucket paths, or internal service URLs. These commonly appear in:
-- `local.app` (bucket names, Corrino API URLs, docs URLs)
-- `local.registration` (registration upload endpoints)
-
-If any URLs point to internal Oracle infrastructure (non-public OCI services, internal APIs), they either need to be made configurable via variables or removed/replaced with public equivalents.
-
----
 
 ## MEDIUM — Recommended Before Publishing
 
-### 4. `terraform.tfvars` in `.gitignore`
+### 3. `terraform.tfvars` in `.gitignore`
 
 Verify that `terraform.tfvars` (which contains real credentials during local development) is properly gitignored. A `terraform.tfvars.example` is present — confirm the real file is not tracked.
 
@@ -80,11 +52,11 @@ git status ai-accelerator-tf/terraform.tfvars  # should show as untracked or abs
 git ls-files ai-accelerator-tf/terraform.tfvars  # should return nothing
 ```
 
-### 5. `starter_pack_category.auto.tfvars` Not Gitignored
+### 4. `starter_pack_category.auto.tfvars` Not Gitignored
 
 This file is user-specific (it holds the chosen category for the current session). Verify it is gitignored or, if tracked, that its committed value is a sensible default.
 
-### 6. Zip Artifacts in Root Directory
+### 5. Zip Artifacts in Root Directory
 
 Several `.zip` files appear in the root (cuopt.zip, paas_rag.zip, vss.zip, etc.). These are build artifacts that should be gitignored, not tracked in the repository.
 
@@ -92,7 +64,7 @@ Several `.zip` files appear in the root (cuopt.zip, paas_rag.zip, vss.zip, etc.)
 git ls-files "*.zip"  # should return nothing
 ```
 
-### 7. `share_data_with_corrino_team_enabled` Variable
+### 6. `share_data_with_corrino_team_enabled` Variable
 
 ```hcl
 variable "share_data_with_corrino_team_enabled" {
@@ -106,7 +78,7 @@ This variable defaults to `true` and sends data to the Corrino team. For an OSS 
 - The default should arguably be `false` (opt-in rather than opt-out) for open-source users who are not Oracle customers.
 - The registration endpoint in `app-locals.tf` should be documented or pointed at a public API if the team wants community telemetry.
 
-### 8. `corrino_image_version` Hardcoded in `vars.tf`
+### 7. `corrino_image_version` Hardcoded in `vars.tf`
 
 ```hcl
 variable "corrino_image_version" {
@@ -120,7 +92,7 @@ This is the version of the internal Corrino backend image. If Corrino images are
 
 ## LOW — Nice to Have
 
-### 9. No `CODEOWNERS` File
+### 8. No `CODEOWNERS` File
 
 A `.github/CODEOWNERS` file assigns automatic PR reviewers for different parts of the codebase. This is especially useful once external contributors start submitting PRs.
 
@@ -131,7 +103,7 @@ ai-accelerator-tf/  @oracle-devrel/ai-accelerator-terraform
 docs/               @oracle-devrel/ai-accelerator-docs
 ```
 
-### 10. No Release Automation
+### 9. No Release Automation
 
 Currently there is no GitHub Actions workflow to cut releases or build/publish stack zips automatically. A `release.yml` workflow that:
 1. Triggers on version tags (`v*`)
@@ -141,11 +113,11 @@ Currently there is no GitHub Actions workflow to cut releases or build/publish s
 
 ...would make it much easier for users to download and deploy without cloning the repo.
 
-### 11. CI Badges in README Point to Hardcoded Org
+### 10. CI Badges in README Point to Hardcoded Org
 
 The README badges reference `oracle-devrel/oci-ai-accelerator`. Confirm this is the final GitHub org/repo path before publishing.
 
-### 12. `docs/TESTING.md` Has Absolute Local Paths
+### 11. `docs/TESTING.md` Has Absolute Local Paths
 
 Review `docs/TESTING.md` and any skill files for absolute paths like `/Users/dkennetz/...`. These should use relative paths or repo-root-relative paths so they work for all contributors.
 
@@ -187,7 +159,7 @@ The following are ready for OSS and require no changes:
 | Category | Count |
 |----------|-------|
 | Critical (blockers) | 1 |
-| High | 2 |
+| High | 0 |
 | Medium | 5 |
 | Low | 4 |
 | Good / Ready | 15+ |
