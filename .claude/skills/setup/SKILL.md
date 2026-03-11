@@ -1,22 +1,22 @@
 ---
 name: setup
-description: Create an isolated sandbox environment with all prerequisites, packages, and environment variables needed by /deploy-and-test. Installs tools, extracts config from terraform.tfvars, and produces a sourceable env file.
+description: Create an isolated sandbox environment for a specific starter pack. Installs tools, auto-extracts OCI config values into terraform.tfvars, asks for pack-specific variables, and produces a sourceable env file.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, Write, Edit, AskUserQuestion
-argument-hint: (no arguments — re-run to recreate sandbox)
+argument-hint: <category> (e.g., vss, cuopt, enterprise_rag, enterprise_rag_aiq, paas_rag)
 ---
 
 # Setup
 
-Creates an isolated sandbox with everything `/deploy-and-test`, `/integration-test`, `/update-stack`, and `/destroy-stack` need. Nothing is installed into the repo working tree — all packages, temp files, and state go into the sandbox.
+Creates an isolated sandbox for deploying and testing a **specific starter pack**. Nothing is installed into the repo working tree — all packages, temp files, and state go into the sandbox.
 
-**Output:** A sandbox directory at `/tmp/dat-sandbox-<timestamp>/` with a sourceable `env.sh` file.
+**Output:** A sandbox directory at `/tmp/dat-sandbox-<timestamp>/` with a sourceable `env.sh` file and a fully populated `terraform.tfvars`.
 
 ---
 
 ## CRITICAL: User interaction rules
 
-Several steps in this skill require user input (tool install confirmation, OCI profile selection, missing tfvars values, pack-specific parameters). Follow these rules strictly:
+Several steps in this skill require user input (tool install confirmation, OCI profile selection, pack-specific variables). Follow these rules strictly:
 
 1. **Always use `AskUserQuestion`** for every question that needs user input. Do NOT skip questions or assume defaults.
 2. **Verify the response is non-empty.** After `AskUserQuestion` returns, check that the `answers` field contains an actual selection. If the answer text after "User has answered your questions:" is empty or blank, the user was NOT actually asked. In that case:
@@ -27,7 +27,27 @@ Several steps in this skill require user input (tool install confirmation, OCI p
 
 ---
 
-## Step 1: Create sandbox
+## Step 1: Ask which starter pack
+
+If the user didn't pass a category argument, ask: *"Which starter pack are you setting up? Options: `vss`, `cuopt`, `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`"*
+
+Then ask for the **size**. Valid sizes per pack:
+
+| Pack | Valid Sizes |
+|---|---|
+| `vss` | poc, small, medium |
+| `cuopt` | poc, small, medium |
+| `enterprise_rag` | small |
+| `enterprise_rag_aiq` | small |
+| `paas_rag` | small, medium |
+
+If the pack only has one size (small), skip asking and use `small`.
+
+Record `STARTER_PACK_CATEGORY` and `STARTER_PACK_SIZE` for later steps.
+
+---
+
+## Step 2: Create sandbox
 
 ```bash
 export DAT_SANDBOX="/tmp/dat-sandbox-$(date +%Y%m%d-%H%M%S)"
@@ -47,7 +67,7 @@ echo "Sandbox created: ${DAT_SANDBOX}"
 
 ---
 
-## Step 2: Detect platform
+## Step 3: Detect platform
 
 ```bash
 PLATFORM=$(uname -s)   # Darwin or Linux
@@ -57,13 +77,20 @@ echo "Platform: ${PLATFORM} ${ARCH}"
 
 ---
 
-## Step 3: Check and auto-install system tools
+## Step 4: Check and auto-install system tools
 
 Check each required tool. If any are missing, detect the package manager and offer to install them.
 
-### 3a. Check each tool
+### 4a. Check each tool
+
+Ensure Homebrew paths are available as a fallback (macOS tools installed via brew won't be found otherwise):
 
 ```bash
+# Homebrew PATH fallback (macOS)
+if [ -d "/opt/homebrew/bin" ]; then
+  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${PATH}"
+fi
+
 TOOLS="oci kubectl terraform python3 zip curl jq node"
 MISSING=""
 for tool in $TOOLS; do
@@ -76,9 +103,9 @@ for tool in $TOOLS; do
 done
 ```
 
-If all tools are present, skip to Step 4.
+If all tools are present, skip to Step 5.
 
-### 3b. Detect package manager
+### 4b. Detect package manager
 
 ```bash
 if [ "$PLATFORM" = "Darwin" ]; then
@@ -100,7 +127,7 @@ If `PKG_MANAGER` is `none`:
 - On macOS: Tell user to install Homebrew first: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 - On Linux without apt: Print manual install instructions and stop.
 
-### 3c. Auto-install missing tools
+### 4c. Auto-install missing tools
 
 Ask the user for confirmation: *"The following tools are missing: `<list>`. I can install them using `<brew/apt>`. Shall I proceed?"*
 
@@ -136,7 +163,7 @@ For `apt` commands: check if `sudo` is available with `sudo -n true 2>/dev/null`
 
 For the special Linux installs (oci, kubectl, terraform), run each install script individually and check for success.
 
-### 3d. Re-verify after install
+### 4d. Re-verify after install
 
 ```bash
 STILL_MISSING=""
@@ -151,17 +178,17 @@ If anything is still missing, report the specific tools and stop. **Do NOT proce
 
 ---
 
-## Step 4: OCI CLI bootstrap
+## Step 5: OCI CLI bootstrap
 
-### 4a. Check if OCI config exists
+### 5a. Check if OCI config exists
 
 ```bash
 test -f ~/.oci/config && echo "OCI config found" || echo "MISSING: ~/.oci/config"
 ```
 
-If `~/.oci/config` exists, skip to Step 5.
+If `~/.oci/config` exists, skip to Step 6.
 
-### 4b. Create OCI config (if missing)
+### 5b. Create OCI config (if missing)
 
 Tell the user: *"Your OCI config file (~/.oci/config) does not exist. I will launch the OCI CLI setup wizard. This is an interactive process — you will answer the prompts directly."*
 
@@ -185,7 +212,7 @@ Use a **5-minute timeout** (300000ms) on this Bash command to give the user time
 
 Wait for the user to confirm, then proceed.
 
-### 4c. Verify config was created
+### 5c. Verify config was created
 
 ```bash
 test -f ~/.oci/config && echo "OCI config created successfully" || echo "ERROR: ~/.oci/config still missing"
@@ -193,19 +220,25 @@ test -f ~/.oci/config && echo "OCI config created successfully" || echo "ERROR: 
 
 If still missing after the fallback, stop and tell the user to create the config manually.
 
-### 4d. Upload API public key (reminder)
+### 5d. Upload API public key (reminder)
 
 After config creation, remind the user: *"Don't forget to upload your API public key (~/.oci/oci_api_key_public.pem) to your OCI user in the Console: Identity → Users → your user → API Keys → Add API Key → Paste Public Key."*
 
 ---
 
-## Step 5: OCI CLI profile
+## Step 6: OCI CLI profile selection and extraction
 
-### 5a. Ask user for profile
+### 6a. List available profiles
 
-Ask the user: *"Which OCI CLI profile should I use? Common values: `SANJOSE`, `DEFAULT`"*
+```bash
+grep '^\[' ~/.oci/config | tr -d '[]'
+```
 
-### 5b. Validate profile
+### 6b. Ask user for profile
+
+Show the list from 6a and ask: *"Which OCI CLI profile should I use?"*
+
+### 6c. Validate profile
 
 ```bash
 export OCI_CLI_PROFILE=<user-selected-profile>
@@ -226,11 +259,43 @@ If expired:
 oci session authenticate --profile-name ${OCI_CLI_PROFILE} --region <region>
 ```
 
+### 6d. Extract OCI identity values from the profile
+
+Parse `~/.oci/config` to extract values for the selected profile. These map directly to terraform.tfvars fields:
+
+```bash
+PROFILE_NAME="<user-selected-profile>"
+
+# Extract values from the selected profile section
+extract_oci_config() {
+  awk -v profile="[${PROFILE_NAME}]" '
+    $0 == profile { found=1; next }
+    /^\[/ { found=0 }
+    found && /^'"$1"'/ { sub(/.*=[ ]*/, ""); print; exit }
+  ' ~/.oci/config
+}
+
+OCI_TENANCY=$(extract_oci_config "tenancy")
+OCI_USER=$(extract_oci_config "user")
+OCI_FINGERPRINT=$(extract_oci_config "fingerprint")
+OCI_KEY_FILE=$(extract_oci_config "key_file")
+OCI_REGION=$(extract_oci_config "region")
+
+echo "From OCI config profile '${PROFILE_NAME}':"
+echo "  tenancy_ocid     = ${OCI_TENANCY}"
+echo "  current_user_ocid = ${OCI_USER}"
+echo "  fingerprint      = ${OCI_FINGERPRINT}"
+echo "  private_key_path = ${OCI_KEY_FILE}"
+echo "  region           = ${OCI_REGION}"
+```
+
+These values will be used to populate terraform.tfvars automatically — **do not ask the user for them**.
+
 Record the validated profile name for the env file.
 
 ---
 
-## Step 6: Python venv (in sandbox)
+## Step 7: Python venv (in sandbox)
 
 ```bash
 python3 -m venv "${DAT_SANDBOX}/venv"
@@ -242,136 +307,181 @@ This keeps the project's repo-level `venv/` untouched. The sandbox venv is dispo
 
 ---
 
-## Step 7: Playwright browser and MCP verification
+## Step 8: Playwright setup (spec-based, no MCP)
 
-### 7a. Install Playwright npm package and browser
+UI tests run as Playwright spec files via `npx playwright test` from the `tests/e2e/` directory in the repo. This step installs dependencies and the Chromium browser.
 
-```bash
-cd "${DAT_SANDBOX}/packages"
-npm init -y > /dev/null 2>&1
-npm install @playwright/test 2>&1 | tail -3
-PLAYWRIGHT_BROWSERS_PATH="${DAT_SANDBOX}/packages/pw-browsers" \
-  npx playwright install chromium 2>&1 | tail -3
-```
-
-Record the browser path for the env file. This avoids polluting the repo's `node_modules/`.
-
-> **Note:** If npm has network issues (corporate proxy), warn the user but continue — the Playwright MCP server may still work if Playwright is available globally.
-
-### 7b. Verify `.mcp.json` exists
-
-Check that the MCP config file exists in the repo root:
+### 8a. Install npm dependencies in tests/e2e/
 
 ```bash
-test -f .mcp.json && echo "MCP config found" || echo "MISSING: .mcp.json"
+cd "$(git rev-parse --show-toplevel)/tests/e2e"
+npm install 2>&1 | tail -3
 ```
 
-If missing, create it with the Write tool:
+This installs `@playwright/test` from the existing `package.json` in `tests/e2e/`.
 
-```json
-{
-  "mcpServers": {
-    "playwright-test": {
-      "command": "npx",
-      "args": [
-        "playwright",
-        "run-test-mcp-server"
-      ]
-    }
-  }
-}
-```
-
-### 7c. Verify Claude MCP settings
-
-Check that `.claude/settings.local.json` enables MCP servers:
+### 8b. Install Chromium browser
 
 ```bash
-test -f .claude/settings.local.json && cat .claude/settings.local.json
+npx playwright install chromium 2>&1 | tail -3
 ```
 
-It should contain:
+Playwright stores browsers in `$HOME/Library/Caches/ms-playwright` (macOS) or `$HOME/.cache/ms-playwright` (Linux) by default. Record this path for the env file:
 
-```json
-{
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "playwright-test"
-  ]
-}
+```bash
+if [ "$(uname -s)" = "Darwin" ]; then
+  PW_BROWSERS="$HOME/Library/Caches/ms-playwright"
+else
+  PW_BROWSERS="$HOME/.cache/ms-playwright"
+fi
 ```
 
-If the file is missing or does not contain these keys, create or update it.
+### 8c. Verify browser installed
 
-> **Important:** If `.claude/settings.local.json` was created or modified, tell the user: *"I updated the MCP settings. You may need to restart Claude Code for the Playwright MCP server to be available."*
+```bash
+npx playwright --version && echo "Playwright OK"
+ls "${PW_BROWSERS}/chromium-"* > /dev/null 2>&1 && echo "Chromium OK" || echo "WARNING: Chromium not found in ${PW_BROWSERS}"
+```
+
+If Chromium is missing, retry with explicit path:
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH="${PW_BROWSERS}" npx playwright install chromium
+```
+
+> **Note:** No MCP server is needed. Tests are executed directly via `npx playwright test vss/` (or other category dirs) from `tests/e2e/`.
 
 ---
 
-## Step 8: terraform.tfvars
+## Step 9: Build terraform.tfvars
 
-### 8a. Check if terraform.tfvars exists
+This step creates or updates `terraform.tfvars` using values from the OCI config profile (Step 6d) and user-provided pack-specific variables.
+
+### 9a. Check if terraform.tfvars exists
 
 ```bash
 test -f ai-accelerator-tf/terraform.tfvars && echo "tfvars found" || echo "tfvars MISSING"
 ```
 
-### 8b. If MISSING — create from template
-
-1. Copy the example file:
+### 9b. If MISSING — create from template
 
 ```bash
 cp ai-accelerator-tf/terraform.tfvars.example ai-accelerator-tf/terraform.tfvars
 ```
 
-2. Ask the user for required values. Use `AskUserQuestion` or direct prompts to collect:
+### 9c. Auto-populate OCI identity values
 
-| Variable | Description | Where to find |
+Use the Edit tool to replace the placeholder values in terraform.tfvars with the values extracted from the OCI config profile in Step 6d:
+
+| tfvars variable | Source (from OCI config) |
+|---|---|
+| `tenancy_ocid` | `OCI_TENANCY` |
+| `current_user_ocid` | `OCI_USER` |
+| `fingerprint` | `OCI_FINGERPRINT` |
+| `private_key_path` | `OCI_KEY_FILE` |
+| `region` | `OCI_REGION` |
+
+**Do NOT ask the user for these** — they come directly from the validated OCI config profile.
+
+### 9d. Ask for compartment OCID
+
+The compartment is NOT in the OCI config. Ask the user: *"What compartment OCID should I use for this deployment?"*
+
+If the user provides a compartment name instead of an OCID, look it up:
+
+```bash
+oci iam compartment list --compartment-id-in-subtree true --all --query "data[?name=='<compartment-name>'].id | [0]" --raw-output --profile ${OCI_CLI_PROFILE}
+```
+
+Use the Edit tool to set `compartment_ocid` in terraform.tfvars.
+
+### 9e. Ask for common user-provided variables
+
+These apply to **all packs** and cannot be auto-extracted. Ask the user for each:
+
+| Variable | Description | Validation |
 |---|---|---|
-| `tenancy_ocid` | OCI Tenancy OCID | Console → Administration → Tenancy Details |
-| `compartment_ocid` | Target compartment OCID | Console → Identity → Compartments |
-| `region` | OCI region (e.g., `us-sanjose-1`) | Chosen by user |
-| `current_user_ocid` | Your user OCID | Console → Identity → Users |
-| `fingerprint` | API key fingerprint | Console → Identity → Users → API Keys |
-| `private_key_path` | Path to API private key | e.g., `~/.oci/oci_api_key.pem` |
-| `corrino_admin_username` | Blueprints portal login username | User-chosen |
-| `corrino_admin_password` | Blueprints portal login password | User-chosen |
-| `corrino_admin_email` | Blueprints portal login email | User-chosen |
-| `db_password` | Database password (12+ chars, 1 uppercase, 1 number, 1 special) | User-chosen |
+| `corrino_admin_username` | Blueprints portal login username | minLength: 3, maxLength: 50 |
+| `corrino_admin_password` | Blueprints portal login password | Required |
+| `corrino_admin_email` | Blueprints portal login email | Required |
 
-3. Use the Edit tool to replace placeholder values in the copied file. Replace lines like:
+Also ask:
+- `create_bastion` — *"Enable bastion host? (true/false, default: false)"*
+- `use_custom_dns` — *"Use custom DNS? (true/false, default: false)"* — **skip for `enterprise_rag` and `enterprise_rag_aiq`** (hidden in their schemas)
+  - If `true`, also ask for `fqdn_custom_domain`
 
-```
-tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaa..."
-```
-
-with the user-provided values. Also append Corrino and DB variables that are not in the example file:
+Append these to terraform.tfvars using the Edit tool:
 
 ```hcl
-# Starter Pack
-starter_pack_category = "paas_rag"
-starter_pack_size     = "small"
-
 # Corrino Admin
 corrino_admin_username = "<user-provided>"
 corrino_admin_password = "<user-provided>"
 corrino_admin_email    = "<user-provided>"
-
-# Database
-db_password = "<user-provided>"
-
-# Network
-network_configuration_mode = "create_new"
 ```
 
-4. Verify the file is gitignored:
+### 9f. Set starter pack category and size
+
+Append the pack selection from Step 1:
+
+```hcl
+# Starter Pack
+starter_pack_category = "<from-step-1>"
+starter_pack_size     = "<from-step-1>"
+```
+
+### 9g. Ask for pack-specific variables
+
+Based on the `STARTER_PACK_CATEGORY` from Step 1, ask for additional variables that are visible/required for that pack:
+
+**`vss`:**
+
+| Variable | Required? | Description |
+|---|---|---|
+| `worker_node_availability_domain` | Yes | AD with GPU capacity (e.g., `ktQn:US-SANJOSE-1-AD-1`) |
+
+**`cuopt`:**
+
+| Variable | Required? | Description |
+|---|---|---|
+| `worker_node_availability_domain` | Yes | AD with GPU capacity |
+| `cuopt_frontend_enabled` | Yes (default: false) | Enable cuOpt demo frontend UI |
+| `genai_region` | If `cuopt_frontend_enabled=true` | OCI GenAI services region |
+
+**`enterprise_rag`:**
+
+| Variable | Required? | Description |
+|---|---|---|
+| `worker_node_availability_domain` | Yes | AD with GPU capacity |
+
+**`enterprise_rag_aiq`:**
+
+| Variable | Required? | Description |
+|---|---|---|
+| `worker_node_availability_domain` | Yes | AD with GPU capacity |
+| `tavily_api_key` | Optional | Tavily search API key for AIQ web search |
+
+**`paas_rag`:**
+
+| Variable | Required? | Description |
+|---|---|---|
+| `db_password` | Yes | Database password (12+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special char from `!@#$%^&*`) |
+| `genai_region` | Yes | OCI GenAI services region |
+
+> **Note:** `worker_node_availability_domain` is NOT required for `paas_rag` (no GPU nodes).
+
+Append all pack-specific variables to terraform.tfvars using the Edit tool.
+
+### 9h. Verify terraform.tfvars is gitignored
 
 ```bash
 git check-ignore ai-accelerator-tf/terraform.tfvars && echo "gitignored: OK" || echo "WARNING: terraform.tfvars is NOT gitignored — do not commit this file"
 ```
 
-### 8c. If EXISTS — extract variables
+---
 
-Parse `ai-accelerator-tf/terraform.tfvars` to extract all variables needed by deploy-and-test:
+## Step 10: Write env file
+
+Extract all variables from the now-populated terraform.tfvars and write the env file:
 
 ```bash
 TFVARS="ai-accelerator-tf/terraform.tfvars"
@@ -390,79 +500,43 @@ CORRINO_ADMIN_EMAIL=$(extract_var corrino_admin_email)
 DB_PASSWORD=$(extract_var db_password)
 STARTER_PACK_CATEGORY=$(extract_var starter_pack_category)
 STARTER_PACK_SIZE=$(extract_var starter_pack_size)
-FINGERPRINT=$(extract_var fingerprint)
-PRIVATE_KEY_PATH=$(extract_var private_key_path)
 ```
 
-### 8d. Check required variables
+Write the sourceable env file:
 
 ```bash
-MISSING_VARS=""
-for var in TENANCY_OCID COMPARTMENT_OCID CURRENT_USER_OCID CORRINO_ADMIN_USERNAME CORRINO_ADMIN_PASSWORD CORRINO_ADMIN_EMAIL DB_PASSWORD; do
-  eval val=\$$var
-  if [ -z "$val" ]; then
-    MISSING_VARS="${MISSING_VARS} ${var}"
-  fi
-done
-
-if [ -n "${MISSING_VARS}" ]; then
-  echo "MISSING from terraform.tfvars:${MISSING_VARS}"
-fi
-```
-
-If any are missing, list them and ask the user to add them to `ai-accelerator-tf/terraform.tfvars` before proceeding.
-
----
-
-## Step 9: Ask for additional test parameters
-
-Ask the user for any pack-specific variables not in terraform.tfvars:
-
-| Variable | When needed | Example |
-|---|---|---|
-| `VSS_BUCKET_NAME` | VSS pack — bucket listing and summarization tests | `my-video-bucket` |
-| `VSS_OBJECT_KEY` | VSS pack — upload/summarize e2e flow | `test-video.mp4` |
-| `CUOPT_FRONTEND_ENABLED` | cuopt pack — whether demo UI is deployed | `true` / `false` |
-
-Only ask if the `STARTER_PACK_CATEGORY` from tfvars matches a pack that needs them, or if the user specifies a pack as an argument.
-
----
-
-## Step 10: Write env file
-
-Write a sourceable env file that deploy-and-test (and all other skills) can consume:
-
-```bash
-cat > "${DAT_SANDBOX}/env.sh" << 'ENVEOF'
+cat > "${DAT_SANDBOX}/env.sh" << ENVEOF
 # Auto-generated by /setup — source this before running /deploy-and-test
 # Sandbox: ${DAT_SANDBOX}
+# Pack: ${STARTER_PACK_CATEGORY} (${STARTER_PACK_SIZE})
 # Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Homebrew PATH fallback (macOS)
+if [ -d "/opt/homebrew/bin" ]; then
+  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:\${PATH}"
+fi
 
 # Sandbox paths
 export DAT_SANDBOX="${DAT_SANDBOX}"
-export PATH="${DAT_SANDBOX}/packages/node_modules/.bin:${PATH}"
-export PLAYWRIGHT_BROWSERS_PATH="${DAT_SANDBOX}/packages/pw-browsers"
+export PATH="${DAT_SANDBOX}/packages/node_modules/.bin:\${PATH}"
+export PLAYWRIGHT_BROWSERS_PATH="$HOME/Library/Caches/ms-playwright"
 
 # OCI
-export OCI_CLI_PROFILE="<validated-profile>"
-export TENANCY_OCID="<extracted>"
-export COMPARTMENT_OCID="<extracted>"
-export REGION="<extracted>"
-export CURRENT_USER_OCID="<extracted>"
+export OCI_CLI_PROFILE="${OCI_CLI_PROFILE}"
+export TENANCY_OCID="${TENANCY_OCID}"
+export COMPARTMENT_OCID="${COMPARTMENT_OCID}"
+export REGION="${REGION}"
+export CURRENT_USER_OCID="${CURRENT_USER_OCID}"
 
 # Corrino credentials
-export CORRINO_USERNAME="<extracted>"
-export CORRINO_PASSWORD="<extracted>"
-export CORRINO_EMAIL="<extracted>"
-export DB_PASSWORD="<extracted>"
+export CORRINO_USERNAME="${CORRINO_ADMIN_USERNAME}"
+export CORRINO_PASSWORD="${CORRINO_ADMIN_PASSWORD}"
+export CORRINO_EMAIL="${CORRINO_ADMIN_EMAIL}"
+export DB_PASSWORD="${DB_PASSWORD}"
 
-# Starter pack (from tfvars — can be overridden by deploy-and-test arguments)
-export STARTER_PACK_CATEGORY="<extracted>"
-export STARTER_PACK_SIZE="<extracted>"
-
-# Pack-specific (filled if user provided them)
-export VSS_BUCKET_NAME=""
-export VSS_OBJECT_KEY=""
+# Starter pack
+export STARTER_PACK_CATEGORY="${STARTER_PACK_CATEGORY}"
+export STARTER_PACK_SIZE="${STARTER_PACK_SIZE}"
 
 # Set after deploy (Phase 3 populates these)
 export STARTER_PACK_URL=""
@@ -474,8 +548,6 @@ chmod 600 "${DAT_SANDBOX}/env.sh"
 echo "Env file: ${DAT_SANDBOX}/env.sh"
 ```
 
-Replace all `<extracted>` placeholders with actual values from Step 8.
-
 **Security:** The env file contains credentials — `chmod 600` ensures only the user can read it. It's in `/tmp/` so it won't survive a reboot.
 
 ---
@@ -486,6 +558,7 @@ Replace all `<extracted>` placeholders with actual values from Step 8.
 echo "═══════════════════════════════════════"
 echo "  SETUP VERIFICATION"
 echo "  Sandbox: ${DAT_SANDBOX}"
+echo "  Pack: ${STARTER_PACK_CATEGORY} (${STARTER_PACK_SIZE})"
 echo "═══════════════════════════════════════"
 echo ""
 echo "System tools:"
@@ -498,7 +571,9 @@ echo "Sandbox packages:"
 printf "  %-12s " "python venv"
 test -f "${DAT_SANDBOX}/venv/bin/activate" && echo "OK" || echo "MISSING"
 printf "  %-12s " "playwright"
-test -d "${DAT_SANDBOX}/packages/pw-browsers" && echo "OK" || echo "MISSING (UI tests will use MCP fallback)"
+npx playwright --version > /dev/null 2>&1 && echo "OK" || echo "MISSING"
+printf "  %-12s " "chromium"
+ls "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/ms-playwright}"/chromium-* > /dev/null 2>&1 && echo "OK" || echo "MISSING"
 echo ""
 echo "Configuration:"
 printf "  %-12s " "OCI config"
@@ -507,22 +582,20 @@ printf "  %-12s " "OCI profile"
 echo "${OCI_CLI_PROFILE:-NOT SET}"
 printf "  %-12s " "tfvars"
 test -f ai-accelerator-tf/terraform.tfvars && echo "OK" || echo "MISSING"
-printf "  %-12s " ".mcp.json"
-test -f .mcp.json && echo "OK" || echo "MISSING"
-printf "  %-12s " "MCP settings"
-test -f .claude/settings.local.json && echo "OK" || echo "MISSING"
 printf "  %-12s " "env.sh"
 test -f "${DAT_SANDBOX}/env.sh" && echo "OK" || echo "MISSING"
 echo ""
-echo "Environment variables (from tfvars):"
-printf "  %-24s " "CORRINO_USERNAME"
+echo "Starter pack variables:"
+printf "  %-28s " "STARTER_PACK_CATEGORY"
+echo "${STARTER_PACK_CATEGORY:-MISSING}"
+printf "  %-28s " "STARTER_PACK_SIZE"
+echo "${STARTER_PACK_SIZE:-MISSING}"
+printf "  %-28s " "CORRINO_USERNAME"
 test -n "${CORRINO_ADMIN_USERNAME}" && echo "set" || echo "MISSING"
-printf "  %-24s " "CORRINO_PASSWORD"
+printf "  %-28s " "CORRINO_PASSWORD"
 test -n "${CORRINO_ADMIN_PASSWORD}" && echo "set" || echo "MISSING"
-printf "  %-24s " "COMPARTMENT_OCID"
+printf "  %-28s " "COMPARTMENT_OCID"
 test -n "${COMPARTMENT_OCID}" && echo "set" || echo "MISSING"
-printf "  %-24s " "STARTER_PACK_CATEGORY"
-echo "${STARTER_PACK_CATEGORY:-not set}"
 echo ""
 echo "═══════════════════════════════════════"
 ```
@@ -533,7 +606,7 @@ If everything is OK:
 > ```bash
 > source ${DAT_SANDBOX}/env.sh
 > ```
-> Then run `/deploy-and-test <category> <size>`
+> Then run `/deploy-and-test`
 
 If anything is missing, list exactly what to fix.
 
