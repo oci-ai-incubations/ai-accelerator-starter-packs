@@ -59,3 +59,4 @@ ai-accelerator-tf/schemas/generated/
 
 *.tfplan
 
+terraform_vars.json

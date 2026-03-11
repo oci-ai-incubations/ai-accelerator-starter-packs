@@ -29,7 +29,8 @@ locals {
       # Add "large" here when implemented
     }
     "enterprise_rag_aiq" = {
-      "small" = ""
+      "small"  = ""
+      "medium" = ""
       # Helm-managed deployment; no blueprint artefact required
     }
   }

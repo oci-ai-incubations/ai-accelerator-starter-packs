@@ -87,3 +87,22 @@ run "plan_succeeds_with_defaults" {
     error_message = "DB username should use default value"
   }
 }
+
+# Test: create_policies=false skips policy resource creation
+run "plan_succeeds_with_create_policies_false" {
+  command = plan
+
+  variables {
+    create_policies = false
+  }
+
+  assert {
+    condition     = length(oci_identity_dynamic_group.dyn_group) == 0
+    error_message = "dyn_group should not be created when create_policies is false"
+  }
+
+  assert {
+    condition     = length(oci_identity_policy.oke_instances_tenancy_policy) == 0
+    error_message = "oke_instances_tenancy_policy should not be created when create_policies is false"
+  }
+}
