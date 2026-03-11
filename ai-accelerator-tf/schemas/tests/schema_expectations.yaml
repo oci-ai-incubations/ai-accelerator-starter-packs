@@ -70,6 +70,7 @@ category_specific:
         visible: true
 
   vss:
+    required_variables: [genai_region]
     absent_outputs: []
     absent_variables: []
     variable_properties:

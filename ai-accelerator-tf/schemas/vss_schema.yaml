@@ -83,15 +83,16 @@ variables:
   # OCI GenAI region — only used by poc-dedicated size for dedicated AI cluster/endpoint
   genai_region:
     title: "OCI GenAI Services Region"
-    description: "Region for OCI Generative AI dedicated cluster and endpoint. Only applies to poc-dedicated size — N/A for other sizes."
+    description: "Region for OCI Generative AI dedicated cluster and endpoint. Only applies to poc-dedicated size."
     type: enum
     default: us-chicago-1
     enum:
-      - uk-london-1
-      - eu-frankfurt-1
-      - eu-frankfurt-2
       - us-chicago-1
-      - us-ashburn-1
+      - uk-london-1
+      - me-riyadh-1
+      - ap-hyderabad-1
+      - ap-osaka-1
+      - sa-saopaulo-1
     visible: true
 
   cuopt_frontend_enabled:

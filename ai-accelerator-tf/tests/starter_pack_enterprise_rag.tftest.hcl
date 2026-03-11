@@ -36,8 +36,7 @@ mock_provider "oci" {
       model_collection = [{
         items = [{
           id           = "ocid1.generativeaimodel.oc1..test"
-          display_name = "meta.llama-4-maverick-17b-128e-instruct"
-          vendor       = "meta"
+          display_name = "meta.llama-4-maverick-17b-128e-instruct-fp8"
         }]
       }]
     }
