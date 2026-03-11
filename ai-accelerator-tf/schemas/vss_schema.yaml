@@ -50,6 +50,7 @@ variableGroups:
     variables:
       - starter_pack_size
       - worker_node_availability_domain
+      - genai_region
 
   - title: "Administrator Account"
     variables:
@@ -79,9 +80,19 @@ variables:
     default: small
     required: true
 
-  # Hide genai_region - not needed for VSS
+  # OCI GenAI region — only used by poc-dedicated size for dedicated AI cluster/endpoint
   genai_region:
-    visible: false
+    title: "OCI GenAI Services Region"
+    description: "Region for OCI Generative AI dedicated cluster and endpoint. Only applies to poc-dedicated size — N/A for other sizes."
+    type: enum
+    default: us-chicago-1
+    enum:
+      - uk-london-1
+      - eu-frankfurt-1
+      - eu-frankfurt-2
+      - us-chicago-1
+      - us-ashburn-1
+    visible: true
 
   cuopt_frontend_enabled:
     visible: false
