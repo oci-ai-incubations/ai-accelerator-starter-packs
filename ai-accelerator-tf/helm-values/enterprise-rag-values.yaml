@@ -96,9 +96,10 @@ envVars:
 
   ##===MINIO specific configurations used to store multimodal base64 content===
   ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
-  MINIO_ENDPOINT: "rag-minio:9000"
-  MINIO_ACCESSKEY: REPLACE_HERE
-  MINIO_SECRETKEY: REPLACE_HERE
+  ENABLE_MINIO: "false"
+  # MINIO_ENDPOINT: "rag-minio:9000"
+  # MINIO_ACCESSKEY: REPLACE_HERE
+  # MINIO_SECRETKEY: REPLACE_HERE
 
   APP_VECTORSTORE_NAME: "oracle"
   ORACLE_VECTOR_INDEX_TYPE: "IVF" 
@@ -278,9 +279,10 @@ ingestor-server:
     COLLECTION_NAME: "multimodal_data"
     ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
     # === MinIO Configurations ===
-    MINIO_ENDPOINT: "rag-minio:9000"
-    MINIO_ACCESSKEY: REPLACE_HERE
-    MINIO_SECRETKEY: REPLACE_HERE
+    ENABLE_MINIO: "false"
+    # MINIO_ENDPOINT: "rag-minio:9000"
+    # MINIO_ACCESSKEY: REPLACE_HERE
+    # MINIO_SECRETKEY: REPLACE_HERE
 
     # === Authentication ===
     # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -314,7 +316,7 @@ ingestor-server:
 
     # === NV-Ingest save to disk configurations ===
     APP_NVINGEST_SAVETODISK: "False"
-    NVINGEST_MINIO_BUCKET: "nv-ingest"
+    # NVINGEST_MINIO_BUCKET: "nv-ingest"
 
     # === General ===
     # Summary Model Configurations
@@ -339,9 +341,9 @@ ingestor-server:
     REDIS_DB: "0"
 
     # === Bulk upload to MinIO ===
-    ENABLE_MINIO_BULK_UPLOAD: "True"
-    TEMP_DIR: "/tmp-data"
-    INGESTOR_SERVER_DATA_DIR: "/data/"
+    # ENABLE_MINIO_BULK_UPLOAD: "True"
+    # TEMP_DIR: "/tmp-data"
+    # INGESTOR_SERVER_DATA_DIR: "/data/"
 
     # === NV-Ingest Batch Mode Configurations ===
     NV_INGEST_FILES_PER_BATCH: "16"
@@ -679,7 +681,7 @@ nv-ingest:
     create: false
   image:
     repository: "nvcr.io/nvidia/nemo-microservices/nv-ingest"
-    tag: "25.9.0"
+    tag: "26.1.2"
   resources:
     limits:
       nvidia.com/gpu: 0
@@ -703,9 +705,9 @@ nv-ingest:
     MESSAGE_CLIENT_HOST: "rag-redis-master"
     MESSAGE_CLIENT_PORT: 6379
     MESSAGE_CLIENT_TYPE: "redis"
-    MINIO_INTERNAL_ADDRESS: "rag-minio:9000"
-    MINIO_PUBLIC_ADDRESS: "http://localhost:9000"
-    MINIO_BUCKET: "nv-ingest"
+    # MINIO_INTERNAL_ADDRESS: "rag-minio:9000"
+    # MINIO_PUBLIC_ADDRESS: "http://localhost:9000"
+    # MINIO_BUCKET: "nv-ingest"
     OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
     MODEL_PREDOWNLOAD_PATH: "/workspace/models/"
     INSTALL_AUDIO_EXTRACTION_DEPS: "true"
