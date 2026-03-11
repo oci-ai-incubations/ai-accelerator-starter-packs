@@ -487,10 +487,18 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
+              input_file_system = var.starter_pack_category == "vss" ? [
+                {
+                  file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
+                  mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
+                  mount_location     = "/mnt/fss"
+                  volume_size_in_gbs = 1000
+                }
+              ] : []
               deployment_name  = "vss-deployment-group"
               recipe_mode      = "service"
               recipe_host_port = "9000"
-              recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
+              recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom"
               recipe_configmaps = [
                 {
                   data = {

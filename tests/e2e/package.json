@@ -1,0 +1,13 @@
+{
+  "name": "e2e-tests",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:vss": "npx playwright test vss/",
+    "report": "npx playwright show-report playwright-report",
+    "trace": "npx playwright show-trace"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

@@ -214,9 +214,34 @@ Ask the user to choose from **deployable** regions only (those with both capacit
 - **Region** (e.g., `us-ashburn-1`) → use as `region` in deployment
 - **Availability Domain** (e.g., `AD-1`) → use as `worker_node_availability_domain`
 
+### Step 5b: Set chosen region for all OCI commands
+
+Once the region is chosen, **every** `oci` command for the rest of the run must use that region (stack, jobs, kubectl config, limits, etc.). Do one of the following:
+
+**Option A — Environment variable (simplest):**
+```bash
+export OCI_CLI_REGION=<selected-region>
+```
+Append this to `${DAT_SANDBOX}/env.sh` so that re-sourcing the env in later phases keeps the region set. All subsequent `oci` commands will use `<selected-region>` without needing `--region` on each call.
+
+**Option B — Temporary profile:** Create a small OCI config in the sandbox that uses the selected region, then use it for the rest of the run:
+```bash
+# Copy user's profile from ~/.oci/config, set region to selected
+mkdir -p "${DAT_SANDBOX}"
+# Build a minimal config: same user, tenancy, key_file, fingerprint as current profile, region=<selected-region>
+export OCI_CLI_CONFIG_FILE="${DAT_SANDBOX}/oci-config"
+export OCI_CLI_PROFILE=deploy
+# (Write [deploy] section to OCI_CLI_CONFIG_FILE with region=<selected-region> and other keys from the user's profile.)
+```
+After this, all `oci` commands use the deploy profile and thus the chosen region.
+
+Whichever option is used, **do not** rely on the default region from `~/.oci/config`; the stack and all jobs must run in the user-selected region.
+
 ---
 
 ## Phase 2: Deploy
+
+**Region:** The selected region is already in effect from Step 5b (`OCI_CLI_REGION` or the deploy profile). All `oci resource-manager` and `oci ce` commands in this phase will use that region. You may still pass `--region <selected-region>` explicitly if desired.
 
 ### Step 6: Generate schema
 
@@ -235,25 +260,27 @@ cd ai-accelerator-tf && zip -r "${DAT_SANDBOX}/zips/lifecycle.zip" . -x '.terraf
 
 ### Step 8: Create ORM stack
 
+Region is already set from Step 5b. Create the stack (no need to pass `--region` if `OCI_CLI_REGION` or the deploy profile is in use):
+
 ```bash
-export OCI_CLI_PROFILE=<profile>
+export OCI_CLI_PROFILE=<profile>   # or use deploy profile from Step 5b Option B
 oci resource-manager stack create \
   --compartment-id "${COMPARTMENT_OCID}" \
   --config-source "${DAT_SANDBOX}/zips/lifecycle.zip" \
   --terraform-version "1.5.x" \
   --display-name "deploy-and-test-$0-$1" \
-  --variables "{\"region\": \"<selected-region>\"}"
+  --variables "{\"region\": \"<selected-region>\", \"worker_node_availability_domain\": \"<selected-ad>\", ...}"
 ```
 
 Record the returned stack OCID.
 
 ### Step 9: Plan
 
-Create a plan job, poll until completion, check logs for errors. Stop and report to user if plan fails.
+Create a plan job (uses chosen region from Step 5b), poll until completion, check logs for errors. Stop and report to user if plan fails.
 
 ### Step 10: Apply
 
-Create an apply job with `AUTO_APPROVED`, poll until completion. Stop and report to user if apply fails.
+Create an apply job with `AUTO_APPROVED` (or from the plan job id); it will run in the chosen region. Poll until completion. Stop and report to user if apply fails.
 
 ### Step 11: Configure kubectl
 
@@ -315,6 +342,7 @@ If the user provides a test matrix:
 1. **Categorize each item** as `API`, `Infra`, or `UI` based on what it tests.
 2. **Assign temporary IDs** using the pattern `UT-1`, `UT-2`, ... (User Test) to distinguish from base spec IDs.
 3. **Merge with the base spec** — user tests run in addition to (not instead of) base tests.
+4. **If the matrix includes UI tests**, clone the pack's frontend repo to understand the exact selectors, component structure, dialog types, and API calls before writing test code. See Step 17b for details.
 
 #### 12c. Determine test sources
 
@@ -394,60 +422,80 @@ Also execute any user-provided infra tests (UT-* IDs).
 
 ### Step 17: Execute UI tests
 
-> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with page, selectors, interactions, verification criteria, and timeouts. **Pass ONLY this file's content to the Playwright sub-agent** — do NOT include api-tests.md, infra-tests.md, or the full SKILL.md.
+UI tests use **standalone Playwright test specs** in `tests/e2e/<category>/` with Page Object Model, a shared browser context for single-video recording, and a banner overlay labeling each test step.
 
-**Before writing any UI test code**, merge the base coverage spec UI tests and user-provided UI tests into a single sequential flow:
+#### 17a. Run base coverage UI tests
 
-1. List all UI tests from `ui-tests.md` (by ID, in order).
-2. List all UI tests from the user's test matrix.
-3. If any user test overlaps with a base test (same page, same interaction), **use the user's version** — it may have different or additional verification criteria. Do not run both.
-4. Combine the deduplicated tests into **one ordered list** that forms a logical user journey (e.g., Home → file selection → batch process → Content Review → editing → delete → Settings → Analytics).
-5. This merged list is the single flow you will execute.
+Each pack has a pre-built Playwright spec file:
 
-> **ONE `browser_run_code` CALL. ONE RECORDING. ONE FLOW.** All UI tests — base spec and user-provided — go into a **single** `mcp__playwright__browser_run_code` call that produces a **single** `.webm` video recording. Do NOT split UI tests across multiple `browser_run_code` calls. Do NOT create multiple browser contexts. The entire UI test session is one sequential flow in one function.
->
-> **FAILURE RECOVERY INSIDE THE SINGLE RUN.** If a test fails, record the failure, **refresh the page** (`p.goto(BASE_URL, { waitUntil: 'networkidle' })`) to reset state, and continue to the next test within the same function. If a failure blocks subsequent tests (e.g., the page is stuck in an unrecoverable state after refresh), stop the run, close the context to finalize the recording, and **ask the user** what to do — do NOT launch a second `browser_run_code` call. A second call creates a second browser context and a second `.webm` file, violating the single-recording rule. The final artifact directory should contain exactly **one** `.webm` file.
+| Category | Spec file | Page objects |
+|---|---|---|
+| `vss` | `tests/e2e/vss/vss.spec.ts` | `tests/e2e/vss/pages/*.page.ts` |
+| `paas_rag` | `tests/e2e/paas-rag/paas-rag.spec.ts` | `tests/e2e/paas-rag/pages/*.page.ts` |
+| `cuopt` | `tests/e2e/cuopt/cuopt.spec.ts` | `tests/e2e/cuopt/pages/*.page.ts` |
+| `enterprise_rag` | `tests/e2e/enterprise-rag/enterprise-rag.spec.ts` | `tests/e2e/enterprise-rag/pages/*.page.ts` |
 
-> **NO SCREENSHOTS.** The continuous video recording with banner overlay captures everything — screenshots are redundant and clutter the sandbox.
+If the spec file exists, run it:
 
-**How to build the single `browser_run_code` block:**
-
-1. Take the merged, ordered test list from the planning step above.
-2. Build a single async function that:
-   - Creates ONE browser context with video recording: `browser.newContext({ recordVideo: { dir: '${DAT_SANDBOX}/ui-recordings', size: { width: 1280, height: 800 } } })`
-   - Injects the banner overlay helper (see below)
-   - Executes each test sequentially: navigate → interact → verify → record result → update banner → next test
-   - Collects results into a `results` object keyed by test ID
-   - Closes context in `finally` block — this finalizes the `.webm` video file
-3. The function must handle the **entire** test flow — smoke checks, e2e operations (batch processing, long summarizations), content review editing, deletion, navigation — all in one run.
-
-**Banner helper pattern** (inject once at the top of the function):
-```javascript
-var banner = async function(label) {
-  await p.evaluate(function(t) {
-    var el = document.getElementById('__ci__');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = '__ci__';
-      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
-        'background:#0d1117;color:#58a6ff;font:bold 14px/38px monospace;' +
-        'padding:0 16px;border-bottom:2px solid #1f6feb;letter-spacing:.5px';
-      document.documentElement.prepend(el);
-    }
-    el.textContent = '\u25B6  ' + t;
-  }, label).catch(function() {});
-  await p.waitForTimeout(600);
-};
+```bash
+cd tests/e2e
+npm install  # ensure dependencies are present
+BASE_URL="${STARTER_PACK_URL}" \
+  VSS_BUCKET_NAME="${VSS_BUCKET_NAME}" \
+  npx playwright test <category>/ --reporter=list
 ```
 
-**Rules for the `browser_run_code` block:**
-- Use `var` (not `const`/`let`) and string concatenation (not template literals) to avoid escaping issues
-- Wrap everything in `try/catch/finally` — `finally` must close the recording context
-- Use the spec's "Selector" column to find elements; fall back to generic selectors if needed
-- For packs requiring login (check spec for auth requirements): fill credentials before navigating to protected pages
-- **Do NOT call `p.screenshot()`** — the continuous video recording captures everything; the banner labels each check
-- **NEVER skip a test because it takes a long time.** Some operations (video summarization, batch processing) take 30+ minutes — that is expected. Use the Timeout column from the coverage spec to set `page.setDefaultTimeout()` and `page.setDefaultNavigationTimeout()` appropriately. Wait patiently for progress indicators, status changes, and page navigations to complete. Use `page.waitForURL()`, `page.waitForSelector()`, or polling loops with generous timeouts instead of skipping.
-- When a test involves a long-running operation, update the banner overlay periodically (e.g., "VU-10: Processing... 5min elapsed") so the video recording shows progress.
+The spec produces a **single `.webm` video recording** in `tests/e2e/test-results/<category>-recording/`. All tests share one browser context with continuous video recording and a banner overlay showing which test is running.
+
+**Key architecture of the spec files:**
+- `test.describe.serial()` — tests run in order, sharing state
+- `test.beforeAll()` — creates a shared `BrowserContext` with `recordVideo` and a shared `Page`
+- `test.afterAll()` — closes context, finalizing the `.webm` video
+- Banner overlay (`__ci__` div) labels each test step in the recording
+- Smart navigation — `navigateTo()` skips `goto()` if already on the target page
+- `scrollTo()` — scrolls elements into view for the recording
+
+If the spec file does NOT exist for a category, fall back to reading `.claude/skills/<category>-test-coverage/ui-tests.md` and generating a temporary spec file following the same patterns as `tests/e2e/vss/vss.spec.ts`.
+
+#### 17b. Handle user-provided UI tests
+
+If the user provided UI tests in their test matrix (Step 12b):
+
+1. **Clone the frontend repo** for the pack being tested to understand the exact selectors, component structure, and UI behavior. Frontend repos:
+   - `vss` → clone the VSS Oracle UX repo (ask user for URL or check if it exists at `/tmp/<category>-frontend`)
+   - Other packs → ask user for the frontend repo URL
+
+2. **Read through the cloned frontend codebase** — focus on:
+   - Component files for the pages/features the user wants tested
+   - Selectors: `aria-label`, `role`, `data-testid`, element structure
+   - Dialog types: does the component use `window.confirm()`, Radix dialog, or custom modals?
+   - API calls: what endpoints do the UI actions trigger? (for `waitForResponse`)
+   - State management: localStorage, cookies, database-backed state?
+
+3. **Write a separate spec file** for user tests:
+   ```
+   tests/e2e/<category>/<category>-custom.spec.ts
+   ```
+   Follow the same patterns as the base spec:
+   - Shared browser context with `recordVideo` → `test-results/<category>-custom-recording/`
+   - Banner overlay, smart navigation, scroll-into-view
+   - `test.describe.serial()` with `beforeAll`/`afterAll`
+   - Page objects in `tests/e2e/<category>/pages/` (reuse existing ones where possible)
+
+4. **Run the user test spec separately** — this produces a **second `.webm` video**:
+   ```bash
+   BASE_URL="${STARTER_PACK_URL}" \
+     npx playwright test <category>/<category>-custom.spec.ts --reporter=list
+   ```
+
+**Two videos total:** Base spec recording + user test recording. This keeps them independent — a failure in user tests doesn't block the base spec recording and vice versa.
+
+#### 17c. Collect UI test results
+
+Parse the Playwright output to extract pass/fail counts:
+- **Base spec:** count from `npx playwright test <category>/` output
+- **User tests:** count from `npx playwright test <category>/<category>-custom.spec.ts` output
+- Recordings: `tests/e2e/test-results/<category>-recording/*.webm` (base) and `tests/e2e/test-results/<category>-custom-recording/*.webm` (user)
 
 ### Step 18: Compile test report
 
@@ -482,7 +530,8 @@ Save the report to `${DAT_SANDBOX}/logs/test-report.txt` and display it:
       pod not ready — wait for NIM model loading to complete">
 
   API responses: ${DAT_SANDBOX}/api-results/
-  UI recording:  ${DAT_SANDBOX}/ui-recordings/*.webm
+  UI recording (base):   tests/e2e/test-results/<category>-recording/*.webm
+  UI recording (custom): tests/e2e/test-results/<category>-custom-recording/*.webm
   Full report:   ${DAT_SANDBOX}/logs/test-report.txt
 ═══════════════════════════════════════════════════
 ```
@@ -498,7 +547,7 @@ If any P0 test fails, flag it prominently. Do NOT auto-retry. Let the user decid
 
 ### Step 19: Copy artifacts to repo
 
-Before destroy, copy test artifacts from the sandbox into the repo so they persist after the sandbox is deleted:
+Before destroy, copy test artifacts from the sandbox and test-results into the repo so they persist:
 
 ```bash
 # Create artifacts directory in repo
@@ -508,8 +557,14 @@ mkdir -p .claude/test-artifacts
 cp "${DAT_SANDBOX}/logs/test-report.txt" \
    ".claude/test-artifacts/<category>-<size>-test-report-<YYYY-MM-DD>.txt"
 
-# Copy UI recordings
-cp ${DAT_SANDBOX}/ui-recordings/*.webm \
+# Copy UI recordings from Playwright test-results
+cp tests/e2e/test-results/<category>-recording/*.webm \
+   ".claude/test-artifacts/<category>-<size>-base-recording.webm" 2>/dev/null || true
+cp tests/e2e/test-results/<category>-custom-recording/*.webm \
+   ".claude/test-artifacts/<category>-<size>-custom-recording.webm" 2>/dev/null || true
+
+# Copy API results from sandbox
+cp ${DAT_SANDBOX}/api-results/*.json \
    ".claude/test-artifacts/" 2>/dev/null || true
 ```
 
@@ -526,6 +581,8 @@ Show all test results. Ask if any additional manual verification is needed.
 Tell the user: *"Test artifacts have been copied to `.claude/test-artifacts/`. The sandbox `${DAT_SANDBOX}/` will persist until you delete it."*
 
 ### Step 21: Destroy (on user confirmation)
+
+Region is already set from Step 5b. Create destroy job:
 
 ```bash
 oci resource-manager job create-destroy-job \
