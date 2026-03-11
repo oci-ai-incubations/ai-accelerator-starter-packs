@@ -534,6 +534,20 @@ variable "db_password" {
   }
 }
 
+variable "aws_access_key_id" {
+  description = "AWS-compatible access key ID for S3-compatible Object Storage. If not provided, one will be generated automatically. Only used for the paas_rag starter pack."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "aws_secret_access_key" {
+  description = "AWS-compatible secret access key for S3-compatible Object Storage. If not provided, one will be generated automatically. Only used for the paas_rag starter pack."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "db_compute_count" {
   description = "Number of ECPU cores for the database"
   type        = number
