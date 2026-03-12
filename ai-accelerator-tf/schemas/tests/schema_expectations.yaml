@@ -93,7 +93,8 @@ category_specific:
   enterprise_rag:
     variable_properties:
       db_password:
-        visible: false
+        type: password
+        required: true
     output_properties:
       starter_pack_url:
         type: string

@@ -1,0 +1,13 @@
+spec:
+  template:
+    spec:
+      volumes:
+        - name: oci-config
+          secret:
+            secretName: oci-config-secret
+      containers:
+        - name: ingestor-server
+          volumeMounts:
+            - name: oci-config
+              mountPath: /wallet
+              readOnly: true

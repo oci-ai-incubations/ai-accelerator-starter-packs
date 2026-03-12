@@ -37,8 +37,8 @@ ngcApiSecret:
 
 # -- RAG server container image
 image:
-  repository: nvcr.io/nvidia/blueprint/rag-server
-  tag: "2.3.0"
+  repository: ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
+  tag: "v0.0.3"
   pullPolicy: Always
 
 # -- RAG server service configuration
@@ -79,11 +79,15 @@ server:
 promptConfig:
   enabled: true
 
-# -- Environment variables for rag-server
 envVars:
   EXAMPLE_PATH: "./nvidia_rag/rag_server"
   PROMPT_CONFIG_FILE: "/prompt.yaml"
   PROMETHEUS_MULTIPROC_DIR: "/tmp-data/prom_data"
+  ORACLE_TNSNAMES_LOC: /wallet
+  ORACLE_EWALLET_PEM_LOC: /wallet
+  ORACLE_USER: ""
+  ORACLE_PASSWORD: ""
+  ORACLE_EWALLET_PASSWORD: ""
 
   ##===Authentication===
   # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -92,24 +96,15 @@ envVars:
 
   ##===MINIO specific configurations used to store multimodal base64 content===
   ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
-  MINIO_ENDPOINT: "rag-minio:9000"
-  MINIO_ACCESSKEY: REPLACE_HERE
-  MINIO_SECRETKEY: REPLACE_HERE
+  ENABLE_MINIO: "false"
+  # MINIO_ENDPOINT: "rag-minio:9000"
+  # MINIO_ACCESSKEY: REPLACE_HERE
+  # MINIO_SECRETKEY: REPLACE_HERE
 
-  ##===Vector DB specific configurations===
-  # URL on which vectorstore is hosted
-  APP_VECTORSTORE_URL: "http://milvus:19530" # Use "http://elasticsearch:9200" for elasticsearch
-  # Type of vectordb used to store embedding supported type "milvus" or "elasticsearch"
-  APP_VECTORSTORE_NAME: "milvus"
-  # Index type (e.g., GPU_CAGRA)
-  APP_VECTORSTORE_INDEXTYPE: "GPU_CAGRA"
-  # Type of vectordb search to be used
-  APP_VECTORSTORE_SEARCHTYPE: "dense"
-  # Boolean to control GPU search for milvus vectorstore specific to rag-server
-  APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
-  # ef: Parameter controlling query time/accuracy trade-off. Higher ef leads to more accurate but slower search.
-  APP_VECTORSTORE_EF: "100"
-
+  APP_VECTORSTORE_NAME: "oracle"
+  ORACLE_VECTOR_INDEX_TYPE: "IVF" 
+  ORACLE_DISTANCE_METRIC: "COSINE" 
+  APP_VECTORSTORE_SEARCH_TYPE: "hybrid"
   # vectorstore collection name to store embeddings
   COLLECTION_NAME: "multimodal_data"
   APP_RETRIEVER_SCORETHRESHOLD: "0.25"
@@ -141,7 +136,7 @@ envVars:
 
   ##===Embedding Model specific configurations===
   # URL on which embedding model is hosted. If "", Nvidia hosted API is used
-  APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000"
+  APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000/v1"
   APP_EMBEDDINGS_MODELNAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
 
   ##===Reranking Model specific configurations===
@@ -243,8 +238,8 @@ ingestor-server:
     password: ""
 
   image:
-    repository: nvcr.io/nvidia/blueprint/ingestor-server
-    tag: "2.3.0"
+    repository: ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
+    tag: "v0.0.3"
     pullPolicy: Always
 
   # -- Service config for ingestor-server
@@ -271,17 +266,23 @@ ingestor-server:
     # Absolute path to custom prompt.yaml file
     PROMPT_CONFIG_FILE: "/prompt.yaml"
     # === Vector Store Configurations ===
-    APP_VECTORSTORE_URL: "http://milvus:19530" # Use "http://elasticsearch:9200" for elasticsearch
-    APP_VECTORSTORE_NAME: "milvus" # supported values: "milvus" or "elasticsearch"
-    APP_VECTORSTORE_SEARCHTYPE: "dense"
-    APP_VECTORSTORE_ENABLEGPUINDEX: "False"
-    APP_VECTORSTORE_ENABLEGPUSEARCH: "False"
+    ORACLE_TNSNAMES_LOC: /wallet
+    ORACLE_EWALLET_PEM_LOC: /wallet
+    ORACLE_USER: ""
+    ORACLE_PASSWORD: ""
+    ORACLE_EWALLET_PASSWORD: ""
+
+    APP_VECTORSTORE_NAME: "oracle"
+    ORACLE_VECTOR_INDEX_TYPE: "IVF"
+    ORACLE_DISTANCE_METRIC: "COSINE"
+    APP_VECTORSTORE_SEARCH_TYPE: "hybrid"
     COLLECTION_NAME: "multimodal_data"
     ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
     # === MinIO Configurations ===
-    MINIO_ENDPOINT: "rag-minio:9000"
-    MINIO_ACCESSKEY: REPLACE_HERE
-    MINIO_SECRETKEY: REPLACE_HERE
+    ENABLE_MINIO: "false"
+    # MINIO_ENDPOINT: "rag-minio:9000"
+    # MINIO_ACCESSKEY: REPLACE_HERE
+    # MINIO_SECRETKEY: REPLACE_HERE
 
     # === Authentication ===
     # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -289,7 +290,7 @@ ingestor-server:
     LLM_API_KEY: ""
 
     # === Embeddings Configurations ===
-    APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000"
+    APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000/v1"
     APP_EMBEDDINGS_MODELNAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
     APP_EMBEDDINGS_DIMENSIONS: "2048"
 
@@ -315,7 +316,7 @@ ingestor-server:
 
     # === NV-Ingest save to disk configurations ===
     APP_NVINGEST_SAVETODISK: "False"
-    NVINGEST_MINIO_BUCKET: "nv-ingest"
+    # NVINGEST_MINIO_BUCKET: "nv-ingest"
 
     # === General ===
     # Summary Model Configurations
@@ -340,9 +341,9 @@ ingestor-server:
     REDIS_DB: "0"
 
     # === Bulk upload to MinIO ===
-    ENABLE_MINIO_BULK_UPLOAD: "True"
-    TEMP_DIR: "/tmp-data"
-    INGESTOR_SERVER_DATA_DIR: "/data/"
+    # ENABLE_MINIO_BULK_UPLOAD: "True"
+    # TEMP_DIR: "/tmp-data"
+    # INGESTOR_SERVER_DATA_DIR: "/data/"
 
     # === NV-Ingest Batch Mode Configurations ===
     NV_INGEST_FILES_PER_BATCH: "16"
@@ -557,6 +558,13 @@ zipkin:
 # NIM LLM
 nim-llm:
   enabled: true
+  nodeSelector:
+    workload: nim-llm
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: nim-llm
+      effect: NoSchedule
   service:
     name: "nim-llm"
   image:
@@ -662,16 +670,18 @@ nim-vlm:
 # subsection: nv-ingest
 # NV-Ingest Service
 nv-ingest:
-  enabled: true
+  # remove milvus
+  milvusDeployed: False
   imagePullSecrets:
     - name: "ngc-secret"
+  enabled: true
   ngcApiSecret:
     create: false
   ngcImagePullSecret:
     create: false
   image:
     repository: "nvcr.io/nvidia/nemo-microservices/nv-ingest"
-    tag: "25.9.0"
+    tag: "26.1.2"
   resources:
     limits:
       nvidia.com/gpu: 0
@@ -695,10 +705,9 @@ nv-ingest:
     MESSAGE_CLIENT_HOST: "rag-redis-master"
     MESSAGE_CLIENT_PORT: 6379
     MESSAGE_CLIENT_TYPE: "redis"
-    MINIO_INTERNAL_ADDRESS: "rag-minio:9000"
-    MINIO_PUBLIC_ADDRESS: "http://localhost:9000"
-    MINIO_BUCKET: "nv-ingest"
-    MILVUS_ENDPOINT: "http://milvus:19530"
+    # MINIO_INTERNAL_ADDRESS: "rag-minio:9000"
+    # MINIO_PUBLIC_ADDRESS: "http://localhost:9000"
+    # MINIO_BUCKET: "nv-ingest"
     OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
     MODEL_PREDOWNLOAD_PATH: "/workspace/models/"
     INSTALL_AUDIO_EXTRACTION_DEPS: "true"
@@ -739,33 +748,6 @@ nv-ingest:
     AUDIO_INFER_PROTOCOL: grpc
 
   # Expose internal Milvus/MinIO config managed by nv-ingest subchart
-  milvusDeployed: true
-  milvus:
-    image:
-      all:
-        repository: docker.io/milvusdb/milvus
-        tag: v2.5.17
-    etcd:
-      image:
-        repository: "milvusdb/etcd"
-        tag: "3.5.22-r1"
-    standalone:
-      resources:
-        limits:
-          nvidia.com/gpu: 0
-        requests:
-          cpu: "8"
-          memory: "16Gi"
-    minio:
-      image:
-        repository: docker.io/minio/minio
-        tag: "RELEASE.2025-09-07T16-13-09Z" 
-      ## Used only for dev scenarios, terraform will override and set the values from the randoms.tf file
-      accessKey: REPLACE_HERE
-      secretKey: REPLACE_HERE
-      bucketName: nv-ingest
-    fullnameOverride: milvus
-
   # Redis Master
   redis:
     image:
