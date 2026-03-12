@@ -71,7 +71,7 @@ variableGroups:
       - db_username
       - db_password
 
-  - title: "Object Storage Secrets"
+  - title: "Object Storage Secrets (Customer Secret Keys)"
     variables:
       - aws_access_key_id
       - aws_secret_access_key
