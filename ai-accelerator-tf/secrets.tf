@@ -60,9 +60,9 @@ resource "kubernetes_secret_v1" "oci_config_secret" {
   type = "Opaque"
 
   data = {
-      "oracle-user"             = var.db_username
-      "oracle-password"         = var.db_password
-    }
+    "oracle-user"     = var.db_username
+    "oracle-password" = var.db_password
+  }
 
   count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
   depends_on = [

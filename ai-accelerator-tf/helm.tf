@@ -496,7 +496,7 @@ resource "helm_release" "rag" {
     {
       name  = "ingestor-server.envVars.ORACLE_PASSWORD"
       value = var.db_password
-    }
+    },
     {
       name  = "imagePullSecret.password"
       value = var.ngc_secret
