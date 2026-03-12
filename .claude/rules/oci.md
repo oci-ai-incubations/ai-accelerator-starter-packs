@@ -41,7 +41,7 @@ When creating or modifying `oci_identity_policy` resources, always use **minimum
 | `instance-images` | `manage` (import) | `read` (list) | `read` |
 | `instance-configurations`, `instance-pools`, `cluster-networks` | `manage` | `read` | N/A |
 | `compute-capacity-reports` | `manage` | N/A | N/A |
-| `autonomous-databases` | `manage` (create) | `read` (wallet) | `read` |
+| `autonomous-databases` | `manage` (create) | `read` |
 | `file-systems`, `mount-targets`, `export-sets` | `manage` | `read` | `read` |
 | `buckets` | `manage` (create) | `read` | `read` |
 | `objects` | `use` (put) | `read` (get) | `inspect` (list) |

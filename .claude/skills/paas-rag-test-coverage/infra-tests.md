@@ -36,7 +36,7 @@
 - **Verify:** At least one pod matching `recipe-paas-*-llamastack-*` with STATUS = `Running`, READY = `1/1`
 - **Note:** LlamaStack is a CPU-only pod (8 OCPU, 64GB RAM). It connects to Oracle 26ai database and OCI Object Storage. It has a 500Gi PVC (`ls-sqlite`) for SQLite store.
 - **Startup time:** 2-5 minutes. Depends on database connectivity.
-- **Failure hint:** If `CrashLoopBackOff`, check logs: `kubectl logs $(kubectl get pods -o name | grep llamastack | head -1) --tail=50`. Common causes: database connection string incorrect, wallet mount missing, OCI Object Storage credentials invalid.
+- **Failure hint:** If `CrashLoopBackOff`, check logs: `kubectl logs $(kubectl get pods -o name | grep llamastack | head -1) --tail=50`. Common causes: database connection string incorrect, OCI Object Storage credentials invalid.
 
 ### PI-3: All Blueprint Pods Running (P0 smoke)
 

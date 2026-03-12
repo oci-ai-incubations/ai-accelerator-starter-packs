@@ -59,14 +59,10 @@ resource "kubernetes_secret_v1" "oci_config_secret" {
 
   type = "Opaque"
 
-  data = merge(
-    data.kubernetes_secret_v1.oadb_wallet[0].data,
-    {
+  data = {
       "oracle-user"             = var.db_username
       "oracle-password"         = var.db_password
-      "oracle-ewallet-password" = var.db_password
     }
-  )
 
   count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
   depends_on = [

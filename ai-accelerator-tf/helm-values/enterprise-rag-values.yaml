@@ -83,11 +83,8 @@ envVars:
   EXAMPLE_PATH: "./nvidia_rag/rag_server"
   PROMPT_CONFIG_FILE: "/prompt.yaml"
   PROMETHEUS_MULTIPROC_DIR: "/tmp-data/prom_data"
-  ORACLE_TNSNAMES_LOC: /wallet
-  ORACLE_EWALLET_PEM_LOC: /wallet
   ORACLE_USER: ""
   ORACLE_PASSWORD: ""
-  ORACLE_EWALLET_PASSWORD: ""
 
   ##===Authentication===
   # Set LLM_API_KEY if non-NVIDIA hosted LLM API endpoint is being used
@@ -266,11 +263,8 @@ ingestor-server:
     # Absolute path to custom prompt.yaml file
     PROMPT_CONFIG_FILE: "/prompt.yaml"
     # === Vector Store Configurations ===
-    ORACLE_TNSNAMES_LOC: /wallet
-    ORACLE_EWALLET_PEM_LOC: /wallet
     ORACLE_USER: ""
     ORACLE_PASSWORD: ""
-    ORACLE_EWALLET_PASSWORD: ""
 
     APP_VECTORSTORE_NAME: "oracle"
     ORACLE_VECTOR_INDEX_TYPE: "IVF"

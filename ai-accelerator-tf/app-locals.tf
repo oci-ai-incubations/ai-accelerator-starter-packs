@@ -233,17 +233,6 @@ locals {
     }
   ]
 
-  # env_adb_access = [
-  #   {
-  #     name  = "ADB_USER"
-  #     value = var.oadb_admin_user_name
-  #   },
-  #   {
-  #     name  = "TNS_ADMIN"
-  #     value = "/app/wallet"
-  #   }
-  # ]
-
   env_app_api = [
     {
       name  = "CP_BACKGROUND_PROCESSING_ENABLED"
@@ -430,24 +419,6 @@ locals {
       config_map_key  = "RELEASE_VERSION"
     },
   ]
-
-  # env_adb_access_secrets = [
-  #   {
-  #     name        = "ADB_NAME"
-  #     secret_name = var.oadb_connection_secret_name
-  #     secret_key  = "oadb_service"
-  #   },
-  #   {
-  #     name        = "ADB_WALLET_PASSWORD"
-  #     secret_name = var.oadb_connection_secret_name
-  #     secret_key  = "oadb_wallet_pw"
-  #   },
-  #   {
-  #     name        = "ADB_USER_PASSWORD"
-  #     secret_name = var.oadb_admin_secret_name
-  #     secret_key  = "oadb_admin_pw"
-  #   }
-  # ]
 
   env_psql_configmap = [
     {

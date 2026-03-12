@@ -41,7 +41,7 @@ Before starting, verify:
 ## Expected Pods by Category
 
 - **Core (always)**: `bp-postgres-*`, `corrino-cp-*`, `corrino-cp-background-*`, `oci-ai-blueprints-portal-*`
-- **paas_rag**: `recipe-frontend-paas-*`, `recipe-llamastack-paas-*`, plus `blueprint-deployment-job-*` and `wallet-extractor-job-*` (Completed)
+- **paas_rag**: `recipe-frontend-paas-*`, `recipe-llamastack-paas-*`, plus `blueprint-deployment-job-*` (Completed)
 - **cuopt**: `recipe-cuopt-*` (+ `recipe-demo-cuopt-*` if frontend enabled)
 - **vss**: `recipe-vss-*`
 
