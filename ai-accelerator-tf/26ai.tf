@@ -18,13 +18,13 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   is_auto_scaling_for_storage_enabled            = false
   is_dedicated                                   = false
   is_free_tier                                   = false
-  is_mtls_connection_required                    = true
+  is_mtls_connection_required                    = false
   is_preview_version_with_service_terms_accepted = false
   autonomous_maintenance_schedule_type           = "REGULAR"
   backup_retention_period_in_days                = 60
   character_set                                  = "AL32UTF8"
   ncharacter_set                                 = "AL16UTF16"
-  whitelisted_ips                                = []
+  whitelisted_ips                                = [var.network_cidrs["NODES-SUBNET-REGIONAL-CIDR"]]
   subnet_id                                      = local.db_subnet_id
 
   count = local.needs_26ai ? 1 : 0
