@@ -73,7 +73,10 @@
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_resize",
       "mcp__playwright__browser_install",
-      "Bash(grep -rn \"network_acl\\\\|acl\" /Users/rriley/Repos/oci/ai-accelerator-starter-packs/ai-accelerator-tf/*.tf)"
+      "Bash(grep -rn \"network_acl\\\\|acl\" /Users/rriley/Repos/oci/ai-accelerator-starter-packs/ai-accelerator-tf/*.tf)",
+      "Bash(kubectl exec:*)",
+      "Skill(oci-cli)",
+      "Skill(oci-cli:*)"
     ]
   }
 }

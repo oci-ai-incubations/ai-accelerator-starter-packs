@@ -3,14 +3,27 @@
 #
 # Secret for llamastack configuration
 
-resource "kubernetes_secret_v1" "llamastack_config" {
+resource "kubernetes_secret_v1" "llamastack_paas_config" {
   metadata {
-    name      = "llamastack-config"
+    name      = "llamastack-paas-config"
     namespace = "default"
   }
 
   data = {
-    "config.yaml" = file("${path.module}/files/llamastack_config.yaml")
+    "config.yaml" = file("${path.module}/files/llamastack_paas_config.yaml")
+  }
+
+  type = "Opaque"
+}
+
+resource "kubernetes_secret_v1" "llamastack_inference_config" {
+  metadata {
+    name      = "llamastack-inference-config"
+    namespace = "default"
+  }
+
+  data = {
+    "config.yaml" = file("${path.module}/files/llamastack_inference_config.yaml")
   }
 
   type = "Opaque"

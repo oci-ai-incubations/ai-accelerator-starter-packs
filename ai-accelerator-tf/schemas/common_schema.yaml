@@ -664,3 +664,13 @@ outputs:
     type: string
     title: "Stack Version"
     visible: true
+
+  aws_access_key_id:
+    type: password
+    required: false
+    visible: false
+
+  aws_secret_access_key:
+    type: password
+    required: false
+    visible: false

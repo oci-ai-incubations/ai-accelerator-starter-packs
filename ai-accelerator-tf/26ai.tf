@@ -24,7 +24,6 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   backup_retention_period_in_days                = 60
   character_set                                  = "AL32UTF8"
   ncharacter_set                                 = "AL16UTF16"
-  whitelisted_ips                                = [var.network_cidrs["NODES-SUBNET-REGIONAL-CIDR"]]
   subnet_id                                      = local.db_subnet_id
 
   count = local.needs_26ai ? 1 : 0
@@ -70,7 +69,7 @@ resource "kubernetes_secret_v1" "oadb-connection" {
 }
 
 locals {
-  oracle26ai_high_connection_string = local.needs_26ai && length(oci_database_autonomous_database.oracle_26ai) > 0 ? oci_database_autonomous_database.oracle_26ai[0].connection_strings[0].high : ""
+  oracle26ai_high_connection_string = local.needs_26ai && length(oci_database_autonomous_database.oracle_26ai) > 0 ? "tcps://${oci_database_autonomous_database.oracle_26ai[0].private_endpoint}:1521/${regex("[^/]+$", oci_database_autonomous_database.oracle_26ai[0].connection_strings[0].high)}" : ""
 }
 
 # Secret containing the oracle26ai_high connection string
