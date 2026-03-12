@@ -104,7 +104,7 @@ locals {
             recipe_id                            = "llamastack",
             deployment_name                      = "llamastack",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 1,
             recipe_flex_shape_memory_size_in_gbs = 8,
@@ -224,7 +224,7 @@ locals {
             recipe_id                            = "llamastack"
             deployment_name                      = "llamastack"
             recipe_mode                          = "service"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
             recipe_node_pool_size                = 1
             recipe_replica_count                 = 1
             recipe_flex_shape_ocpu_count         = 1
@@ -1459,9 +1459,6 @@ locals {
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
                 { "key" = "OCI26AI_PASSWORD", value = var.db_password },
-                { "key" = "OCI26AI_EWALLET_PWD", value = var.db_password },
-                { "key" = "OCI26AI_TNSNAMES_LOC", value = "/wallet" },
-                { "key" = "OCI26AI_EWALLET_PEM_LOC", value = "/wallet" },
                 { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
                 { "key" = "OCI_REGION", value = var.genai_region },
                 { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
@@ -1484,7 +1481,6 @@ locals {
               recipe_flex_shape_ocpu_count         = 8
               recipe_flex_shape_memory_size_in_gbs = 64
               recipe_secret_mounts = [
-                { "name" = "oadb-wallet", "mount_location" = "/wallet" },
                 { "name" = "llamastack-config", "mount_location" = "/config" }
               ]
             },

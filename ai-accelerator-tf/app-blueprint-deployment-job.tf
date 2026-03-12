@@ -251,7 +251,6 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
-    kubernetes_job_v1.wallet_extractor_job,
     oci_objectstorage_bucket.paas_rag_bucket,
     oci_identity_customer_secret_key.aws_compat_access_key,
     null_resource.custom_dns_configuration_warning,
