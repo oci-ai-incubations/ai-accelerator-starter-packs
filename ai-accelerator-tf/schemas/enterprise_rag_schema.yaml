@@ -4,18 +4,19 @@
 # Only contains differences from common_schema.yaml
 # Enterprise RAG is deployed via Helm, NOT OCI AI Blueprints
 
-title: "NVIDIA Enterprise RAG Starter Pack"
-description: "GPU-Accelerated Enterprise Retrieval-Augmented Generation"
+title: "Enterprise Knowledge Chat Agent - Self-Hosted AI Models"
+description: "Enterprise RAG chat: auto-crawls web + internal data, builds a vector index, answers business questions with citations—all on OCI NVIDIA GPUs."
 informationalText: |
-  Deploy NVIDIA Enterprise RAG on OCI's high-performance GPU infrastructure.
-  
-  This starter pack deploys a complete RAG pipeline including:
+  Deploy an Enterprise Knowledge Chat Agent with self-hosted AI models on OCI NVIDIA GPUs.
+
+  Auto-crawls web and internal data, builds a vector index, and answers business
+  questions with citations. The full pipeline includes:
   - NVIDIA NIM for LLM inference (Llama 3.3 Nemotron)
   - Embedding and Reranking NIMs
   - Oracle 26ai vector database
   - NV-Ingest for document processing
-  - RAG Server and Frontend
-  
+  - RAG Server and Chat Frontend
+
   Note: This deployment is managed via Helm charts, not OCI AI Blueprints.
 
 # =============================================================================

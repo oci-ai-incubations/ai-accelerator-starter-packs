@@ -4,14 +4,14 @@
 # Only contains differences from common_schema.yaml
 # cuOpt does NOT need Oracle 26ai database
 
-title: "NVIDIA cuOpt Optimization Starter Pack"
-description: "GPU-Accelerated Optimization for Routing, Scheduling & Logistics"
+title: "Vehicle Delivery Route Optimizer"
+description: "GPU-accelerated fleet route optimization on OCI using NVIDIA cuOpt NIM—deploy in minutes and get a ready API endpoint to cut miles, time, and cost."
 informationalText: |
-  Deploy NVIDIA cuOpt on OCI's high-performance GPU infrastructure.
-  
-  cuOpt uses GPU-accelerated algorithms to solve complex optimization problems 
-  including vehicle routing, job scheduling, and logistics planning up to 
-  100x faster than traditional solvers.
+  Deploy the Vehicle Delivery Route Optimizer on OCI's high-performance GPU infrastructure.
+
+  Powered by NVIDIA cuOpt NIM, this pack uses GPU-accelerated algorithms to optimize
+  fleet delivery routes—cutting miles, time, and cost up to 100x faster than
+  traditional solvers. Deploys a ready API endpoint in minutes.
 
 # =============================================================================
 # Output Groups - Remove database section

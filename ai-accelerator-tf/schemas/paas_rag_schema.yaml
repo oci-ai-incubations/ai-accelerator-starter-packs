@@ -4,15 +4,15 @@
 # Only contains differences from common_schema.yaml
 # PaaS RAG REQUIRES Oracle 26ai database (keeps DB sections visible)
 
-title: "Enterprise RAG with Oracle 26ai Starter Pack"
-description: "Serverless RAG with Oracle 26ai & OCI GenAI Services"
+title: "Enterprise Knowledge Chat Agent - Managed AI Models"
+description: "Fully managed, no GPU infrastructure required. Enterprise RAG chat with document upload, vector search, and cited answers—powered by OCI GenAI PaaS + Oracle 26ai."
 informationalText: |
-  Deploy Enterprise RAG using Oracle 26ai and OCI PaaS services.
-  
-  Build production-ready RAG applications with Oracle's AI-optimized 26ai 
-  database for vector storage and OCI GenAI services for LLM inference.
-  
-  No GPU infrastructure required - fully managed and serverless.
+  Deploy an Enterprise Knowledge Chat Agent with fully managed AI models—no GPU
+  infrastructure required.
+
+  Upload documents, build a vector index, and get cited answers to business
+  questions—powered by OCI GenAI PaaS for LLM inference and Oracle 26ai for
+  vector storage. Fully managed and serverless.
 
 # =============================================================================
 # Output Groups - Include database section

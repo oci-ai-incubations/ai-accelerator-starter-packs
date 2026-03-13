@@ -4,13 +4,14 @@
 # Only contains differences from common_schema.yaml
 # VSS does NOT need Oracle 26ai database
 
-title: "NVIDIA Video Search & Summarization Starter Pack"
-description: "AI-Powered Video Analysis, Search & Summarization"
+title: "Video Search and Summarization"
+description: "OCI accelerator pack for AI video moderation: ingest video, index scenes, then search/summarize to flag nudity, violence, weapons, drugs, alcohol—no more manual review."
 informationalText: |
-  Deploy NVIDIA Video Search and Summarization (VSS) on OCI's GPU infrastructure.
-  
-  VSS enables AI-powered video analysis capabilities including real-time search, 
-  content summarization, and intelligent video indexing using NVIDIA NIMs.
+  Deploy Video Search and Summarization on OCI's GPU infrastructure.
+
+  Ingest video, index scenes, then search and summarize content to flag nudity,
+  violence, weapons, drugs, and alcohol—replacing manual review with AI-powered
+  video moderation using NVIDIA NIMs.
 
 # =============================================================================
 # Output Groups - Remove database section

@@ -3,20 +3,21 @@
 # =============================================================================
 # Extends enterprise_rag baseline with additional outputs/description for AIQ
 
-title: "NVIDIA Enterprise RAG + AIQ Starter Pack"
-description: "Enterprise RAG with optional AIQ Research Assistant UI"
+title: "Enterprise Agentic AI Starter Kit"
+description: "Full-stack agentic AI environment on OCI powered by NVIDIA AIQ. Deploys reasoning models, vector DB, observability, application layer, and more in minutes. Customize and extend to build your own agentic workflows."
 informationalText: |
-  Deploy NVIDIA Enterprise RAG on OCI's high-performance GPU infrastructure with the
-  optional AIQ Research Assistant user experience.
-  
-  This starter pack deploys a complete RAG pipeline including:
-  - NVIDIA NIM for LLM inference (Llama 3.3 Nemotron)
+  Deploy a full-stack agentic AI environment on OCI powered by NVIDIA AIQ.
+
+  Deploys reasoning models, vector DB, observability, and an application layer
+  in minutes. Customize and extend to build your own agentic workflows.
+  The stack includes:
+  - NVIDIA NIM for reasoning and instruct LLM inference
   - Embedding and Reranking NIMs
   - Milvus vector database
   - NV-Ingest for document processing
-  - RAG Server and Frontend
-  - AIQ Research Assistant backend, instruct NIM, and frontend experience
-  
+  - AIQ agentic backend and frontend experience
+  - Observability and monitoring
+
   Note: This deployment is managed via Helm charts, not OCI AI Blueprints.
 
 outputGroups:
