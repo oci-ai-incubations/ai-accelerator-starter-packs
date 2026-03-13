@@ -27,8 +27,8 @@ locals {
 
   # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
   vss_oracle_ux = {
-    image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-prod-0.0.3"
-    download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-prod-0.0.3"
+    image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-prod-0.0.4"
+    download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-prod-0.0.4"
     # vss_backend_service is dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
     vss_backend_deployment = "recipe-vss-deployment"
   }
