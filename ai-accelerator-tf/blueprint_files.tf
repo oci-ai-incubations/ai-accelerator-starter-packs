@@ -111,6 +111,7 @@ locals {
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "8321",
+            recipe_container_command_args        = ["/config/config.yaml"],
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
@@ -234,6 +235,7 @@ locals {
             recipe_flex_shape_memory_size_in_gbs = 8
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
             recipe_container_port                = "8321"
+            recipe_container_command_args        = ["/config/config.yaml"]
             recipe_use_shared_node_pool          = true
             service_endpoint_subdomain           = "llamastack"
             recipe_container_env = [

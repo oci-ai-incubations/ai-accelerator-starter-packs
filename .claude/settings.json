@@ -80,7 +80,8 @@
       "Bash(python -m pytest ai-accelerator-tf/schemas/tests/ -v)",
       "Bash(python3 -m venv venv)",
       "Bash(pip install:*)",
-      "Bash(python3 -m pytest ai-accelerator-tf/schemas/tests/ -v)"
+      "Bash(python3 -m pytest ai-accelerator-tf/schemas/tests/ -v)",
+      "Bash(python3 -c \"import json,sys,base64; d=json.load\\(sys.stdin\\); [print\\(k,'''':\\\\n'''', base64.b64decode\\(v\\).decode\\(\\)\\) for k,v in d.items\\(\\)]\")"
     ]
   }
 }
