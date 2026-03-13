@@ -436,6 +436,34 @@ resource "kubernetes_namespace_v1" "app_namespace" {
   }
 }
 
+# Reserve the first GPU node (sorted by name) exclusively for the nim-llm pod.
+# The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
+# scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
+resource "terraform_data" "label_nim_llm_node" {
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+
+  triggers_replace = [
+    local.cluster_id,
+    "label_nim_llm_node_v1"
+  ]
+
+  depends_on = [
+    oci_core_instance_pool.worker_nodes_pool,
+    oci_core_cluster_network.worker_nodes_cluster_network,
+    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
+    local_sensitive_file.kubeconfig_patch
+  ]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename}
+      NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')
+      kubectl label node "$NODE" workload=nim-llm --overwrite
+      kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
+    EOT
+  }
+}
+
 resource "helm_release" "rag" {
   name             = "rag"
   namespace        = local.starter_pack_config.app_namespace
@@ -454,28 +482,20 @@ resource "helm_release" "rag" {
 
   set_sensitive = [
     {
-      name  = "envVars.MINIO_ACCESSKEY"
-      value = random_string.minio_access_key.result
+      name  = "envVars.ORACLE_USER"
+      value = var.db_username
     },
     {
-      name  = "envVars.MINIO_SECRETKEY"
-      value = random_password.minio_secret_key.result
+      name  = "envVars.ORACLE_PASSWORD"
+      value = var.db_password
     },
     {
-      name  = "ingestor-server.envVars.MINIO_ACCESSKEY"
-      value = random_string.minio_access_key.result
+      name  = "ingestor-server.envVars.ORACLE_USER"
+      value = var.db_username
     },
     {
-      name  = "ingestor-server.envVars.MINIO_SECRETKEY"
-      value = random_password.minio_secret_key.result
-    },
-    {
-      name  = "nv-ingest.milvus.minio.accessKey"
-      value = random_string.minio_access_key.result
-    },
-    {
-      name  = "nv-ingest.milvus.minio.secretKey"
-      value = random_password.minio_secret_key.result
+      name  = "ingestor-server.envVars.ORACLE_PASSWORD"
+      value = var.db_password
     },
     {
       name  = "imagePullSecret.password"
@@ -489,24 +509,16 @@ resource "helm_release" "rag" {
 
   set = [
     {
+      name  = "envVars.ORACLE_CS"
+      value = local.oracle26ai_high_connection_string
+    },
+    {
+      name  = "ingestor-server.envVars.ORACLE_CS"
+      value = local.oracle26ai_high_connection_string
+    },
+    {
       name  = "global.ngcApiKey"
       value = var.ngc_api_secret
-    },
-    {
-      name  = "milvus.standalone.resources.limits.nvidia\\.com/gpu"
-      value = "0"
-    },
-    {
-      name  = "milvus.standalone.resources.limits.cpu"
-      value = "16"
-    },
-    {
-      name  = "milvus.standalone.resources.limits.memory"
-      value = "32Gi"
-    },
-    {
-      name  = "milvus.app_vectorstore_enablegpusearch"
-      value = "False"
     },
     {
       name  = "nim-llm.image.repository"
@@ -517,8 +529,11 @@ resource "helm_release" "rag" {
       value = "1.14.0"
     }
   ]
-  count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
-  depends_on = [oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  depends_on = [
+    oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
+    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node
+  ]
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
@@ -537,13 +552,18 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
 
   depends_on = [
     helm_release.rag,
-    local_sensitive_file.kubeconfig_patch
+    local_sensitive_file.kubeconfig_patch,
+    kubernetes_secret_v1.oci_config_secret,
   ]
 
   provisioner "local-exec" {
-    command = "export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename} && kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
+    command = <<-EOT
+      export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename}
+      kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{"spec":{"selector":{"statefulset.kubernetes.io/pod-name":"rag-nim-llm-0","app.kubernetes.io/name":null}}}'
+    EOT
   }
 }
+
 
 resource "helm_release" "aiq" {
   name             = "aiq-aira"

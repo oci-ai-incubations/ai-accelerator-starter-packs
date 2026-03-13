@@ -71,6 +71,11 @@ variableGroups:
       - db_username
       - db_password
 
+  - title: "Object Storage Secrets (Customer Secret Keys)"
+    variables:
+      - aws_access_key_id
+      - aws_secret_access_key
+
 # =============================================================================
 # Variables - RAG specific
 # =============================================================================
@@ -113,6 +118,19 @@ variables:
     pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
     description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
     required: true
+
+  # Optional pre-existing AWS-compatible Object Storage credentials
+  aws_access_key_id:
+    type: password
+    title: "AWS-Compatible Access Key ID"
+    description: "Access Key ID for S3-compatible Object Storage. If not provided, one will be generated automatically."
+    required: false
+
+  aws_secret_access_key:
+    type: password
+    title: "AWS-Compatible Secret Access Key"
+    description: "Secret Access Key for S3-compatible Object Storage. If not provided, one will be generated automatically."
+    required: false
 
 # =============================================================================
 # Outputs - RAG specific titles

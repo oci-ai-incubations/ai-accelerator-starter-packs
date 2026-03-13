@@ -534,6 +534,20 @@ variable "db_password" {
   }
 }
 
+variable "aws_access_key_id" {
+  description = "AWS-compatible access key ID for S3-compatible Object Storage. If not provided, one will be generated automatically. Only used for the paas_rag starter pack."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "aws_secret_access_key" {
+  description = "AWS-compatible secret access key for S3-compatible Object Storage. If not provided, one will be generated automatically. Only used for the paas_rag starter pack."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "db_compute_count" {
   description = "Number of ECPU cores for the database"
   type        = number
@@ -821,8 +835,8 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
         frontend_url                 = "frontend-erag" # Not used
       }
     }
@@ -932,6 +946,6 @@ locals {
 }
 
 locals {
-  # 26ai database needed for paas_rag category
-  needs_26ai = var.starter_pack_category == "paas_rag"
+  # 26ai database needed for paas_rag and enterprise_rag categories
+  needs_26ai = contains(["paas_rag", "enterprise_rag"], var.starter_pack_category)
 }

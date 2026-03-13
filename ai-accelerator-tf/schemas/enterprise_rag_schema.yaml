@@ -3,7 +3,6 @@
 # =============================================================================
 # Only contains differences from common_schema.yaml
 # Enterprise RAG is deployed via Helm, NOT OCI AI Blueprints
-# Does NOT need Oracle 26ai database
 
 title: "NVIDIA Enterprise RAG Starter Pack"
 description: "GPU-Accelerated Enterprise Retrieval-Augmented Generation"
@@ -13,7 +12,7 @@ informationalText: |
   This starter pack deploys a complete RAG pipeline including:
   - NVIDIA NIM for LLM inference (Llama 3.3 Nemotron)
   - Embedding and Reranking NIMs
-  - Milvus vector database
+  - Oracle 26ai vector database
   - NV-Ingest for document processing
   - RAG Server and Frontend
   
@@ -41,6 +40,13 @@ outputGroups:
       - prometheus_url
       - grafana_admin_username
       - grafana_admin_password
+  
+  - title: "Oracle 26ai Database"
+    outputs:
+      - autonomous_database_name
+      - autonomous_database_id
+      - db_username
+      - db_password
 
 # =============================================================================
 # Variable Groups - Remove database section
@@ -62,7 +68,11 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
-
+ 
+  - title: "Oracle 26ai Database"
+    variables:
+      - db_username
+      - db_password
 # =============================================================================
 # Variables - Enterprise RAG specific
 # =============================================================================
@@ -76,13 +86,6 @@ variables:
     default: small
     required: true
 
-  # Hide database variables (not needed for enterprise_rag)
-  db_username:
-    visible: false
-
-  db_password:
-    visible: false
-
   use_custom_dns:
     visible: false
 
@@ -92,6 +95,21 @@ variables:
     description: "To find ADs, go to Governance & Administration -> Limits, quotas and usage -> Edit Filters -> Service = Compute, Scope = Selected AD -> In Search, type: 'gpu4'."
     required: true
     visible: true
+  
+  # Database password with validation pattern
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
+    description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
+    required: true
+
+  # Hide object storage secret keys
+  aws_access_key_id:
+    visible: false
+
+  aws_secret_access_key:
+    visible: false
 
 # =============================================================================
 # Outputs - Enterprise RAG specific titles, hide database

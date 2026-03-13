@@ -84,22 +84,7 @@ resource "kubernetes_job_v1" "corrino_user_job" {
               }
             }
           }
-
-
-
-          # volume_mount {
-          #   name       = "adb-wallet-volume"
-          #   mount_path = "/app/wallet"
-          #   read_only  = true
-          # }
         }
-
-        # volume {
-        #   name = "adb-wallet-volume"
-        #   secret {
-        #     secret_name = "oadb-wallet"
-        #   }
-        # }
 
         restart_policy = "Never"
       }

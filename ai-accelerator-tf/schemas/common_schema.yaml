@@ -458,6 +458,14 @@ variables:
     type: string
     visible: false
 
+  aws_access_key_id:
+    type: string
+    visible: false
+
+  aws_secret_access_key:
+    type: string
+    visible: false
+
 # =============================================================================
 # Outputs - Common definitions with proper types
 # =============================================================================
@@ -664,3 +672,11 @@ outputs:
     type: string
     title: "Stack Version"
     visible: true
+
+  aws_access_key_id:
+    type: string
+    visible: false
+
+  aws_secret_access_key:
+    type: string
+    visible: false

@@ -72,7 +72,15 @@
       "mcp__playwright__browser_evaluate",
       "mcp__playwright__browser_wait_for",
       "mcp__playwright__browser_resize",
-      "mcp__playwright__browser_install"
+      "mcp__playwright__browser_install",
+      "Bash(kubectl exec:*)",
+      "Skill(oci-cli)",
+      "Skill(oci-cli:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -m pytest ai-accelerator-tf/schemas/tests/ -v)",
+      "Bash(python3 -m venv venv)",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pytest ai-accelerator-tf/schemas/tests/ -v)"
     ]
   }
 }

@@ -104,17 +104,21 @@ locals {
             recipe_id                            = "llamastack",
             deployment_name                      = "llamastack",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 1,
             recipe_flex_shape_memory_size_in_gbs = 8,
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "8321",
+            recipe_container_command_args        = ["/config/config.yaml"],
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
               { key = "OCI_AUTH_TYPE", value = "instance_principal" },
+            ]
+            recipe_secret_mounts = [
+              { "name" = "llamastack-inference-config", "mount_location" = "/config" }
             ]
           }
         },
@@ -224,19 +228,23 @@ locals {
             recipe_id                            = "llamastack"
             deployment_name                      = "llamastack"
             recipe_mode                          = "service"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:llama-stack_v_d684ec9"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
             recipe_node_pool_size                = 1
             recipe_replica_count                 = 1
             recipe_flex_shape_ocpu_count         = 1
             recipe_flex_shape_memory_size_in_gbs = 8
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
             recipe_container_port                = "8321"
+            recipe_container_command_args        = ["/config/config.yaml"]
             recipe_use_shared_node_pool          = true
             service_endpoint_subdomain           = "llamastack"
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
               { key = "OCI_AUTH_TYPE", value = "instance_principal" }
+            ]
+            recipe_secret_mounts = [
+              { "name" = "llamastack-inference-config", "mount_location" = "/config" }
             ]
           }
         },
@@ -1453,15 +1461,12 @@ locals {
               recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool   = true
               recipe_replica_count          = 1
-              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-test:pr-ce55c6b"
+              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
               recipe_container_command_args = ["/config/config.yaml"]
               recipe_container_env = [
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
                 { "key" = "OCI26AI_PASSWORD", value = var.db_password },
-                { "key" = "OCI26AI_EWALLET_PWD", value = var.db_password },
-                { "key" = "OCI26AI_TNSNAMES_LOC", value = "/wallet" },
-                { "key" = "OCI26AI_EWALLET_PEM_LOC", value = "/wallet" },
                 { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
                 { "key" = "OCI_REGION", value = var.genai_region },
                 { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
@@ -1484,8 +1489,7 @@ locals {
               recipe_flex_shape_ocpu_count         = 8
               recipe_flex_shape_memory_size_in_gbs = 64
               recipe_secret_mounts = [
-                { "name" = "oadb-wallet", "mount_location" = "/wallet" },
-                { "name" = "llamastack-config", "mount_location" = "/config" }
+                { "name" = "llamastack-paas-config", "mount_location" = "/config" }
               ]
             },
             var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
@@ -1498,7 +1502,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:latest",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
