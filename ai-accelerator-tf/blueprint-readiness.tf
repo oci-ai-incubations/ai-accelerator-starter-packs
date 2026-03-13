@@ -53,7 +53,7 @@ resource "null_resource" "wait_for_deployment" {
         # Filter by deployment_name-derived canonical prefix
         # For single deployments, DEPLOYMENT_FOR_URL="cuopt" matches "cuopt-<uuid>"
         # For deployment groups, it matches "<sub_deployment>-<group>-<uuid>" names generated from deployment_name
-        DEPLOYMENT_UUID=$(echo "$WORKSPACE" | jq -r ".recipes | to_entries[] | select(.key | startswith(\"$DEPLOYMENT_FOR_URL-\")) | select(.value.type == \"Ingress\") | .value[\"deployment-uuid\"]" 2>/dev/null | head -1)
+        DEPLOYMENT_UUID=$(echo "$WORKSPACE" | jq -r --arg dn "$DEPLOYMENT_FOR_URL" '.recipes | to_entries[] | select(.key | test("(^|-)"+$dn+"-")) | select(.value.type == "Ingress") | .value["deployment-uuid"]' 2>/dev/null | head -1)
 
         if [ -n "$DEPLOYMENT_UUID" ] && [ "$DEPLOYMENT_UUID" != "null" ]; then
           echo "Ingress found for ${var.starter_pack_category}. Checking deployment status for UUID: $DEPLOYMENT_UUID..."
@@ -67,6 +67,8 @@ resource "null_resource" "wait_for_deployment" {
             echo "${var.starter_pack_category} deployment is ready and healthy! Status: $DEPLOYMENT_STATUS"
             exit 0
           else
+            echo "searching for deployment name: $DEPLOYMENT_FOR_URL in workspace."
+            echo "Workspace: $WORKSPACE"
             echo "Deployment status is '$DEPLOYMENT_STATUS', waiting for 'active' or 'monitoring'..."
           fi
         else
