@@ -92,6 +92,13 @@ variables:
   db_password:
     visible: false
 
+  # Hide object storage secret keys
+  aws_access_key_id:
+    visible: false
+
+  aws_secret_access_key:
+    visible: false
+
   # Make AD required for VSS (GPU starter pack)
   worker_node_availability_domain:
     title: "Worker Node Availability Domain where GPU capacity is available (EX: TrcQ:US-ASHBURN-AD-2)"

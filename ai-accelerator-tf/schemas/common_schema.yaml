@@ -459,11 +459,11 @@ variables:
     visible: false
 
   aws_access_key_id:
-    type: password
+    type: string
     visible: false
 
   aws_secret_access_key:
-    type: password
+    type: string
     visible: false
 
 # =============================================================================
@@ -674,11 +674,9 @@ outputs:
     visible: true
 
   aws_access_key_id:
-    type: password
-    required: false
+    type: string
     visible: false
 
   aws_secret_access_key:
-    type: password
-    required: false
+    type: string
     visible: false

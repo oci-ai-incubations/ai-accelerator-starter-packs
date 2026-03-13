@@ -73,6 +73,13 @@ variables:
   tavily_api_key:
     visible: true
 
+  # Hide object storage secret keys
+  aws_access_key_id:
+    visible: false
+
+  aws_secret_access_key:
+    visible: false
+
 outputs:
   starter_pack_url:
     type: string

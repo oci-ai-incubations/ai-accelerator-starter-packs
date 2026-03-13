@@ -141,3 +141,10 @@ outputs:
 
   autonomous_database_id:
     visible: false
+
+  # Hide object storage secret keys
+  aws_access_key_id:
+    visible: false
+
+  aws_secret_access_key:
+    visible: false
