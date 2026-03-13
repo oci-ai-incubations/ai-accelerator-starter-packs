@@ -117,8 +117,8 @@ locals {
               { key = "OCI_AUTH_TYPE", value = "instance_principal" },
             ]
             recipe_secret_mounts = [
-                { "name" = "llamastack-inference-config", "mount_location" = "/config" }
-              ]
+              { "name" = "llamastack-inference-config", "mount_location" = "/config" }
+            ]
           }
         },
         {
@@ -242,8 +242,8 @@ locals {
               { key = "OCI_AUTH_TYPE", value = "instance_principal" }
             ]
             recipe_secret_mounts = [
-                { "name" = "llamastack-inference-config", "mount_location" = "/config" }
-              ]
+              { "name" = "llamastack-inference-config", "mount_location" = "/config" }
+            ]
           }
         },
         {
