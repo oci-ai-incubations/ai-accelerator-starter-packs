@@ -20,7 +20,7 @@ Describe the feature or change you'd like to see. Be as specific as possible.
 
 Which part of the project does this request apply to?
 
-- [ ] Starter pack: <!-- cuopt / vss / paas_rag / enterprise_rag / enterprise_rag_aiq / new pack -->
+- [ ] Starter pack name: <!-- cuopt / vss / paas_rag / enterprise_rag / enterprise_rag_aiq / new pack -->
 - [ ] Networking / VCN configuration
 - [ ] IAM policies
 - [ ] OCI Resource Manager schema / UI

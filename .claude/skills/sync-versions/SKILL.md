@@ -1,6 +1,6 @@
 ---
 name: sync-versions
-description: Sync SOFTWARE_VERSIONS.md with container image versions defined in blueprint_files.tf. Run this before deploying to ensure the versions doc is current.
+description: Sync SOFTWARE_VERSIONS.md with container image versions defined in blueprint_files.tf. Run this before deploying to ensure the versions doc is current. Run this skill before /deploy-and-test or /integration-test to keep versions in sync.
 user-invocable: true
 allowed-tools: Read, Grep, Edit, Write, Bash
 ---
@@ -68,4 +68,3 @@ No changes needed for: vss, enterprise_rag_aiq
 - If an image is in an internal OCIR registry (`*.ocir.io/`), still update it — don't skip internal images.
 - For images with no explicit version tag (e.g., `latest` or no tag), note them in the report but do not alter SOFTWARE_VERSIONS.md for those rows unless the image path itself changed.
 - This skill does **not** deploy anything. It only reads source files and updates the doc.
-- Run this skill before `/deploy-and-test` or `/integration-test` to keep versions in sync.

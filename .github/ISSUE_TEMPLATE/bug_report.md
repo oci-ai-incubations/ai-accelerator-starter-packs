@@ -47,7 +47,7 @@ What actually happened?
 Paste any error messages, Terraform output, or kubectl logs here.
 ```
 
-## terraform.tfvars (sanitized)
+## Console fields or terraform.tfvars (sanitized)
 
 Paste your configuration with **all secrets removed** (replace API keys, passwords, and OCIDs with placeholder values):
 

@@ -21,14 +21,14 @@ Fixes #
 
 ## Checklist
 
-- [ ] `terraform fmt -recursive` has been run on all changed `.tf` files
-- [ ] `terraform validate` passes locally
-- [ ] Unit tests pass (`terraform test` in `ai-accelerator-tf/`)
-- [ ] Schema tests pass if schemas were changed (`pytest ai-accelerator-tf/schemas/tests/`)
+- [ ] Passes CI
 - [ ] Documentation updated if behavior changed
 - [ ] `SOFTWARE_VERSIONS.md` updated if any container image versions changed
 - [ ] No secrets, OCIDs, or internal URLs in the diff
 - [ ] Signed-off-by line present in commits (required for OCA): `git commit --signoff`
+- [ ] Appropriate schema changes to common or pack specific schema
+- [ ] Zipped and deployed via the stack or terraform
+- [ ] Screenshot attached for successful deployment
 
 ## Testing
 
