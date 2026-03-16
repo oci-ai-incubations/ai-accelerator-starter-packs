@@ -439,7 +439,7 @@ resource "oci_core_subnet" "oke_bastion_subnet" {
   route_table_id             = local.create_network_resources ? oci_core_route_table.oke_public_route_table[0].id : null
   dhcp_options_id            = local.create_network_resources ? oci_core_virtual_network.oke_vcn[0].default_dhcp_options_id : null
   security_list_ids          = local.create_network_resources ? [oci_core_security_list.oke_bastion_security_list[0].id] : []
-  count                      = local.create_network_resources && var.create_bastion ? 1 : 0
+  count                      = local.create_network_resources && local.create_bastion_effective ? 1 : 0
 }
 
 resource "oci_core_security_list" "oke_bastion_security_list" {
@@ -489,7 +489,7 @@ resource "oci_core_security_list" "oke_bastion_security_list" {
     stateless        = false
   }
 
-  count = local.create_network_resources && var.create_bastion ? 1 : 0
+  count = local.create_network_resources && local.create_bastion_effective ? 1 : 0
 }
 
 # Operator Subnet and Security List
@@ -503,7 +503,7 @@ resource "oci_core_subnet" "oke_operator_subnet" {
   route_table_id             = local.create_network_resources ? oci_core_route_table.oke_private_route_table[0].id : null
   dhcp_options_id            = local.create_network_resources ? oci_core_virtual_network.oke_vcn[0].default_dhcp_options_id : null
   security_list_ids          = local.create_network_resources ? [oci_core_security_list.oke_operator_security_list[0].id] : []
-  count                      = local.create_network_resources && var.create_bastion ? 1 : 0
+  count                      = local.create_network_resources && local.create_bastion_effective ? 1 : 0
 }
 
 resource "oci_core_security_list" "oke_operator_security_list" {
@@ -553,7 +553,7 @@ resource "oci_core_security_list" "oke_operator_security_list" {
     stateless        = false
   }
 
-  count = local.create_network_resources && var.create_bastion ? 1 : 0
+  count = local.create_network_resources && local.create_bastion_effective ? 1 : 0
 }
 
 # Autonomous Database Subnet

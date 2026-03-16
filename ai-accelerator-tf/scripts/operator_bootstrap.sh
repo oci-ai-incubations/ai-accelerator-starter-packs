@@ -4,11 +4,7 @@
 
 # Operator Bootstrap Script
 
-# Update system
-sudo dnf update -y
-
-# Install useful tools
-
+# Install useful tools (skip dnf update - it can take hours and is not needed)
 sudo dnf install -y wget curl git vim tmux htop python3 python3-pip
 
 # Install OCI CLI
@@ -112,6 +108,24 @@ After configuration, test with:
 
 ===============================================
 EOF
+
+%{ if auto_configure_oke }
+# Auto-configure OKE access for operator deployment mode
+echo "Auto-configuring OKE cluster access..."
+MAX_RETRIES=30
+for i in $(seq 1 $MAX_RETRIES); do
+  if sudo -u opc bash /home/opc/configure_oke.sh 2>/dev/null; then
+    echo "OKE access configured successfully"
+    # Verify kubectl works
+    if sudo -u opc kubectl get nodes >/dev/null 2>&1; then
+      echo "kubectl verified - cluster accessible"
+      break
+    fi
+  fi
+  echo "Attempt $i/$MAX_RETRIES: Waiting for OKE cluster..."
+  sleep 30
+done
+%{ endif }
 
 # Log completion
 echo "$(date): Operator bootstrap completed" >> /var/log/bootstrap.log

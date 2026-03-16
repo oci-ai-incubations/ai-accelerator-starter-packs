@@ -440,7 +440,7 @@ resource "kubernetes_namespace_v1" "app_namespace" {
 # The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
 # scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
 resource "terraform_data" "label_nim_llm_node" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -462,6 +462,41 @@ resource "terraform_data" "label_nim_llm_node" {
       kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
     EOT
   }
+}
+
+resource "terraform_data" "label_nim_llm_node_via_operator" {
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.readiness_via_operator ? 1 : 0
+
+  triggers_replace = [
+    local.cluster_id,
+    "label_nim_llm_node_v1"
+  ]
+
+  connection {
+    type                = "ssh"
+    user                = "opc"
+    host                = oci_core_instance.operator[0].private_ip
+    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+    bastion_host        = oci_core_instance.bastion[0].public_ip
+    bastion_user        = "opc"
+    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+    timeout             = "30m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')",
+      "kubectl label node \"$NODE\" workload=nim-llm --overwrite",
+      "kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule --overwrite"
+    ]
+  }
+
+  depends_on = [
+    null_resource.operator_ready,
+    oci_core_instance_pool.worker_nodes_pool,
+    oci_core_cluster_network.worker_nodes_cluster_network,
+    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
+  ]
 }
 
 resource "helm_release" "rag" {
@@ -532,7 +567,7 @@ resource "helm_release" "rag" {
   count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node
+    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node, terraform_data.label_nim_llm_node_via_operator
   ]
 }
 
@@ -543,7 +578,7 @@ resource "local_sensitive_file" "kubeconfig_patch" {
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -562,6 +597,38 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
       kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{"spec":{"selector":{"statefulset.kubernetes.io/pod-name":"rag-nim-llm-0","app.kubernetes.io/name":null}}}'
     EOT
   }
+}
+
+resource "terraform_data" "patch_nim_llm_service_selector_via_operator" {
+  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.readiness_via_operator ? 1 : 0
+
+  triggers_replace = [
+    local.cluster_id,
+    "patch_nim_llm_service_selector_v1"
+  ]
+
+  connection {
+    type                = "ssh"
+    user                = "opc"
+    host                = oci_core_instance.operator[0].private_ip
+    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+    bastion_host        = oci_core_instance.bastion[0].public_ip
+    bastion_user        = "opc"
+    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+    timeout             = "30m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
+    ]
+  }
+
+  depends_on = [
+    null_resource.operator_ready,
+    helm_release.rag,
+    kubernetes_secret_v1.oci_config_secret,
+  ]
 }
 
 
@@ -620,7 +687,8 @@ resource "helm_release" "aiq" {
   # The aiq stack depends on the rag stack deployment to complete.
   depends_on = [
     helm_release.rag,
-    terraform_data.patch_nim_llm_service_selector
+    terraform_data.patch_nim_llm_service_selector,
+    terraform_data.patch_nim_llm_service_selector_via_operator
   ]
 }
 
@@ -635,5 +703,30 @@ resource "terraform_data" "aiq_restart_on_tavily_change" {
   }
 
   depends_on = [helm_release.aiq]
-  count      = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count      = var.starter_pack_category == "enterprise_rag_aiq" && !local.readiness_via_operator ? 1 : 0
+}
+
+resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
+  triggers_replace = [var.tavily_api_key]
+
+  connection {
+    type                = "ssh"
+    user                = "opc"
+    host                = oci_core_instance.operator[0].private_ip
+    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+    bastion_host        = oci_core_instance.bastion[0].public_ip
+    bastion_user        = "opc"
+    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+    timeout             = "30m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl rollout restart deployment -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")}",
+      "kubectl rollout status deployment -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")} --timeout=300s"
+    ]
+  }
+
+  depends_on = [null_resource.operator_ready, helm_release.aiq]
+  count      = var.starter_pack_category == "enterprise_rag_aiq" && local.readiness_via_operator ? 1 : 0
 }
