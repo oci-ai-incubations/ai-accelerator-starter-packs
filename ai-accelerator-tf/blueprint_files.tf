@@ -487,6 +487,7 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
+
               input_file_system = var.starter_pack_category == "vss" ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
@@ -495,6 +496,7 @@ locals {
                   volume_size_in_gbs = 1000
                 }
               ] : []
+
               deployment_name  = "vss-deployment-group"
               recipe_mode      = "service"
               recipe_host_port = "9000"

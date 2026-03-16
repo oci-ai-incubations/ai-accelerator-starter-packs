@@ -103,6 +103,13 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
         labels = {
           app = "vss-oracle-ux"
         }
+        # Force pod restart when ConfigMap data changes (e.g. after blueprint
+        # redeployment updates the VSS backend service URL). Without this,
+        # the pod keeps stale env vars because K8s doesn't restart pods on
+        # ConfigMap changes.
+        annotations = {
+          "checksum/config" = sha256(jsonencode(kubernetes_config_map_v1.vss_oracle_ux_config[0].data))
+        }
       }
 
       spec {
