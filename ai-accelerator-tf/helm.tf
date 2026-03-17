@@ -480,8 +480,7 @@ resource "helm_release" "rag" {
     file("${path.module}/helm-values/enterprise-rag-values.yaml")
   ]
 
-  set_sensitive = concat(
-    [
+  set_sensitive = [
       {
         name  = "imagePullSecret.password"
         value = var.ngc_secret
@@ -489,10 +488,7 @@ resource "helm_release" "rag" {
       {
         name  = "ngcApiSecret.password"
         value = var.ngc_api_secret
-      }
-    ],
-    # Oracle 26ai credentials are only needed for enterprise_rag (not enterprise_rag_aiq)
-    var.starter_pack_category == "enterprise_rag" ? [
+      },
       {
         name  = "envVars.ORACLE_USER"
         value = var.db_username
@@ -509,11 +505,9 @@ resource "helm_release" "rag" {
         name  = "ingestor-server.envVars.ORACLE_PASSWORD"
         value = var.db_password
       }
-    ] : []
-  )
+    ]
 
-  set = concat(
-    [
+  set = [
       {
         name  = "global.ngcApiKey"
         value = var.ngc_api_secret
@@ -525,10 +519,7 @@ resource "helm_release" "rag" {
       {
         name  = "nim-llm.image.tag"
         value = "1.14.0"
-      }
-    ],
-    # Oracle 26ai connection string is only needed for enterprise_rag (not enterprise_rag_aiq)
-    var.starter_pack_category == "enterprise_rag" ? [
+      },
       {
         name  = "envVars.ORACLE_CS"
         value = local.oracle26ai_high_connection_string
@@ -537,8 +528,7 @@ resource "helm_release" "rag" {
         name  = "ingestor-server.envVars.ORACLE_CS"
         value = local.oracle26ai_high_connection_string
       }
-    ] : []
-  )
+    ]
   count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
