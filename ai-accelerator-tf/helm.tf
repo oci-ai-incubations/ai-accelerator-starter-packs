@@ -480,55 +480,63 @@ resource "helm_release" "rag" {
     file("${path.module}/helm-values/enterprise-rag-values.yaml")
   ]
 
-  set_sensitive = [
-    {
-      name  = "envVars.ORACLE_USER"
-      value = var.db_username
-    },
-    {
-      name  = "envVars.ORACLE_PASSWORD"
-      value = var.db_password
-    },
-    {
-      name  = "ingestor-server.envVars.ORACLE_USER"
-      value = var.db_username
-    },
-    {
-      name  = "ingestor-server.envVars.ORACLE_PASSWORD"
-      value = var.db_password
-    },
-    {
-      name  = "imagePullSecret.password"
-      value = var.ngc_secret
-    },
-    {
-      name  = "ngcApiSecret.password"
-      value = var.ngc_api_secret
-    }
-  ]
+  set_sensitive = concat(
+    local.needs_26ai ? [
+      {
+        name  = "envVars.ORACLE_USER"
+        value = var.db_username
+      },
+      {
+        name  = "envVars.ORACLE_PASSWORD"
+        value = var.db_password
+      },
+      {
+        name  = "ingestor-server.envVars.ORACLE_USER"
+        value = var.db_username
+      },
+      {
+        name  = "ingestor-server.envVars.ORACLE_PASSWORD"
+        value = var.db_password
+      },
+    ] : [],
+    [
+      {
+        name  = "imagePullSecret.password"
+        value = var.ngc_secret
+      },
+      {
+        name  = "ngcApiSecret.password"
+        value = var.ngc_api_secret
+      },
+    ]
+  )
 
-  set = [
-    {
-      name  = "envVars.ORACLE_CS"
-      value = local.oracle26ai_high_connection_string
-    },
-    {
-      name  = "ingestor-server.envVars.ORACLE_CS"
-      value = local.oracle26ai_high_connection_string
-    },
-    {
-      name  = "global.ngcApiKey"
-      value = var.ngc_api_secret
-    },
-    {
-      name  = "nim-llm.image.repository"
-      value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
-    },
-    {
-      name  = "nim-llm.image.tag"
-      value = "1.14.0"
-    }
-  ]
+  set = concat(
+    local.needs_26ai ? [
+      {
+        name  = "envVars.ORACLE_CS"
+        value = local.oracle26ai_high_connection_string
+      },
+      {
+        name  = "ingestor-server.envVars.ORACLE_CS"
+        value = local.oracle26ai_high_connection_string
+      },
+    ] : [],
+    [
+      {
+        name  = "global.ngcApiKey"
+        value = var.ngc_api_secret
+      },
+      {
+        name  = "nim-llm.image.repository"
+        value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+      },
+      {
+        name  = "nim-llm.image.tag"
+        value = "1.14.0"
+      },
+    ]
+  )
   count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
