@@ -4,5 +4,5 @@
 # - "vss"            : Video Search workloads  
 # - "paas_rag"       : RAG workloads using OCI PaaS services
 # - "enterprise_rag" : NVIDIA Enterprise RAG (deployed via Helm, not OCI AI Blueprints)
-starter_pack_category = "vss"
+starter_pack_category = "enterprise_rag_aiq"
 
