@@ -905,15 +905,15 @@ locals {
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
   # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
-  starter_pack_deployment_name = var.starter_pack_category != "enterprise_rag" ? (
+  starter_pack_deployment_name = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
   starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
-  canonical_blueprint_content    = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
-  starter_pack_blueprint_content = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
+  canonical_blueprint_content    = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
+  starter_pack_blueprint_content = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
 }
 
 # App Name Locals

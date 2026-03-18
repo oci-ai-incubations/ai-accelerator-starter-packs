@@ -52,11 +52,11 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
 # Unique suffix for deployment names - changes only when the canonical blueprint content changes,
 # so the blueprint deployment job is not re-run on every apply.
 resource "random_id" "blueprint_deploy_id" {
-  count       = var.starter_pack_category != "enterprise_rag" ? 1 : 0
+  count       = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   byte_length = 4
 
   keepers = {
-    blueprint_hash = var.starter_pack_category != "enterprise_rag" ? sha256(local.canonical_blueprint_content) : "enterprise_rag"
+    blueprint_hash = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? sha256(local.canonical_blueprint_content) : "enterprise_rag"
   }
 }
 

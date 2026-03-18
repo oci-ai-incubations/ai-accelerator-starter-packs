@@ -477,7 +477,10 @@ resource "helm_release" "rag" {
   timeout = 5400 # Increase timeout to 90 minutes
 
   values = [
-    file("${path.module}/helm-values/enterprise-rag-values.yaml")
+    {
+      enterprise_rag     = file("${path.module}/helm-values/enterprise-rag-values.yaml")
+      enterprise_rag_aiq = file("${path.module}/helm-values/enterprise-rag-aiq-values.yaml")
+    }[var.starter_pack_category]
   ]
 
   set_sensitive = concat(
