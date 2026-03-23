@@ -1505,7 +1505,7 @@ locals {
         },
         {
           name       = "frontend",
-          depends_on = ["llamastack"],
+          depends_on = ["llamastack", "auth-service"],
           recipe = {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
