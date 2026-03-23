@@ -1510,7 +1510,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.1.0-arbi",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
@@ -1561,7 +1561,35 @@ locals {
                 path         = "/v1"
                 path_type    = "Prefix"
               }
+              {
+                port_name    = "auth"
+                service_name = "$${auth-service.service_name}"
+                port         = 8080
+                path         = "/auth"
+                path_type    = "Prefix"
+              }
             ]
+          }
+        },
+        {
+          name       = "auth-service",
+          depends_on = [],
+          recipe = {
+            recipe_id                            = "auth-service",
+            deployment_name                      = "auth-service",
+            recipe_mode                          = "service",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:v0.1.0",
+            recipe_replica_count                 = 1,
+            recipe_flex_shape_ocpu_count         = 2,
+            recipe_flex_shape_memory_size_in_gbs = 8,
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_port                = "8080",
+            recipe_environment_variables = {
+              AUTH_JWT_SECRET          = "arbi-demo-secret-${random_string.suffix.result}"
+              AUTH_DATABASE_URL        = "sqlite+aiosqlite:///./auth.db"
+              AUTH_AUTO_ADMIN_FIRST_USER = "true"
+            }
           }
         }
       ]
