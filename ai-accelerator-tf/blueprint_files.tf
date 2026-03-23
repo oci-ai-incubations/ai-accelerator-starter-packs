@@ -1579,7 +1579,7 @@ locals {
             recipe_id                            = "auth-service",
             deployment_name                      = "auth-service",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:v0.1.0",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:v0.2.1",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 2,
             recipe_flex_shape_memory_size_in_gbs = 8,
@@ -1587,18 +1587,15 @@ locals {
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "8080",
             recipe_container_env = [
-              {
-                key   = "AUTH_JWT_SECRET"
-                value = "arbi-demo-secret-rbr-2026"
-              },
-              {
-                key   = "AUTH_DATABASE_URL"
-                value = "sqlite+aiosqlite:///./auth.db"
-              },
-              {
-                key   = "AUTH_AUTO_ADMIN_FIRST_USER"
-                value = "true"
-              }
+              { key = "AUTH_JWT_SECRET", value = "arbi-demo-secret-rbr-2026" },
+              { key = "AUTH_DATABASE_TYPE", value = "oracle" },
+              { key = "AUTH_ORACLE_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
+              { key = "AUTH_ORACLE_USER", value = var.db_username },
+              { key = "AUTH_ORACLE_PASSWORD", value = var.db_password },
+              { key = "AUTH_AUTO_ADMIN_FIRST_USER", value = "true" },
+              { key = "AUTH_BCRYPT_ROUNDS", value = "12" },
+              { key = "AUTH_ACCESS_TOKEN_EXPIRE_MINUTES", value = "15" },
+              { key = "AUTH_REFRESH_TOKEN_EXPIRE_DAYS", value = "7" }
             ]
           }
         }
