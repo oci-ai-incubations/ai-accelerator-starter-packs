@@ -1560,7 +1560,7 @@ locals {
                 port         = 8321
                 path         = "/v1"
                 path_type    = "Prefix"
-              }
+              },
               {
                 port_name    = "auth"
                 service_name = "$${auth-service.service_name}"
