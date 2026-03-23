@@ -1586,7 +1586,7 @@ locals {
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "8080",
             recipe_environment_variables = {
-              AUTH_JWT_SECRET          = "arbi-demo-secret-${random_string.suffix.result}"
+              AUTH_JWT_SECRET          = "arbi-demo-secret-rbr-2026"
               AUTH_DATABASE_URL        = "sqlite+aiosqlite:///./auth.db"
               AUTH_AUTO_ADMIN_FIRST_USER = "true"
             }
