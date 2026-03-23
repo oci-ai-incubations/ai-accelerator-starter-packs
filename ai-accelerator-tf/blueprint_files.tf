@@ -1573,6 +1573,7 @@ locals {
         },
         {
           name       = "auth-service",
+          exports    = ["service_name"],
           depends_on = [],
           recipe = {
             recipe_id                            = "auth-service",
@@ -1585,11 +1586,20 @@ locals {
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "8080",
-            recipe_environment_variables = {
-              AUTH_JWT_SECRET          = "arbi-demo-secret-rbr-2026"
-              AUTH_DATABASE_URL        = "sqlite+aiosqlite:///./auth.db"
-              AUTH_AUTO_ADMIN_FIRST_USER = "true"
-            }
+            recipe_container_env = [
+              {
+                key   = "AUTH_JWT_SECRET"
+                value = "arbi-demo-secret-rbr-2026"
+              },
+              {
+                key   = "AUTH_DATABASE_URL"
+                value = "sqlite+aiosqlite:///./auth.db"
+              },
+              {
+                key   = "AUTH_AUTO_ADMIN_FIRST_USER"
+                value = "true"
+              }
+            ]
           }
         }
       ]
