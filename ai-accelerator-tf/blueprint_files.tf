@@ -528,8 +528,8 @@ locals {
               recipe_nvidia_gpu_count = 1
               recipe_container_env = [
                 { key = "VLM_MODEL_TO_USE", value = "openai-compat" },
-                { key = "VIA_VLM_ENDPOINT", value = "http://qwen-3vl-235b-3.157-151-207-65.nip.io/v1/" },
-                { key = "VIA_VLM_OPENAI_MODEL_DEPLOYMENT_NAME", value = "/models/Qwen/Qwen3-VL-235B-A22B-Instruct" },
+                { key = "VIA_VLM_ENDPOINT", value = "http://$${llamastack.service_name}/v1/" },
+                { key = "VIA_VLM_OPENAI_MODEL_DEPLOYMENT_NAME", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
                 { key = "DISABLE_GUARDRAILS", value = "true" },
                 { key = "OPENAI_API_KEY", value = "not-needed" },
                 { key = "OPENAI_API_KEY_NAME", value = "OPENAI_API_KEY" },
@@ -539,8 +539,8 @@ locals {
                 { key = "GDINO_INFERENCE_INTERVAL", value = "1" },
                 { key = "NUM_CV_CHUNKS_PER_GPU", value = "1" },
                 { key = "ENABLE_AUDIO", value = "true" },
-                { key = "LLM_BASE_URL", value = "http://qwen-3vl-235b-3.157-151-207-65.nip.io/v1/" },
-                { key = "LLM_MODEL", value = "/models/Qwen/Qwen3-VL-235B-A22B-Instruct" },
+                { key = "LLM_BASE_URL", value = "http://$${llamastack.service_name}/v1/" },
+                { key = "LLM_MODEL", value = "oci/meta.llama-3.1-405b-instruct" },
                 { key = "EMBED_HOST", value = "$${embedding.internal_dns_name}" },
                 { key = "EMBED_PORT", value = "8000" },
                 { key = "RERANK_HOST", value = "$${rerank.internal_dns_name}" },
