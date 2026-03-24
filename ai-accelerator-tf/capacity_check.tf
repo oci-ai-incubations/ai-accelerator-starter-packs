@@ -66,7 +66,7 @@ resource "oci_core_compute_capacity_report" "cpu_worker_capacity" {
 # Bastion Instance Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "bastion_capacity" {
   for_each = var.skip_capacity_check ? {} : (
-    var.create_bastion ?
+    local.create_bastion_effective ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
 
@@ -86,7 +86,7 @@ resource "oci_core_compute_capacity_report" "bastion_capacity" {
 # Operator Instance Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "operator_capacity" {
   for_each = var.skip_capacity_check ? {} : (
-    var.create_bastion ?
+    local.create_bastion_effective ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
 
@@ -138,7 +138,7 @@ locals {
   )
 
   bastion_available = var.skip_capacity_check ? true : (
-    !var.create_bastion ? true : (
+    !local.create_bastion_effective ? true : (
       length(oci_core_compute_capacity_report.bastion_capacity) > 0 ?
       anytrue([
         for report in oci_core_compute_capacity_report.bastion_capacity :
@@ -148,7 +148,7 @@ locals {
   )
 
   operator_available = var.skip_capacity_check ? true : (
-    !var.create_bastion ? true : (
+    !local.create_bastion_effective ? true : (
       length(oci_core_compute_capacity_report.operator_capacity) > 0 ?
       anytrue([
         for report in oci_core_compute_capacity_report.operator_capacity :
@@ -226,7 +226,7 @@ Required Capacity Status:
 %{endfor~}
 %{endif~}
 %{endif~}
-%{if var.create_bastion~}
+%{if local.create_bastion_effective~}
   Bastion Instance:
     Shape: ${var.bastion_instance_shape.instanceShape}
     Status: ${local.bastion_available ? "AVAILABLE in at least one AD" : "NOT AVAILABLE in any AD"}
