@@ -401,14 +401,6 @@ variables:
     type: boolean
     visible: false
 
-  ngc_secret:
-    type: password
-    visible: false
-
-  ngc_api_secret:
-    type: password
-    visible: false
-
   nip_io_domain:
     type: string
     visible: false

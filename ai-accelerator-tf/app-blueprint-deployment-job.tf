@@ -43,6 +43,42 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   count = local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
 }
 
+# Configure OKE secrets in the AIQ namespace (enterprise_rag_aiq only).
+# The main configure_oke job creates secrets in app_namespace ("rag"), but the AIQ
+# helm chart deploys to a separate namespace and needs its own copy of the secrets.
+resource "kubernetes_job_v1" "configure_oke_for_aiq_namespace" {
+  metadata {
+    name = "configure-oke-for-aiq-namespace"
+  }
+  spec {
+    template {
+      metadata {}
+      spec {
+        container {
+          name              = "configure-oke-aiq"
+          image             = local.app.deploy_blueprint_image_uri
+          image_pull_policy = "Always"
+          command           = ["/bin/sh", "-c"]
+          args = [
+            "python3 /app/configure_oke.py -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")}"
+          ]
+        }
+      }
+    }
+    backoff_limit              = 0
+    ttl_seconds_after_finished = 3600
+  }
+  wait_for_completion = true
+  timeouts {
+    create = "20m"
+    update = "20m"
+  }
+  depends_on = [
+    kubernetes_deployment_v1.corrino_cp_deployment,
+  ]
+  count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+}
+
 # =============================================================================
 # Blueprint lifecycle: Job runs only when canonical blueprint content changes.
 # random_id keepers use a hash of the canonical blueprint so the job is re-run

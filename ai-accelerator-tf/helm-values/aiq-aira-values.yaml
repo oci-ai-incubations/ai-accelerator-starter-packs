@@ -5,18 +5,16 @@
 namespace: "aiq"
 
 # -- Global image pull secret for NGC resources
+# Secret is pre-created by configure_oke.py; the chart just references it.
 imagePullSecret:
   name: "ngc-secret"
-  registry: "nvcr.io"
-  username: "$oauthtoken"
-  password: ""
-  create: true
+  create: false
 
 # -- Secret containing API key for NVIDIA NGC model registry
+# Secret is pre-created by configure_oke.py; the chart just references it.
 ngcApiSecret:
-  name: "ngc-api"
-  password: ""
-  create: true
+  name: "ngc-api-secret"
+  create: false
 
 # -- Tavily API secret configuration (optional)
 # Secret is created so the chart can mount it, but the key is also passed via
