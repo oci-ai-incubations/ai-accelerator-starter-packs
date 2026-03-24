@@ -487,6 +487,7 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
+
               input_file_system = var.starter_pack_category == "vss" ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
@@ -495,6 +496,7 @@ locals {
                   volume_size_in_gbs = 1000
                 }
               ] : []
+
               deployment_name  = "vss-deployment-group"
               recipe_mode      = "service"
               recipe_host_port = "9000"
@@ -527,19 +529,18 @@ locals {
               recipe_container_env = [
                 { key = "VLM_MODEL_TO_USE", value = "openai-compat" },
                 { key = "VIA_VLM_ENDPOINT", value = "http://$${llamastack.service_name}/v1/" },
-                { key = "VIA_VLM_OPENAI_MODEL_DEPLOYMENT_NAME", value = "oci/openai.gpt-4o" },
+                { key = "VIA_VLM_OPENAI_MODEL_DEPLOYMENT_NAME", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
                 { key = "DISABLE_GUARDRAILS", value = "true" },
                 { key = "OPENAI_API_KEY", value = "not-needed" },
                 { key = "OPENAI_API_KEY_NAME", value = "OPENAI_API_KEY" },
                 { key = "NVIDIA_API_KEY_NAME", value = "VSS_NVIDIA_API_KEY" },
                 { key = "NGC_API_KEY_NAME", value = "VSS_NGC_API_KEY" },
-                { key = "TRT_LLM_MODE", value = "int4_awq" },
                 { key = "DISABLE_CV_PIPELINE", value = "false" },
                 { key = "GDINO_INFERENCE_INTERVAL", value = "1" },
                 { key = "NUM_CV_CHUNKS_PER_GPU", value = "1" },
                 { key = "ENABLE_AUDIO", value = "true" },
                 { key = "LLM_BASE_URL", value = "http://$${llamastack.service_name}/v1/" },
-                { key = "LLM_MODEL", value = "oci/openai.gpt-5.2" },
+                { key = "LLM_MODEL", value = "oci/meta.llama-3.1-405b-instruct" },
                 { key = "EMBED_HOST", value = "$${embedding.internal_dns_name}" },
                 { key = "EMBED_PORT", value = "8000" },
                 { key = "RERANK_HOST", value = "$${rerank.internal_dns_name}" },

@@ -22,6 +22,20 @@ This document contains container image versions for each accelerator pack config
 
 ## VSS Starter Pack
 
+### VSS POC
+
+| Container | Image | Version |
+|-----------|-------|---------|
+| VSS Engine | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine | 2.4.0-poc-custom |
+| VSS Oracle UX | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-oracle-ux-dev-0.0.4 |
+| Download Service | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-download-service-prod-0.0.4 |
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| Elasticsearch | docker.io/elasticsearch | 9.1.2 |
+| Neo4j | docker.io/neo4j | 5.26.4 |
+| Embedding NIM | nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2 | 1.9.0 |
+| Rerank NIM | nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2 | 1.7.0 |
+| Riva NIM | nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us | 2.0.0 |
+
 ### VSS Small
 
 | Container | Image | Version |
