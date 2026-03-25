@@ -39,7 +39,7 @@ resource "oci_core_instance" "bastion" {
     }))
   }
 
-  count = local.create_network_resources && var.create_bastion ? 1 : 0
+  count = local.create_network_resources && local.create_bastion_effective ? 1 : 0
 
   depends_on = [
     oci_core_subnet.oke_bastion_subnet
@@ -79,18 +79,50 @@ resource "oci_core_instance" "operator" {
   metadata = {
     ssh_authorized_keys = var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh
     user_data = base64encode(templatefile("${path.module}/scripts/operator_bootstrap.sh", {
-      cluster_id     = local.oke_cluster.id
-      region         = var.region
-      tenancy_ocid   = var.tenancy_ocid
-      compartment_id = var.compartment_ocid
+      cluster_id         = local.oke_cluster.id
+      region             = var.region
+      tenancy_ocid       = var.tenancy_ocid
+      compartment_id     = var.compartment_ocid
+      auto_configure_oke = local.needs_operator
     }))
   }
 
-  count = local.create_network_resources && var.create_bastion ? 1 : 0
+  count = local.create_network_resources && local.create_bastion_effective ? 1 : 0
 
   depends_on = [
     oci_core_subnet.oke_operator_subnet,
     oci_containerengine_cluster.oke_cluster,
     oci_containerengine_cluster.oke_cluster_existing_vcn,
+  ]
+}
+
+# Operator Ready Gate - waits for cloud-init and kubectl to be functional
+resource "null_resource" "operator_ready" {
+  count = local.readiness_via_operator ? 1 : 0
+
+  connection {
+    type                = "ssh"
+    user                = "opc"
+    host                = oci_core_instance.operator[0].private_ip
+    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+    bastion_host        = oci_core_instance.bastion[0].public_ip
+    bastion_user        = "opc"
+    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+    timeout             = "30m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo 'Waiting for kubectl to become available...'",
+      "for i in $(seq 1 60); do which kubectl >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1 && break; echo \"Waiting for kubectl ($i/60)...\"; sleep 15; done",
+      "kubectl get nodes"
+    ]
+  }
+
+  depends_on = [
+    oci_core_instance.bastion,
+    oci_core_instance.operator,
+    oci_containerengine_cluster.oke_cluster,
+    oci_identity_policy.operator_policy,
   ]
 }

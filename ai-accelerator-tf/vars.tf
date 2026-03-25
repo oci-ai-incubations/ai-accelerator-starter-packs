@@ -166,6 +166,27 @@ locals {
   cluster_endpoint_visibility = var.network_configuration_mode == "create_new" ? var.cluster_endpoint_visibility_new_vcn : var.cluster_endpoint_visibility_existing_vcn
 }
 
+# Deployment mode locals
+locals {
+  # Deployment mode detection
+  deploy_private_k8s_and_loadbalancer = var.deploy_private_k8s_and_loadbalancer
+  k8s_endpoint_private                = local.cluster_endpoint_visibility == "Private"
+
+  # ORM PE needed when deploying from ORM with private K8s endpoint
+  create_orm_private_endpoint = local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
+
+  # Operator needed when: LB is private/CIDR-scoped, or K8s endpoint is private
+  # Force bastion+operator creation in these cases
+  needs_operator = local.deploy_private_k8s_and_loadbalancer && (
+    local.k8s_endpoint_private ||
+    var.blueprints_endpoint_visibility == "Private"
+  )
+  create_bastion_effective = var.create_bastion || local.needs_operator
+
+  # Readiness checks should go through operator when ORM can't reach the LB
+  readiness_via_operator = local.deploy_private_k8s_and_loadbalancer && local.create_bastion_effective
+}
+
 ## OKE Node Pool Details
 variable "node_pool_name" {
   type        = string
@@ -252,6 +273,13 @@ variable "current_user_ocid" {
 variable "show_advanced" {
   type    = bool
   default = false
+}
+
+# ORM Deployment Configuration
+variable "deploy_private_k8s_and_loadbalancer" {
+  type        = bool
+  default     = false
+  description = "Deploys a completely private stack not accessible via internet. More secure, but the final URL will not be accessible from the public internet without first port forwarding. Suitable for production deployments."
 }
 
 # Bastion and Operator Configuration

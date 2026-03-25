@@ -96,6 +96,12 @@ See [TEST_MATRIX.md](TEST_MATRIX.md) for the full test matrix creation workflow.
 
 See [ZIP_PACKAGING.md](ZIP_PACKAGING.md) for the zip packaging workflow.
 
+## Next Steps
+
+After zip files have been created, tested via the test matrix, and all packs pass:
+
+Run `/release-push <VERSION>` to validate zips, rename for distribution, generate the Slack announcement, merge the release PR, and tag the release.
+
 ## Starter Pack Ownership
 
 See [OWNERS.md](OWNERS.md) for current starter pack owner assignments.

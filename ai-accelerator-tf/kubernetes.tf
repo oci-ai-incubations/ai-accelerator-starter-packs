@@ -17,6 +17,18 @@ locals {
   # https://ip.ip.ip.ip:6443 - ip is either private or public
   cluster_endpoint_public_host = format("https://%s", local.cluster_endpoint_public_full)
 
+  # ORM PE endpoint: https://<reachable_ip>:6443
+  cluster_orm_endpoint = local.create_orm_private_endpoint ? format(
+    "https://%s:6443",
+    data.oci_resourcemanager_private_endpoint_reachable_ip.oke[0].ip_address
+  ) : ""
+
+  # Provider host selection priority: ORM PE > public > private
+  provider_host = local.create_orm_private_endpoint ? local.cluster_orm_endpoint : local.cluster_endpoint_public_host
+
+  # TLS server name must match the real endpoint hostname for cert validation when using ORM PE
+  provider_tls_server_name = local.create_orm_private_endpoint ? local.cluster_endpoint_private : null
+
   # CA certificate and other details from kubeconfig (still needed for authentication)
   cluster_ca_certificate = try(base64decode(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["clusters"][0]["cluster"]["certificate-authority-data"]), "")
   cluster_id             = try(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["users"][0]["user"]["exec"]["args"][4], local.oke_cluster.id)

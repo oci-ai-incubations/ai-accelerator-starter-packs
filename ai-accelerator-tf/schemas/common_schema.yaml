@@ -87,6 +87,7 @@ variableGroups:
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
+      - deploy_private_k8s_and_loadbalancer
       - create_bastion
       - skip_capacity_check
       - use_custom_dns
@@ -205,6 +206,13 @@ variables:
   db_workload_type:
     type: string
     visible: false
+
+  deploy_private_k8s_and_loadbalancer:
+    type: boolean
+    title: "Deploy Private K8s and Load Balancer"
+    description: "Deploys a completely private stack not accessible via internet. More secure, but the final URL will not be accessible from the public internet without first port forwarding. Suitable for production deployments."
+    default: false
+    required: false
 
   create_policies:
     type: boolean
