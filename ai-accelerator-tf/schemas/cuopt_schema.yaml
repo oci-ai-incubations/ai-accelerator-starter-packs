@@ -52,6 +52,9 @@ variableGroups:
       - starter_pack_size
       - cuopt_frontend_enabled
       - genai_region
+      - google_maps_api_key
+      - cuopt_frontend_admin_username
+      - cuopt_frontend_admin_password
       - worker_node_availability_domain
 
   - title: "Administrator Account"
@@ -79,9 +82,41 @@ variables:
     type: boolean
     title: "Enable cuOpt Frontend"
     description: "Enable cuOpt frontend"
-    default: false
+    default: true
     visible: true
     required: true
+
+  google_maps_api_key:
+    type: string
+    title: "Google Maps API Key"
+    description: "API key for Google Maps visualization in the cuOpt frontend. Leave empty to use the default Leaflet map."
+    default: ""
+    visible:
+      and:
+        - cuopt_frontend_enabled
+
+  cuopt_frontend_admin_username:
+    type: string
+    title: "cuOpt Frontend Admin Username"
+    description: "Username for the cuOpt frontend login."
+    default: ""
+    required: true
+    minLength: 1
+    visible:
+      and:
+        - cuopt_frontend_enabled
+
+  cuopt_frontend_admin_password:
+    type: password
+    title: "cuOpt Frontend Admin Password"
+    description: "Password for the cuOpt frontend login. Must be at least 8 characters with a number."
+    default: ""
+    required: true
+    minLength: 8
+    pattern: ".*[0-9].*"
+    visible:
+      and:
+        - cuopt_frontend_enabled
 
   genai_region:
     title: "OCI GenAI Services Region"

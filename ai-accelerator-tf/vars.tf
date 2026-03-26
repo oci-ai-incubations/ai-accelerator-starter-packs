@@ -609,7 +609,32 @@ variable "genai_region" {
 variable "cuopt_frontend_enabled" {
   description = "Enable cuopt frontend"
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "google_maps_api_key" {
+  description = "Google Maps API key for the cuOpt frontend map visualization"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cuopt_frontend_admin_username" {
+  description = "Admin username for the cuOpt frontend login"
+  type        = string
+  default     = ""
+}
+
+variable "cuopt_frontend_admin_password" {
+  description = "Admin password for the cuOpt frontend login"
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = var.cuopt_frontend_admin_password == "" || (length(var.cuopt_frontend_admin_password) >= 8 && can(regex("[0-9]", var.cuopt_frontend_admin_password)))
+    error_message = "Password must be at least 8 characters and contain at least one number."
+  }
 }
 
 # -----------------------------------
@@ -933,15 +958,15 @@ locals {
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
   # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
-  starter_pack_deployment_name = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? (
+  starter_pack_deployment_name = var.starter_pack_category != "enterprise_rag" ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
   starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
-  canonical_blueprint_content    = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
-  starter_pack_blueprint_content = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
+  canonical_blueprint_content    = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
+  starter_pack_blueprint_content = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
 }
 
 # App Name Locals
