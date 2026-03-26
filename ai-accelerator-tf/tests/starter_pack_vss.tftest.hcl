@@ -29,6 +29,18 @@ mock_provider "oci" {
       }]
     }
   }
+
+  override_data {
+    target = data.oci_generative_ai_models.genai_models
+    values = {
+      model_collection = [{
+        items = [{
+          id           = "ocid1.generativeaimodel.oc1..test"
+          display_name = "meta.llama-4-maverick-17b-128e-instruct-fp8"
+        }]
+      }]
+    }
+  }
 }
 
 mock_provider "kubernetes" {}
@@ -90,6 +102,33 @@ run "plan_vss_poc" {
   assert {
     condition     = startswith(output.starter_pack_deployment_name, "vss-")
     error_message = "vss poc deployment name should start with 'vss-'"
+  }
+
+  # Postflight registration trigger should record the selected starter pack category
+  assert {
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "vss"
+    error_message = "postflight trigger should capture starter pack category"
+  }
+
+  # Postflight registration trigger should record the deployment region
+  assert {
+    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    error_message = "postflight trigger should capture region"
+  }
+}
+
+# Test: vss poc-dedicated size plans successfully with correct deployment name and registration triggers
+run "plan_vss_poc_dedicated" {
+  command = plan
+
+  variables {
+    starter_pack_size = "poc-dedicated"
+  }
+
+  # Deployment name should start with the starter pack category (suffixed with random_id hex)
+  assert {
+    condition     = startswith(output.starter_pack_deployment_name, "vss-")
+    error_message = "vss poc-dedicated deployment name should start with 'vss-'"
   }
 
   # Postflight registration trigger should record the selected starter pack category

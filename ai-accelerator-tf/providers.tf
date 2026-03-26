@@ -35,6 +35,22 @@ provider "oci" {
   private_key_path = var.use_instance_principal ? null : var.private_key_path
 }
 
+# Separate provider for OCI Generative AI resources (dedicated AI cluster, endpoint, model lookup).
+# GenAI dedicated hosting is only available in specific regions (e.g., us-chicago-1), which may
+# differ from var.region where the OKE cluster and other infrastructure are deployed.
+# Note that llama stack uses var.genai_region at the application level to call the GenAI inference
+# API, but this provider is needed to create the actual OCI resources (cluster, endpoint) in that region.
+provider "oci" {
+  alias        = "genai_region"
+  tenancy_ocid = var.tenancy_ocid
+  region       = var.genai_region
+  auth         = var.use_instance_principal ? "InstancePrincipal" : null
+
+  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
+  fingerprint      = var.use_instance_principal ? null : var.fingerprint
+  private_key_path = var.use_instance_principal ? null : var.private_key_path
+}
+
 # New configuration to avoid Terraform Kubernetes provider interpolation. https://registry.terraform.io/providers/hashicorp/kubernetes/2.2.0/docs#stacking-with-managed-kubernetes-cluster-resources
 # Currently need to uncheck to refresh (--refresh=false) when destroying or else the terraform destroy will fail
 

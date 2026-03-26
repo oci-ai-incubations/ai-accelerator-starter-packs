@@ -494,8 +494,8 @@ variable "starter_pack_size" {
   type        = string
   default     = "small"
   validation {
-    condition     = contains(["poc", "small", "medium", "large"], var.starter_pack_size)
-    error_message = "Starter pack size must be 'poc', 'small', 'medium', or 'large'."
+    condition     = contains(["poc", "poc-dedicated", "small", "medium", "large"], var.starter_pack_size)
+    error_message = "Starter pack size must be 'poc', 'poc-dedicated', 'small', 'medium', or 'large'."
   }
 }
 
@@ -703,6 +703,32 @@ locals {
 
     "vss" = {
       "poc" = {
+        blueprint_file                               = "vss-blueprint.json"
+        deployment_name                              = "vss"
+        app_namespace                                = "default"
+        nvaie_enabled                                = true
+        create_ngc_secrets_in_cluster                = true
+        worker_node_shape                            = "VM.GPU.A10.2"
+        worker_node_pool_size                        = 2
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "150"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 3
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 16
+          memory        = 260
+        }
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        frontend_url                 = "vss-frontend"
+      }
+      "poc-dedicated" = {
         blueprint_file                               = "vss-blueprint.json"
         deployment_name                              = "vss"
         app_namespace                                = "default"

@@ -51,6 +51,7 @@ variableGroups:
     variables:
       - starter_pack_size
       - worker_node_availability_domain
+      - genai_region
 
   - title: "Administrator Account"
     variables:
@@ -72,16 +73,28 @@ variables:
     type: enum
     enum:
       - poc
+      - poc-dedicated
       - small
       - medium
     title: "VSS Deployment Size"
-    description: "<strong>POC</strong> - 2x VM.GPU.A10.2 (2x NVIDIA A10 24GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (16 OCPU, 260GB Mem), 450GB boot block storage, 1 Flexible Load Balancer | <strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 550GB boot block storage, 1 Flexible Load Balancer | <strong>MEDIUM</strong> - 2x BM.GPU.L40S.4 (8x L40S 48GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 550GB boot block storage, 1 Flexible Load Balancer"
+    description: "<strong>POC</strong> - 2x VM.GPU.A10.2 (2x NVIDIA A10 24GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (16 OCPU, 260GB Mem), 450GB boot block storage, 1 Flexible Load Balancer | <strong>POC-DEDICATED</strong> - Same as POC plus a dedicated OCI Generative AI cluster and endpoint | <strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 550GB boot block storage, 1 Flexible Load Balancer | <strong>MEDIUM</strong> - 2x BM.GPU.L40S.4 (8x L40S 48GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (32 OCPU, 128GB Mem), 550GB boot block storage, 1 Flexible Load Balancer"
     default: small
     required: true
 
-  # Hide genai_region - not needed for VSS
+  # OCI GenAI region — only used by poc-dedicated size for dedicated AI cluster/endpoint
   genai_region:
-    visible: false
+    title: "OCI GenAI Services Region"
+    description: "Region for OCI Generative AI dedicated cluster and endpoint. Only applies to poc-dedicated size."
+    type: enum
+    default: us-chicago-1
+    enum:
+      - us-chicago-1
+      - uk-london-1
+      - me-riyadh-1
+      - ap-hyderabad-1
+      - ap-osaka-1
+      - sa-saopaulo-1
+    visible: true
 
   cuopt_frontend_enabled:
     visible: false
