@@ -94,6 +94,11 @@ variableGroups:
       - fqdn_custom_domain
       - create_policies
 
+  - title: "Advanced Configuration"
+    variables:
+      - deploy_application
+      - existing_cluster_id
+
 # =============================================================================
 # Variables - Common definitions
 # =============================================================================
@@ -221,6 +226,20 @@ variables:
     default: true
     required: false
     visible: true
+
+  deploy_application:
+    type: boolean
+    default: true
+    title: "Deploy Application"
+    description: "When unchecked, only infrastructure (VCN, OKE cluster, node pools) is created. Use this to create an infrastructure-only stack for node reuse."
+    required: false
+
+  existing_cluster_id:
+    type: string
+    default: ""
+    title: "Existing Cluster OCID"
+    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
+    required: false
 
   # ---------------------------------
   # Hidden Variables
