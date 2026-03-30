@@ -184,14 +184,24 @@ locals {
               recipe_id                            = "demo",
               deployment_name                      = "demo",
               recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2",
+              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3",
               recipe_replica_count                 = 1,
               recipe_flex_shape_ocpu_count         = 1,
               recipe_flex_shape_memory_size_in_gbs = 8,
               recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "3000",
+              recipe_container_port                = "80",
               service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+              recipe_container_env = [
+                { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
+                { key = "LLAMASTACK_ENDPOINT", value = "http://$${llamastack.service_name}:80" },
+                { key = "LLAMASTACK_MODEL", value = "" },
+                { key = "GOOGLE_MAPS_API_KEY", value = var.google_maps_api_key },
+                { key = "ADMIN_USERNAME", value = var.cuopt_frontend_admin_username },
+                { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
+                { key = "NODE_ENV", value = "production" },
+                { key = "PORT", value = "3001" },
+              ]
               recipe_additional_ingress_ports = [
                 {
                   port_name    = "cuopt"
@@ -487,7 +497,6 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
-
               input_file_system = var.starter_pack_category == "vss" ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
@@ -496,7 +505,6 @@ locals {
                   volume_size_in_gbs = 1000
                 }
               ] : []
-
               deployment_name  = "vss-deployment-group"
               recipe_mode      = "service"
               recipe_host_port = "9000"
@@ -529,18 +537,19 @@ locals {
               recipe_container_env = [
                 { key = "VLM_MODEL_TO_USE", value = "openai-compat" },
                 { key = "VIA_VLM_ENDPOINT", value = "http://$${llamastack.service_name}/v1/" },
-                { key = "VIA_VLM_OPENAI_MODEL_DEPLOYMENT_NAME", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
+                { key = "VIA_VLM_OPENAI_MODEL_DEPLOYMENT_NAME", value = "oci/openai.gpt-4o" },
                 { key = "DISABLE_GUARDRAILS", value = "true" },
                 { key = "OPENAI_API_KEY", value = "not-needed" },
                 { key = "OPENAI_API_KEY_NAME", value = "OPENAI_API_KEY" },
                 { key = "NVIDIA_API_KEY_NAME", value = "VSS_NVIDIA_API_KEY" },
                 { key = "NGC_API_KEY_NAME", value = "VSS_NGC_API_KEY" },
+                { key = "TRT_LLM_MODE", value = "int4_awq" },
                 { key = "DISABLE_CV_PIPELINE", value = "false" },
                 { key = "GDINO_INFERENCE_INTERVAL", value = "1" },
                 { key = "NUM_CV_CHUNKS_PER_GPU", value = "1" },
                 { key = "ENABLE_AUDIO", value = "true" },
                 { key = "LLM_BASE_URL", value = "http://$${llamastack.service_name}/v1/" },
-                { key = "LLM_MODEL", value = "oci/meta.llama-3.1-405b-instruct" },
+                { key = "LLM_MODEL", value = "oci/openai.gpt-5.2" },
                 { key = "EMBED_HOST", value = "$${embedding.internal_dns_name}" },
                 { key = "EMBED_PORT", value = "8000" },
                 { key = "RERANK_HOST", value = "$${rerank.internal_dns_name}" },
