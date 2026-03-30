@@ -13,7 +13,7 @@ locals {
 # Step 1: Wait for the deployment to become available (polls the API)
 # =============================================================================
 resource "null_resource" "wait_for_deployment" {
-  count = local.uses_blueprint_deployment && !local.readiness_via_operator ? 1 : 0
+  count = local.deploy_application && local.uses_blueprint_deployment && !local.readiness_via_operator ? 1 : 0
 
   triggers = {
     blueprint_deploy_id = random_id.blueprint_deploy_id[0].hex
@@ -90,7 +90,7 @@ resource "null_resource" "wait_for_deployment" {
 # Step 2: Authenticate with the Corrino API to get a token
 # =============================================================================
 data "http" "starter_pack_auth" {
-  count  = local.uses_blueprint_deployment && !local.readiness_via_operator ? 1 : 0
+  count  = local.deploy_application && local.uses_blueprint_deployment && !local.readiness_via_operator ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/login/"
   method = "POST"
 
@@ -125,7 +125,7 @@ data "http" "starter_pack_auth" {
 #   }
 # }
 data "http" "starter_pack_workspace" {
-  count  = local.uses_blueprint_deployment && !local.readiness_via_operator ? 1 : 0
+  count  = local.deploy_application && local.uses_blueprint_deployment && !local.readiness_via_operator ? 1 : 0
   url    = "${local.public_endpoint.api_origin_secure}/workspace/"
   method = "GET"
 
@@ -158,7 +158,7 @@ locals {
 # Via-Operator: Wait for deployment through bastion→operator SSH
 # =============================================================================
 resource "null_resource" "wait_for_deployment_via_operator" {
-  count = local.uses_blueprint_deployment && local.readiness_via_operator ? 1 : 0
+  count = local.deploy_application && local.uses_blueprint_deployment && local.readiness_via_operator ? 1 : 0
 
   triggers = {
     blueprint_deploy_id = random_id.blueprint_deploy_id[0].hex
@@ -243,7 +243,7 @@ resource "null_resource" "wait_for_deployment_via_operator" {
 # Via-Operator: Fetch workspace data through bastion→operator SSH
 # =============================================================================
 resource "null_resource" "fetch_workspace_via_operator" {
-  count = local.uses_blueprint_deployment && local.readiness_via_operator ? 1 : 0
+  count = local.deploy_application && local.uses_blueprint_deployment && local.readiness_via_operator ? 1 : 0
 
   triggers = {
     blueprint_deploy_id = random_id.blueprint_deploy_id[0].hex

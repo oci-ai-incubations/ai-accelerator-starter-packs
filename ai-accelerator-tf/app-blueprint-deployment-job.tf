@@ -1,7 +1,7 @@
 # ConfigMap to hold the blueprint JSON file
 # Not created for enterprise_rag since it's deployed via Helm, not OCI AI Blueprints
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 0 : 1
+  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   metadata {
     name = "blueprint-config"
   }
@@ -40,7 +40,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
   ]
-  count = local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
+  count = local.deploy_application && local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
 }
 
 # Configure OKE secrets in the AIQ namespace (enterprise_rag_aiq only).
@@ -88,7 +88,7 @@ resource "kubernetes_job_v1" "configure_oke_for_aiq_namespace" {
 # Unique suffix for deployment names - changes only when the canonical blueprint content changes,
 # so the blueprint deployment job is not re-run on every apply.
 resource "random_id" "blueprint_deploy_id" {
-  count       = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count       = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   byte_length = 4
 
   keepers = {
@@ -99,7 +99,7 @@ resource "random_id" "blueprint_deploy_id" {
 # DNS Configuration Warning - outputs the required DNS setup when custom_dns is enabled
 # This runs BEFORE the blueprint deployment job so users see the message even if deployment fails
 resource "null_resource" "custom_dns_configuration_warning" {
-  count = var.use_custom_dns ? 1 : 0
+  count = local.deploy_application && var.use_custom_dns ? 1 : 0
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -134,7 +134,7 @@ resource "null_resource" "custom_dns_configuration_warning" {
 
 # Blueprint deployment job - not used for enterprise_rag since it's deployed via Helm
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 0 : 1
+  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
   metadata {
     name = "blueprint-deployment-job-${random_id.blueprint_deploy_id[0].hex}"
   }

@@ -37,7 +37,7 @@ locals {
 
 # ConfigMap for VSS Oracle UX specific configuration
 resource "kubernetes_config_map_v1" "vss_oracle_ux_config" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
 
   metadata {
     name = "vss-oracle-ux-config"
@@ -55,7 +55,7 @@ resource "kubernetes_config_map_v1" "vss_oracle_ux_config" {
 
 # Service for VSS Oracle UX
 resource "kubernetes_service_v1" "vss_oracle_ux_service" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
 
   metadata {
     name = "vss-oracle-ux"
@@ -81,7 +81,7 @@ resource "kubernetes_service_v1" "vss_oracle_ux_service" {
 
 # Deployment for VSS Oracle UX
 resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
 
   metadata {
     name = "vss-oracle-ux"
@@ -296,7 +296,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
 # Ingress for VSS Oracle UX - Exposes the frontend at starter_pack_url
 # =============================================================================
 resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
 
   wait_for_load_balancer = true
 

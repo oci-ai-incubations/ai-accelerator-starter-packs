@@ -20,11 +20,13 @@ locals {
 }
 
 resource "local_file" "preflight_registration" {
+  count    = local.deploy_application ? 1 : 0
   content  = local.preflight_content
   filename = local.preflight_filepath
 }
 
 resource "null_resource" "preflight_registration" {
+  count      = local.deploy_application ? 1 : 0
   depends_on = [local_file.preflight_registration]
 
   provisioner "local-exec" {
@@ -41,6 +43,7 @@ locals {
 }
 
 resource "null_resource" "postflight_registration" {
+  count = local.deploy_application ? 1 : 0
   # Upload postflight data when the resource is destroyed
   # Generate JSON with current timestamp at destroy time
   provisioner "local-exec" {

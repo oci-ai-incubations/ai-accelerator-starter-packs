@@ -65,13 +65,13 @@ run "plan_vss_small" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "vss"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "vss"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   # Postflight registration trigger should record the deployment region
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 
@@ -94,13 +94,13 @@ run "plan_vss_poc" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "vss"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "vss"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   # Postflight registration trigger should record the deployment region
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 }

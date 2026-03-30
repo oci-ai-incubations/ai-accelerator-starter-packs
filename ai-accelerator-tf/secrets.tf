@@ -13,7 +13,7 @@ resource "kubernetes_secret_v1" "neo4j_creds" {
     password = "password"
   }
 
-  count      = var.starter_pack_category == "vss" ? 1 : 0
+  count      = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -30,7 +30,7 @@ resource "kubernetes_secret_v1" "minio_creds" {
     "secret-key" = "minioadmin"
   }
 
-  count      = var.starter_pack_category == "vss" ? 1 : 0
+  count      = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -47,7 +47,7 @@ resource "kubernetes_secret_v1" "arango_db_creds" {
     password = "password"
   }
 
-  count      = var.starter_pack_category == "vss" ? 1 : 0
+  count      = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -64,7 +64,7 @@ resource "kubernetes_secret_v1" "oci_config_secret" {
     "oracle-password" = var.db_password
   }
 
-  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "enterprise_rag" ? 1 : 0
   depends_on = [
     kubernetes_namespace_v1.app_namespace,
     kubernetes_secret_v1.oadb_high_connection,
