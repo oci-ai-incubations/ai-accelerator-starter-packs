@@ -292,3 +292,26 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     null_resource.custom_dns_configuration_warning,
   ]
 }
+
+# Destroy-time provisioner: undeploys all blueprints via Corrino API before app teardown.
+# During terraform destroy, this resource is destroyed FIRST (inverse dependency order),
+# so Corrino and the ingress are still alive when the undeploy script runs.
+resource "terraform_data" "blueprint_undeploy" {
+  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+
+  input = {
+    api_url  = local.public_endpoint.api_origin_secure
+    username = var.corrino_admin_username
+    password = var.corrino_admin_password
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "python3 ${path.module}/scripts/undeploy_blueprints.py '${self.output.api_url}' '${self.output.username}' '${self.output.password}'"
+  }
+
+  depends_on = [
+    kubernetes_job_v1.blueprint_deployment_job,
+    helm_release.ingress_nginx,
+  ]
+}
