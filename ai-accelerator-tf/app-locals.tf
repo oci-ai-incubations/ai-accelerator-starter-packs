@@ -86,7 +86,7 @@ locals {
 
       # OKE
       oke_cluster_ocid     = local.oke_cluster.id
-      node_pool_ocid       = oci_containerengine_node_pool.oke_node_pool.id
+      node_pool_ocid       = local.create_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
       worker_cpu_pool_ocid = try(oci_containerengine_node_pool.worker_cpu_pool[0].id, null)
 
       # Compute
@@ -206,7 +206,7 @@ locals {
   }
 
   third_party_namespaces = {
-    prometheus_namespace = kubernetes_namespace_v1.cluster_tools.id
+    prometheus_namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
 
   env_universal = [

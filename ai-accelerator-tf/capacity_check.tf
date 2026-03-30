@@ -11,7 +11,7 @@
 
 # GPU Worker Node Capacity Check (BM.GPU4.8 for cuopt/vss) - Check all ADs
 resource "oci_core_compute_capacity_report" "gpu_worker_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
+  for_each = !local.create_infrastructure || var.skip_capacity_check ? {} : (
     local.starter_pack_config.worker_node_shape != "none" ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
@@ -26,7 +26,7 @@ resource "oci_core_compute_capacity_report" "gpu_worker_capacity" {
 
 # Control Plane Node Pool Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "control_plane_capacity" {
-  for_each = var.skip_capacity_check ? {} : {
+  for_each = !local.create_infrastructure || var.skip_capacity_check ? {} : {
     for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad
   }
 
@@ -45,7 +45,7 @@ resource "oci_core_compute_capacity_report" "control_plane_capacity" {
 
 # CPU Worker Node Pool Capacity Check (VM.Standard.E5.Flex - only when needed) - Check all ADs
 resource "oci_core_compute_capacity_report" "cpu_worker_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
+  for_each = !local.create_infrastructure || var.skip_capacity_check ? {} : (
     local.starter_pack_config.cpu_worker_node_pool_size > 0 ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
@@ -65,7 +65,7 @@ resource "oci_core_compute_capacity_report" "cpu_worker_capacity" {
 
 # Bastion Instance Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "bastion_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
+  for_each = !local.create_infrastructure || var.skip_capacity_check ? {} : (
     local.create_bastion_effective ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
@@ -85,7 +85,7 @@ resource "oci_core_compute_capacity_report" "bastion_capacity" {
 
 # Operator Instance Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "operator_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
+  for_each = !local.create_infrastructure || var.skip_capacity_check ? {} : (
     local.create_bastion_effective ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
@@ -261,6 +261,8 @@ EOT
 # Validation Resource - This is what other resources depend on
 # -----------------------------------------------------------------------------
 resource "terraform_data" "capacity_validated" {
+  count = local.create_infrastructure ? 1 : 0
+
   # This resource validates capacity and acts as a dependency gate
 
   lifecycle {

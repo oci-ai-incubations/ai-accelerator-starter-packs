@@ -4,7 +4,7 @@ resource "helm_release" "ingress_nginx" {
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
   version    = "4.13.3"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   # Need to wait for webhooks so we don't hit timing issues.
   wait          = true
   wait_for_jobs = true
@@ -58,7 +58,7 @@ resource "helm_release" "cert_manager" {
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
   version    = "1.19.1"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = true # wait to allow the webhook be properly configured
 
   set = [
@@ -80,7 +80,7 @@ resource "helm_release" "cert_manager" {
 resource "helm_release" "cert_manager_issuers" {
   name      = "cert-manager-issuers"
   chart     = "${path.module}/helm-values/issuers"
-  namespace = kubernetes_namespace_v1.cluster_tools.id
+  namespace = kubernetes_namespace_v1.cluster_tools[0].id
   wait      = true
 
   set = [
@@ -100,7 +100,7 @@ resource "helm_release" "prometheus" {
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "prometheus"
   version    = "27.42.2"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = true
 
   set = [
@@ -172,7 +172,7 @@ resource "helm_release" "grafana" {
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
   version    = "10.1.4"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = false
 
   set = [
@@ -287,7 +287,7 @@ datasources:
     datasources:
     - name: Prometheus
       type: prometheus
-      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools.id}.svc.cluster.local
+      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools[0].id}.svc.cluster.local
       access: proxy
       isDefault: true
       disableDeletion: true
@@ -319,7 +319,7 @@ EOF
 resource "kubernetes_config_map_v1" "vllm_dashboard" {
   metadata {
     name      = "vllm-custom-dashboard"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
     labels = {
       grafana_dashboard = "true"
     }
@@ -335,7 +335,7 @@ resource "kubernetes_config_map_v1" "vllm_dashboard" {
 resource "kubernetes_persistent_volume_claim_v1" "grafana" {
   metadata {
     name      = "grafana-pvc"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
 
   spec {
@@ -362,7 +362,7 @@ resource "kubernetes_persistent_volume_claim_v1" "grafana" {
 data "kubernetes_secret_v1" "grafana" {
   metadata {
     name      = "grafana"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
   depends_on = [helm_release.grafana]
 }

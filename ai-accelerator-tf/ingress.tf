@@ -235,7 +235,7 @@ resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
 data "kubernetes_service_v1" "ingress" {
   metadata {
     name      = "ingress-nginx-controller"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
   depends_on = [helm_release.ingress_nginx]
 }

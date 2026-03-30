@@ -8,7 +8,7 @@ resource "kubernetes_cluster_role_v1" "corrino_cluster_role" {
     verbs      = ["*"]
   }
 
-  count = 1
+  count = local.create_infrastructure ? 1 : 0
 }
 
 resource "kubernetes_cluster_role_binding_v1" "corrino_cluster_role_binding" {
@@ -26,5 +26,5 @@ resource "kubernetes_cluster_role_binding_v1" "corrino_cluster_role_binding" {
     api_group = "rbac.authorization.k8s.io"
   }
 
-  count = 1
+  count = local.create_infrastructure ? 1 : 0
 }

@@ -36,6 +36,7 @@ locals {
 }
 
 resource "kubernetes_namespace_v1" "cluster_tools" {
+  count = local.create_infrastructure ? 1 : 0
   metadata {
     name = "cluster-tools"
   }
@@ -45,5 +46,5 @@ resource "kubernetes_namespace_v1" "milvus" {
   metadata {
     name = "milvus"
   }
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.create_infrastructure && var.starter_pack_category == "vss" ? 1 : 0
 }

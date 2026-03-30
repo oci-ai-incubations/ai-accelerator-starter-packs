@@ -37,7 +37,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
     }
   }
   type  = "ENHANCED_CLUSTER"
-  count = var.network_configuration_mode == "create_new" ? 1 : 0
+  count = local.create_infrastructure && var.network_configuration_mode == "create_new" ? 1 : 0
 
   depends_on = [
     oci_core_subnet.oke_k8s_endpoint_subnet,
@@ -81,7 +81,7 @@ resource "oci_containerengine_cluster" "oke_cluster_existing_vcn" {
     }
   }
 
-  count = var.network_configuration_mode == "bring_your_own" ? 1 : 0
+  count = local.create_infrastructure && var.network_configuration_mode == "bring_your_own" ? 1 : 0
 }
 
 # Local to get the correct cluster based on configuration mode
@@ -95,6 +95,8 @@ locals {
 
 # OKE Node Pool
 resource "oci_containerengine_node_pool" "oke_node_pool" {
+  count = local.create_infrastructure ? 1 : 0
+
   cluster_id         = local.oke_cluster.id
   compartment_id     = var.compartment_ocid
   kubernetes_version = var.k8s_version
@@ -143,11 +145,11 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
 resource "tls_private_key" "oke_ssh_key" {
   algorithm = "RSA"
   rsa_bits  = 2048
-  count     = var.ssh_public_key == "" ? 1 : 0
+  count     = local.create_infrastructure && var.ssh_public_key == "" ? 1 : 0
 }
 
 resource "oci_containerengine_node_pool" "worker_cpu_pool" {
-  count = local.starter_pack_config.cpu_worker_node_pool_size > 0 ? 1 : 0
+  count = local.create_infrastructure && local.starter_pack_config.cpu_worker_node_pool_size > 0 ? 1 : 0
 
   cluster_id         = local.oke_cluster.id
   compartment_id     = var.compartment_ocid

@@ -159,7 +159,7 @@ locals {
   k8s_endpoint_private                = local.cluster_endpoint_visibility == "Private"
 
   # ORM PE needed when deploying from ORM with private K8s endpoint
-  create_orm_private_endpoint = local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
+  create_orm_private_endpoint = local.create_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
 
   # Operator needed when: LB is private/CIDR-scoped, or K8s endpoint is private
   # Force bastion+operator creation in these cases
@@ -990,7 +990,7 @@ locals {
   db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
 
   # Only create new network resources when in create_new mode
-  create_network_resources = var.network_configuration_mode == "create_new"
+  create_network_resources = local.create_infrastructure && var.network_configuration_mode == "create_new"
 }
 
 # Accelerator specific stuff
