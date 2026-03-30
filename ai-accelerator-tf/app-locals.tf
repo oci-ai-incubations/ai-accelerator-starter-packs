@@ -85,7 +85,7 @@ locals {
       service_gateway_ocid  = try(oci_core_service_gateway.oke_service_gateway[0].id, null)
 
       # OKE
-      oke_cluster_ocid     = local.oke_cluster.id
+      oke_cluster_ocid     = local.effective_cluster_id
       node_pool_ocid       = local.create_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
       worker_cpu_pool_ocid = try(oci_containerengine_node_pool.worker_cpu_pool[0].id, null)
 
@@ -142,7 +142,7 @@ locals {
     tenancy_namespace = data.oci_objectstorage_namespace.ns.namespace
     namespace_name    = data.oci_objectstorage_namespace.ns.namespace
     compartment_id    = var.compartment_ocid
-    oke_cluster_id    = local.oke_cluster.id
+    oke_cluster_id    = local.effective_cluster_id
     region_name       = var.region
   }
 
@@ -206,7 +206,7 @@ locals {
   }
 
   third_party_namespaces = {
-    prometheus_namespace = kubernetes_namespace_v1.cluster_tools[0].id
+    prometheus_namespace = try(kubernetes_namespace_v1.cluster_tools[0].id, "cluster-tools")
   }
 
   env_universal = [

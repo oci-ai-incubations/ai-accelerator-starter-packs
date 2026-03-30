@@ -979,17 +979,28 @@ locals {
 # Networking Locals
 locals {
   # Determine which VCN and subnets to use based on configuration mode
-  vcn_id = var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  # When using an existing cluster, network resources are not created -- use existing_* vars or null
+  vcn_id = local.use_existing_cluster ? var.existing_vcn_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  )
 
-  endpoint_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  endpoint_subnet_id = local.use_existing_cluster ? var.existing_endpoint_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  )
 
-  node_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  node_subnet_id = local.use_existing_cluster ? var.existing_node_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  )
 
-  lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  lb_subnet_id = local.use_existing_cluster ? var.existing_lb_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  )
 
-  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
+  db_subnet_id = local.use_existing_cluster ? var.existing_lb_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
+  )
 
-  # Only create new network resources when in create_new mode
+  # Only create new network resources when in create_new mode and creating infrastructure
   create_network_resources = local.create_infrastructure && var.network_configuration_mode == "create_new"
 }
 
