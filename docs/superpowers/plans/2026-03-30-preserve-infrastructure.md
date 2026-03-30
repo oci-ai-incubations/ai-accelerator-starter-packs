@@ -942,10 +942,10 @@ git commit -m "feat: update outputs for count=0 safety and add cluster_ca_certif
 
 - [ ] **Step 1: Add variables to `common_schema.yaml`**
 
-Add a new variable group for Infrastructure Lifecycle. Find the `variableGroups:` section and add:
+Add a new **"Advanced Configuration"** variable group (its own section, separate from existing groups). Find the `variableGroups:` section and add:
 
 ```yaml
-  - title: "Infrastructure Lifecycle"
+  - title: "Advanced Configuration"
     variables:
       - deploy_application
       - existing_cluster_id

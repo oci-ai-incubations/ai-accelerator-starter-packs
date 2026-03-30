@@ -265,11 +265,10 @@ These outputs are visible in the ORM UI after Apply, making it easy to copy the 
 
 ### Schema Changes
 
-Add variables to `common_schema.yaml` for the ORM UI:
+Add variables to `common_schema.yaml` for the ORM UI in a new **"Advanced Configuration"** variable group (its own section, separate from existing groups):
 
-- New variable group: **"Infrastructure Lifecycle"**
-  - `deploy_application` -- checkbox, default true
-  - `existing_cluster_id` -- text input, default empty, with description explaining the bring-your-own-cluster workflow
+- `deploy_application` -- checkbox, default true
+- `existing_cluster_id` -- text input, default empty, with description explaining the bring-your-own-cluster workflow
 
 ### Reference Updates
 
