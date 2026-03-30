@@ -683,11 +683,11 @@ resource "helm_release" "aiq" {
       }
     ],
     var.tavily_api_key != "" ? [
-    {
-      name  = "tavilyApiSecret.password"
-      value = var.tavily_api_key
-    }
-  ] : []
+      {
+        name  = "tavilyApiSecret.password"
+        value = var.tavily_api_key
+      }
+    ] : []
   )
   set = [
     {
