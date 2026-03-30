@@ -497,6 +497,22 @@ variable "worker_node_availability_domain" {
   default     = ""
 }
 
+variable "deploy_application" {
+  description = "When false, all application-layer resources are skipped. Use this to create an infrastructure-only stack."
+  type        = bool
+  default     = true
+}
+
+variable "existing_cluster_id" {
+  description = "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE cluster, node pools) is skipped and the app layer deploys directly onto the existing cluster."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.existing_cluster_id == "" || can(regex("^ocid1\\.cluster\\.", var.existing_cluster_id))
+    error_message = "existing_cluster_id must be empty or a valid OKE cluster OCID."
+  }
+}
+
 # -----------------------------------
 variable "tavily_api_key" {
   description = "Tavily API key used by the AIQ Research Assistant for web search integration. Optional; leave empty to disable Tavily-powered search."

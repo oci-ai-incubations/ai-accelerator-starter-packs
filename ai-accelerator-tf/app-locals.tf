@@ -4,6 +4,10 @@ locals {
 
   deploy_id = random_string.generated_deployment_name.result
 
+  deploy_application    = var.deploy_application
+  use_existing_cluster  = var.existing_cluster_id != ""
+  create_infrastructure = !local.use_existing_cluster
+
   app = {
     backend_service_name         = "corrino-cp"
     backend_service_name_origin  = "http://corrino-cp"
