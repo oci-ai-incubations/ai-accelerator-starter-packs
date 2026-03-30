@@ -7,6 +7,7 @@ locals {
   deploy_application    = var.deploy_application
   use_existing_cluster  = var.existing_cluster_id != ""
   create_infrastructure = !local.use_existing_cluster
+  effective_cluster_id  = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
 
   app = {
     backend_service_name         = "corrino-cp"

@@ -86,7 +86,11 @@ resource "oci_containerengine_cluster" "oke_cluster_existing_vcn" {
 
 # Local to get the correct cluster based on configuration mode
 locals {
-  oke_cluster = var.network_configuration_mode == "create_new" ? oci_containerengine_cluster.oke_cluster[0] : oci_containerengine_cluster.oke_cluster_existing_vcn[0]
+  oke_cluster = local.create_infrastructure ? (
+    var.network_configuration_mode == "create_new" ?
+    oci_containerengine_cluster.oke_cluster[0] :
+    oci_containerengine_cluster.oke_cluster_existing_vcn[0]
+  ) : null
 }
 
 # OKE Node Pool
@@ -207,7 +211,7 @@ resource "oci_containerengine_node_pool" "worker_cpu_pool" {
 
 resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
   addon_name                       = "NvidiaGpuPlugin"
-  cluster_id                       = oci_containerengine_cluster.oke_cluster[0].id
+  cluster_id                       = local.effective_cluster_id
   remove_addon_resources_on_delete = true
   override_existing                = true
 
@@ -215,8 +219,10 @@ resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
     key   = "isDcgmExporterDisabled"
     value = "true"
   }
+
+  count = local.create_infrastructure ? 1 : 0
 }
 
 data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
-  cluster_id = oci_containerengine_cluster.oke_cluster[0].id
+  cluster_id = local.effective_cluster_id
 }
