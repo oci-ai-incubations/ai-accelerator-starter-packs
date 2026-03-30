@@ -10,50 +10,44 @@ Allow users to tear down the application layer (Corrino, blueprints, Helm charts
 
 ## Constraints
 
-- `terraform destroy` is all-or-nothing -- there is no native Terraform mechanism to selectively skip resources based on a variable during destroy.
-- `prevent_destroy` must be a literal boolean in HashiCorp Terraform (all versions through 1.15.x) -- it cannot accept variables.
+- `terraform destroy` is all-or-nothing -- no native Terraform mechanism to selectively skip resources based on a variable during destroy.
+- `prevent_destroy` must be a literal boolean in HashiCorp Terraform (all versions) -- cannot accept variables.
 - OCI Resource Manager destroy jobs have no `-target` support.
-- `prevent_destroy = true` fails the entire destroy plan, not just the protected resource.
+- During `terraform destroy`, resources are destroyed in reverse creation order (inverse dependency graph). This ordering IS deterministic and can be relied upon.
 
-## Approach: Apply-Based Teardown + Bring Your Own Cluster
+## Approach: Infrastructure-Only Stacks + Bring Your Own Cluster
 
-Two complementary features that together enable fast iterative testing:
+Two complementary features implemented via simple count gating:
 
-1. **Apply-based teardown**: Toggle `deploy_application = false` + Apply to destroy the app layer while preserving infrastructure. The infra stack becomes a "warm node pool" waiting for the next deployment.
-2. **Bring your own cluster**: Subsequent test runs create a NEW ORM stack that references the existing cluster by ID, skipping all infrastructure creation and deploying only the app layer. This new stack can be fully destroyed via ORM's Destroy button since it contains only app resources.
-
-### Variables
-
-- `preserve_infrastructure` (bool, default `false`) -- set once at stack creation. Signals intent to reuse infrastructure across test runs. When true, infra resources are protected with `prevent_destroy = true` as a safety net.
-- `deploy_application` (bool, default `true`) -- toggled to `false` + Apply to tear down the app layer.
-- `existing_cluster_id` (string, default `""`) -- when provided, skips OKE cluster/node pool/network creation and deploys the app layer onto the specified existing cluster.
+1. **`deploy_application` boolean**: When `false`, all app resources have `count = 0`. Creates an infrastructure-only stack (VCN, OKE cluster, node pools, GPU instances).
+2. **`existing_cluster_id` string**: When provided, all infra resources have `count = 0`. Creates an app-only stack that deploys onto an existing cluster. This stack can be fully destroyed via ORM's Destroy button since it only contains app resources.
+3. **Blueprint undeploy on destroy**: A `terraform_data` resource with a destroy-time `local-exec` provisioner calls the Corrino undeploy API before Corrino is torn down, preventing orphaned blueprint workloads.
 
 ## ORM Workflow
 
-### First Test Run (Infrastructure + App)
+### Step 1: Create Infrastructure Stack
 
-1. **Create stack**: Set `preserve_infrastructure = true`. Leave `deploy_application = true` (default). Leave `existing_cluster_id` empty.
-2. **Apply**: Everything created -- VCN, OKE cluster, node pools, Corrino, blueprints, Helm charts.
-3. **Test**.
-4. **Tear down app**: Update `deploy_application = false` in ORM UI -> Apply. App resources destroyed. Infrastructure stays. Stack outputs `cluster_id`, `cluster_endpoint`, and `cluster_ca_certificate`.
+1. **Create stack**: Set `deploy_application = false`. Leave `existing_cluster_id` empty.
+2. **Apply**: Infrastructure created -- VCN, OKE cluster, node pools, GPU instance pools. No app resources.
+3. Stack outputs `cluster_id` (visible in ORM UI).
 
-### Subsequent Test Runs (App Only, on Warm Nodes)
+### Step 2: Create App Stack (Repeatable)
 
-5. **Create NEW stack**: Set `existing_cluster_id = <cluster_id from step 4>`. Leave `preserve_infrastructure = false` (irrelevant -- no infra to preserve). Leave `deploy_application = true`.
-6. **Apply**: App deploys on existing warm nodes. No GPU provisioning wait.
-7. **Test**.
-8. **Destroy**: Click Destroy in ORM. Works naturally -- this stack only contains app resources. Nodes are untouched (they belong to the infra stack from step 1).
-9. **Repeat from step 5** for next test iteration.
+4. **Create NEW stack**: Set `existing_cluster_id = <cluster_id from step 3>`. Leave `deploy_application = true` (default).
+5. **Apply**: App deploys on existing warm nodes. No GPU provisioning wait.
+6. **Test**.
+7. **Destroy**: Click Destroy in ORM. Blueprint workloads are undeployed via Corrino API (destroy-time provisioner), then all app resources are destroyed. Nodes are untouched (they belong to the infra stack).
+8. **Repeat from step 4** for next test iteration.
 
 ### Final Cleanup
 
-10. Go back to the original infra stack. Set `preserve_infrastructure = false`. Destroy.
+9. Destroy the infrastructure stack from step 1.
 
 ## Resource Boundary
 
-### Infrastructure (always present in infra stack, skipped in "bring your own cluster" stacks)
+### Infrastructure (gated on `local.create_infrastructure`)
 
-These resources are NOT conditional on `deploy_application`. When `preserve_infrastructure = true`, critical resources are protected with `prevent_destroy = true` (literal). When `existing_cluster_id` is provided, these resources are not created at all.
+These resources are only created when `existing_cluster_id` is empty. They are NOT conditional on `deploy_application`.
 
 | File | Resources |
 |------|-----------|
@@ -67,9 +61,9 @@ These resources are NOT conditional on `deploy_application`. When `preserve_infr
 | `rbac.tf` | Cluster role, cluster role binding |
 | `kubernetes.tf` | Namespaces (cluster_tools, milvus) |
 
-### Application (conditional on `local.deploy_application`)
+### Application (gated on `local.deploy_application`)
 
-These resources get `count = local.deploy_application ? <original_count> : 0`. In "bring your own cluster" stacks, these are the ONLY resources that exist.
+These resources get `count = local.deploy_application ? <original_count> : 0`. In app-only stacks (`existing_cluster_id` provided), these are the ONLY resources that exist.
 
 | File | Resources |
 |------|-----------|
@@ -81,7 +75,7 @@ These resources get `count = local.deploy_application ? <original_count> : 0`. I
 | `app-migration.tf` | Corrino migration job |
 | `app-user.tf` | Corrino user job |
 | `app-blueprint-portal.tf` | Blueprint portal service + deployment |
-| `app-blueprint-deployment-job.tf` | Blueprint configmap, deployment job, configure OKE job, random_id |
+| `app-blueprint-deployment-job.tf` | Blueprint configmap, deployment job, configure OKE job, random_id, blueprint undeploy trigger |
 | `postgres_db.tf` | PostgreSQL configmap, PVC, deployment, service |
 | `26ai.tf` | Oracle 26AI database, k8s secrets |
 | `app-vss-fss.tf` | VSS file storage, mount target, export, PV, PVC |
@@ -100,14 +94,8 @@ These resources get `count = local.deploy_application ? <original_count> : 0`. I
 ### Variables
 
 ```hcl
-variable "preserve_infrastructure" {
-  description = "When true, infrastructure (VCN, OKE cluster, node pools) is protected from accidental destroy via prevent_destroy. Set once at stack creation for integration pipeline reuse."
-  type        = bool
-  default     = false
-}
-
 variable "deploy_application" {
-  description = "When false, all application-layer resources are removed while infrastructure remains. Toggle to false + Apply to tear down the app layer."
+  description = "When false, all application-layer resources are skipped. Use this to create an infrastructure-only stack."
   type        = bool
   default     = true
 }
@@ -123,6 +111,8 @@ variable "existing_cluster_id" {
 }
 ```
 
+Note: `preserve_infrastructure` has been removed. The two-stack model makes it unnecessary -- the infra stack is simply never destroyed until final cleanup, and the app stack can be freely destroyed.
+
 ### Core Locals
 
 ```hcl
@@ -135,22 +125,18 @@ locals {
 
 ### Bring Your Own Cluster: Provider Configuration
 
-When `existing_cluster_id` is provided, the kubernetes and helm providers must connect to the existing cluster. This requires fetching the cluster endpoint and CA certificate via a data source:
+When `existing_cluster_id` is provided, the kubernetes and helm providers connect to the existing cluster. The existing `data.oci_containerengine_cluster_kube_config` data source is extended to support both modes:
 
 ```hcl
-data "oci_containerengine_cluster" "existing" {
-  count      = local.use_existing_cluster ? 1 : 0
-  cluster_id = var.existing_cluster_id
-}
-
-locals {
-  # Unified cluster reference -- works for both created and existing clusters
-  effective_cluster_endpoint       = local.use_existing_cluster ? data.oci_containerengine_cluster.existing[0].endpoints[0].public_endpoint : oci_containerengine_cluster.oke_cluster[0].endpoints[0].public_endpoint
-  effective_cluster_ca_certificate = local.use_existing_cluster ? base64decode(data.oci_containerengine_cluster.existing[0].endpoints[0].certificate_authority) : base64decode(oci_containerengine_cluster.oke_cluster[0].endpoints[0].certificate_authority)
+data "oci_containerengine_cluster_kube_config" "oke" {
+  cluster_id = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
+  # ... existing config ...
 }
 ```
 
-The kubernetes/helm providers reference `local.effective_cluster_endpoint` and `local.effective_cluster_ca_certificate` instead of directly referencing the cluster resource.
+The existing locals in `kubernetes.tf` (`local.provider_host`, `local.cluster_ca_certificate`, `local.cluster_id`) continue to derive from this kubeconfig data source -- no changes needed to their derivation logic. The only change is the `cluster_id` input to the data source.
+
+For the `local.oke_cluster` reference used by the kubeconfig data source: when `existing_cluster_id` is provided, infra resources have count=0 so `local.oke_cluster` would be null. The conditional on the data source's `cluster_id` handles this by using `var.existing_cluster_id` directly instead of going through `local.oke_cluster`.
 
 ### Infrastructure Resource Gating
 
@@ -170,7 +156,17 @@ resource "oci_containerengine_cluster" "oke_cluster" {
 }
 ```
 
-When `existing_cluster_id` is provided, `create_infrastructure = false`, so all infra resources have count=0 and are never created.
+Resources that currently have no count (e.g., `oci_containerengine_node_pool.oke_node_pool`) gain `count = local.create_infrastructure ? 1 : 0`. This is a breaking reference change -- all unindexed references to these resources must be updated to `[0]` throughout the codebase. See "Reference Updates" section.
+
+The `nvidia_gpu_plugin` addon and `oke_kube_config` data source in `oke.tf` currently hardcode `oci_containerengine_cluster.oke_cluster[0].id`. These must be updated to use the unified cluster ID reference:
+
+```hcl
+resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
+  cluster_id = local.effective_cluster_id
+  count      = local.create_infrastructure ? 1 : 0
+  ...
+}
+```
 
 ### App Resource Gating
 
@@ -190,79 +186,62 @@ count = var.starter_pack_category == "vss" ? 1 : 0
 count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
 ```
 
-### Safety Net: `prevent_destroy` on Critical Infrastructure
+### Blueprint Undeploy on Destroy
 
-Since `prevent_destroy` must be a literal, use dual resource blocks for critical GPU-related resources:
+A `terraform_data` resource with a destroy-time `local-exec` provisioner that calls the Corrino API to undeploy all blueprint workloads before the app stack is torn down.
 
 ```hcl
-# Unprotected (default)
-resource "oci_containerengine_cluster" "oke_cluster" {
-  count = local.create_infrastructure && !var.preserve_infrastructure && var.network_configuration_mode == "create_new" ? 1 : 0
-  # ... config ...
-}
+resource "terraform_data" "blueprint_undeploy" {
+  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
 
-# Protected
-resource "oci_containerengine_cluster" "oke_cluster_protected" {
-  count = local.create_infrastructure && var.preserve_infrastructure && var.network_configuration_mode == "create_new" ? 1 : 0
-  # ... same config ...
-  lifecycle {
-    prevent_destroy = true
+  # Capture values at creation time -- destroy provisioner can only reference self
+  input = {
+    api_url  = local.public_endpoint.api_origin_secure
+    username = var.corrino_admin_username
+    password = var.corrino_admin_password
   }
-}
 
-locals {
-  # Unified reference
-  oke_cluster = var.preserve_infrastructure ? (
-    length(oci_containerengine_cluster.oke_cluster_protected) > 0 ? oci_containerengine_cluster.oke_cluster_protected[0] : null
-  ) : (
-    length(oci_containerengine_cluster.oke_cluster) > 0 ? oci_containerengine_cluster.oke_cluster[0] : null
-  )
-}
-```
-
-**Critical resources to protect (dual-block pattern):**
-- `oci_containerengine_cluster.oke_cluster` (both create_new and bring_your_own variants)
-- `oci_containerengine_node_pool.oke_node_pool` (control plane)
-- `oci_containerengine_node_pool.worker_cpu_pool`
-- `oci_core_instance_pool.worker_nodes_pool`
-- `oci_core_instance_configuration.worker_nodes_configuration`
-
-Other infra resources (networking, bastion, images) don't need `prevent_destroy` since they provision quickly.
-
-### Blueprint Undeploy Job
-
-A dedicated Kubernetes Job that undeploys running blueprints via the Corrino API before Corrino itself is torn down.
-
-```hcl
-resource "kubernetes_job_v1" "blueprint_undeploy_job" {
-  count = !local.deploy_application ? 1 : 0
+  provisioner "local-exec" {
+    when    = destroy
+    command = "python3 ${path.module}/scripts/undeploy_blueprints.py '${self.output.api_url}' '${self.output.username}' '${self.output.password}'"
+  }
 
   depends_on = [
-    kubernetes_deployment_v1.corrino_cp_deployment,
-    kubernetes_service_v1.corrino_cp_service
+    kubernetes_job_v1.blueprint_deployment_job,
+    helm_release.ingress_nginx,
   ]
-
-  # wait_for_completion = true
-  # Runs undeploy-only script:
-  #   1. Check if Corrino is reachable (exit 0 if not -- graceful no-op)
-  #   2. Log into Corrino API
-  #   3. Fetch workspace recipes
-  #   4. Find all deployments and undeploy them
-  #   5. Poll until workspace is clear (up to 10 minutes)
 }
 ```
 
-**Ordering via Terraform's dependency graph:**
+**`scripts/undeploy_blueprints.py`**: A new script extracted from the existing undeploy logic in `app-blueprint-deployment-job.tf` (lines 130-171). Contains the same logic:
+1. Check if Corrino API is reachable (exit 0 if not -- graceful no-op)
+2. Log in and get auth token
+3. Fetch workspace recipes
+4. Find all Ingress-type deployments and undeploy them
+5. Poll until workspace is clear (up to 10 minutes)
 
-When `deploy_application` goes `true` -> `false`:
-1. CREATE `blueprint_undeploy_job` (Corrino is still running, job calls API, waits for completion)
-2. DESTROY `corrino_cp_deployment` and other app resources (blueprints already cleaned up)
+This script is shared between the deploy job (which calls it before deploying) and the destroy provisioner (which calls it during teardown).
 
-**Graceful handling:** The undeploy script checks if Corrino is reachable before attempting undeploy. If Corrino is not running (e.g., `deploy_application` was never `true`), the job exits 0.
+**Destroy ordering (deterministic -- inverse of creation order):**
+1. `blueprint_undeploy` destroyed first -- provisioner calls Corrino API to undeploy all blueprints. At this point, Corrino CP, the ingress, and the load balancer are all still alive.
+2. `blueprint_deployment_job` destroyed -- Job object removed from Kubernetes.
+3. `corrino_cp_deployment` destroyed -- Corrino pods killed. No orphaned workloads remain because step 1 already cleaned them up.
+4. `helm_release.ingress_nginx` destroyed -- ingress controller removed.
+5. Remaining app resources destroyed.
+
+**Graceful handling:** If the Corrino API is not reachable (e.g., infrastructure-only stack where `deploy_application = false` was set from the start), the script exits 0. This also handles the case where the cluster is unreachable or Corrino never started.
+
+### Helm Release Node Readiness
+
+Helm releases currently `depends_on = [oci_containerengine_node_pool.oke_node_pool]` to ensure nodes are ready before deploying charts. In app-only stacks (`existing_cluster_id` provided), this resource has count=0.
+
+When the infra resource has count=0, `depends_on` resolves to an empty set -- Terraform treats it as a no-op. Since the existing cluster already has running nodes, Helm charts can deploy immediately without a readiness gate. No replacement mechanism is needed.
+
+If node readiness verification is desired for app-only stacks in the future, a `terraform_data` resource with a `kubectl get nodes` check could be added. This is out of scope for the initial implementation.
 
 ### Outputs
 
-The infra stack must output everything needed for subsequent "bring your own cluster" stacks:
+The infra stack must output everything needed for subsequent app-only stacks:
 
 ```hcl
 output "cluster_id" {
@@ -274,6 +253,12 @@ output "cluster_endpoint" {
   description = "OKE cluster API endpoint"
   value       = try(local.effective_cluster_endpoint, null)
 }
+
+output "cluster_ca_certificate" {
+  description = "OKE cluster CA certificate (base64 encoded)"
+  value       = try(local.cluster_ca_certificate, null)
+  sensitive   = true
+}
 ```
 
 These outputs are visible in the ORM UI after Apply, making it easy to copy the cluster ID into a new stack.
@@ -283,24 +268,50 @@ These outputs are visible in the ORM UI after Apply, making it easy to copy the 
 Add variables to `common_schema.yaml` for the ORM UI:
 
 - New variable group: **"Infrastructure Lifecycle"**
-  - `preserve_infrastructure` -- checkbox, default false
   - `deploy_application` -- checkbox, default true
   - `existing_cluster_id` -- text input, default empty, with description explaining the bring-your-own-cluster workflow
 
 ### Reference Updates
 
-All `[0]` index references to resources that gain a `count` must be updated throughout the codebase:
-- `kubernetes_deployment_v1.corrino_cp_deployment.metadata[0].name` becomes `kubernetes_deployment_v1.corrino_cp_deployment[0].metadata[0].name`
-- Outputs referencing app resources need `try()` or conditional expressions to handle count=0
-- All references to `oci_containerengine_cluster.oke_cluster[0]` must go through `local.oke_cluster` or `local.effective_cluster_*` to support both created and existing cluster modes
-- Provider configurations must reference the unified `local.effective_cluster_*` locals
+All `[0]` index references to resources that gain a `count` must be updated throughout the codebase. This is the largest surface area of the change.
+
+**Infra resources gaining count for the first time** (currently no count):
+- `oci_containerengine_node_pool.oke_node_pool` -- referenced in `depends_on` across `helm.tf`, `postgres_db.tf`, `26ai.tf`, `secrets.tf`, `vss_postgres_db.tf`, `app-registration.tf`, and others. All `depends_on` references become `oci_containerengine_node_pool.oke_node_pool[0]` when infra is created, or the `depends_on` entries are wrapped in conditionals.
+- `oci_containerengine_addon.nvidia_gpu_plugin` -- hardcoded `oke_cluster[0]`, must use unified cluster reference.
+- `data.oci_containerengine_cluster_kube_config.oke` -- hardcoded `local.oke_cluster.id`, must support existing cluster path.
+
+**App resources gaining count for the first time** (currently no count):
+- `kubernetes_deployment_v1.corrino_cp_deployment` -- referenced in `app-api.tf`, `app-background.tf`, `app-blueprint-deployment-job.tf`
+- `kubernetes_service_v1.corrino_cp_service` -- referenced in `ingress.tf`
+- `kubernetes_service_v1.postgres` -- referenced in `app-blueprint-deployment-job.tf`
+- `kubernetes_config_map_v1.corrino-configmap` -- referenced across app files
+- All other app resources listed in the Application boundary table
+
+**Outputs** referencing app resources need `try()` or conditional expressions to handle count=0.
+
+### `local.oke_cluster` Unified Reference
+
+The existing `local.oke_cluster` handles `{create_new, bring_your_own_vcn}`. It must be extended for the `existing_cluster_id` case:
+
+```hcl
+locals {
+  oke_cluster = local.use_existing_cluster ? null : (
+    var.network_configuration_mode == "create_new"
+      ? oci_containerengine_cluster.oke_cluster[0]
+      : oci_containerengine_cluster.oke_cluster_existing_vcn[0]
+  )
+
+  effective_cluster_id = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
+}
+```
+
+All downstream references that need the cluster ID use `local.effective_cluster_id` instead of `local.oke_cluster.id`.
 
 ### Test Changes
 
-- New test file `tests/starter_pack_preserve_infra.tftest.hcl`:
+- New test file `tests/starter_pack_infra_only.tftest.hcl`:
   - `deploy_application = false` results in no app resources planned
-  - `preserve_infrastructure = true` with `deploy_application = true` creates everything
-  - Infrastructure resources are always planned regardless of `deploy_application`
+  - Infrastructure resources are planned normally
 - New test file `tests/starter_pack_existing_cluster.tftest.hcl`:
   - `existing_cluster_id = <mock_ocid>` results in no infra resources planned
   - App resources are planned when `existing_cluster_id` is provided and `deploy_application = true`
@@ -309,7 +320,8 @@ All `[0]` index references to resources that gain a `count` must be updated thro
 
 ## Out of Scope
 
-- Splitting into two entirely separate Terraform root modules (the "bring your own cluster" feature achieves the same effect within a single codebase)
-- Skill/workflow changes to automate the toggle (skills can be updated later to orchestrate the teardown + new-stack flow)
+- Splitting into two entirely separate Terraform root modules (the single codebase with count gating achieves the same effect)
+- Skill/workflow changes to automate the two-stack flow (skills can be updated later)
 - Data persistence across teardown cycles (PVCs are destroyed with the app layer; fresh data on redeploy is expected)
 - Bringing your own VCN + cluster simultaneously (can be combined with existing `network_configuration_mode = "bring_your_own"` in a future iteration)
+- Node readiness verification for app-only stacks (nodes are assumed ready since the infra stack created them)
