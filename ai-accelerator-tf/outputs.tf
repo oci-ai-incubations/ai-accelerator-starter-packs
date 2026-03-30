@@ -9,12 +9,18 @@ output "oke_kube_config" {
 
 output "cluster_id" {
   description = "ID of the OKE cluster"
-  value       = local.oke_cluster.id
+  value       = local.effective_cluster_id
 }
 
 output "cluster_name" {
   description = "Name of the OKE cluster"
-  value       = local.oke_cluster.name
+  value       = try(local.oke_cluster.name, "existing-cluster")
+}
+
+output "cluster_ca_certificate" {
+  description = "OKE cluster CA certificate (base64 encoded) -- needed for bring-your-own-cluster provider configuration"
+  value       = try(base64encode(local.cluster_ca_certificate), null)
+  sensitive   = true
 }
 
 output "public_cluster_endpoint_full" {
@@ -127,20 +133,20 @@ output "connection_instructions" {
     operator_ssh_via_bastion = "ssh -i <private_key_file> -J opc@${oci_core_instance.bastion[0].public_ip} opc@${oci_core_instance.operator[0].private_ip}"
     kubectl_setup            = "After connecting to operator instance, run: ./configure_oke.sh"
     } : {
-    direct_access = local.cluster_endpoint_visibility == "Public" ? "Configure kubectl with: oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id}" : "Cluster has private endpoint - use bastion/operator setup"
+    direct_access = local.cluster_endpoint_visibility == "Public" ? "Configure kubectl with: oci ce cluster create-kubeconfig --cluster-id ${local.effective_cluster_id}" : "Cluster has private endpoint - use bastion/operator setup"
   }
 }
 
 # Kubeconfig Command
 output "kubeconfig_command" {
   description = "Command to generate kubeconfig file"
-  value       = "oci ce cluster create-kubeconfig --cluster-id ${local.oke_cluster.id} --file $HOME/.kube/config --region ${var.region} --token-version 2.0.0"
+  value       = "oci ce cluster create-kubeconfig --cluster-id ${local.effective_cluster_id} --file $HOME/.kube/config --region ${var.region} --token-version 2.0.0"
 }
 
 # Load Balancer IP Address
 output "external_ip" {
   description = "Public IP address of the ingress load balancer. If Custom DNS is enabled, configure DNS A records to point your domain(s) to this IP."
-  value       = var.use_custom_dns ? local.network.external_ip : "N/A - Using automatic nip.io domain"
+  value       = local.deploy_application && var.use_custom_dns ? local.network.external_ip : "N/A - Using automatic nip.io domain"
 }
 
 # Custom DNS Domain - shows the wildcard A-record domain that needs to be configured
@@ -178,27 +184,27 @@ output "starter_pack_deployment_name" {
 
 output "starter_pack_url" {
   description = "Starter pack FQDN"
-  value       = local.public_endpoint.starter_pack
+  value       = local.deploy_application ? local.public_endpoint.starter_pack : null
 }
 
 output "blueprints_portal_url" {
   description = "Portal FQDN"
-  value       = local.public_endpoint.blueprint_portal
+  value       = local.deploy_application ? local.public_endpoint.blueprint_portal : null
 }
 
 output "corrino_api_url" {
   description = "Corrino API URL"
-  value       = local.public_endpoint.api
+  value       = local.deploy_application ? local.public_endpoint.api : null
 }
 
 output "prometheus_url" {
   description = "Prometheus FQDN"
-  value       = local.public_endpoint.prometheus
+  value       = local.deploy_application ? local.public_endpoint.prometheus : null
 }
 
 output "grafana_url" {
   description = "Grafana FQDN"
-  value       = local.public_endpoint.grafana
+  value       = local.deploy_application ? local.public_endpoint.grafana : null
 }
 
 output "corrino_admin_username" {
@@ -218,34 +224,34 @@ output "corrino_admin_email" {
 
 output "grafana_admin_username" {
   description = "Grafana admin username"
-  value       = local.addon.grafana_user
+  value       = local.deploy_application ? local.addon.grafana_user : null
 }
 
 output "grafana_admin_password" {
   description = "Grafana admin password"
-  value       = nonsensitive(local.addon.grafana_token)
+  value       = local.deploy_application ? nonsensitive(local.addon.grafana_token) : null
 }
 
 # Autonomous Database Outputs
 output "autonomous_database_id" {
   description = "OCID of the Autonomous Database"
-  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].id : null
+  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].id : null
 }
 
 output "autonomous_database_name" {
   description = "Name of the Autonomous Database"
-  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].db_name : null
+  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].db_name : null
 }
 
 output "connection_strings" {
   description = "Connection strings for the Autonomous Database"
-  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].connection_strings : null
+  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].connection_strings : null
   sensitive   = true
 }
 
 output "private_endpoint" {
   description = "Private endpoint details"
-  value       = local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
+  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
 }
 
 output "db_subnet_id" {
@@ -266,12 +272,12 @@ output "db_password" {
 
 output "paas_rag_bucket_id" {
   description = "OCID of the PaaS RAG specific Object Storage bucket (if created)"
-  value       = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
+  value       = local.deploy_application && var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
 }
 
 output "paas_rag_bucket_name" {
   description = "Name of the PaaS RAG specific Object Storage bucket (if created)"
-  value       = var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
+  value       = local.deploy_application && var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
 }
 
 output "object_storage_namespace" {
