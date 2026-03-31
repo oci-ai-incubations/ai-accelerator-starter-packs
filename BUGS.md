@@ -7,6 +7,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-001 | cuOpt variables visible in non-cuOpt ORM stacks | Medium | 2026-03-30 |
 | Fixed | BUG-002 | blueprint_deploy_id empty tuple for enterprise_rag_aiq | High | 2026-03-30 |
 | Fixed | BUG-003 | Provider host "https://" in existing cluster mode | Critical | 2026-03-31 |
+| Fixed | BUG-004 | llamastack secrets "already exists" on existing cluster | High | 2026-03-31 |
 
 ---
 
@@ -97,3 +98,31 @@ Added `kubeconfig_server_url` local that parses the server URL from the kubeconf
 **Verification:** `terraform plan` with `existing_cluster_id` set should show a valid `https://<ip>:6443` host, not `"https://"`.
 
 **Verification:** `terraform plan` with `starter_pack_category = "enterprise_rag_aiq"` should succeed without the "empty tuple" error.
+
+### BUG-004: llamastack secrets "already exists" on existing cluster
+
+**Status:** Fixed
+**Date found:** 2026-03-31
+**Date fixed:** 2026-03-31
+**Found by:** Grant during ORM apply with existing_cluster_id on enterprise_rag_aiq
+**Severity:** High
+
+**Symptoms:**
+`terraform apply` fails with:
+```
+Error: secrets "llamastack-paas-config" already exists
+Error: secrets "llamastack-inference-config" already exists
+```
+
+**Root cause:**
+`llamastack_config.tf` was missed during Task 4 (gate application resources). The two `kubernetes_secret_v1` resources had no `count` and no `local.deploy_application` gate. When deploying an app-only stack onto an existing cluster that already had these secrets from a previous deployment, Terraform tried to create them and failed.
+
+**Affected files:**
+- `ai-accelerator-tf/llamastack_config.tf:6,19` — missing `count = local.deploy_application ? 1 : 0`
+
+**Resolution:**
+Added `count = local.deploy_application ? 1 : 0` to both resources. For the immediate "already exists" error: re-running the ORM apply will succeed since Terraform will import the existing resources into state on retry. Fixed in PR #93.
+
+**Verification:** Re-run ORM apply — the secrets will be adopted into Terraform state. Future deploys on existing clusters will work cleanly.
+
+**Prevention:** When adding new Kubernetes resources to the Terraform code, always include `count = local.deploy_application ? 1 : 0` if the resource is application-layer.
