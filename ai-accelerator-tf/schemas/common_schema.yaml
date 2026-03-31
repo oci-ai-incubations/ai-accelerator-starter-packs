@@ -419,6 +419,15 @@ variables:
   cuopt_frontend_enabled:
     type: boolean
     visible: false
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+  cuopt_frontend_admin_password:
+    type: string
+    visible: false
+  google_maps_api_key:
+    type: string
+    visible: false
 
   cuopt_frontend_admin_password:
     type: password
