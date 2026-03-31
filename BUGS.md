@@ -6,6 +6,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 |--------|---------|-------|----------|------|
 | Fixed | BUG-001 | cuOpt variables visible in non-cuOpt ORM stacks | Medium | 2026-03-30 |
 | Fixed | BUG-002 | blueprint_deploy_id empty tuple for enterprise_rag_aiq | High | 2026-03-30 |
+| Fixed | BUG-003 | Provider host "https://" in existing cluster mode | Critical | 2026-03-31 |
 
 ---
 
@@ -66,5 +67,33 @@ None — plan fails and blocks deployment.
 
 **Resolution:**
 Changed all three conditions in `vars.tf` to use `!contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)`, matching the same logic used by `random_id.blueprint_deploy_id`'s count condition. Also added `&& local.deploy_application` to `starter_pack_deployment_name` to handle infra-only mode. Fixed in PR #93.
+
+### BUG-003: Provider host "https://" in existing cluster mode
+
+**Status:** Fixed
+**Date found:** 2026-03-31
+**Date fixed:** 2026-03-31
+**Found by:** Grant during ORM apply with existing_cluster_id
+**Severity:** Critical
+
+**Symptoms:**
+`terraform apply` fails with:
+```
+Error: Failed to parse value for host: https://
+  host must be a URL or a host:port pair: "https://"
+```
+
+**Root cause:**
+In `kubernetes.tf`, `cluster_endpoint_public_full` derives from `local.oke_cluster.endpoints[0].public_endpoint`. When `existing_cluster_id` is provided, `local.oke_cluster` is `null`, so this returns `""`. Then `cluster_endpoint_public_host = format("https://%s", "")` produces `"https://"`, which is passed to the kubernetes/helm providers as the host.
+
+The kubeconfig data source successfully fetches the server URL (`https://138.2.43.73:6443`) from the existing cluster, but the endpoint locals were not falling back to it.
+
+**Affected files:**
+- `ai-accelerator-tf/kubernetes.tf:10-18` — endpoint locals derived from `local.oke_cluster` with no fallback
+
+**Resolution:**
+Added `kubeconfig_server_url` local that parses the server URL from the kubeconfig YAML. Updated `cluster_endpoint_public_host` to fall back to `kubeconfig_server_url` when `cluster_endpoint_public_full` is empty. Fixed in PR #93.
+
+**Verification:** `terraform plan` with `existing_cluster_id` set should show a valid `https://<ip>:6443` host, not `"https://"`.
 
 **Verification:** `terraform plan` with `starter_pack_category = "enterprise_rag_aiq"` should succeed without the "empty tuple" error.
