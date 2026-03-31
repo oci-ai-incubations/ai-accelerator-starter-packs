@@ -261,6 +261,28 @@ variable "show_advanced" {
   default = false
 }
 
+variable "deploy_application" {
+  description = "When false, all application-layer resources are skipped. Use this to create an infrastructure-only stack."
+  type        = bool
+  default     = true
+}
+
+variable "deploy_infrastructure" {
+  description = "When false, infrastructure creation (VCN, OKE cluster, node pools) is skipped. Provide existing_cluster_id instead."
+  type        = bool
+  default     = true
+}
+
+variable "existing_cluster_id" {
+  description = "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation is skipped."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.existing_cluster_id == "" || can(regex("^ocid1\\.cluster\\.", var.existing_cluster_id))
+    error_message = "existing_cluster_id must be empty or a valid OKE cluster OCID."
+  }
+}
+
 # ORM Deployment Configuration
 variable "deploy_private_k8s_and_loadbalancer" {
   type        = bool

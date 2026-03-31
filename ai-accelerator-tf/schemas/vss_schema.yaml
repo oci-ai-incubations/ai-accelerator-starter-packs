@@ -60,9 +60,17 @@ variableGroups:
 
   - title: "Advanced Options"
     variables:
+      - show_advanced
+      - accelerator_pack_stack_version
+      - deploy_private_k8s_and_loadbalancer
+      - create_bastion
       - skip_capacity_check
       - use_custom_dns
       - fqdn_custom_domain
+      - create_policies
+      - deploy_application
+      - deploy_infrastructure
+      - existing_cluster_id
 
 # =============================================================================
 # Variables - VSS specific
