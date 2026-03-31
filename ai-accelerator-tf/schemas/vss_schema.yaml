@@ -69,7 +69,6 @@ variableGroups:
       - fqdn_custom_domain
       - create_policies
       - deploy_application
-      - deploy_infrastructure
       - existing_cluster_id
 
 # =============================================================================

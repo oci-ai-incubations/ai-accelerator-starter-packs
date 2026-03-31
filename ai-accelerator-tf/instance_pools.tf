@@ -46,7 +46,7 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
   }
 
   depends_on = [oci_core_image.nvidia_image, terraform_data.capacity_validated]
-  count      = local.create_infrastructure && local.should_import_nvidia_gpu_image ? 1 : 0
+  count      = local.deploy_infrastructure && local.should_import_nvidia_gpu_image ? 1 : 0
 
   lifecycle {
     ignore_changes = [
@@ -65,7 +65,7 @@ resource "oci_core_instance_pool" "worker_nodes_pool" {
     primary_subnet_id   = oci_core_subnet.oke_nodes_subnet[0].id
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration, terraform_data.capacity_validated]
-  count      = local.create_infrastructure && local.should_import_nvidia_gpu_image ? 1 : 0
+  count      = local.deploy_infrastructure && local.should_import_nvidia_gpu_image ? 1 : 0
 }
 
 resource "oci_core_cluster_network" "worker_nodes_cluster_network" {

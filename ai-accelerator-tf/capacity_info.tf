@@ -4,7 +4,7 @@
 # Capacity guidance message displayed in Terraform logs during deployment
 
 resource "terraform_data" "capacity_guidance" {
-  count = local.create_infrastructure ? 1 : 0
+  count = local.deploy_infrastructure ? 1 : 0
   provisioner "local-exec" {
     command = <<-EOT
       echo ""

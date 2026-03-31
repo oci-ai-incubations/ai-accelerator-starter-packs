@@ -62,12 +62,12 @@ output "vcn_cidr" {
 # Node Pool Information
 output "node_pool_id" {
   description = "ID of the node pool"
-  value       = local.create_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
+  value       = local.deploy_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
 }
 
 output "node_pool_kubernetes_version" {
   description = "Kubernetes version of the node pool"
-  value       = local.create_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].kubernetes_version : null
+  value       = local.deploy_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].kubernetes_version : null
 }
 
 output "worker_node_availability_domain" {
@@ -116,13 +116,13 @@ output "operator_private_ip" {
 # SSH Key Information
 output "ssh_private_key" {
   description = "Generated SSH private key (only if no public key was provided)"
-  value       = local.create_infrastructure && var.ssh_public_key == "" ? tls_private_key.oke_ssh_key[0].private_key_pem : null
+  value       = local.deploy_infrastructure && var.ssh_public_key == "" ? tls_private_key.oke_ssh_key[0].private_key_pem : null
   sensitive   = true
 }
 
 output "ssh_public_key" {
   description = "SSH public key used for instances"
-  value       = var.ssh_public_key != "" ? var.ssh_public_key : (local.create_infrastructure ? tls_private_key.oke_ssh_key[0].public_key_openssh : null)
+  value       = var.ssh_public_key != "" ? var.ssh_public_key : (local.deploy_infrastructure ? tls_private_key.oke_ssh_key[0].public_key_openssh : null)
 }
 
 # Connection Instructions

@@ -6,7 +6,7 @@ locals {
 
   deploy_application    = var.deploy_application
   use_existing_cluster  = var.existing_cluster_id != ""
-  create_infrastructure = !local.use_existing_cluster
+  deploy_infrastructure = !local.use_existing_cluster
   effective_cluster_id  = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
 
   app = {
@@ -86,7 +86,7 @@ locals {
 
       # OKE
       oke_cluster_ocid     = local.effective_cluster_id
-      node_pool_ocid       = local.create_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
+      node_pool_ocid       = local.deploy_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
       worker_cpu_pool_ocid = try(oci_containerengine_node_pool.worker_cpu_pool[0].id, null)
 
       # Compute

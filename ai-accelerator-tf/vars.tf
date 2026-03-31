@@ -159,7 +159,7 @@ locals {
   k8s_endpoint_private                = local.cluster_endpoint_visibility == "Private"
 
   # ORM PE needed when deploying from ORM with private K8s endpoint
-  create_orm_private_endpoint = local.create_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
+  create_orm_private_endpoint = local.deploy_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
 
   # Operator needed when: LB is private/CIDR-scoped, or K8s endpoint is private
   # Force bastion+operator creation in these cases
@@ -263,12 +263,6 @@ variable "show_advanced" {
 
 variable "deploy_application" {
   description = "When false, all application-layer resources are skipped. Use this to create an infrastructure-only stack."
-  type        = bool
-  default     = true
-}
-
-variable "deploy_infrastructure" {
-  description = "When false, infrastructure creation (VCN, OKE cluster, node pools) is skipped. Provide existing_cluster_id instead."
   type        = bool
   default     = true
 }
@@ -1024,7 +1018,7 @@ locals {
   )
 
   # Only create new network resources when in create_new mode and creating infrastructure
-  create_network_resources = local.create_infrastructure && var.network_configuration_mode == "create_new"
+  create_network_resources = local.deploy_infrastructure && var.network_configuration_mode == "create_new"
 }
 
 # Accelerator specific stuff

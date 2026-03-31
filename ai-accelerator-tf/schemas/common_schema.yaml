@@ -95,7 +95,6 @@ variableGroups:
       - fqdn_custom_domain
       - create_policies
       - deploy_application
-      - deploy_infrastructure
       - existing_cluster_id
 
   - title: "Advanced Configuration"
@@ -253,31 +252,16 @@ variables:
         - show_advanced
         - "true"
 
-  deploy_infrastructure:
-    type: boolean
-    title: "Deploy Infrastructure"
-    description: "When unchecked, infrastructure creation is skipped and an existing OKE cluster OCID must be provided."
-    default: true
+  existing_cluster_id:
+    type: string
+    title: "Existing Cluster OCID"
+    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE, node pools) is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
+    default: ""
     required: false
     visible:
       eq:
         - show_advanced
         - "true"
-
-  existing_cluster_id:
-    type: string
-    title: "Existing Cluster OCID"
-    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
-    default: ""
-    required: false
-    visible:
-      and:
-        - eq:
-            - show_advanced
-            - "true"
-        - eq:
-            - deploy_infrastructure
-            - "false"
 
   deploy_application:
     type: boolean
