@@ -104,7 +104,6 @@ resource "random_string" "subdomain" {
 }
 
 resource "random_uuid" "registration_id" {
-  count = local.deploy_application ? 1 : 0
 }
 
 #resource "random_string" "registration_id" {

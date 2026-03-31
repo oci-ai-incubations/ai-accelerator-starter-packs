@@ -50,14 +50,14 @@ locals {
   }
   # Upload path separated to avoid circular dependencies
   # This only depends on random_uuid which has no resource dependencies
-  registration_upload_path = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/7OpjqoxJGKSJ31gSFSNytBbq7l0hEXN0uJP9NKTznJgoElAA9M5G1YXoW757yaHO/n/iduyx1qnmway/b/production-data-repo/o/${try(random_uuid.registration_id[0].result, "")}/"
+  registration_upload_path = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/7OpjqoxJGKSJ31gSFSNytBbq7l0hEXN0uJP9NKTznJgoElAA9M5G1YXoW757yaHO/n/iduyx1qnmway/b/production-data-repo/o/${random_uuid.registration_id.result}/"
 
   registration = {
     object_filename = "success.json"
-    object_filepath = format("%s/%s-success", abspath(path.root), try(random_uuid.registration_id[0].result, ""))
+    object_filepath = format("%s/%s-success", abspath(path.root), random_uuid.registration_id.result)
     object_content = jsonencode({
       # Metadata
-      registration_id = try(random_uuid.registration_id[0].result, "")
+      registration_id = random_uuid.registration_id.result
       stage           = "success"
       timestamp       = local.ts
       workspace_name  = local.app_name
@@ -122,7 +122,7 @@ locals {
 
   corrino_tags = {
     "corrino_installed" = "true"
-    "corrino_uuid"      = try(random_uuid.registration_id[0].result, "")
+    "corrino_uuid"      = random_uuid.registration_id.result
   }
 
   addon = {
