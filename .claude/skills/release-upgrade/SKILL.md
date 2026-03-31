@@ -94,7 +94,7 @@ See [TEST_MATRIX.md](TEST_MATRIX.md) for the full test matrix creation workflow.
 
 ## Step 7: Create Zip Files
 
-See [ZIP_PACKAGING.md](ZIP_PACKAGING.md) for the zip packaging workflow.
+See [ZIP_PACKAGING.md](ZIP_PACKAGING.md) for the release zip packaging workflow. The core exclusion logic (`.terraform/`, `.terraform.lock.hcl`, sensitive `*.tfvars`, `__pycache__/`, `.pytest_cache/`) is shared with `/zip-tf`.
 
 ## Next Steps
 

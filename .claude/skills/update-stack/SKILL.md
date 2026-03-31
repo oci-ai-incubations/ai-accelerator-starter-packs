@@ -23,12 +23,15 @@ Rebuild the deployment zip from current code and update an existing ORM stack.
    python3 create_final_schema.py -c $(cat ai-accelerator-tf/starter_pack_category.auto.tfvars | grep -oP '(?<=")\w+(?=")')
    ```
 
-2. Clean and create zip:
+2. Clean and create zip using the same exclusion logic as `/zip-tf` (excludes `.terraform/`, `.terraform.lock.hcl`, sensitive `*.tfvars`, `__pycache__/`, `.pytest_cache/`):
    ```bash
    rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
    rm -f lifecycle.zip
-   cd ai-accelerator-tf && zip -r /Users/dkennetz/code/ai-accelerator/lifecycle.zip . -x '.terraform/*' '.terraform.lock.hcl'
+   cd ai-accelerator-tf && zip -r ../lifecycle.zip . \
+     -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' '*__pycache__/*' '*.pytest_cache/*'
+   zip ../lifecycle.zip starter_pack_category.auto.tfvars
    ```
+   > For a general-purpose timestamped archive (not ORM upload), use `/zip-tf` instead.
 
 3. Update stack:
    ```bash

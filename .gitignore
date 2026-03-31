@@ -63,6 +63,10 @@ ai-accelerator-tf/schemas/generated/
 terraform_vars.json
 
 
+# Zipped archives from /zip-tf (track the directory via .gitkeep, ignore contents)
+zipped/*
+!zipped/.gitkeep
+
 # Release test matrix artifacts
 release_test_matrix/
 

@@ -28,7 +28,7 @@ Before starting, verify:
 ## Steps
 
 1. **Generate schema**: `cd /Users/dkennetz/code/ai-accelerator && source venv/bin/activate && python3 create_final_schema.py -c $0`
-2. **Create zip**: Clean `.terraform` and `.terraform.lock.hcl`, then `cd ai-accelerator-tf && zip -r /Users/dkennetz/code/ai-accelerator/lifecycle.zip . -x '.terraform/*' '.terraform.lock.hcl'`
+2. **Create zip**: Uses the same exclusion logic as `/zip-tf` — clean `.terraform` and `.terraform.lock.hcl`, then zip excluding sensitive `*.tfvars`, `__pycache__/`, `.pytest_cache/` (add back `starter_pack_category.auto.tfvars` after): `cd ai-accelerator-tf && zip -r ../lifecycle.zip . -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' '*__pycache__/*' '*.pytest_cache/*' && zip ../lifecycle.zip starter_pack_category.auto.tfvars`
 3. **Create or update stack**: If a stack ID is known from a previous run, update it. Otherwise create a new one in the compartment the user gave you (if you don't have it, ask for it)
 4. **Plan**: Create plan job, poll until completion, check logs for errors
 5. **Apply**: Create apply job with `AUTO_APPROVED`, poll in background until completion, check logs
