@@ -138,3 +138,13 @@ Starter packs (except `enterprise_rag`, which uses Helm directly) are deployed a
 - Helm values live in `ai-accelerator-tf/helm-values/` as standalone YAML files (some are Terraform-templated).
 - `schema.yaml` and `schemas/generated/` are gitignored — always regenerate, never edit directly.
 - Detailed test writing guides: `ai-accelerator-tf/tests/RULES.md` (Terraform tests) and `ai-accelerator-tf/schemas/tests/RULES.md` (schema tests).
+
+## Bug Tracking
+
+Proactively track bugs in `BUGS.md` at the repo root. This is an ongoing list — not something the user needs to ask for.
+
+- **When the user reports something is broken, wrong, or unexpected:** Log it in `BUGS.md` with symptoms, root cause, and affected files. Use the `/bug-tracker log` format.
+- **When a bug is fixed (in this session or any session):** Update the existing entry in `BUGS.md` with the resolution, PR/commit references, and verification steps. Use the `/bug-tracker fix` format.
+- **Before investigating a new issue:** Check `BUGS.md` first to see if it's a known bug.
+
+The goal is to build institutional knowledge of what breaks, why, and how it was fixed — so future sessions have context.
