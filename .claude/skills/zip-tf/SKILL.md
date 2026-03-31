@@ -10,11 +10,10 @@ allowed-tools: Bash, Read, AskUserQuestion
 ## Workflow
 
 1. Read `ai-accelerator-tf/starter_pack_category.auto.tfvars` to detect the current category
-2. Regenerate schema:
+2. Regenerate schema (run from repo root):
    ```bash
-   cd ai-accelerator-tf/schemas && python3 create_final_schema.py <category>
+   source venv/bin/activate && python3 create_final_schema.py -c <category>
    ```
-   Activate `venv/bin/activate` first if `create_final_schema.py` fails on missing imports.
 3. **Ask the user to confirm** before zipping — show the category, output filename, and exclusion list
 4. Create the zip
 5. Verify the zip contents
