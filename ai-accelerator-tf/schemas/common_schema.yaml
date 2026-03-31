@@ -86,7 +86,6 @@ variableGroups:
 
   - title: "Advanced Options"
     variables:
-      - show_advanced
       - accelerator_pack_stack_version
       - deploy_private_k8s_and_loadbalancer
       - create_bastion
@@ -94,11 +93,6 @@ variableGroups:
       - use_custom_dns
       - fqdn_custom_domain
       - create_policies
-      - deploy_application
-      - existing_cluster_id
-
-  - title: "Advanced Configuration"
-    variables:
       - deploy_application
       - existing_cluster_id
 
@@ -128,10 +122,6 @@ variables:
     description: "Skip the compute capacity pre-validation that runs before deployment. Enable this only if you are certain capacity exists in your region or want to bypass the pre-check. <strong>Warning:</strong> If capacity is unavailable, the deployment will fail later during resource provisioning."
     default: false
     required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   worker_node_availability_domain:
     type: string
@@ -225,10 +215,6 @@ variables:
     description: "Deploys a completely private stack not accessible via internet. More secure, but the final URL will not be accessible from the public internet without first port forwarding. Suitable for production deployments."
     default: false
     required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   create_policies:
     type: boolean
@@ -236,10 +222,6 @@ variables:
     description: "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
     default: true
     required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   deploy_application:
     type: boolean
@@ -247,34 +229,12 @@ variables:
     description: "When unchecked, only infrastructure (VCN, OKE cluster, node pools) is created. Use this to create an infrastructure-only stack for node reuse."
     default: true
     required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   existing_cluster_id:
     type: string
     title: "Existing Cluster OCID"
     description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE, node pools) is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
     default: ""
-    required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
-
-  deploy_application:
-    type: boolean
-    default: true
-    title: "Deploy Application"
-    description: "When unchecked, only infrastructure (VCN, OKE cluster, node pools) is created. Use this to create an infrastructure-only stack for node reuse."
-    required: false
-
-  existing_cluster_id:
-    type: string
-    default: ""
-    title: "Existing Cluster OCID"
-    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
     required: false
 
   # ---------------------------------
@@ -298,10 +258,7 @@ variables:
 
   show_advanced:
     type: boolean
-    title: "Show Advanced Options"
-    description: "Check to reveal advanced deployment settings."
-    default: false
-    visible: true
+    visible: false
 
   apps_endpoint_visibility:
     type: string
@@ -333,10 +290,6 @@ variables:
     description: "Create a bastion host and operator instance for SSH access to the cluster. When enabled, the private SSH key (if auto-generated) is available as a downloadable output."
     default: false
     required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   bastion_boot_volume_size_in_gbs:
     type: string
@@ -447,10 +400,6 @@ variables:
     description: "Enable to use your own domain instead of the automatic nip.io domain. Recommended for production deployments."
     default: false
     required: false
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   fqdn_custom_domain:
     type: string
@@ -459,13 +408,9 @@ variables:
     pattern: "^[a-zA-Z0-9][a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z]{2,}$"
     required: true
     visible:
-      and:
-        - eq:
-            - show_advanced
-            - "true"
-        - eq:
-            - use_custom_dns
-            - "true"
+      eq:
+        - use_custom_dns
+        - "true"
 
   cuopt_frontend_enabled:
     type: boolean
@@ -534,10 +479,6 @@ variables:
       - "v0.0.1"
     default: "v0.0.4"
     required: true
-    visible:
-      eq:
-        - show_advanced
-        - "true"
 
   corrino_image_version:
     title: "Corrino Image Version"
