@@ -33,9 +33,9 @@ locals {
   postgres_db = {
     host     = "bp-postgres"
     port     = "5432"
-    db_name  = format("%s_db", random_string.postgres_db_name.result)
-    user     = format("%s_user", random_string.postgres_db_username.result)
-    password = random_string.postgres_db_password.result
+    db_name  = try(format("%s_db", random_string.postgres_db_name[0].result), "")
+    user     = try(format("%s_user", random_string.postgres_db_username[0].result), "")
+    password = try(random_string.postgres_db_password[0].result, "")
   }
 
   ngc_secrets = {
@@ -50,14 +50,14 @@ locals {
   }
   # Upload path separated to avoid circular dependencies
   # This only depends on random_uuid which has no resource dependencies
-  registration_upload_path = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/7OpjqoxJGKSJ31gSFSNytBbq7l0hEXN0uJP9NKTznJgoElAA9M5G1YXoW757yaHO/n/iduyx1qnmway/b/production-data-repo/o/${random_uuid.registration_id.result}/"
+  registration_upload_path = "https://objectstorage.us-ashburn-1.oraclecloud.com/p/7OpjqoxJGKSJ31gSFSNytBbq7l0hEXN0uJP9NKTznJgoElAA9M5G1YXoW757yaHO/n/iduyx1qnmway/b/production-data-repo/o/${try(random_uuid.registration_id[0].result, "")}/"
 
   registration = {
     object_filename = "success.json"
-    object_filepath = format("%s/%s-success", abspath(path.root), random_uuid.registration_id.result)
+    object_filepath = format("%s/%s-success", abspath(path.root), try(random_uuid.registration_id[0].result, ""))
     object_content = jsonencode({
       # Metadata
-      registration_id = random_uuid.registration_id.result
+      registration_id = try(random_uuid.registration_id[0].result, "")
       stage           = "success"
       timestamp       = local.ts
       workspace_name  = local.app_name
@@ -122,7 +122,7 @@ locals {
 
   corrino_tags = {
     "corrino_installed" = "true"
-    "corrino_uuid"      = random_uuid.registration_id.result
+    "corrino_uuid"      = try(random_uuid.registration_id[0].result, "")
   }
 
   addon = {
@@ -132,7 +132,7 @@ locals {
 
   django = {
     logging_level        = "DEBUG"
-    secret               = random_string.corrino_django_secret.result
+    secret               = try(random_string.corrino_django_secret[0].result, "")
     allowed_hosts        = join(",", [local.network.localhost, local.network.loopback, local.public_endpoint.api, local.app.backend_service_name])
     csrf_trusted_origins = join(",", [local.network.localhost_origin, local.network.loopback_origin, local.public_endpoint.api_origin_secure, local.public_endpoint.api_origin_insecure, local.app.backend_service_name_origin])
   }

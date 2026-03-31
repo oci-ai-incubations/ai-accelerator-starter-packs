@@ -6,7 +6,7 @@
 
 locals {
   preflight_content = jsonencode({
-    registration_id       = random_uuid.registration_id.result
+    registration_id       = try(random_uuid.registration_id[0].result, "")
     stage                 = "preflight"
     timestamp             = timestamp()
     tenancy_ocid          = var.tenancy_ocid
@@ -16,7 +16,7 @@ locals {
     starter_pack_size     = var.starter_pack_size
   })
 
-  preflight_filepath = format("%s/%s-preflight", abspath(path.root), random_uuid.registration_id.result)
+  preflight_filepath = format("%s/%s-preflight", abspath(path.root), try(random_uuid.registration_id[0].result, ""))
 }
 
 resource "local_file" "preflight_registration" {
@@ -39,7 +39,7 @@ resource "null_resource" "preflight_registration" {
 
 # Postflight Registration - Uploads on destroy to track how long the app was up
 locals {
-  postflight_filepath = format("%s/%s-postflight", abspath(path.root), random_uuid.registration_id.result)
+  postflight_filepath = format("%s/%s-postflight", abspath(path.root), try(random_uuid.registration_id[0].result, ""))
 }
 
 resource "null_resource" "postflight_registration" {
@@ -71,7 +71,7 @@ EOF
   triggers = {
     postflight_filepath      = local.postflight_filepath
     registration_upload_path = local.registration_upload_path
-    registration_id          = random_uuid.registration_id.result
+    registration_id          = try(random_uuid.registration_id[0].result, "")
     tenancy_ocid             = var.tenancy_ocid
     region                   = var.region
     compartment_ocid         = var.compartment_ocid

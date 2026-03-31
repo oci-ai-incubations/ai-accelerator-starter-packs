@@ -7,7 +7,7 @@
 
 locals {
   capacity_content = jsonencode({
-    registration_id       = random_uuid.registration_id.result
+    registration_id       = try(random_uuid.registration_id[0].result, "")
     stage                 = "capacity_check"
     timestamp             = timestamp()
     tenancy_ocid          = var.tenancy_ocid
@@ -32,7 +32,7 @@ locals {
     worker_node_pool_size = local.starter_pack_config.worker_node_pool_size
   })
 
-  capacity_filepath = format("%s/%s-capacity", abspath(path.root), random_uuid.registration_id.result)
+  capacity_filepath = format("%s/%s-capacity", abspath(path.root), try(random_uuid.registration_id[0].result, ""))
 }
 
 resource "local_file" "capacity_registration" {

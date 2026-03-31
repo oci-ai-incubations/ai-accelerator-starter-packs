@@ -31,7 +31,7 @@ resource "kubernetes_config_map_v1" "corrino-configmap" {
     TENANCY_ID                                     = local.oci.tenancy_id
     TENANCY_NAMESPACE                              = local.oci.tenancy_namespace
     DATA_UPLOAD_PATH                               = var.share_data_with_corrino_team_enabled ? local.registration.upload_path : ""
-    DEPLOYMENT_UUID                                = random_uuid.registration_id.result
+    DEPLOYMENT_UUID                                = try(random_uuid.registration_id[0].result, "")
     DATA_SHARING_ENABLED                           = var.share_data_with_corrino_team_enabled ? "True" : "False"
     BLUEPRINTS_OBJECT_STORAGE_URL                  = local.app.blueprints_object_storage_url
     PORTAL_DEMO_FLAG                               = local.app.portal_demo_flag

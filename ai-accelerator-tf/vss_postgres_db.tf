@@ -7,9 +7,9 @@ locals {
   vss_postgres_db = {
     host     = "vss-postgres"
     port     = "5432"
-    db_name  = format("%s_db", random_string.vss_postgres_db_name.result)
-    user     = format("%s_user", random_string.vss_postgres_db_username.result)
-    password = random_string.vss_postgres_db_password.result
+    db_name  = try(format("%s_db", random_string.vss_postgres_db_name[0].result), "")
+    user     = try(format("%s_user", random_string.vss_postgres_db_username[0].result), "")
+    password = try(random_string.vss_postgres_db_password[0].result, "")
   }
 }
 
