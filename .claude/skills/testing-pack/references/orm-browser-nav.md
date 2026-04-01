@@ -144,6 +144,54 @@ For cross-origin iframes, `contentDocument` will be null. Use CDP directly inste
 
 ---
 
+## ORM Checkbox Toggling
+
+**Known issue:** ORM checkboxes (Deploy Application, Skip Capacity Check, etc.) often don't respond to `agent-browser click` or `agent-browser check` commands. The `check` command sometimes works, but `click` rarely does.
+
+### Recommended approach: JavaScript eval
+
+Toggle checkboxes via JavaScript and dispatch React-compatible events:
+
+```bash
+agent-browser --session-name oci eval --stdin <<'EVALEOF'
+(function() {
+  var iframe = document.querySelector('iframe');
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  var cb = doc.querySelector('input[name="deploy_application"]');
+  cb.click();
+  cb.dispatchEvent(new Event('change', { bubbles: true }));
+  cb.dispatchEvent(new Event('input', { bubbles: true }));
+  return 'checked=' + cb.checked;
+})();
+EVALEOF
+```
+
+To find checkbox names, enumerate them:
+```bash
+agent-browser --session-name oci eval --stdin <<'EVALEOF'
+var iframe = document.querySelector('iframe');
+var doc = iframe.contentDocument || iframe.contentWindow.document;
+var cbs = doc.querySelectorAll('input[type="checkbox"]');
+var result = [];
+cbs.forEach(function(cb, i) { result.push(i + ': ' + cb.name + ' = ' + cb.checked); });
+result.join('\n');
+EVALEOF
+```
+
+### Fallback: try `check`/`uncheck` first
+
+The `agent-browser check @ref` command works sometimes. Try it first, verify with a snapshot, and fall back to JS eval if it didn't toggle.
+
+---
+
+## CDP File Upload UI Quirk
+
+After uploading a file via CDP (`DOM.setFileInputFiles`), the UI may still show **"No file chosen"** on the button text. This is a cosmetic issue — the file IS uploaded. Click Next and the wizard will proceed normally with the uploaded file.
+
+Do not re-upload or try to fix the button text. Just proceed.
+
+---
+
 ## Edit Stack Wizard Navigation
 
 The ORM "Edit Stack" wizard has 3 steps:
