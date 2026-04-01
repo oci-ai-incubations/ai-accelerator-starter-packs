@@ -281,6 +281,28 @@ Use `agent-browser fill` to set text input values — it clears the field first 
 agent-browser --session-name $SESSION_NAME fill @<textbox-ref> "new value"
 ```
 
+### Password fields with validation
+
+ORM password fields (DB password, admin password) have React-based validation that `fill` may not trigger. If validation errors persist after `fill`, use JS eval with `nativeInputValueSetter` to force React state update:
+
+```bash
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
+(function() {
+  var iframe = document.querySelector('iframe');
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  var input = doc.querySelector('input[name="db_password"]');
+  var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  setter.call(input, 'Aa1!NewPassword123');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  input.dispatchEvent(new Event('blur', { bubbles: true }));
+  return 'set, length=' + input.value.length;
+})();
+EVALEOF
+```
+
+After setting, verify validation cleared by checking for error text near the field.
+
 ---
 
 ## Edit Stack Wizard Navigation
