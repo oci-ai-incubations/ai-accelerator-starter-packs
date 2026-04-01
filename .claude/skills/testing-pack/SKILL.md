@@ -71,7 +71,32 @@ oci iam compartment list --compartment-id-in-subtree true --all \
 
 Ask: "Any PR-specific testing requirements or variables I should know about?"
 
-### 0f. ADB packs
+### 0f. Pack-specific required variables
+
+Generate random values for credentials that ORM requires but are only used at apply time. These will be filled into the ORM UI on Step 2:
+
+```bash
+# Generate random admin credentials (used for all packs)
+ADMIN_USER="admin"
+ADMIN_PASS=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+ADMIN_EMAIL="test@example.com"
+DB_PASS=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+echo "Admin: $ADMIN_USER / $ADMIN_PASS / $ADMIN_EMAIL / DB: $DB_PASS"
+```
+
+Pack-specific credentials to generate:
+
+| Category | Additional required variables |
+|---|---|
+| `cuopt` | `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password` |
+| `enterprise_rag` | `ngc_secret`, `ngc_api_secret` (ask user — these are real API keys) |
+| `enterprise_rag_aiq` | `ngc_secret`, `ngc_api_secret`, `tavily_api_key` (ask user) |
+| `paas_rag` | None beyond admin/db |
+| `vss` | `ngc_secret`, `ngc_api_secret` (ask user) |
+
+**For NGC/Tavily API keys:** ask the user — these are real credentials, not random values.
+
+### 0g. ADB packs
 
 If category is `paas_rag`, `enterprise_rag`, or `enterprise_rag_aiq`, note that it requires `autonomous_db_subnet`. Confirm the schema includes ADB-specific fields.
 

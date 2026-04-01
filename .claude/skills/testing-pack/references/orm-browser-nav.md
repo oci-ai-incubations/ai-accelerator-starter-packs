@@ -184,6 +184,83 @@ The `agent-browser check @ref` command works sometimes. Try it first, verify wit
 
 ---
 
+## React Select Dropdowns
+
+ORM uses React Select for combobox dropdowns (deployment size, region selectors, stack version). These do NOT respond to `agent-browser select`, `fill`, `click`, or `type` commands.
+
+### Recommended approach: JavaScript eval
+
+```bash
+agent-browser --session-name oci eval --stdin <<'EVALEOF'
+(function() {
+  var iframe = document.querySelector('iframe');
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  // Find the React Select input by its aria-label or nearby label text
+  var input = doc.querySelector('input[id*="react-select"]');
+  // Or find by the label text in the combobox
+  var selects = doc.querySelectorAll('[class*="react-select"]');
+  // To list all React Select values:
+  var containers = doc.querySelectorAll('[class*="singleValue"]');
+  var result = [];
+  containers.forEach(function(c) { result.push(c.textContent); });
+  return result.join(', ');
+})();
+EVALEOF
+```
+
+To change a React Select value, simulate the full user interaction — focus, clear, type, then press Enter to select:
+
+```bash
+agent-browser --session-name oci eval --stdin <<'EVALEOF'
+(function() {
+  var iframe = document.querySelector('iframe');
+  var doc = iframe.contentDocument || iframe.contentWindow.document;
+  // Find the specific React Select input (adjust selector for target dropdown)
+  var input = doc.querySelector('[aria-label*="Deployment Size"] input, [id*="react-select-5"]');
+  if (!input) return 'input not found';
+  // Focus and clear
+  var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  nativeInputValueSetter.call(input, '');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  // Type the desired value
+  nativeInputValueSetter.call(input, 'medium');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  return 'typed medium - now press Enter via agent-browser';
+})();
+EVALEOF
+# Then press Enter to confirm the selection
+agent-browser --session-name oci press Enter
+```
+
+**If JS eval fails to open the dropdown menu**, fall back to asking the user to select the value manually in the headed browser. React Select is the most fragile ORM component.
+
+---
+
+## Session Timeout / Re-authentication
+
+OCI Console sessions expire after ~15-30 minutes of inactivity. When the session expires, navigation redirects to the sign-in page.
+
+### Detection
+
+After any navigation or long wait, check if the page shows the login form:
+
+```bash
+agent-browser --session-name oci snapshot -i 2>&1 | grep -i "Sign In\|Oracle Cloud Account"
+```
+
+If the login form appears:
+1. Tell the user: "OCI session expired. Please log in again in the browser window."
+2. Wait for user confirmation
+3. Re-navigate to the target page
+
+### Prevention
+
+- Keep the browser active during long waits (e.g., during apply monitoring)
+- Navigate to the stack page periodically to keep the session alive
+- Use `--session-name oci` consistently to preserve cookies across commands
+
+---
+
 ## CDP File Upload — Critical Rules
 
 1. **Do NOT click the Browse button before CDP upload.** Clicking Browse opens a native OS file dialog that blocks CDP from interacting with the file input. If a file dialog is open, dismiss it first (user presses Cancel/Escape).
