@@ -50,60 +50,68 @@ The active region is displayed in the region menu button in the top navigation b
 
 ### How to check the current region
 
-```python
-# The region selector is a button in the top nav — its text is the region display name
-# e.g., "US West (San Jose)", "US East (Ashburn)"
-region_button = page.locator('[data-testid="region-menu"]')
-# or fallback: look for a button containing the region name
-region_text = page.locator('button:has-text("US West")').text_content()
-print(f"Current region: {region_text}")
+```bash
+agent-browser --session-name oci snapshot -i 2>&1 | grep "Region menu"
+# Output: button "Region menu, active region is US East (Ashburn)" [ref=e10]
 ```
 
 ### How to change the region
 
-```python
-# Click the region menu button to open the dropdown
-page.click('[data-testid="region-menu"]')
-page.wait_for_timeout(500)
-
-# Search for the target region or click it directly
-page.click(f'text="{target_region_display_name}"')
-page.wait_for_load_state("networkidle")
+```bash
+# Click the region menu button
+agent-browser --session-name oci click @<region-menu-ref>
+agent-browser --session-name oci wait 1000
+# Take snapshot to find target region menuitem
+agent-browser --session-name oci snapshot -i 2>&1 | grep -i "<target-region>"
+# Click the target region
+agent-browser --session-name oci click @<region-menuitem-ref>
+agent-browser --session-name oci wait --load networkidle
 ```
 
-If `data-testid` attributes are not present, locate by role and approximate text:
-```python
-page.locator('button').filter(has_text="US West").click()
+Or navigate directly via URL (more reliable):
+```bash
+agent-browser --session-name oci open "https://cloud.oracle.com/resourcemanager/stacks?region=<region>"
 ```
 
 ---
 
 ## Compartment Selection
 
-The compartment picker is a dropdown/tree widget that supports text search. It appears in the breadcrumb bar or as a standalone selector depending on the ORM page.
+The compartment picker in ORM is a tree widget with a search box. It is unreliable to click — radio buttons and treeitems often don't respond to agent-browser clicks.
 
-### Pattern: click dropdown, search, click treeitem
+### Primary approach: URL parameter (recommended)
 
-```python
-# Step 1: Click the compartment selector to open it
-page.click('[aria-label="Compartment"]')
-# or: page.locator('text="Compartment"').locator('..').click()
-page.wait_for_timeout(300)
+Navigate directly with the compartment OCID in the URL. This is the most reliable method:
 
-# Step 2: Type to filter compartments by name
-page.keyboard.type("Grant-Compartment")
-page.wait_for_timeout(500)
-
-# Step 3: Click the matching tree item
-# Compartment options render with role="treeitem"
-page.click('[role="treeitem"]:has-text("Grant-Compartment")')
-page.wait_for_load_state("networkidle")
+```bash
+agent-browser --session-name oci open "https://cloud.oracle.com/resourcemanager/stacks?region=<region>&compartmentId=<compartment_ocid>"
+agent-browser --session-name oci wait --load networkidle
+agent-browser --session-name oci wait 3000
 ```
 
-Notes:
-- The compartment tree is lazy-loaded — wait after opening before typing
-- Partial name matches work for the search filter
-- If multiple compartments have similar names, use a longer search string
+Get the compartment OCID beforehand via OCI CLI:
+```bash
+oci iam compartment list --compartment-id-in-subtree true --all \
+  --query "data[?name=='<compartment_name>'].id | [0]" --raw-output
+```
+
+### Fallback: search + click treeitem
+
+If you don't have the compartment OCID, try the tree widget. This is fragile:
+
+```bash
+# Click the compartment selector button (look for "Select to expand options" in snapshot)
+agent-browser --session-name oci click @<selector-ref>
+agent-browser --session-name oci wait 1000
+# Type compartment name in the search textbox
+agent-browser --session-name oci fill @<search-textbox-ref> "<compartment-name>"
+agent-browser --session-name oci wait 2000
+# Click the treeitem (NOT the radio button — click the treeitem itself)
+agent-browser --session-name oci click @<treeitem-ref>
+agent-browser --session-name oci wait --load networkidle
+```
+
+**Known issue:** The radio buttons inside treeitems often don't register clicks. If the heading still shows the old compartment after clicking, fall back to the URL approach.
 
 ---
 
