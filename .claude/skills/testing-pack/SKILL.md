@@ -20,6 +20,12 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply.
 
+4. **Use a unique agent-browser session name** to avoid conflicts with other Claude sessions. Generate one at the start:
+   ```bash
+   SESSION_NAME="oci-$(date +%s)"
+   ```
+   Use `--session-name $SESSION_NAME` on ALL agent-browser commands. Close the session when done: `agent-browser --session-name $SESSION_NAME close`
+
 ## Arguments
 
 - `$0` - Category: `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`

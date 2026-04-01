@@ -16,13 +16,13 @@ OCI Console requires authentication. The agent cannot enter credentials — the 
 
 1. Launch headed browser and navigate to OCI:
    ```bash
-   agent-browser --headed --session-name oci open "https://cloud.oracle.com"
-   agent-browser --session-name oci wait --load networkidle
+   agent-browser --headed --session-name $SESSION_NAME open "https://cloud.oracle.com"
+   agent-browser --session-name $SESSION_NAME wait --load networkidle
    ```
 
 2. Check if already authenticated by taking a snapshot:
    ```bash
-   agent-browser --session-name oci snapshot -i
+   agent-browser --session-name $SESSION_NAME snapshot -i
    ```
 
 3. **If login form visible** (User Name / Password fields, or redirected to `oracle.com/cloud/sign-in.html`):
@@ -34,7 +34,7 @@ OCI Console requires authentication. The agent cannot enter credentials — the 
 
 ### Session persistence
 
-Use `--session-name oci` on all agent-browser commands. This auto-saves cookies/localStorage so subsequent runs may skip login. However, OCI sessions expire — always check the snapshot after opening, don't assume a saved session means authenticated.
+Use `--session-name $SESSION_NAME` on all agent-browser commands. This auto-saves cookies/localStorage so subsequent runs may skip login. However, OCI sessions expire — always check the snapshot after opening, don't assume a saved session means authenticated.
 
 ### What NOT to do
 
@@ -51,7 +51,7 @@ The active region is displayed in the region menu button in the top navigation b
 ### How to check the current region
 
 ```bash
-agent-browser --session-name oci snapshot -i 2>&1 | grep "Region menu"
+agent-browser --session-name $SESSION_NAME snapshot -i 2>&1 | grep "Region menu"
 # Output: button "Region menu, active region is US East (Ashburn)" [ref=e10]
 ```
 
@@ -59,18 +59,18 @@ agent-browser --session-name oci snapshot -i 2>&1 | grep "Region menu"
 
 ```bash
 # Click the region menu button
-agent-browser --session-name oci click @<region-menu-ref>
-agent-browser --session-name oci wait 1000
+agent-browser --session-name $SESSION_NAME click @<region-menu-ref>
+agent-browser --session-name $SESSION_NAME wait 1000
 # Take snapshot to find target region menuitem
-agent-browser --session-name oci snapshot -i 2>&1 | grep -i "<target-region>"
+agent-browser --session-name $SESSION_NAME snapshot -i 2>&1 | grep -i "<target-region>"
 # Click the target region
-agent-browser --session-name oci click @<region-menuitem-ref>
-agent-browser --session-name oci wait --load networkidle
+agent-browser --session-name $SESSION_NAME click @<region-menuitem-ref>
+agent-browser --session-name $SESSION_NAME wait --load networkidle
 ```
 
 Or navigate directly via URL (more reliable):
 ```bash
-agent-browser --session-name oci open "https://cloud.oracle.com/resourcemanager/stacks?region=<region>"
+agent-browser --session-name $SESSION_NAME open "https://cloud.oracle.com/resourcemanager/stacks?region=<region>"
 ```
 
 ---
@@ -84,9 +84,9 @@ The compartment picker in ORM is a tree widget with a search box. It is unreliab
 Navigate directly with the compartment OCID in the URL. This is the most reliable method:
 
 ```bash
-agent-browser --session-name oci open "https://cloud.oracle.com/resourcemanager/stacks?region=<region>&compartmentId=<compartment_ocid>"
-agent-browser --session-name oci wait --load networkidle
-agent-browser --session-name oci wait 3000
+agent-browser --session-name $SESSION_NAME open "https://cloud.oracle.com/resourcemanager/stacks?region=<region>&compartmentId=<compartment_ocid>"
+agent-browser --session-name $SESSION_NAME wait --load networkidle
+agent-browser --session-name $SESSION_NAME wait 3000
 ```
 
 Get the compartment OCID beforehand via OCI CLI:
@@ -101,14 +101,14 @@ If you don't have the compartment OCID, try the tree widget. This is fragile:
 
 ```bash
 # Click the compartment selector button (look for "Select to expand options" in snapshot)
-agent-browser --session-name oci click @<selector-ref>
-agent-browser --session-name oci wait 1000
+agent-browser --session-name $SESSION_NAME click @<selector-ref>
+agent-browser --session-name $SESSION_NAME wait 1000
 # Type compartment name in the search textbox
-agent-browser --session-name oci fill @<search-textbox-ref> "<compartment-name>"
-agent-browser --session-name oci wait 2000
+agent-browser --session-name $SESSION_NAME fill @<search-textbox-ref> "<compartment-name>"
+agent-browser --session-name $SESSION_NAME wait 2000
 # Click the treeitem (NOT the radio button — click the treeitem itself)
-agent-browser --session-name oci click @<treeitem-ref>
-agent-browser --session-name oci wait --load networkidle
+agent-browser --session-name $SESSION_NAME click @<treeitem-ref>
+agent-browser --session-name $SESSION_NAME wait --load networkidle
 ```
 
 **Known issue:** The radio buttons inside treeitems often don't register clicks. If the heading still shows the old compartment after clicking, fall back to the URL approach.
@@ -123,7 +123,7 @@ ORM content is inside an `<iframe>` titled "Content body". Agent-browser auto-in
 
 ```bash
 # Snapshot only the iframe content (filters out top nav chrome)
-agent-browser --session-name oci snapshot -i -s "iframe"
+agent-browser --session-name $SESSION_NAME snapshot -i -s "iframe"
 ```
 
 Refs from the scoped snapshot (e.g., `@e25`) work directly with click/fill commands — no frame switching needed.
@@ -133,7 +133,7 @@ Refs from the scoped snapshot (e.g., `@e25`) work directly with click/fill comma
 Use `agent-browser eval` and access the iframe's document via `contentDocument`:
 
 ```bash
-agent-browser --session-name oci eval --stdin <<'EVALEOF'
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
 var iframe = document.querySelector('iframe');
 var doc = iframe.contentDocument || iframe.contentWindow.document;
 doc.querySelector('input[type="file"]').id;
@@ -153,7 +153,7 @@ For cross-origin iframes, `contentDocument` will be null. Use CDP directly inste
 Toggle checkboxes via JavaScript and dispatch React-compatible events:
 
 ```bash
-agent-browser --session-name oci eval --stdin <<'EVALEOF'
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
 (function() {
   var iframe = document.querySelector('iframe');
   var doc = iframe.contentDocument || iframe.contentWindow.document;
@@ -168,7 +168,7 @@ EVALEOF
 
 To find checkbox names, enumerate them:
 ```bash
-agent-browser --session-name oci eval --stdin <<'EVALEOF'
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
 var iframe = document.querySelector('iframe');
 var doc = iframe.contentDocument || iframe.contentWindow.document;
 var cbs = doc.querySelectorAll('input[type="checkbox"]');
@@ -191,7 +191,7 @@ ORM uses React Select for combobox dropdowns (deployment size, region selectors,
 ### Recommended approach: JavaScript eval
 
 ```bash
-agent-browser --session-name oci eval --stdin <<'EVALEOF'
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
 (function() {
   var iframe = document.querySelector('iframe');
   var doc = iframe.contentDocument || iframe.contentWindow.document;
@@ -211,7 +211,7 @@ EVALEOF
 To change a React Select value, simulate the full user interaction — focus, clear, type, then press Enter to select:
 
 ```bash
-agent-browser --session-name oci eval --stdin <<'EVALEOF'
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
 (function() {
   var iframe = document.querySelector('iframe');
   var doc = iframe.contentDocument || iframe.contentWindow.document;
@@ -229,7 +229,7 @@ agent-browser --session-name oci eval --stdin <<'EVALEOF'
 })();
 EVALEOF
 # Then press Enter to confirm the selection
-agent-browser --session-name oci press Enter
+agent-browser --session-name $SESSION_NAME press Enter
 ```
 
 **If JS eval fails to open the dropdown menu**, fall back to asking the user to select the value manually in the headed browser. React Select is the most fragile ORM component.
@@ -245,7 +245,7 @@ OCI Console sessions expire after ~15-30 minutes of inactivity. When the session
 After any navigation or long wait, check if the page shows the login form:
 
 ```bash
-agent-browser --session-name oci snapshot -i 2>&1 | grep -i "Sign In\|Oracle Cloud Account"
+agent-browser --session-name $SESSION_NAME snapshot -i 2>&1 | grep -i "Sign In\|Oracle Cloud Account"
 ```
 
 If the login form appears:
@@ -257,7 +257,7 @@ If the login form appears:
 
 - Keep the browser active during long waits (e.g., during apply monitoring)
 - Navigate to the stack page periodically to keep the session alive
-- Use `--session-name oci` consistently to preserve cookies across commands
+- Use `--session-name $SESSION_NAME` consistently to preserve cookies across commands
 
 ---
 
@@ -285,11 +285,11 @@ The ORM "Edit Stack" wizard has 3 steps:
 After uploading the zip on Step 1, find and click the Next button:
 
 ```bash
-agent-browser --session-name oci snapshot -i -s "iframe"  # find Next button ref
-agent-browser --session-name oci click @<next-ref>
-agent-browser --session-name oci wait --load networkidle
-agent-browser --session-name oci wait 5000  # variable form can take several seconds to render
-agent-browser --session-name oci snapshot -i -s "iframe"  # verify Step 2 loaded
+agent-browser --session-name $SESSION_NAME snapshot -i -s "iframe"  # find Next button ref
+agent-browser --session-name $SESSION_NAME click @<next-ref>
+agent-browser --session-name $SESSION_NAME wait --load networkidle
+agent-browser --session-name $SESSION_NAME wait 5000  # variable form can take several seconds to render
+agent-browser --session-name $SESSION_NAME snapshot -i -s "iframe"  # verify Step 2 loaded
 ```
 
 ### Step 2: Fill required variables and validate
@@ -303,7 +303,7 @@ agent-browser --session-name oci snapshot -i -s "iframe"  # verify Step 2 loaded
 
 Check for required field errors via eval:
 ```bash
-agent-browser --session-name oci eval --stdin <<'EVALEOF'
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
 var iframe = document.querySelector('iframe');
 var doc = iframe.contentDocument || iframe.contentWindow.document;
 var errors = doc.querySelectorAll('[class*="error"], [class*="required"]');
@@ -322,10 +322,10 @@ EVALEOF
 After all required fields are filled and validated, click Next:
 
 ```bash
-agent-browser --session-name oci snapshot -i -s "iframe"  # find Next button ref
-agent-browser --session-name oci click @<next-ref>
-agent-browser --session-name oci wait --load networkidle
-agent-browser --session-name oci wait 3000
+agent-browser --session-name $SESSION_NAME snapshot -i -s "iframe"  # find Next button ref
+agent-browser --session-name $SESSION_NAME click @<next-ref>
+agent-browser --session-name $SESSION_NAME wait --load networkidle
+agent-browser --session-name $SESSION_NAME wait 3000
 ```
 
 ### Step 3 — Save and Apply
@@ -333,14 +333,14 @@ agent-browser --session-name oci wait 3000
 On the Review page, scroll down to find "Run apply" checkbox and "Save changes" button:
 
 ```bash
-agent-browser --session-name oci scroll down 500
-agent-browser --session-name oci snapshot -i -s "iframe"  # find checkbox and save button refs
-agent-browser --session-name oci check @<run-apply-ref>
-agent-browser --session-name oci wait 500
-agent-browser --session-name oci click @<save-changes-ref>
-agent-browser --session-name oci wait --load networkidle
-agent-browser --session-name oci wait 5000
-agent-browser --session-name oci snapshot -i -s "iframe"  # verify job page appeared
+agent-browser --session-name $SESSION_NAME scroll down 500
+agent-browser --session-name $SESSION_NAME snapshot -i -s "iframe"  # find checkbox and save button refs
+agent-browser --session-name $SESSION_NAME check @<run-apply-ref>
+agent-browser --session-name $SESSION_NAME wait 500
+agent-browser --session-name $SESSION_NAME click @<save-changes-ref>
+agent-browser --session-name $SESSION_NAME wait --load networkidle
+agent-browser --session-name $SESSION_NAME wait 5000
+agent-browser --session-name $SESSION_NAME snapshot -i -s "iframe"  # verify job page appeared
 ```
 
 ### Timing Notes
