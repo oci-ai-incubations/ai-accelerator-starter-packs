@@ -8,6 +8,42 @@ OCI Resource Manager (ORM) is a single-page application (SPA) running inside the
 
 ---
 
+## Authentication / Login
+
+OCI Console requires authentication. The agent cannot enter credentials — the user must do this manually in the headed browser window.
+
+### Recommended flow
+
+1. Launch headed browser and navigate to OCI:
+   ```bash
+   agent-browser --headed --session-name oci open "https://cloud.oracle.com"
+   agent-browser --session-name oci wait --load networkidle
+   ```
+
+2. Check if already authenticated by taking a snapshot:
+   ```bash
+   agent-browser --session-name oci snapshot -i
+   ```
+
+3. **If login form visible** (User Name / Password fields, or redirected to `oracle.com/cloud/sign-in.html`):
+   - Tell the user: "Please enter your OCI credentials in the browser window that just opened. Let me know when you're done."
+   - **Wait for explicit user confirmation** before proceeding. Do not poll or guess.
+
+4. **If Console home page visible** (Navigation menu, Region menu, compartment selector):
+   - Proceed to next phase.
+
+### Session persistence
+
+Use `--session-name oci` on all agent-browser commands. This auto-saves cookies/localStorage so subsequent runs may skip login. However, OCI sessions expire — always check the snapshot after opening, don't assume a saved session means authenticated.
+
+### What NOT to do
+
+- Don't try to fill username/password fields — the user enters credentials manually
+- Don't poll the page waiting for login to complete — wait for user confirmation
+- Don't use `--auto-connect` as the primary strategy — it only works if Chrome is already running with remote debugging enabled, which is rare
+
+---
+
 ## Region Verification
 
 The active region is displayed in the region menu button in the top navigation bar. Its text content reflects the currently selected region display name.

@@ -137,9 +137,17 @@ Same zip is used for both infra and app stacks.
 
 ## Phase 3: ORM UI Schema Validation
 
-All ORM interactions use `agent-browser`. Invoke via Agent tool with the `agent-browser` skill.
+All ORM interactions use `agent-browser` in headed mode (`--headed --session-name oci`).
 
-### 3a. Verify region
+### 3a. Authenticate to OCI Console
+
+Open the OCI Console and check if authenticated. See [orm-browser-nav.md](references/orm-browser-nav.md) for the full login flow.
+
+1. `agent-browser --headed --session-name oci open "https://cloud.oracle.com"`
+2. Take a snapshot — if login form visible (User Name / Password fields, or redirected to sign-in page), ask the user to enter credentials in the browser window. **Wait for user confirmation before proceeding.**
+3. If Console home page visible, continue.
+
+### 3b. Verify region
 
 Take a screenshot. Check the region menu button text. If it does not match the target region, switch:
 
@@ -148,7 +156,7 @@ Take a screenshot. Check the region menu button text. If it does not match the t
 3. Wait for page reload
 4. Screenshot to confirm
 
-### 3b. Verify compartment
+### 3c. Verify compartment
 
 Check the compartment heading/breadcrumb. If wrong, switch using the compartment picker:
 
