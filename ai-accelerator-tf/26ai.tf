@@ -24,7 +24,7 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   backup_retention_period_in_days                = 60
   character_set                                  = "AL32UTF8"
   ncharacter_set                                 = "AL16UTF16"
-  subnet_id                                      = local.db_subnet_id
+  subnet_id                                      = local.autonomous_db_subnet_id
   private_endpoint_label                         = "aiaccel${random_string.deploy_id.result}"
 
   count = local.deploy_application && local.needs_26ai ? 1 : 0

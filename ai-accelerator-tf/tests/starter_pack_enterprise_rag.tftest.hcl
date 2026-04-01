@@ -52,6 +52,7 @@ variables {
   tavily_api_key                  = ""
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
+  db_password                     = "TestDBP@ssw0rd123!"
 }
 
 # Test: enterprise_rag starter pack plans successfully with correct deployment name and registration triggers

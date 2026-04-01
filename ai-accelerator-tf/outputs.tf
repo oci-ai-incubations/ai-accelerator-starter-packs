@@ -254,9 +254,9 @@ output "private_endpoint" {
   value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
 }
 
-output "db_subnet_id" {
-  description = "OCID of the database subnet"
-  value       = local.create_network_resources ? oci_core_subnet.oke_db_subnet[0].id : null
+output "autonomous_db_subnet_id" {
+  description = "OCID of the Autonomous Database subnet"
+  value       = local.create_network_resources ? oci_core_subnet.oke_db_subnet[0].id : var.existing_autonomous_db_subnet_id
 }
 
 output "db_username" {

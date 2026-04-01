@@ -63,6 +63,13 @@ outputGroups:
     outputs:
       - ai_accelerator_stack_version
 
+  - title: "Infrastructure (for App-Only Stack)"
+    outputs:
+      - cluster_id
+      - autonomous_db_subnet_id
+      - node_pool_id
+      - vcn_id
+
 # =============================================================================
 # Variable Groups - Common structure
 # =============================================================================
@@ -95,6 +102,7 @@ variableGroups:
       - create_policies
       - deploy_application
       - existing_cluster_id
+      - existing_autonomous_db_subnet_id
 
 # =============================================================================
 # Variables - Common definitions
@@ -358,6 +366,13 @@ variables:
     type: string
     visible: false
 
+  existing_autonomous_db_subnet_id:
+    type: string
+    title: "Existing Autonomous DB Subnet OCID"
+    description: "Subnet OCID for the Autonomous Database private endpoint. Required when using an existing cluster. Get this value from the autonomous_db_subnet_id output of an infrastructure-only stack."
+    default: ""
+    required: false
+
   ingress_nginx_enabled:
     type: boolean
     visible: false
@@ -595,7 +610,9 @@ outputs:
   # Hidden outputs
   cluster_id:
     type: string
-    visible: false
+    title: "OKE Cluster OCID"
+    description: "Use as existing_cluster_id when deploying an app-only stack."
+    visible: true
 
   cluster_name:
     type: string
@@ -628,6 +645,12 @@ outputs:
   vcn_cidr:
     type: string
     visible: false
+
+  autonomous_db_subnet_id:
+    type: string
+    title: "Autonomous DB Subnet OCID"
+    description: "Use as existing_autonomous_db_subnet_id when deploying an app-only stack."
+    visible: true
 
   node_pool_id:
     type: string

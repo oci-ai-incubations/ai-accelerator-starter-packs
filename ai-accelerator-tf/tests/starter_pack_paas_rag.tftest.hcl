@@ -59,10 +59,10 @@ variables {
 run "plan_paas_rag_small" {
   command = plan
 
-  # Deployment name should start with the short form of the starter pack category (suffixed with random_id hex)
+  # Config deployment name should be the base name (output includes random_id hex suffix, unknown at plan time)
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "paas-")
-    error_message = "paas_rag deployment name should start with 'paas-'"
+    condition     = local.starter_pack_config.deployment_name == "paas"
+    error_message = "paas_rag config deployment name should be 'paas'"
   }
 
   # Database username should default to ADMIN when not explicitly set

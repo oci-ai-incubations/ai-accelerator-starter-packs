@@ -57,10 +57,10 @@ variables {
 run "plan_vss_small" {
   command = plan
 
-  # Deployment name should start with the starter pack category (suffixed with random_id hex)
+  # Config deployment name should be the base name (output includes random_id hex suffix, unknown at plan time)
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "vss-")
-    error_message = "vss deployment name should start with 'vss-'"
+    condition     = local.starter_pack_config.deployment_name == "vss"
+    error_message = "vss config deployment name should be 'vss'"
   }
 
   # Postflight registration trigger should record the selected starter pack category
@@ -86,10 +86,10 @@ run "plan_vss_poc" {
     starter_pack_size = "poc"
   }
 
-  # Deployment name should start with the starter pack category (suffixed with random_id hex)
+  # Config deployment name should be the base name (output includes random_id hex suffix, unknown at plan time)
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "vss-")
-    error_message = "vss poc deployment name should start with 'vss-'"
+    condition     = local.starter_pack_config.deployment_name == "vss"
+    error_message = "vss poc config deployment name should be 'vss'"
   }
 
   # Postflight registration trigger should record the selected starter pack category

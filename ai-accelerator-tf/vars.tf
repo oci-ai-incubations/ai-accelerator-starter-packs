@@ -73,6 +73,12 @@ variable "existing_services_subnet_id" {
   type        = string
 }
 
+variable "existing_autonomous_db_subnet_id" {
+  default     = ""
+  description = "OCID of the existing subnet for the Oracle Autonomous Database private endpoint. Required when using existing_cluster_id with paas_rag or enterprise_rag."
+  type        = string
+}
+
 variable "create_policies" {
   default     = true
   description = "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
@@ -170,7 +176,7 @@ locals {
   create_bastion_effective = var.create_bastion || local.needs_operator
 
   # Readiness checks should go through operator when ORM can't reach the LB
-  readiness_via_operator = local.deploy_private_k8s_and_loadbalancer && local.create_bastion_effective
+  readiness_via_operator = local.deploy_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.create_bastion_effective
 }
 
 ## OKE Node Pool Details
@@ -997,8 +1003,8 @@ locals {
     var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
   )
 
-  db_subnet_id = local.use_existing_cluster ? var.existing_lb_subnet_id : (
-    var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
+  autonomous_db_subnet_id = local.use_existing_cluster ? var.existing_autonomous_db_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_autonomous_db_subnet_id : oci_core_subnet.oke_db_subnet[0].id
   )
 
   # Only create new network resources when in create_new mode and creating infrastructure

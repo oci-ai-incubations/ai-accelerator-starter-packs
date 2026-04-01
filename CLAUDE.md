@@ -20,7 +20,7 @@ terraform destroy               # use --refresh=false if destroy fails on k8s pr
 
 ## Testing Commands
 
-### Terraform Unit Tests (requires Terraform >= 1.7, module targets >= 1.5)
+### Terraform Unit Tests
 
 ```bash
 cd ai-accelerator-tf/
@@ -31,6 +31,11 @@ terraform test -filter=tests/starter_pack_cuopt.tftest.hcl  # single starter pac
 ```
 
 All providers are mocked — no cloud credentials needed. Tests are plan-only (`command = plan`).
+
+**Terraform version split:** OCI Resource Manager (ORM) only supports up to **Terraform 1.5.7**, so all Terraform code must remain 1.5-compatible (`required_version = ">= 1.5"` in `versions.tf`). However, unit tests use `mock_provider` which requires **Terraform >= 1.7**. This means:
+- **Production (ORM):** Runs Terraform 1.5.7 — the code must be compatible with this version.
+- **Unit tests (local/CI):** Require Terraform >= 1.7 — the test harness uses newer features, but the Terraform language constructs under test (locals, count, for_each, validations) behave identically across 1.5–1.9.
+- **CI must use Terraform >= 1.7** for the test job, not 1.5.
 
 ### Schema Tests (requires Python 3.11+)
 
