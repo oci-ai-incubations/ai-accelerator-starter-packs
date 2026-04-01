@@ -109,7 +109,8 @@ Generate random values for credentials that ORM requires but are only used at ap
 ADMIN_USER="admin"
 ADMIN_PASS=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
 ADMIN_EMAIL="test@example.com"
-DB_PASS=$(openssl rand -base64 12 | tr -d '/+=' | head -c 16)
+# DB password must be 12+ chars with uppercase, lowercase, number, and special char
+DB_PASS="Aa1!$(openssl rand -base64 16 | tr -d '/+=' | head -c 12)"
 echo "Admin: $ADMIN_USER / $ADMIN_PASS / $ADMIN_EMAIL / DB: $DB_PASS"
 ```
 
