@@ -273,6 +273,16 @@ If the login form appears:
 
 ---
 
+## Text Input Fields
+
+Use `agent-browser fill` to set text input values — it clears the field first then types the new value. Do NOT use `triple-click`, `Meta+a`, or `click` + `type` sequences — they are unreliable.
+
+```bash
+agent-browser --session-name $SESSION_NAME fill @<textbox-ref> "new value"
+```
+
+---
+
 ## Edit Stack Wizard Navigation
 
 The ORM "Edit Stack" wizard has 3 steps:
