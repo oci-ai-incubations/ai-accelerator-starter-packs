@@ -33,6 +33,28 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 ---
 
+## Phase -1: Create Isolated Worktree
+
+Create a git worktree based on the **current branch** (not main, unless the current branch IS main). This isolates the test run from the working directory so concurrent work doesn't interfere.
+
+```bash
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+WORKTREE_NAME="testing-pack-$(date +%s)"
+WORKTREE_PATH="/tmp/${WORKTREE_NAME}"
+git worktree add "${WORKTREE_PATH}" "${CURRENT_BRANCH}"
+cd "${WORKTREE_PATH}"
+echo "Working in worktree: ${WORKTREE_PATH} (branch: ${CURRENT_BRANCH})"
+```
+
+All subsequent commands in this skill run from `${WORKTREE_PATH}`. At the end of the test (Phase 7), clean up:
+
+```bash
+cd /tmp  # exit the worktree first
+git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
+```
+
+---
+
 ## Phase 0: Gather Parameters
 
 Always collect before proceeding. Use `AskUserQuestion` for each.
