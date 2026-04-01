@@ -41,9 +41,10 @@ Create a git worktree based on the **current branch** (not main, unless the curr
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 WORKTREE_NAME="testing-pack-$(date +%s)"
 WORKTREE_PATH="/tmp/${WORKTREE_NAME}"
-git worktree add "${WORKTREE_PATH}" "${CURRENT_BRANCH}"
+# Use --detach to avoid "already checked out" error when the branch is in use
+git worktree add --detach "${WORKTREE_PATH}" HEAD
 cd "${WORKTREE_PATH}"
-echo "Working in worktree: ${WORKTREE_PATH} (branch: ${CURRENT_BRANCH})"
+echo "Working in worktree: ${WORKTREE_PATH} (detached at ${CURRENT_BRANCH})"
 ```
 
 All subsequent commands in this skill run from `${WORKTREE_PATH}`. At the end of the test (Phase 7), clean up:
