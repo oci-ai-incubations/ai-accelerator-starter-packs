@@ -117,38 +117,30 @@ agent-browser --session-name oci wait --load networkidle
 
 ## Iframe Scoping
 
-ORM embeds content (variable forms, file upload dialogs, preview panes) inside iframes. Standard Playwright selectors do not cross iframe boundaries by default.
+ORM content is inside an `<iframe>` titled "Content body". Agent-browser auto-inlines iframe content in snapshots, so refs work across iframe boundaries.
 
-### Scoping into an iframe with `-s "iframe"`
-
-When using the agent-browser CLI tool, pass `-s "iframe"` to scope all subsequent selectors into the first iframe. For specific iframes, use a more targeted selector:
+### Scoping snapshots to iframe content
 
 ```bash
-# Scope into the first iframe on the page
-browser -s "iframe" click "button:has-text('Upload')"
-
-# Scope into a specific iframe by src or title
-browser -s "iframe[src*='resource-manager']" fill "input[name='stack-name']" "my-stack"
+# Snapshot only the iframe content (filters out top nav chrome)
+agent-browser --session-name oci snapshot -i -s "iframe"
 ```
 
-### Evaluating JavaScript in an iframe's contentDocument
+Refs from the scoped snapshot (e.g., `@e25`) work directly with click/fill commands — no frame switching needed.
 
-For operations that require direct DOM access inside an iframe (e.g., reading input values, triggering events), use `iframe.contentDocument`:
+### Evaluating JavaScript inside the iframe
 
-```python
-# Get the iframe element handle
-iframe_handle = page.locator("iframe").first.element_handle()
-content_doc = iframe_handle.content_frame()
+Use `agent-browser eval` and access the iframe's document via `contentDocument`:
 
-# Now interact with elements inside the iframe
-content_doc.click("button:has-text('Next')")
-content_doc.fill("input[name='stack-name']", "my-stack")
-
-# Or evaluate JS in the iframe context
-result = content_doc.evaluate("document.querySelector('input[type=\"file\"]').id")
+```bash
+agent-browser --session-name oci eval --stdin <<'EVALEOF'
+var iframe = document.querySelector('iframe');
+var doc = iframe.contentDocument || iframe.contentWindow.document;
+doc.querySelector('input[type="file"]').id;
+EVALEOF
 ```
 
-Note: For cross-origin iframes, JavaScript evaluation via `evaluate()` will be blocked by the browser's same-origin policy. Use CDP directly in that case (see `cdp-file-upload.md`).
+For cross-origin iframes, `contentDocument` will be null. Use CDP directly instead (see `cdp-file-upload.md`).
 
 ---
 
@@ -161,39 +153,40 @@ The ORM "Edit Stack" wizard has 3 steps:
 
 ### Step 1 to Step 2
 
-After uploading the zip and setting the stack name on Step 1, click "Next":
+After uploading the zip on Step 1, find and click the Next button:
 
-```python
-page.click("button:has-text('Next')")
-# Wait for the variable form to render — it can take several seconds
-page.wait_for_selector('[data-testid="variable-form"]', timeout=15000)
-# or fallback: wait for a known variable label to appear
-page.wait_for_selector('text="Compartment OCID"', timeout=15000)
+```bash
+agent-browser --session-name oci snapshot -i -s "iframe"  # find Next button ref
+agent-browser --session-name oci click @<next-ref>
+agent-browser --session-name oci wait --load networkidle
+agent-browser --session-name oci wait 5000  # variable form can take several seconds to render
+agent-browser --session-name oci snapshot -i -s "iframe"  # verify Step 2 loaded
 ```
 
 ### Step 2 to Step 3
 
-After filling in all required variables, click "Next" again:
+After verifying/filling variables, click Next again:
 
-```python
-page.click("button:has-text('Next')")
-# Wait for the Review step header
-page.wait_for_selector('text="Review"', timeout=10000)
-# or wait for networkidle to confirm the review page has loaded
-page.wait_for_load_state("networkidle")
+```bash
+agent-browser --session-name oci snapshot -i -s "iframe"  # find Next button ref
+agent-browser --session-name oci click @<next-ref>
+agent-browser --session-name oci wait --load networkidle
+agent-browser --session-name oci wait 3000
 ```
 
-### Step 3 — Save (not Apply)
+### Step 3 — Save and Apply
 
-The final step offers "Save changes" (or "Create") and "Cancel". Click Save to persist without running an apply:
+On the Review page, scroll down to find "Run apply" checkbox and "Save changes" button:
 
-```python
-page.click("button:has-text('Save changes')")
-# or for a new stack:
-page.click("button:has-text('Create')")
-page.wait_for_load_state("networkidle")
-# Verify we landed on the stack detail page
-page.wait_for_selector('text="Stack Information"', timeout=10000)
+```bash
+agent-browser --session-name oci scroll down 500
+agent-browser --session-name oci snapshot -i -s "iframe"  # find checkbox and save button refs
+agent-browser --session-name oci check @<run-apply-ref>
+agent-browser --session-name oci wait 500
+agent-browser --session-name oci click @<save-changes-ref>
+agent-browser --session-name oci wait --load networkidle
+agent-browser --session-name oci wait 5000
+agent-browser --session-name oci snapshot -i -s "iframe"  # verify job page appeared
 ```
 
 ### Timing Notes
