@@ -215,9 +215,34 @@ agent-browser --session-name oci wait 5000  # variable form can take several sec
 agent-browser --session-name oci snapshot -i -s "iframe"  # verify Step 2 loaded
 ```
 
+### Step 2: Fill required variables and validate
+
+**Before clicking Next on Step 2**, you MUST:
+
+1. **Screenshot the page** and scroll through all variable groups
+2. **Check for "This variable is required" validation errors** — these appear as red text below empty required fields
+3. **Fill any empty required fields** via agent-browser `fill` command or ask the user for values
+4. **Verify checkboxes are in the correct state** (use JS eval if `check`/`click` don't work — see Checkbox Toggling section)
+
+Check for required field errors via eval:
+```bash
+agent-browser --session-name oci eval --stdin <<'EVALEOF'
+var iframe = document.querySelector('iframe');
+var doc = iframe.contentDocument || iframe.contentWindow.document;
+var errors = doc.querySelectorAll('[class*="error"], [class*="required"]');
+var result = [];
+errors.forEach(function(el) {
+  if (el.textContent.includes('required')) result.push(el.textContent.trim());
+});
+result.length > 0 ? 'REQUIRED FIELDS MISSING:\n' + result.join('\n') : 'No validation errors';
+EVALEOF
+```
+
+**Do NOT proceed past Step 2 with empty required fields.** ORM will let you click Next but the apply will fail with "No value for required variable."
+
 ### Step 2 to Step 3
 
-After verifying/filling variables, click Next again:
+After all required fields are filled and validated, click Next:
 
 ```bash
 agent-browser --session-name oci snapshot -i -s "iframe"  # find Next button ref

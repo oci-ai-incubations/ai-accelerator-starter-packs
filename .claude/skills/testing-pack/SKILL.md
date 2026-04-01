@@ -12,6 +12,14 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 **Two-stack model:** `deploy_application=false` creates infra-only (VCN, OKE, GPU nodes). `existing_cluster_id` creates app-only (Corrino, blueprints, Helm) on the existing cluster. App stack can be destroyed independently — GPU nodes are preserved.
 
+## CRITICAL RULES
+
+1. **ALL stack operations MUST use agent-browser.** Do NOT fall back to OCI CLI for stack creation, updates, or applies. The entire point of this skill is to test the user experience through the browser. OCI CLI bypasses ORM's UI validation (required fields, schema visibility) and misses bugs that real users would hit.
+
+2. **On Step 2 (Configure Variables), check for required field validation errors** before clicking Next. Look for "This variable is required" text. If any required fields are empty, fill them via agent-browser (or ask the user for values). Do NOT skip past validation errors.
+
+3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply.
+
 ## Arguments
 
 - `$0` - Category: `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`
