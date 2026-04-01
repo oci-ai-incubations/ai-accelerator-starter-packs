@@ -8,6 +8,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-002 | blueprint_deploy_id empty tuple for enterprise_rag_aiq | High | 2026-03-30 |
 | Fixed | BUG-003 | Provider host "https://" in existing cluster mode | Critical | 2026-03-31 |
 | Fixed | BUG-004 | llamastack secrets "already exists" on existing cluster | High | 2026-03-31 |
+| Fixed | BUG-005 | ADB creation fails with 400 — missing private_endpoint_label | Critical | 2026-03-31 |
 
 ---
 
@@ -126,3 +127,37 @@ Added `count = local.deploy_application ? 1 : 0` to both resources. For the imme
 **Verification:** Re-run ORM apply — the secrets will be adopted into Terraform state. Future deploys on existing clusters will work cleanly.
 
 **Prevention:** When adding new Kubernetes resources to the Terraform code, always include `count = local.deploy_application ? 1 : 0` if the resource is application-layer.
+
+### BUG-005: ADB creation fails with 400 — missing private_endpoint_label
+
+**Status:** Fixed
+**Date found:** 2026-03-31
+**Date fixed:** 2026-03-31
+**Found by:** Grant during ORM apply for paas_rag in ap-osaka-1
+**Severity:** Critical
+
+**Symptoms:**
+`terraform apply` fails with:
+```
+Error: 400-InvalidParameter, Operation failed. One-way TLS connections require a private endpoint,
+a VCN with an access control list (ACL), or a public IP with an ACL.
+```
+The error occurs on `oci_database_autonomous_database.oracle_26ai[0]` in `26ai.tf` line 6.
+
+**Root cause:**
+The ADB resource had `is_mtls_connection_required = false` (one-way TLS) and `subnet_id` set, but was missing `private_endpoint_label`. In OCI, `subnet_id` alone does NOT create a private endpoint — the `private_endpoint_label` attribute is what tells OCI to create the ADB as a private endpoint database. Without it, OCI attempted to create a public endpoint ADB with one-way TLS, which requires an IP allowlist ACL (`whitelisted_ips`) that wasn't configured.
+
+The connection string logic at line 72 already referenced `.private_endpoint`, confirming the original intent was a private endpoint ADB — the label was simply never added.
+
+**Affected files:**
+- `ai-accelerator-tf/26ai.tf:6-41` — missing `private_endpoint_label` attribute
+
+**Workaround:**
+None — ADB creation fails and blocks deployment.
+
+**Resolution:**
+Added `private_endpoint_label = "aiaccel${random_string.deploy_id.result}"` to the ADB resource. This creates a proper private endpoint ADB, satisfying the one-way TLS security requirement. The label uses the same deploy ID suffix for consistency and uniqueness.
+
+**Verification:** Re-run ORM apply — ADB should create successfully with a private endpoint.
+
+**Prevention:** When configuring OCI ADB with `is_mtls_connection_required = false`, always include `private_endpoint_label` to ensure a private endpoint is created.
