@@ -401,6 +401,22 @@ variables:
     type: boolean
     visible: false
 
+  cuopt_frontend_admin_password:
+    type: password
+    visible: false
+
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+
+  cuopt_frontend_enabled:
+    type: boolean
+    visible: false
+  
+  google_maps_api_key:
+    type: string
+    visible: false
+
   nip_io_domain:
     type: string
     visible: false
