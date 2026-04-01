@@ -263,84 +263,75 @@ Summarize which fields were correct/incorrect. If any field is wrong, stop and r
 
 ---
 
-## Phase 4: Upload and Apply
+## Phase 4: Create and Apply Infra Stack
 
-For each stack (infra first, then app):
+**Do NOT create or fill in the app stack yet.** The app stack needs infra outputs (cluster OCID, ADB subnet OCID) which don't exist until infra apply succeeds.
 
-### 4a. Navigate to stack
+### 4a. Create infra stack via browser
 
-Open the stack detail page in agent-browser.
+Navigate to the Create Stack page in agent-browser. Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack name, and click through the wizard:
 
-### 4b. Upload zip via CDP
+- Step 1: Upload zip, set name (e.g., `<pack> Infra`), click Next
+- Step 2: Fill variables — uncheck `Deploy Application`, check `Skip Capacity Check`, fill admin/DB credentials. Validate no required field errors before clicking Next.
+- Step 3: Check "Run apply", click Create
 
-Follow the procedure in `references/cdp-file-upload.md`:
+See `references/orm-browser-nav.md` for checkbox toggling, password validation, and React Select patterns.
 
-1. Click "Edit" to open the Edit Stack wizard
-2. On Step 1, click the upload/replace zip area to trigger the file input
-3. Get CDP port and page WebSocket URL:
-   ```bash
-   CDP_PORT=9222
-   WS_URL=$(curl -s http://localhost:${CDP_PORT}/json/list | \
-     python3 -c "import json,sys; pages=json.load(sys.stdin)
-   for p in pages:
-       if 'oracle.com' in p.get('url',''):
-           print(p['webSocketDebuggerUrl']); break")
-   ```
-4. Run the upload script:
-   ```bash
-   python3 .claude/skills/testing-pack/scripts/cdp_upload.py "${WS_URL}" /tmp/testing-pack.zip
-   ```
-5. Wait for the UI to show the uploaded file name
+### 4b. Monitor infra apply
 
-### 4c. Click through wizard
+Record the job OCID. Invoke `/monitoring-deployment` or poll via agent-browser eval until the job reaches a terminal state.
 
-- Step 1: Verify zip uploaded, click "Next"
-- Step 2: Verify variables are populated correctly
-  - For **app stack**: confirm infra outputs are populated (`existing_cluster_id`, subnet OCIDs, etc.)
-- Step 3: Check "Run apply" checkbox if available
-- Click "Save changes"
+**If infra fails:** invoke `/diagnosing-stack`, report to user, stop.
 
-### 4d. Monitor apply
+### 4c. Extract infra outputs
 
-If "Run apply" was checked, the apply starts automatically. Otherwise, manually trigger:
-- Click "Apply" on the stack detail page
-- Confirm the apply dialog
+After infra succeeds, navigate to the stack's "Application Information" tab and extract:
+- **Cluster OCID** — needed for `existing_cluster_id` in app stack
+- **ADB Subnet OCID** — needed for `existing_autonomous_db_subnet_id` (for ADB packs)
 
-Wait for the apply job to start. Record the job OCID.
-
-### 4e. After infra stack succeeds
-
-Extract outputs from the stack's "Application Information" tab or from apply logs:
-- Cluster OCID
-- Subnet OCIDs
-- Any other outputs needed by the app stack
-
-These values feed into the app stack's variables.
-
-### 4f. After app stack succeeds
-
-Extract output URLs from "Application Information" tab:
-- `starter_pack_url`
-- `starter_pack_frontend_url`
-- Cluster OCID (for kubectl)
+Use agent-browser eval to get the values:
+```bash
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
+var iframe = document.querySelector('iframe');
+var doc = iframe.contentDocument || iframe.contentWindow.document;
+var text = doc.body.innerText;
+var cluster = text.match(/OKE Cluster OCID:\s*(ocid1\.\S+)/);
+var subnet = text.match(/Autonomous DB Subnet OCID:\s*(ocid1\.\S+)/);
+JSON.stringify({cluster: cluster ? cluster[1] : null, subnet: subnet ? subnet[1] : null});
+EVALEOF
+```
 
 ---
 
-## Phase 5: Monitor Deployment
+## Phase 5: Create and Apply App Stack
 
-Invoke `/monitoring-deployment` with:
-- Cluster OCID (from infra stack outputs)
-- Job OCID (from app stack apply)
-- Region
-- OCI CLI profile
+**Only proceed after infra outputs are available.**
 
-This skill handles:
-- Kubeconfig generation and patching (see `references/kubeconfig-patching.md`)
-- Pod status polling
-- Blueprint deployment job monitoring
-- Health check verification
+### 5a. Create app stack via browser
 
-**On failure:** Invoke `/diagnosing-stack` to collect diagnostic information. Then **stop and wait for user input**. Never auto-remediate.
+Navigate to Create Stack page. Upload the same zip via CDP. Click through the wizard:
+
+- Step 1: Upload zip, set name (e.g., `<pack> App`), click Next
+- Step 2: Fill variables:
+  - `Deploy Application` = checked
+  - `Skip Capacity Check` = checked
+  - `Existing Cluster OCID` = cluster OCID from Phase 4c
+  - `Existing Autonomous DB Subnet OCID` = subnet OCID from Phase 4c (for ADB packs)
+  - Fill admin/DB credentials (same as infra stack)
+  - Validate no required field errors
+- Step 3: Check "Run apply", click Create
+
+### 5b. Monitor app apply
+
+Record the job OCID. Invoke `/monitoring-deployment` with cluster OCID and job OCID.
+
+**If app fails:** invoke `/diagnosing-stack`, report to user, stop.
+
+### 5c. Extract app outputs
+
+After app succeeds, extract output URLs from "Application Information" tab:
+- `starter_pack_url` / `starter_pack_frontend_url`
+- Cluster OCID (for kubectl connection)
 
 ---
 
@@ -378,7 +369,17 @@ If no pack-specific coverage skill exists, run basic smoke tests:
 
 ---
 
-## Phase 7: Report
+## Phase 7: Cleanup and Report
+
+### 7a. Cleanup worktree
+
+```bash
+cd /tmp
+git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
+agent-browser --session-name $SESSION_NAME close 2>/dev/null
+```
+
+### 7b. Report
 
 Present a structured summary:
 
