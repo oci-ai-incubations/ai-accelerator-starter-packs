@@ -12,6 +12,14 @@ The only reliable workaround is to bypass the browser automation layer entirely 
 
 **Freedom level: LOW — follow this sequence exactly.**
 
+## CRITICAL: Do NOT click Browse before CDP upload
+
+Clicking the Browse/file-input button opens a native OS file dialog that **blocks CDP from interacting with the file input**. If a file dialog is open, it must be dismissed first (user presses Escape).
+
+Run CDP upload **directly** — no click on the file input button beforehand.
+
+After CDP upload, verify the file name appears in the UI. If it still shows "Drop a .zip file Browse" with no file, the upload failed. Retry CDP or ask the user to select the file manually via Browse.
+
 ---
 
 ## Prerequisites
@@ -29,19 +37,12 @@ The only reliable workaround is to bypass the browser automation layer entirely 
 
 ### Step 1 — Get the CDP Port
 
-Query the agent-browser process to find its CDP debugging port:
+Get the CDP port from agent-browser:
 
 ```bash
-# agent-browser exposes CDP on a local port, typically 9222
-CDP_PORT=9222
-
-# Verify the endpoint is accessible
-curl -s http://localhost:${CDP_PORT}/json/version | python3 -m json.tool
-```
-
-If the port is unknown, check the agent-browser startup logs or use:
-```bash
-lsof -nP -iTCP -sTCP:LISTEN | grep -E "9[0-9]{3}"
+CDP_URL=$(agent-browser --session-name oci get cdp-url)
+CDP_PORT=$(echo "$CDP_URL" | sed -n 's|.*127.0.0.1:\([0-9]*\).*|\1|p')
+echo "CDP_PORT: $CDP_PORT"
 ```
 
 ### Step 2 — Get the Page WebSocket URL

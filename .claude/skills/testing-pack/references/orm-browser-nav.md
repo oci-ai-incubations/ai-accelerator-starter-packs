@@ -184,11 +184,15 @@ The `agent-browser check @ref` command works sometimes. Try it first, verify wit
 
 ---
 
-## CDP File Upload UI Quirk
+## CDP File Upload — Critical Rules
 
-After uploading a file via CDP (`DOM.setFileInputFiles`), the UI may still show **"No file chosen"** on the button text. This is a cosmetic issue — the file IS uploaded. Click Next and the wizard will proceed normally with the uploaded file.
+1. **Do NOT click the Browse button before CDP upload.** Clicking Browse opens a native OS file dialog that blocks CDP from interacting with the file input. If a file dialog is open, dismiss it first (user presses Cancel/Escape).
 
-Do not re-upload or try to fix the button text. Just proceed.
+2. **Run CDP upload directly** without any click on the file input button. The CDP `DOM.setFileInputFiles` sets the file programmatically — no dialog needed.
+
+3. **Verify the upload worked** by checking the snapshot after CDP upload. If the file name appears next to the Browse button (e.g., `paas_rag-2026-04-01.zip ×`), the upload succeeded. If it still shows "Drop a .zip file Browse" with no file, the upload failed — retry the CDP script.
+
+4. **If CDP upload keeps failing**, ask the user to click Browse in the headed browser and select the file manually. Tell them the file path and wait for confirmation.
 
 ---
 
