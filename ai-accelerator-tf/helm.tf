@@ -528,7 +528,8 @@ resource "helm_release" "rag" {
   repository_username = "$oauthtoken"
   repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
-  timeout = 5400 # Increase timeout to 90 minutes
+  timeout         = 5400 # Increase timeout to 90 minutes
+  cleanup_on_fail = true
 
   values = [
     {
@@ -674,7 +675,8 @@ resource "helm_release" "aiq" {
   repository_username = "$oauthtoken"
   repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
-  timeout = 3600
+  timeout         = 3600
+  cleanup_on_fail = true
 
   values = [
     file("${path.module}/helm-values/aiq-aira-values.yaml")
