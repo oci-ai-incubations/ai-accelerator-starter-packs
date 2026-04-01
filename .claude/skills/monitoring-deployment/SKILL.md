@@ -109,7 +109,37 @@ oci resource-manager job get-job-logs \
 - Always surface: `Creation complete`, `Destruction complete`, `Error:`, `Apply complete!`, `Destroy complete!`.
 - Show resource creation/destruction completions as they appear.
 
-### 3.2 Node Health
+### 3.2 Instance Pool Work Requests (during infra apply)
+
+If the ORM logs show `instance_pool` or `cluster_network` is "Still creating...", check the instance pool work requests for GPU capacity failures. These errors don't surface in Terraform logs until the timeout — work requests reveal them immediately.
+
+```bash
+# List instance pools in the compartment
+export OCI_CLI_PROFILE=<PROFILE>
+oci compute-management instance-pool list \
+  --compartment-id <COMPARTMENT_OCID> \
+  --region <REGION> \
+  --lifecycle-state PROVISIONING \
+  --query 'data[].{id:id,state:"lifecycle-state",size:size}' \
+  --output table 2>/dev/null
+
+# Get work requests for each provisioning instance pool
+oci work-requests work-request list \
+  --compartment-id <COMPARTMENT_OCID> \
+  --resource-id <INSTANCE_POOL_OCID> \
+  --query 'data[].{id:id,status:status,"percent-complete":"percent-complete",started:"time-started"}' \
+  --output table 2>/dev/null
+
+# If any work request has FAILED status, get the error details
+oci work-requests work-request-error list \
+  --work-request-id <WORK_REQUEST_OCID> \
+  --query 'data[].{code:code,message:message}' \
+  --output table 2>/dev/null
+```
+
+Common failure: `Out of host capacity` (InternalError 500) — means no GPU bare-metal hosts available in the region/AD. Report immediately — don't wait for Terraform timeout.
+
+### 3.3 Node Health
 
 ```bash
 kubectl get nodes -o wide --no-headers 2>/dev/null
@@ -117,7 +147,7 @@ kubectl get nodes -o wide --no-headers 2>/dev/null
 
 Report: total nodes, Ready count, NotReady count. Flag any node in NotReady/SchedulingDisabled state.
 
-### 3.3 Pod Status — All Namespaces
+### 3.4 Pod Status — All Namespaces
 
 ```bash
 kubectl get pods -A --no-headers 2>/dev/null
