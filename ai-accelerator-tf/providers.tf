@@ -35,6 +35,17 @@ provider "oci" {
   private_key_path = var.use_instance_principal ? null : var.private_key_path
 }
 
+provider "oci" {
+  alias        = "genai_region"
+  tenancy_ocid = var.tenancy_ocid
+  region       = var.genai_region
+  auth         = var.use_instance_principal ? "InstancePrincipal" : null
+
+  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
+  fingerprint      = var.use_instance_principal ? null : var.fingerprint
+  private_key_path = var.use_instance_principal ? null : var.private_key_path
+}
+
 # New configuration to avoid Terraform Kubernetes provider interpolation. https://registry.terraform.io/providers/hashicorp/kubernetes/2.2.0/docs#stacking-with-managed-kubernetes-cluster-resources
 # Currently need to uncheck to refresh (--refresh=false) when destroying or else the terraform destroy will fail
 

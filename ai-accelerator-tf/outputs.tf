@@ -276,13 +276,13 @@ output "db_password" {
 }
 
 output "paas_rag_bucket_id" {
-  description = "OCID of the PaaS RAG specific Object Storage bucket (if created)"
-  value       = local.deploy_application && var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
+  description = "OCID of the Object Storage bucket (if created)"
+  value       = local._needs_object_storage ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
 }
 
 output "paas_rag_bucket_name" {
-  description = "Name of the PaaS RAG specific Object Storage bucket (if created)"
-  value       = local.deploy_application && var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
+  description = "Name of the Object Storage bucket (if created)"
+  value       = local._needs_object_storage ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
 }
 
 output "object_storage_namespace" {
@@ -293,6 +293,17 @@ output "object_storage_namespace" {
 output "selected_worker_node_availability_domain" {
   description = "Availability domain selected for worker nodes (for debugging)"
   value       = local.worker_node_availability_domain
+}
+
+# GenAI DAC Outputs (contract_analysis)
+output "dac_endpoint_url" {
+  description = "OCI GenAI Dedicated AI Cluster endpoint for the Qwen3-VL model"
+  value       = local.needs_dac ? oci_generative_ai_endpoint.qwen3_vl_endpoint[0].id : null
+}
+
+output "dac_cluster_id" {
+  description = "OCID of the GenAI Dedicated AI Cluster"
+  value       = local.needs_dac ? oci_generative_ai_dedicated_ai_cluster.riyadh_air_dac[0].id : null
 }
 
 # Version Information

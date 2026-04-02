@@ -3,9 +3,9 @@
 #
 
 resource "oci_objectstorage_bucket" "paas_rag_bucket" {
-  count          = local.deploy_application && var.starter_pack_category == "paas_rag" ? 1 : 0
+  count          = local._needs_object_storage ? 1 : 0
   compartment_id = var.compartment_ocid
-  name           = "paas-rag-${local.deploy_id}-bucket"
+  name           = "${var.starter_pack_category == "contract_analysis" ? "contract-analysis" : "paas-rag"}-${local.deploy_id}-bucket"
   namespace      = data.oci_objectstorage_namespace.ns.namespace
   access_type    = "NoPublicAccess"
   storage_tier   = "Standard"
@@ -17,14 +17,15 @@ resource "oci_objectstorage_bucket" "paas_rag_bucket" {
 }
 
 resource "oci_identity_customer_secret_key" "aws_compat_access_key" {
-  count        = local.deploy_application && var.starter_pack_category == "paas_rag" && var.aws_access_key_id == null ? 1 : 0
+  count        = local._needs_object_storage && var.aws_access_key_id == null ? 1 : 0
   provider     = oci.home_region
-  display_name = "paas-rag-${local.deploy_id}"
+  display_name = "${var.starter_pack_category == "contract_analysis" ? "contract-analysis" : "paas-rag"}-${local.deploy_id}"
   user_id      = var.current_user_ocid
 }
 
 locals {
-  bucket_name               = local.deploy_application && var.starter_pack_category == "paas_rag" ? oci_objectstorage_bucket.paas_rag_bucket[0].name : "#Not configured"
-  aws_compat_access_key_id  = local.deploy_application && var.starter_pack_category == "paas_rag" ? (var.aws_access_key_id != null ? var.aws_access_key_id : oci_identity_customer_secret_key.aws_compat_access_key[0].id) : "#Not configured"
-  aws_compat_access_key_key = local.deploy_application && var.starter_pack_category == "paas_rag" ? (var.aws_secret_access_key != null ? var.aws_secret_access_key : oci_identity_customer_secret_key.aws_compat_access_key[0].key) : "#Not configured"
+  _needs_object_storage     = contains(["paas_rag", "contract_analysis"], var.starter_pack_category)
+  bucket_name               = local._needs_object_storage ? oci_objectstorage_bucket.paas_rag_bucket[0].name : "#Not configured"
+  aws_compat_access_key_id  = local._needs_object_storage ? (var.aws_access_key_id != null ? var.aws_access_key_id : oci_identity_customer_secret_key.aws_compat_access_key[0].id) : "#Not configured"
+  aws_compat_access_key_key = local._needs_object_storage ? (var.aws_secret_access_key != null ? var.aws_secret_access_key : oci_identity_customer_secret_key.aws_compat_access_key[0].key) : "#Not configured"
 }

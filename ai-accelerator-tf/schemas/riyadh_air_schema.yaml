@@ -1,0 +1,173 @@
+# =============================================================================
+# Riyadh Air Contract Intelligence - Schema Overrides
+# =============================================================================
+# Based on paas_rag. Adds DAC (Dedicated AI Cluster) and contract services.
+# REQUIRES Oracle 26ai database + Object Storage + GenAI DAC.
+
+title: "Riyadh Air Contract Intelligence"
+description: "Ephemeral contract intelligence deployment with OCI GenAI Dedicated AI Cluster (H100), Qwen3-VL-235B vision-language model, contract analysis services, and Oracle 26ai database."
+informationalText: |
+  Deploy a Contract Intelligence stack with:
+  - OCI GenAI Dedicated AI Cluster (H100 GPU) hosting Qwen3-VL-235B-A22B-Instruct
+  - Contract analysis backend and frontend
+  - LlamaStack inference gateway
+  - Oracle 26ai Autonomous Database for vector storage
+  - S3-compatible Object Storage for document uploads
+
+  Note: The Dedicated AI Cluster is ephemeral and auto-terminates after the
+  specified number of hours.
+
+# =============================================================================
+# Output Groups
+# =============================================================================
+outputGroups:
+  - title: "Contract Intelligence Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+      - dac_endpoint_url
+      - dac_cluster_id
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Oracle 26ai Database"
+    outputs:
+      - autonomous_database_name
+      - autonomous_database_id
+      - db_username
+      - db_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variable Groups
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+      - genai_region
+      - dac_hours
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+  - title: "Oracle 26ai Database"
+    variables:
+      - db_username
+      - db_password
+
+  - title: "Object Storage Secrets (Customer Secret Keys)"
+    variables:
+      - aws_access_key_id
+      - aws_secret_access_key
+
+# =============================================================================
+# Variables
+# =============================================================================
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "Deployment Size"
+    description: "<strong>SMALL</strong> - 2x VM.Standard.E5.Flex (6 OCPU, 48GB Mem), 1x VM.Standard.E5.Flex (12 OCPU, 96GB Mem), Oracle 26ai Autonomous Database (4 ECPU, 2TB storage), OCI GenAI DAC (H100 x 8)"
+    default: small
+    required: true
+
+  genai_region:
+    title: "OCI GenAI Services Region"
+    description: "Region for OCI GenAI Dedicated AI Cluster and Services."
+    type: enum
+    default: us-chicago-1
+    enum:
+      - uk-london-1
+      - eu-frankfurt-1
+      - us-chicago-1
+      - us-ashburn-1
+      - me-riyadh-1
+    required: true
+    visible: true
+
+  dac_hours:
+    type: integer
+    title: "DAC Lifetime (Hours)"
+    description: "Number of hours the Dedicated AI Cluster will run before OCI auto-terminates it. The entire stack is designed for ephemeral use."
+    default: 24
+    minimum: 1
+    maximum: 720
+    required: true
+    visible: true
+
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
+    description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
+    required: true
+
+  aws_access_key_id:
+    type: password
+    title: "AWS-Compatible Access Key ID"
+    description: "Access Key ID for S3-compatible Object Storage. If not provided, one will be generated automatically."
+    required: false
+
+  aws_secret_access_key:
+    type: password
+    title: "AWS-Compatible Secret Access Key"
+    description: "Secret Access Key for S3-compatible Object Storage. If not provided, one will be generated automatically."
+    required: false
+
+  # Hide variables not relevant to riyadh_air
+  cuopt_frontend_enabled:
+    visible: false
+  cuopt_frontend_admin_username:
+    visible: false
+  cuopt_frontend_admin_password:
+    visible: false
+  google_maps_api_key:
+    visible: false
+  tavily_api_key:
+    visible: false
+  worker_node_availability_domain:
+    visible: false
+  ngc_api_key:
+    visible: false
+
+# =============================================================================
+# Outputs
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: string
+    title: "Contract Frontend URL"
+
+  dac_endpoint_url:
+    type: string
+    title: "GenAI DAC Endpoint URL"
+    visible: true
+
+  dac_cluster_id:
+    type: string
+    title: "GenAI Dedicated AI Cluster OCID"
+    visible: true

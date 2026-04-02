@@ -254,8 +254,7 @@ def inject_frontend_skin_url_map_output(merged_schema, skins_data):
         target_group["outputs"] = [o for o in target_group["outputs"] if o != "frontend_skin_image_uri"]
 
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"]
-
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "contract_analysis"]
 
 
 def get_args():
