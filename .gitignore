@@ -5,6 +5,7 @@
 *.tfstate
 *.tfstate.*
 CLAUDE.md
+terraform_vars.json
 
 # Crash log files
 crash.log
