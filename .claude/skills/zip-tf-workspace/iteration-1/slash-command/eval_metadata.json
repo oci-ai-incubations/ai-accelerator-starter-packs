@@ -1,0 +1,17 @@
+{
+  "eval_id": 2,
+  "eval_name": "slash-command",
+  "prompt": "/zip-tf",
+  "assertions": [
+    {"id": "schema-regenerated", "text": "Ran create_final_schema.py for enterprise_rag_aiq category", "with_skill_only": true},
+    {"id": "user-confirmation", "text": "Asked user for confirmation before creating zip", "with_skill_only": true},
+    {"id": "zip-in-zipped-dir", "text": "Zip file is in the zipped/ directory"},
+    {"id": "top-level-dir-structure", "text": "Zip contains ai-accelerator-tf/ as top-level directory"},
+    {"id": "no-terraform-dir", "text": ".terraform/ directory is NOT in the zip"},
+    {"id": "no-lock-file", "text": ".terraform.lock.hcl is NOT in the zip"},
+    {"id": "no-sensitive-tfvars", "text": "terraform.tfvars (with fake PII) is NOT in the zip"},
+    {"id": "has-auto-tfvars", "text": "starter_pack_category.auto.tfvars IS in the zip"},
+    {"id": "has-tfvars-example", "text": "terraform.tfvars.example IS in the zip"},
+    {"id": "verification-ran", "text": "Post-zip verification step was executed (unzip, check, cleanup)", "with_skill_only": true}
+  ]
+}

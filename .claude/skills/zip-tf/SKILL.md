@@ -25,8 +25,9 @@ Run from the repo root so `ai-accelerator-tf/` is the top-level directory in the
 
 ```bash
 TIMESTAMP=$(date +"%Y-%m-%d-%H%M")
+CATEGORY=$(grep -oP 'starter_pack_category\s*=\s*"\K[^"]+' ai-accelerator-tf/starter_pack_category.auto.tfvars)
 mkdir -p zipped
-ZIP_NAME="zipped/ai-accelerator-tf-${TIMESTAMP}.zip"
+ZIP_NAME="zipped/${CATEGORY}-${TIMESTAMP}.zip"
 
 zip -r "${ZIP_NAME}" ai-accelerator-tf/ \
   -x 'ai-accelerator-tf/.terraform/*' \
@@ -48,7 +49,7 @@ Unzip inside `zipped/`, validate, then clean up:
 
 ```bash
 cd zipped
-unzip -qo "ai-accelerator-tf-${TIMESTAMP}.zip" -d verify_tmp
+unzip -qo "${CATEGORY}-${TIMESTAMP}.zip" -d verify_tmp
 FAIL=0
 
 # Must NOT contain

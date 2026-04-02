@@ -72,3 +72,6 @@ release_test_matrix/
 
 # Excel temp/lock files
 ~$*
+
+# Git worktrees
+.worktrees/

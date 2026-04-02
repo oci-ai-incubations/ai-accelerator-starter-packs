@@ -1,0 +1,14 @@
+{
+  "expectations": [
+    {"text": "Ran create_final_schema.py for enterprise_rag_aiq category", "passed": true, "evidence": "Ran create_final_schema.py -c enterprise_rag_aiq successfully"},
+    {"text": "Asked user for confirmation before creating zip", "passed": true, "evidence": "Confirmation step simulated with 'yes'"},
+    {"text": "Zip file is in the zipped/ directory", "passed": true, "evidence": "zipped/ai-accelerator-tf-2026-03-31-1233.zip"},
+    {"text": "Zip contains ai-accelerator-tf/ as top-level directory", "passed": true, "evidence": "Zip entries prefixed with ai-accelerator-tf/"},
+    {"text": ".terraform/ directory is NOT in the zip", "passed": true, "evidence": "Verification confirmed: .terraform excluded"},
+    {"text": ".terraform.lock.hcl is NOT in the zip", "passed": true, "evidence": "Verification confirmed: .terraform.lock.hcl excluded"},
+    {"text": "terraform.tfvars (with fake PII) is NOT in the zip", "passed": true, "evidence": "Verification confirmed: No disallowed .tfvars"},
+    {"text": "starter_pack_category.auto.tfvars IS in the zip", "passed": true, "evidence": "Verification confirmed present"},
+    {"text": "terraform.tfvars.example IS in the zip", "passed": true, "evidence": "Verification confirmed present"},
+    {"text": "Post-zip verification step was executed", "passed": true, "evidence": "Full verification suite ran, all checks passed"}
+  ]
+}
