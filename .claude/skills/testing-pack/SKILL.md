@@ -269,9 +269,14 @@ Summarize which fields were correct/incorrect. If any field is wrong, stop and r
 
 **Do NOT create or fill in the app stack yet.** The app stack needs infra outputs (cluster OCID, ADB subnet OCID) which don't exist until infra apply succeeds.
 
-### 4a. Create infra stack via browser
+### 4a. Upload latest zip and create/update infra stack
 
-Navigate to the Create Stack page in agent-browser. Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack name, and click through the wizard:
+**Always upload the fresh zip from Phase 2** — even if the stack already exists. Phase 3 validation cancels the wizard, which discards any upload.
+
+- If the infra stack **already exists**: navigate to it, click "Upload new zip file link" or Edit → Edit stack
+- If creating **new**: navigate to Create Stack page
+
+Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack name, and click through the wizard:
 
 - Step 1: Upload zip, set name (e.g., `<pack> Infra`), click Next
 - Step 2: Fill variables — uncheck `Deploy Application`, check `Skip Capacity Check`, fill admin/DB credentials. Validate no required field errors before clicking Next.
@@ -309,9 +314,14 @@ EVALEOF
 
 **Only proceed after infra outputs are available.**
 
-### 5a. Create app stack via browser
+### 5a. Upload latest zip and configure app stack
 
-Navigate to Create Stack page. Upload the same zip via CDP. Click through the wizard:
+**You MUST upload the fresh zip from Phase 2** — even if the stack already exists and had a zip uploaded during schema validation (Phase 3). Phase 3 cancels the wizard, which discards the upload.
+
+- If the app stack **already exists**: navigate to it, click "Upload new zip file link" or Edit → Edit stack
+- If creating **new**: navigate to Create Stack page
+
+Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through the wizard:
 
 - Step 1: Upload zip, set name (e.g., `<pack> App`), click Next
 - Step 2: Fill variables:
