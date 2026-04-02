@@ -22,6 +22,9 @@ locals {
       "medium" = local._paas_rag_small_blueprint
       # Add "large" here when implemented
     }
+    "riyadh_air" = {
+      "small" = local._riyadh_air_small_blueprint
+    }
     # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
     "enterprise_rag" = {
       "small" = ""
@@ -1600,6 +1603,75 @@ locals {
         ],
         local._paas_rag_frontend_deployments
       )
+    }
+  })
+
+  # -----------------------------------
+  # Riyadh Air Blueprint
+  # Inherits paas_rag deployments (LlamaStack), removes OracleNet frontend,
+  # adds contract-backend and contract-frontend + DAC.
+  # Shares one 26ai database across all services.
+  # -----------------------------------
+
+  # Take paas_rag's deployments, remove the OracleNet frontend
+  _paas_rag_base_for_riyadh = [
+    for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments
+    : d if d.name != "frontend"
+  ]
+
+  _riyadh_air_small_blueprint = jsonencode({
+    deployment_group = {
+      name = "DEPLOY_NAME"
+      deployments = concat(local._paas_rag_base_for_riyadh, [
+        {
+          name       = "contract-backend"
+          depends_on = ["llamastack"]
+          recipe = {
+            recipe_id                            = "contract-backend"
+            recipe_mode                          = "service"
+            deployment_name                      = "contract-backend"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/riyadh-air-poc/contract-backend"
+            recipe_replica_count                 = 1
+            recipe_flex_shape_ocpu_count         = 4
+            recipe_flex_shape_memory_size_in_gbs = 32
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool          = true
+            recipe_container_port                = "8000"
+            recipe_container_env = [
+              { "key" = "DB_MODE", value = "oracle" },
+              { "key" = "ORACLE_USER", value = var.db_username },
+              { "key" = "ORACLE_PASSWORD", value = var.db_password },
+              { "key" = "ORACLE_DSN", value = local.oracle26ai_high_connection_string },
+              { "key" = "ORACLE_WALLET_DIR", value = "/app/wallet" },
+              { "key" = "QWEN_URL", value = local.needs_dac && length(oci_generative_ai_endpoint.qwen3_vl_endpoint) > 0 ? oci_generative_ai_endpoint.qwen3_vl_endpoint[0].id : "" },
+              { "key" = "QWEN_MODEL", value = "/models/Qwen/Qwen3-VL-235B-A22B-Instruct" },
+              { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
+              { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
+              { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
+              { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
+              { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-contracts" },
+              { "key" = "PYTHONUNBUFFERED", value = "1" },
+            ]
+          }
+        },
+        {
+          name       = "contract-frontend"
+          depends_on = ["contract-backend"]
+          recipe = {
+            recipe_id                            = "contract-frontend"
+            recipe_mode                          = "service"
+            deployment_name                      = "contract-frontend"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/riyadh-air-poc/contract-frontend"
+            recipe_replica_count                 = 1
+            recipe_flex_shape_ocpu_count         = 4
+            recipe_flex_shape_memory_size_in_gbs = 32
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool          = true
+            recipe_container_port                = "80"
+            service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+          }
+        }
+      ])
     }
   })
 }
