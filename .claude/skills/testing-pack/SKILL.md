@@ -284,9 +284,17 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack 
 
 See `references/orm-browser-nav.md` for checkbox toggling, password validation, and React Select patterns.
 
-### 4b. Monitor infra apply
+### 4b. Monitor infra apply with kubectl
 
-Record the job OCID. Invoke `/monitoring-deployment` or poll via agent-browser eval until the job reaches a terminal state.
+Record the job OCID. Once the OKE cluster is created (visible in ORM logs), **connect via kubectl** and monitor both ORM logs AND actual cluster state:
+
+1. **Poll ORM job status** every 60 seconds via OCI CLI
+2. **Connect to cluster** as soon as ORM logs show the cluster is created — generate kubeconfig and patch with profile (see `references/kubeconfig-patching.md`)
+3. **Check nodes and pods** via kubectl each cycle
+4. **Check instance pool work requests** if ORM logs show instance_pool "Still creating..." — surfaces GPU capacity failures immediately (see `/monitoring-deployment` step 3.2)
+5. **Report status** each cycle
+
+Invoke `/monitoring-deployment` if available, or run checks inline.
 
 **If infra fails:** invoke `/diagnosing-stack`, report to user, stop.
 
@@ -333,9 +341,24 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through
   - Validate no required field errors
 - Step 3: Check "Run apply", click Create
 
-### 5b. Monitor app apply
+### 5b. Monitor app apply with kubectl
 
-Record the job OCID. Invoke `/monitoring-deployment` with cluster OCID and job OCID.
+Record the job OCID. **Connect to the cluster via kubectl** (using the cluster OCID from Phase 4c — see `references/kubeconfig-patching.md`) and monitor both ORM logs AND actual container status:
+
+1. **Poll ORM job status** every 60 seconds via OCI CLI
+2. **Check pods across all namespaces** via kubectl:
+   ```bash
+   export KUBECONFIG=$HOME/.kube/config-<short_name>
+   kubectl get pods --all-namespaces --no-headers
+   ```
+3. **Check Helm releases** for failures:
+   ```bash
+   helm list --all-namespaces --all
+   ```
+4. **Investigate non-healthy pods** — describe pending/crashing pods, get logs
+5. **Report status** each cycle: ORM job state + pod counts + any issues
+
+This is critical — ORM logs only show "Still creating..." but kubectl reveals the actual container state (image pulls, scheduling failures, crashes). Invoke `/monitoring-deployment` if available, or run the checks inline.
 
 **If app fails:** invoke `/diagnosing-stack`, report to user, stop.
 
