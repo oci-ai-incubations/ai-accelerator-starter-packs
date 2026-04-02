@@ -49,5 +49,5 @@ resource "kubernetes_namespace_v1" "milvus" {
   metadata {
     name = "milvus"
   }
-  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 }

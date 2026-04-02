@@ -27,7 +27,7 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   subnet_id                                      = local.autonomous_db_subnet_id
   private_endpoint_label                         = "aiaccel${random_string.deploy_id.result}"
 
-  count = local.deploy_application && local.needs_26ai ? 1 : 0
+  count = local.deploy_app_26ai ? 1 : 0
 
   lifecycle {
     precondition {
@@ -51,7 +51,7 @@ resource "kubernetes_secret_v1" "oadb-admin" {
   }
   type = "Opaque"
 
-  count      = local.deploy_application && local.needs_26ai ? 1 : 0
+  count      = local.deploy_app_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -65,7 +65,7 @@ resource "kubernetes_secret_v1" "oadb-connection" {
   }
   type = "Opaque"
 
-  count      = local.deploy_application && local.needs_26ai ? 1 : 0
+  count      = local.deploy_app_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -84,6 +84,6 @@ resource "kubernetes_secret_v1" "oadb_high_connection" {
   }
   type = "Opaque"
 
-  count      = local.deploy_application && local.needs_26ai ? 1 : 0
+  count      = local.deploy_app_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }

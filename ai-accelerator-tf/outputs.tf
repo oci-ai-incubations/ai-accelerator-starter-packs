@@ -235,23 +235,23 @@ output "grafana_admin_password" {
 # Autonomous Database Outputs
 output "autonomous_database_id" {
   description = "OCID of the Autonomous Database"
-  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].id : null
+  value       = local.deploy_app_26ai ? oci_database_autonomous_database.oracle_26ai[0].id : null
 }
 
 output "autonomous_database_name" {
   description = "Name of the Autonomous Database"
-  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].db_name : null
+  value       = local.deploy_app_26ai ? oci_database_autonomous_database.oracle_26ai[0].db_name : null
 }
 
 output "connection_strings" {
   description = "Connection strings for the Autonomous Database"
-  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].connection_strings : null
+  value       = local.deploy_app_26ai ? oci_database_autonomous_database.oracle_26ai[0].connection_strings : null
   sensitive   = true
 }
 
 output "private_endpoint" {
   description = "Private endpoint details"
-  value       = local.deploy_application && local.needs_26ai ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
+  value       = local.deploy_app_26ai ? oci_database_autonomous_database.oracle_26ai[0].private_endpoint : null
 }
 
 output "autonomous_db_subnet_id" {

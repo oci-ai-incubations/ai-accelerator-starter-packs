@@ -1,7 +1,7 @@
 # ConfigMap to hold the blueprint JSON file
 # Not created for enterprise_rag since it's deployed via Helm, not OCI AI Blueprints
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
-  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_non_rag ? 1 : 0
   metadata {
     name = "blueprint-config"
   }
@@ -88,7 +88,7 @@ resource "kubernetes_job_v1" "configure_oke_for_aiq_namespace" {
 # Unique suffix for deployment names - changes only when the canonical blueprint content changes,
 # so the blueprint deployment job is not re-run on every apply.
 resource "random_id" "blueprint_deploy_id" {
-  count       = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count       = local.deploy_app_non_rag ? 1 : 0
   byte_length = 4
 
   keepers = {
@@ -134,7 +134,7 @@ resource "null_resource" "custom_dns_configuration_warning" {
 
 # Blueprint deployment job - not used for enterprise_rag since it's deployed via Helm
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
-  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_non_rag ? 1 : 0
   metadata {
     name = "blueprint-deployment-job-${random_id.blueprint_deploy_id[0].hex}"
   }
@@ -297,7 +297,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
 # During terraform destroy, this resource is destroyed FIRST (inverse dependency order),
 # so Corrino and the ingress are still alive when the undeploy script runs.
 resource "terraform_data" "blueprint_undeploy" {
-  count = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_non_rag ? 1 : 0
 
   input = {
     api_url  = local.public_endpoint.api_origin_secure

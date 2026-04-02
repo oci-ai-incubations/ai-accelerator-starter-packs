@@ -9,6 +9,13 @@ locals {
   deploy_infrastructure = !local.use_existing_cluster
   effective_cluster_id  = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
 
+  # Compound gating locals — single source of truth for repeated count/for_each conditions
+  deploy_app_vss      = local.deploy_application && var.starter_pack_category == "vss"
+  deploy_app_rag      = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_non_rag  = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_26ai     = local.deploy_application && local.needs_26ai
+  run_capacity_checks = local.deploy_infrastructure && !var.skip_capacity_check
+
   app = {
     backend_service_name         = "corrino-cp"
     backend_service_name_origin  = "http://corrino-cp"

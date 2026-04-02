@@ -15,7 +15,7 @@ locals {
 
 # ConfigMap for VSS Postgres credentials (used by the Postgres container)
 resource "kubernetes_config_map_v1" "vss_postgres_config" {
-  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-postgres-config"
@@ -34,7 +34,7 @@ resource "kubernetes_config_map_v1" "vss_postgres_config" {
 
 # PersistentVolumeClaim for VSS Postgres data
 resource "kubernetes_persistent_volume_claim_v1" "vss_postgresql_pv_claim" {
-  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-postgresql-pv-claim"
@@ -61,7 +61,7 @@ resource "kubernetes_persistent_volume_claim_v1" "vss_postgresql_pv_claim" {
 
 # VSS PostgreSQL Deployment
 resource "kubernetes_deployment_v1" "vss_postgres" {
-  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-postgres"
@@ -145,7 +145,7 @@ resource "kubernetes_deployment_v1" "vss_postgres" {
 
 # VSS PostgreSQL Service (ClusterIP)
 resource "kubernetes_service_v1" "vss_postgres" {
-  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-postgres"
@@ -175,7 +175,7 @@ resource "kubernetes_service_v1" "vss_postgres" {
 
 # Secret containing DATABASE_URL for VSS Oracle UX (Prisma)
 resource "kubernetes_secret_v1" "vss_db_url" {
-  count = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-db-url"

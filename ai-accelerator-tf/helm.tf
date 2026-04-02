@@ -434,7 +434,7 @@ resource "helm_release" "milvus" {
       value = "docker.io/milvusdb/milvus"
     }
   ]
-  count      = local.deploy_application && var.starter_pack_category == "vss" ? 1 : 0
+  count      = local.deploy_app_vss ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
 
@@ -449,7 +449,7 @@ resource "kubernetes_namespace_v1" "app_namespace" {
 # The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
 # scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
 resource "terraform_data" "label_nim_llm_node" {
-  count = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && !local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -474,7 +474,7 @@ resource "terraform_data" "label_nim_llm_node" {
 }
 
 resource "terraform_data" "label_nim_llm_node_via_operator" {
-  count = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -597,7 +597,7 @@ resource "helm_release" "rag" {
       }
     ] : []
   )
-  count = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_rag ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node, terraform_data.label_nim_llm_node_via_operator
@@ -605,13 +605,13 @@ resource "helm_release" "rag" {
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
-  count    = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count    = local.deploy_app_rag ? 1 : 0
   content  = data.oci_containerengine_cluster_kube_config.oke.content
   filename = "${path.module}/kubeconfig_patch"
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector" {
-  count = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && !local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -633,7 +633,7 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector_via_operator" {
-  count = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
