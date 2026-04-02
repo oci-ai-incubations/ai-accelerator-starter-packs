@@ -499,6 +499,16 @@ resource "terraform_data" "label_nim_llm_node_via_operator" {
   ]
 }
 
+# Read the NGC API key created by configure_oke.py to authenticate with NGC helm registry
+data "kubernetes_secret_v1" "ngc_api_secret" {
+  metadata {
+    name      = "ngc-api-secret"
+    namespace = local.starter_pack_config.app_namespace
+  }
+  count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  depends_on = [kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
+}
+
 resource "helm_release" "rag" {
   name             = "rag"
   namespace        = local.starter_pack_config.app_namespace
@@ -507,7 +517,7 @@ resource "helm_release" "rag" {
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
 
   repository_username = "$oauthtoken"
-  repository_password = var.ngc_secret
+  repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
   timeout = 5400 # Increase timeout to 90 minutes
 
@@ -522,11 +532,11 @@ resource "helm_release" "rag" {
     [
       {
         name  = "imagePullSecret.password"
-        value = var.ngc_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       },
       {
         name  = "ngcApiSecret.password"
-        value = var.ngc_api_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       }
     ],
     # Oracle 26ai credentials are only needed for enterprise_rag (not enterprise_rag_aiq)
@@ -554,7 +564,7 @@ resource "helm_release" "rag" {
     [
       {
         name  = "global.ngcApiKey"
-        value = var.ngc_api_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       },
       {
         name  = "nim-llm.image.repository"
@@ -653,7 +663,7 @@ resource "helm_release" "aiq" {
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq-aira-v1.2.1.tgz"
 
   repository_username = "$oauthtoken"
-  repository_password = var.ngc_secret
+  repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
   timeout = 3600
 
@@ -665,11 +675,11 @@ resource "helm_release" "aiq" {
     [
       {
         name  = "imagePullSecret.password"
-        value = var.ngc_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       },
       {
         name  = "ngcApiSecret.password"
-        value = var.ngc_api_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       }
     ],
     var.tavily_api_key != "" ? [
@@ -679,7 +689,6 @@ resource "helm_release" "aiq" {
       }
     ] : []
   )
-
   set = [
     {
       name  = "backendEnvVars.RAG_SERVER_URL"
@@ -697,11 +706,13 @@ resource "helm_release" "aiq" {
 
   count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
 
-  # The aiq stack depends on the rag stack deployment to complete.
+  # The aiq stack depends on the rag stack deployment to complete and
+  # the AIQ namespace secrets to be created by configure_oke.
   depends_on = [
     helm_release.rag,
     terraform_data.patch_nim_llm_service_selector,
-    terraform_data.patch_nim_llm_service_selector_via_operator
+    terraform_data.patch_nim_llm_service_selector_via_operator,
+    kubernetes_job_v1.configure_oke_for_aiq_namespace,
   ]
 }
 

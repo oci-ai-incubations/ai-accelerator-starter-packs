@@ -3,20 +3,6 @@
 # 
 
 # Authentication Configuration
-variable "ngc_secret" {
-  type        = string
-  default     = "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"
-  sensitive   = true
-  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
-}
-
-variable "ngc_api_secret" {
-  type        = string
-  default     = "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"
-  sensitive   = true
-  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
-}
-
 variable "use_instance_principal" {
   type        = bool
   default     = false
@@ -871,7 +857,7 @@ locals {
         deployment_name                              = "enterprise-rag"
         app_namespace                                = "rag"
         nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = false
+        create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -901,7 +887,7 @@ locals {
         app_namespace                                = "rag"
         aiq_namespace                                = "aiq"
         nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = false
+        create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -928,7 +914,7 @@ locals {
         app_namespace                                = "rag"
         aiq_namespace                                = "aiq"
         nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = false
+        create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0

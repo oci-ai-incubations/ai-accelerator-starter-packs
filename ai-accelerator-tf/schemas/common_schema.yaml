@@ -401,12 +401,20 @@ variables:
     type: boolean
     visible: false
 
-  ngc_secret:
+  cuopt_frontend_admin_password:
     type: password
     visible: false
 
-  ngc_api_secret:
-    type: password
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+
+  cuopt_frontend_enabled:
+    type: boolean
+    visible: false
+  
+  google_maps_api_key:
+    type: string
     visible: false
 
   nip_io_domain:

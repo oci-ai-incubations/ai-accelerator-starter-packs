@@ -24,16 +24,12 @@ namespace: "nv-nvidia-blueprint-rag"
 # -- Image pull secret for all images used by this chart
 imagePullSecret:
   name: "ngc-secret"
-  registry: "nvcr.io"
-  username: "$oauthtoken"
-  password: ""
-  create: true
+  create: false
 
 # -- Secret containing API keys for NVIDIA NGC model registry
 ngcApiSecret:
-  name: "ngc-api"
-  password: ""
-  create: true
+  name: "ngc-api-secret"
+  create: false
 
 # -- RAG server container image
 image:
@@ -236,11 +232,8 @@ ingestor-server:
   replicaCount: 1
 
   imagePullSecret:
-    create: false
     name: "ngc-secret"
-    registry: "nvcr.io"
-    username: "$oauthtoken"
-    password: ""
+    create: false
 
   image:
     repository: nvcr.io/nvidia/blueprint/ingestor-server
