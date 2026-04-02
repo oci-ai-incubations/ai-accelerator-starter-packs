@@ -380,7 +380,14 @@ From the app stack's "Application Information" tab in agent-browser, extract:
 
 ### 6b. Navigate to app
 
-Open the frontend URL in agent-browser. Verify the page loads.
+The deployed apps use self-signed certificates (nip.io domains). You must relaunch agent-browser with `--ignore-https-errors`:
+
+```bash
+agent-browser --session-name $SESSION_NAME close 2>/dev/null
+agent-browser --headed --session-name $SESSION_NAME --ignore-https-errors open "https://<frontend-url>"
+```
+
+Verify the page loads (HTTP 200, expected content visible in snapshot).
 
 ### 6c. Run pack-specific smoke tests
 
