@@ -80,8 +80,18 @@ Confirm to the user that the working directory is now the worktree path and that
 
 ## Cleanup
 
+Before removing, **always check for uncommitted changes** in the worktree:
+
 ```bash
-cd /tmp  # exit worktree first
+git -C "${WORKTREE_PATH}" status --short
+```
+
+- If output is empty: safe to remove.
+- If there are uncommitted changes: **warn the user** and ask whether to commit, stash, or discard before proceeding. Never silently destroy uncommitted work.
+
+Then remove:
+
+```bash
 git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
 ```
 
