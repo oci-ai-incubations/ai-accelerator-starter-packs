@@ -114,17 +114,19 @@ DB_PASS="Aa1!$(openssl rand -base64 16 | tr -d '/+=' | head -c 12)"
 echo "Admin: $ADMIN_USER / $ADMIN_PASS / $ADMIN_EMAIL / DB: $DB_PASS"
 ```
 
-Pack-specific credentials to generate:
+Pack-specific credentials:
 
-| Category | Additional required variables |
-|---|---|
-| `cuopt` | `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password` |
-| `enterprise_rag` | `ngc_secret`, `ngc_api_secret` (ask user — these are real API keys) |
-| `enterprise_rag_aiq` | `ngc_secret`, `ngc_api_secret`, `tavily_api_key` (ask user) |
-| `paas_rag` | None beyond admin/db |
-| `vss` | `ngc_secret`, `ngc_api_secret` (ask user) |
+| Category | Additional variables | Action |
+|---|---|---|
+| `cuopt` | `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password` | Generate random |
+| `enterprise_rag` | (none extra) | NGC keys have defaults in vars.tf |
+| `enterprise_rag_aiq` | `tavily_api_key` | Ask user — real API key |
+| `paas_rag` | (none extra) | — |
+| `vss` | (none extra) | NGC keys have defaults in vars.tf |
 
-**For NGC/Tavily API keys:** ask the user — these are real credentials, not random values.
+**NGC keys (`ngc_secret`, `ngc_api_secret`):** These have default values in `vars.tf` and are hidden in the ORM schema. Do NOT ask the user for them.
+
+**Tavily API key:** Only `enterprise_rag_aiq` requires this. Ask the user — it's a real API key with no default.
 
 ### 0g. ADB packs
 
