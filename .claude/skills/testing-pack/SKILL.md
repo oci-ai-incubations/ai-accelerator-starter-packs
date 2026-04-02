@@ -278,7 +278,7 @@ Summarize which fields were correct/incorrect. If any field is wrong, stop and r
 
 Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack name, and click through the wizard:
 
-- Step 1: Upload zip, set name (e.g., `<pack> Infra`), click Next
+- Step 1: Upload zip, set name with date/time (e.g., `Enterprise RAG AIQ - Infra - 2026-04-02 0946`), click Next
 - Step 2: Fill variables — uncheck `Deploy Application`, check `Skip Capacity Check`, fill admin/DB credentials. Validate no required field errors before clicking Next.
 - Step 3: Check "Run apply", click Create
 
@@ -323,7 +323,7 @@ EVALEOF
 
 Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through the wizard:
 
-- Step 1: Upload zip, set name (e.g., `<pack> App`), click Next
+- Step 1: Upload zip, set name with date/time (e.g., `Enterprise RAG AIQ - App - 2026-04-02 0946`), click Next
 - Step 2: Fill variables:
   - `Deploy Application` = checked
   - `Skip Capacity Check` = checked
