@@ -20,7 +20,9 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply.
 
-4. **Use a unique agent-browser session name** to avoid conflicts with other Claude sessions. Generate one at the start:
+4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button in agent-browser or `oci resource-manager job create-destroy-job`.
+
+5. **Use a unique agent-browser session name** to avoid conflicts with other Claude sessions. Generate one at the start:
    ```bash
    SESSION_NAME="oci-$(date +%s)"
    ```
