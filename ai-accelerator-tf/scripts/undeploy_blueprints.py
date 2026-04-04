@@ -97,6 +97,7 @@ def main():
     # Step 5: Poll workspace until recipes clear
     if uuids:
         print("Waiting for workspace recipes to clear...")
+        consecutive_errors = 0
         for attempt in range(60):
             try:
                 ws_req = urllib.request.Request(
@@ -106,6 +107,7 @@ def main():
                 )
                 ws = json.load(urllib.request.urlopen(ws_req, context=ctx))
                 recipes = ws.get("recipes") or {}
+                consecutive_errors = 0
                 if not recipes:
                     print("Workspace recipes cleared after %ds." % (attempt * 10))
                     break
@@ -114,7 +116,12 @@ def main():
                     % (attempt + 1, len(recipes))
                 )
             except Exception as e:
-                print("  Poll failed:", e)
+                consecutive_errors += 1
+                print("  Poll failed (%d consecutive): %s" % (consecutive_errors, e))
+                if consecutive_errors >= 5:
+                    print("ERROR: Workspace API failed %d times in a row. "
+                          "A dependency (e.g. postgres) may have been destroyed." % consecutive_errors)
+                    sys.exit(1)
             time.sleep(10)
         else:
             print("Timeout waiting for workspace to clear.")
