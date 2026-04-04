@@ -65,6 +65,11 @@ output "node_pool_id" {
   value       = local.deploy_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
 }
 
+output "node_subnet_id" {
+  description = "OCID of the worker node subnet"
+  value       = local.create_network_resources ? oci_core_subnet.oke_nodes_subnet[0].id : var.existing_node_subnet_id
+}
+
 output "node_pool_kubernetes_version" {
   description = "Kubernetes version of the node pool"
   value       = local.deploy_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].kubernetes_version : null

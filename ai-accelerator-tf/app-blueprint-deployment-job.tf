@@ -161,6 +161,22 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
           args = [<<-EOT
             set -e
             API_URL="${local.public_endpoint.api_origin_secure}"
+            echo "Waiting for Corrino API to become reachable at $API_URL..."
+            for i in $(seq 1 30); do
+              STATUS=$(curl -sk -o /dev/null -w "%%{http_code}" -X POST "$API_URL/login/" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "username=$CORRINO_USERNAME&password=$CORRINO_PASSWORD" 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "Corrino API reachable (attempt $i)"
+                break
+              fi
+              echo "  Attempt $i/30: API returned $STATUS, waiting 10s..."
+              sleep 10
+            done
+            if [ "$STATUS" != "200" ]; then
+              echo "ERROR: Corrino API not reachable after 30 attempts"
+              exit 1
+            fi
             echo "Blueprint lifecycle: undeploying existing Ingress deployments before deploy..."
             python3 - "$API_URL" "$CORRINO_USERNAME" "$CORRINO_PASSWORD" << 'PYTHON_UNDEPLOY'
             import json, ssl, sys, time, urllib.request
@@ -284,6 +300,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
 
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
+    kubernetes_ingress_v1.corrino_cp_ingress,
     kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
@@ -313,5 +330,9 @@ resource "terraform_data" "blueprint_undeploy" {
   depends_on = [
     kubernetes_job_v1.blueprint_deployment_job,
     helm_release.ingress_nginx,
+    kubernetes_deployment_v1.corrino_cp_deployment,
+    kubernetes_deployment_v1.corrino_cp_background_deployment,
+    kubernetes_service_v1.corrino_cp_service,
+    kubernetes_ingress_v1.corrino_cp_ingress,
   ]
 }

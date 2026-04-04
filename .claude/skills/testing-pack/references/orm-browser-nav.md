@@ -142,6 +142,41 @@ EVALEOF
 
 For cross-origin iframes, `contentDocument` will be null. Use CDP directly instead (see `cdp-file-upload.md`).
 
+### Scrolling inside the iframe
+
+**`agent-browser scroll` does NOT work for ORM content.** It scrolls the top-level page, but ORM form content is inside the iframe. The iframe has its own scrollable container.
+
+Use JavaScript `scrollIntoView` to scroll to specific elements inside the iframe:
+
+```bash
+# Scroll to a specific section heading (e.g., "Advanced Options")
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
+var iframe = document.querySelector('iframe');
+var doc = iframe.contentDocument || iframe.contentWindow.document;
+var headers = doc.querySelectorAll('h4');
+for (var i = 0; i < headers.length; i++) {
+  if (headers[i].textContent === 'Advanced Options') {
+    headers[i].scrollIntoView({ behavior: 'instant', block: 'start' });
+    break;
+  }
+}
+'scrolled';
+EVALEOF
+```
+
+```bash
+# Scroll to a specific input field by name
+agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
+var iframe = document.querySelector('iframe');
+var doc = iframe.contentDocument || iframe.contentWindow.document;
+var input = doc.querySelector('input[name="existing_cluster_id"]');
+if (input) input.scrollIntoView({ behavior: 'instant', block: 'center' });
+'scrolled';
+EVALEOF
+```
+
+**Key point:** Always use `scrollIntoView` via `eval` when you need to view or screenshot a specific part of the ORM form. The `agent-browser scroll` command only affects the outer page chrome.
+
 ---
 
 ## ORM Checkbox Toggling

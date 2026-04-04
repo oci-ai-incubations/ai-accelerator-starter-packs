@@ -67,6 +67,7 @@ outputGroups:
     outputs:
       - cluster_id
       - autonomous_db_subnet_id
+      - node_subnet_id
       - node_pool_id
       - vcn_id
 
@@ -102,6 +103,7 @@ variableGroups:
       - create_policies
       - deploy_application
       - existing_cluster_id
+      - existing_node_subnet_id
       - existing_autonomous_db_subnet_id
 
 # =============================================================================
@@ -356,7 +358,10 @@ variables:
 
   existing_node_subnet_id:
     type: string
-    visible: false
+    title: "Existing Node Subnet OCID"
+    description: "Subnet OCID for the worker node pool. Required when using an existing cluster. Get this value from the node_subnet_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   existing_pods_subnet_id:
     type: string
@@ -650,6 +655,12 @@ outputs:
     type: string
     title: "Autonomous DB Subnet OCID"
     description: "Use as existing_autonomous_db_subnet_id when deploying an app-only stack."
+    visible: true
+
+  node_subnet_id:
+    type: string
+    title: "Node Subnet OCID"
+    description: "Use as existing_node_subnet_id when deploying an app-only stack."
     visible: true
 
   node_pool_id:

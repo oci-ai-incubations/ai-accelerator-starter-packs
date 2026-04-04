@@ -9,6 +9,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-003 | Provider host "https://" in existing cluster mode | Critical | 2026-03-31 |
 | Fixed | BUG-004 | llamastack secrets "already exists" on existing cluster | High | 2026-03-31 |
 | Fixed | BUG-005 | ADB creation fails with 400 — missing private_endpoint_label | Critical | 2026-03-31 |
+| Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
 
 ---
 
@@ -161,3 +162,41 @@ Added `private_endpoint_label = "aiaccel${random_string.deploy_id.result}"` to t
 **Verification:** Re-run ORM apply — ADB should create successfully with a private endpoint.
 
 **Prevention:** When configuring OCI ADB with `is_mtls_connection_required = false`, always include `private_endpoint_label` to ensure a private endpoint is created.
+
+### BUG-006: Blueprint validation fails — subnetId required for shared_node_pool recipes
+
+**Status:** Fixed
+**Date found:** 2026-04-02
+**Date fixed:** 2026-04-03
+**Found by:** Grant during paas_rag two-stack integration test in ap-osaka-1
+**Severity:** Critical
+
+**Symptoms:**
+Blueprint deployment job returns HTTP 400 from Corrino API:
+```
+[llamastack] Validator logic error / Parameter subnetId cannot be None, whitespace or empty string
+[frontend] Validator logic error / Parameter subnetId cannot be None, whitespace or empty string
+```
+The `null_resource.wait_for_deployment` polls indefinitely because the blueprint was never deployed. ORM apply eventually times out.
+
+**Root cause:**
+The `SubnetValidator` in Corrino (`api/control_plane/validator/subnet_validator.py`) calls `OciNetworkDao.get_subnet()` for every recipe component. It first tries `cmd.get_recipe_pod_subnet_ocid()` (from the blueprint payload), then falls back to `settings.OKE_NODE_SUBNET_ID`. In the two-stack model, `OKE_NODE_SUBNET_ID` was empty because `local.network.oke_node_subnet_id` resolved to `var.existing_node_subnet_id` which defaulted to `""` — the variable existed in `vars.tf` but was never exposed in the ORM schema for users to populate.
+
+The full chain: `app-configmap.tf` → `local.network.oke_node_subnet_id` → `local.create_network_resources ? oci_core_subnet.oke_nodes_subnet[0].id : var.existing_node_subnet_id` → `""` (default) → Corrino `SubnetValidator` → OCI SDK `get_subnet(None)` → `ValueError`.
+
+**Affected files:**
+- `ai-accelerator-tf/outputs.tf` — missing `node_subnet_id` output
+- `ai-accelerator-tf/schemas/common_schema.yaml` — `existing_node_subnet_id` was `visible: false` and not in any variable group
+- `ai-accelerator-tf/app-locals.tf:162` — `oke_node_subnet_id` correctly fell back to `var.existing_node_subnet_id`, but that variable was always empty in app-only stacks
+
+**Workaround:**
+None — blueprint validation fails and blocks deployment.
+
+**Resolution:**
+Added `node_subnet_id` output to `outputs.tf` (mirrors the pattern of `autonomous_db_subnet_id`). Made `existing_node_subnet_id` visible in `common_schema.yaml` with title, description, and placement in the "Advanced Options" variable group between `existing_cluster_id` and `existing_autonomous_db_subnet_id`. Added `node_subnet_id` to the "Infrastructure (for App-Only Stack)" output group so users can copy it from the infra stack UI.
+
+The infra stack now outputs the node subnet OCID, which the user copies into the app stack's "Existing Node Subnet OCID" field. This populates `OKE_NODE_SUBNET_ID` in the Corrino configmap, allowing the `SubnetValidator` to pass.
+
+**Verification:** Deploy a two-stack paas_rag: infra stack outputs `node_subnet_id`, app stack receives it as `existing_node_subnet_id`, blueprint deploys successfully (HTTP 200 from Corrino API, deployment status reaches `monitoring`/`active`).
+
+**Prevention:** When adding a new `existing_*` variable for the two-stack model, ensure it is: (1) output from the infra stack, (2) visible in the ORM schema, (3) in the "Advanced Options" variable group, and (4) in the "Infrastructure (for App-Only Stack)" output group. The Corrino `SubnetValidator` should also be updated to skip validation when `recipe_use_shared_node_pool = true` (defense in depth).

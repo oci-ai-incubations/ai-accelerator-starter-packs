@@ -42,12 +42,13 @@ def main():
         login_resp = urllib.request.urlopen(login_req, context=ctx)
         token = json.load(login_resp).get("token") if login_resp else None
     except Exception as e:
-        print("API not reachable, skipping undeploy:", e)
-        sys.exit(0)
+        print("ERROR: Corrino API not reachable at %s: %s" % (api_url, e))
+        print("Cannot undeploy blueprints — API must be running.")
+        sys.exit(1)
 
     if not token:
-        print("No token, skipping undeploy.")
-        sys.exit(0)
+        print("ERROR: Login succeeded but no token returned.")
+        sys.exit(1)
 
     # Step 2: Fetch workspace recipes
     try:
@@ -59,8 +60,8 @@ def main():
         ws = json.load(urllib.request.urlopen(ws_req, context=ctx))
         recipes = ws.get("recipes") or {}
     except Exception as e:
-        print("No workspace, skipping undeploy:", e)
-        sys.exit(0)
+        print("ERROR: Failed to fetch workspace: %s" % e)
+        sys.exit(1)
 
     # Step 3: Filter for Ingress-type recipes with a deployment-uuid
     uuids = [
