@@ -334,6 +334,8 @@ resource "terraform_data" "blueprint_undeploy" {
     kubernetes_deployment_v1.corrino_cp_background_deployment,
     kubernetes_service_v1.corrino_cp_service,
     kubernetes_ingress_v1.corrino_cp_ingress,
+    kubernetes_cluster_role_v1.corrino_cluster_role,
+    kubernetes_cluster_role_binding_v1.corrino_cluster_role_binding,
     kubernetes_deployment_v1.postgres,
     kubernetes_service_v1.postgres,
   ]
