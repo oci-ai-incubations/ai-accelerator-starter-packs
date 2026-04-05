@@ -366,7 +366,7 @@ This is critical — ORM logs only show "Still creating..." but kubectl reveals 
 
 1. Invoke `/diagnosing-stack` to identify root cause
 2. If the failure is a **first-time error** (e.g., missing variable, bad config): fix and retry once
-3. If the failure involves **orphaned resources or repeated Helm failures** (stale releases, "cannot re-use name", "already exists", repeated timeouts after cleanup attempts): **destroy the infra stack and start completely fresh.** Don't waste time manually cleaning up a messy cluster — it's faster to destroy both stacks and recreate from scratch. The infra reprovisioning time (15-30 min) is less than the time spent debugging cascading partial-deploy failures.
+3. If the failure involves **orphaned resources or repeated apply failures** ("already exists", "cannot re-use name", repeated timeouts, resources stuck in bad state after cleanup attempts): **destroy both stacks and start completely fresh.** Don't waste time manually cleaning up a messy cluster — it's faster to destroy everything and recreate from scratch. The infra reprovisioning time (15-30 min) is less than the time spent debugging cascading partial-deploy state.
 
 To destroy and start fresh:
 ```bash
