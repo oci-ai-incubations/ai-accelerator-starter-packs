@@ -379,6 +379,20 @@ oci resource-manager stack delete --stack-id <app_stack_ocid> --force
 oci resource-manager stack delete --stack-id <infra_stack_ocid> --force
 ```
 
+After destroy completes, clean up resources that ORM destroy may not remove:
+
+```bash
+# Delete customer secret keys (quota of 2 per user — must clean up or next deploy fails)
+oci iam customer-secret-key list --user-id <current_user_ocid> --query 'data[].id' --raw-output | while read key_id; do
+  oci iam customer-secret-key delete --user-id <current_user_ocid> --customer-secret-key-id "$key_id" --force
+done
+
+# Delete ADB if it wasn't cleaned up by destroy (check compartment)
+oci db autonomous-database list --compartment-id <compartment_ocid> --lifecycle-state AVAILABLE --query 'data[].id' --raw-output | while read adb_id; do
+  oci db autonomous-database delete --autonomous-database-id "$adb_id" --force
+done
+```
+
 Then restart from Phase 4 with fresh stacks. Report the failure and fresh-start to the user.
 
 ### 5c. Extract app outputs
