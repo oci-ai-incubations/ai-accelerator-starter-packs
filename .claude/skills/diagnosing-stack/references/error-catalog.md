@@ -15,6 +15,7 @@ This catalog is extensible — add new patterns as they are discovered.
 | `installation failed` | Helm install completed but reported failure. The release may be in `failed` state. | Check `helm status <release> -n <namespace>` and pod logs. If the release is in `failed` state, `helm uninstall` it before retrying. |
 | `upgrade failed: another operation .* is in progress` | A previous Helm operation was interrupted (e.g., ORM job cancelled mid-apply). The release is stuck in `pending-install` or `pending-upgrade`. | `helm rollback <release> 0 -n <namespace>` or `helm uninstall <release> -n <namespace>` if rollback fails. |
 | `timed out waiting for the condition` | Helm `wait` flag timed out. Pods or jobs did not reach ready/complete state. | Same as `context deadline exceeded` — investigate pod-level failures. |
+| Repeated Helm failures after cleanup (multiple `cannot re-use` / `installation failed` / timeouts in succession) | Cluster is in a bad state from cascading partial deploys. Manual cleanup of individual resources creates more problems (orphaned CRDs, dangling PVCs, stuck finalizers). | **Stop trying to fix individual resources.** Destroy both the app AND infra stacks completely, delete them, and start fresh. The 15-30 min infra reprovisioning is faster than debugging cascading partial-deploy state. Destroy order: app stack first, then infra stack. |
 
 ---
 

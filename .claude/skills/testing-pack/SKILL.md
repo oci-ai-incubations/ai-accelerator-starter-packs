@@ -362,7 +362,24 @@ Record the job OCID. **Connect to the cluster via kubectl** (using the cluster O
 
 This is critical — ORM logs only show "Still creating..." but kubectl reveals the actual container state (image pulls, scheduling failures, crashes). Invoke `/monitoring-deployment` if available, or run the checks inline.
 
-**If app fails:** invoke `/diagnosing-stack`, report to user, stop.
+**If app fails:**
+
+1. Invoke `/diagnosing-stack` to identify root cause
+2. If the failure is a **first-time error** (e.g., missing variable, bad config): fix and retry once
+3. If the failure involves **orphaned resources or repeated Helm failures** (stale releases, "cannot re-use name", "already exists", repeated timeouts after cleanup attempts): **destroy the infra stack and start completely fresh.** Don't waste time manually cleaning up a messy cluster — it's faster to destroy both stacks and recreate from scratch. The infra reprovisioning time (15-30 min) is less than the time spent debugging cascading partial-deploy failures.
+
+To destroy and start fresh:
+```bash
+# Destroy app stack first (if it has state)
+oci resource-manager job create-destroy-job --stack-id <app_stack_ocid> --execution-plan-strategy AUTO_APPROVED
+# Wait for destroy to complete, then destroy infra
+oci resource-manager job create-destroy-job --stack-id <infra_stack_ocid> --execution-plan-strategy AUTO_APPROVED
+# Delete both stacks after destroy completes
+oci resource-manager stack delete --stack-id <app_stack_ocid> --force
+oci resource-manager stack delete --stack-id <infra_stack_ocid> --force
+```
+
+Then restart from Phase 4 with fresh stacks. Report the failure and fresh-start to the user.
 
 ### 5c. Extract app outputs
 
