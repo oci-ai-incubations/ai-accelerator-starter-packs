@@ -20,7 +20,7 @@ terraform destroy               # use --refresh=false if destroy fails on k8s pr
 
 ## Testing Commands
 
-### Terraform Unit Tests (requires Terraform >= 1.7, module targets >= 1.5)
+### Terraform Unit Tests
 
 ```bash
 cd ai-accelerator-tf/
@@ -31,6 +31,11 @@ terraform test -filter=tests/starter_pack_cuopt.tftest.hcl  # single starter pac
 ```
 
 All providers are mocked — no cloud credentials needed. Tests are plan-only (`command = plan`).
+
+**Terraform version split:** OCI Resource Manager (ORM) only supports up to **Terraform 1.5.7**, so all Terraform code must remain 1.5-compatible (`required_version = ">= 1.5"` in `versions.tf`). However, unit tests use `mock_provider` which requires **Terraform >= 1.7**. This means:
+- **Production (ORM):** Runs Terraform 1.5.7 — the code must be compatible with this version.
+- **Unit tests (local/CI):** Require Terraform >= 1.7 — the test harness uses newer features, but the Terraform language constructs under test (locals, count, for_each, validations) behave identically across 1.5–1.9.
+- **CI must use Terraform >= 1.7** for the test job, not 1.5.
 
 ### Schema Tests (requires Python 3.11+)
 
@@ -138,3 +143,13 @@ Starter packs (except `enterprise_rag`, which uses Helm directly) are deployed a
 - Helm values live in `ai-accelerator-tf/helm-values/` as standalone YAML files (some are Terraform-templated).
 - `schema.yaml` and `schemas/generated/` are gitignored — always regenerate, never edit directly.
 - Detailed test writing guides: `ai-accelerator-tf/tests/RULES.md` (Terraform tests) and `ai-accelerator-tf/schemas/tests/RULES.md` (schema tests).
+
+## Bug Tracking
+
+Proactively track bugs in `BUGS.md` at the repo root. This is an ongoing list — not something the user needs to ask for.
+
+- **When the user reports something is broken, wrong, or unexpected:** Log it in `BUGS.md` with symptoms, root cause, and affected files. Use the `/bug-tracker log` format.
+- **When a bug is fixed (in this session or any session):** Update the existing entry in `BUGS.md` with the resolution, PR/commit references, and verification steps. Use the `/bug-tracker fix` format.
+- **Before investigating a new issue:** Check `BUGS.md` first to see if it's a known bug.
+
+The goal is to build institutional knowledge of what breaks, why, and how it was fixed — so future sessions have context.

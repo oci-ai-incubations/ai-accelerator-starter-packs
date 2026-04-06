@@ -1,4 +1,5 @@
 resource "kubernetes_service_v1" "corrino_cp_service" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "corrino-cp"
     annotations = {
@@ -19,6 +20,7 @@ resource "kubernetes_service_v1" "corrino_cp_service" {
 }
 
 resource "kubernetes_deployment_v1" "corrino_cp_deployment" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "corrino-cp"
     labels = {

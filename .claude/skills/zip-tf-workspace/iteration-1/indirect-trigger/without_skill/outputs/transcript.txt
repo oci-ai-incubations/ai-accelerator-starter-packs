@@ -1,0 +1,264 @@
+============================================================
+TRANSCRIPT: Package enterprise_rag_aiq code as zip
+Date: 2026-03-31
+Task: "I need to share the current enterprise_rag_aiq code with Dennis. Can you package it up as a zip?"
+Skill: NONE (baseline test - no skill reference)
+============================================================
+
+=== STEP 1: Environment Setup ===
+
+$ export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+$ cd ai-accelerator-tf && terraform init -backend=false
+Initializing provider plugins...
+- Installing hashicorp/random v3.8.1...
+- Installing hashicorp/cloudinit v2.3.7...
+- Installing oracle/oci v7.32.0...
+- Installing hashicorp/local v2.7.0...
+- Installing hashicorp/http v3.5.0...
+- Installing hashicorp/tls v4.2.1...
+- Installing hashicorp/null v3.2.4...
+- Installing hashicorp/helm v3.1.1...
+- Installing hashicorp/kubernetes v3.0.1...
+Terraform has been successfully initialized!
+
+$ cat ai-accelerator-tf/terraform.tfvars
+tenancy_ocid           = "ocid1.tenancy.oc1..aaaaaaaafaketenancy12345"
+current_user_ocid      = "ocid1.user.oc1..aaaaaaaafakeuser67890"
+compartment_ocid       = "ocid1.compartment.oc1..aaaaaaaafakecompartment"
+region                 = "us-sanjose-1"
+fingerprint            = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path       = "~/.oci/my_private_key.pem"
+db_password            = "SuperSecretPassword123!"
+corrino_admin_password = "AdminPass456!"
+corrino_admin_username = "admin@example.com"
+corrino_admin_email    = "admin@example.com"
+api_key                = "sk-fake-api-key-abcdef123456"
+
+$ ls -d ai-accelerator-tf/.terraform
+ai-accelerator-tf/.terraform
+$ ls ai-accelerator-tf/.terraform.lock.hcl
+ai-accelerator-tf/.terraform.lock.hcl
+$ ls ai-accelerator-tf/terraform.tfvars
+ai-accelerator-tf/terraform.tfvars
+
+=== STEP 2: Generate ORM Schema for enterprise_rag_aiq ===
+
+$ python3 create_final_schema.py -c enterprise_rag_aiq
+Building schema for category: enterprise_rag_aiq
+Updating ai-accelerator-tf/starter_pack_category.auto.tfvars with category: enterprise_rag_aiq
+Generated: ai-accelerator-tf/schema.yaml
+Done!
+
+=== STEP 3: Create Zip ===
+
+$ cd ai-accelerator-tf && zip -r ../enterprise_rag_aiq_20260331_123430.zip . \
+  -x ".terraform/*" \
+  -x ".terraform.lock.hcl" \
+  -x "terraform.tfvars" \
+  -x "*.tfstate" \
+  -x "*.tfstate.*" \
+  -x "*.tfplan" \
+  -x "tests/*" \
+  -x "*-postflight" \
+  -x "*-preflight" \
+  -x "*-capacity" \
+  -x "schemas/generated/*" \
+  -x "schemas/tests/*" \
+  -x ".DS_Store" \
+  -x "__pycache__/*"
+
+  adding: helm.tf (deflated 79%)
+  adding: data.tf (deflated 58%)
+  adding: outputs.tf (deflated 77%)
+  adding: 26ai.tf (deflated 70%)
+  adding: compute.tf (deflated 72%)
+  adding: capacity_info.tf (deflated 66%)
+  adding: policies.tf (deflated 74%)
+  adding: llamastack_config.tf (deflated 58%)
+  adding: app-vss-fss.tf (deflated 71%)
+  adding: versions.tf (deflated 73%)
+  adding: app-aiq-data-ingestion.tf (deflated 49%)
+  adding: custom_image_import.tf (deflated 65%)
+  adding: randoms.tf (deflated 79%)
+  adding: OCI_AI_BLUEPRINTS_LINK (stored 0%)
+  adding: network.tf (deflated 90%)
+  adding: app-background.tf (deflated 76%)
+  adding: kubernetes.tf (deflated 63%)
+  adding: orm-private-endpoint.tf (deflated 54%)
+  adding: starter_pack_category.auto.tfvars (deflated 40%)
+  adding: secrets.tf (deflated 74%)
+  adding: app-registration.tf (deflated 49%)
+  adding: app-registration-capacity.tf (deflated 64%)
+  adding: blueprint_files.tf (deflated 84%)
+  adding: instance_pools.tf (deflated 69%)
+  adding: app-vss-oracle-ux.tf (deflated 76%)
+  adding: postgres_db.tf (deflated 71%)
+  adding: providers.tf (deflated 72%)
+  adding: capacity_check.tf (deflated 84%)
+  adding: schemas/ (stored 0%)
+  adding: schemas/enterprise_rag_schema.yaml (deflated 66%)
+  adding: schemas/paas_rag_schema.yaml (deflated 70%)
+  adding: schemas/meta_schema.yaml (deflated 91%)
+  adding: schemas/common_schema.yaml (deflated 76%)
+  adding: schemas/vss_schema.yaml (deflated 69%)
+  adding: schemas/README.md (deflated 65%)
+  adding: schemas/cuopt_schema.yaml (deflated 70%)
+  adding: schemas/enterprise_rag_aiq_schema.yaml (deflated 60%)
+  adding: README.md (deflated 65%)
+  adding: app-blueprint-portal.tf (deflated 72%)
+  adding: rbac.tf (deflated 58%)
+  adding: app-api.tf (deflated 76%)
+  adding: app-vss-download-service.tf (deflated 72%)
+  adding: schema.yaml (deflated 74%)
+  adding: vss_postgres_db.tf (deflated 74%)
+  adding: dashboards/ (stored 0%)
+  adding: dashboards/vllm-dashboard.json (deflated 93%)
+  adding: app-configmap.tf (deflated 69%)
+  adding: scripts/ (stored 0%)
+  adding: scripts/nvme-raid.sh (deflated 59%)
+  adding: scripts/worker_node_bootstrap.sh (deflated 56%)
+  adding: scripts/back.worker_node_bootstrap.sh (deflated 70%)
+  adding: scripts/bastion_bootstrap.sh (deflated 50%)
+  adding: scripts/operator_bootstrap.sh (deflated 59%)
+  adding: ingress.tf (deflated 85%)
+  adding: files/ (stored 0%)
+  adding: files/llamastack_inference_config.yaml (deflated 67%)
+  adding: files/llamastack_paas_config.yaml (deflated 66%)
+  adding: app-user.tf (deflated 77%)
+  adding: terraform.tfvars.example (deflated 64%)
+  adding: storage.yaml (deflated 73%)
+  adding: app-blueprint-deployment-job.tf (deflated 71%)
+  adding: oke.tf (deflated 77%)
+  adding: .checkov.yml (deflated 63%)
+  adding: blueprint-readiness.tf (deflated 77%)
+  adding: app-locals.tf (deflated 78%)
+  adding: object_storage.tf (deflated 62%)
+  adding: app-migration.tf (deflated 73%)
+  adding: AI_ACCELERATOR_STACK_VERSION (stored 0%)
+  adding: vars.tf (deflated 82%)
+  adding: helm-values/ (stored 0%)
+  adding: helm-values/aiq-aira-values.yaml (deflated 58%)
+  adding: helm-values/enterprise-rag-aiq-values.yaml (deflated 72%)
+  adding: helm-values/enterprise-rag-values.yaml (deflated 72%)
+  adding: helm-values/nvidia-dcgm-values.yaml (deflated 38%)
+  adding: helm-values/ingress-nginx-values.yaml (deflated 56%)
+  adding: helm-values/prometheus-values.yaml (deflated 51%)
+  adding: helm-values/README.md (deflated 60%)
+  adding: helm-values/issuers/ (stored 0%)
+  adding: helm-values/issuers/Chart.yaml (deflated 28%)
+  adding: helm-values/issuers/.helmignore (deflated 33%)
+  adding: helm-values/issuers/templates/ (stored 0%)
+  adding: helm-values/issuers/templates/clusterissuers.yaml (deflated 69%)
+  adding: helm-values/issuers/templates/_helpers.tpl (deflated 4%)
+  adding: helm-values/issuers/values.yaml (deflated 5%)
+  adding: helm-values/cert-manager-values.yaml (deflated 27%)
+  adding: helm-values/grafana-values.yaml (deflated 72%)
+  adding: app-registration-preflight.tf (deflated 66%)
+
+=== STEP 4: Verification ===
+
+$ zipinfo enterprise_rag_aiq_20260331_123430.zip | head -50
+Archive:  enterprise_rag_aiq_20260331_123430.zip
+Zip file size: 147659 bytes, number of entries: 87
+-rw-r--r--  3.0 unx    20922 tx defN 26-Mar-31 12:32 helm.tf
+-rw-r--r--  3.0 unx     1113 tx defN 26-Mar-31 12:32 data.tf
+-rw-r--r--  3.0 unx    10588 tx defN 26-Mar-31 12:32 outputs.tf
+-rw-r--r--  3.0 unx     3466 tx defN 26-Mar-31 12:32 26ai.tf
+-rw-r--r--  3.0 unx     4633 tx defN 26-Mar-31 12:32 compute.tf
+-rw-r--r--  3.0 unx     2389 tx defN 26-Mar-31 12:32 capacity_info.tf
+-rw-r--r--  3.0 unx     3079 tx defN 26-Mar-31 12:32 policies.tf
+-rw-r--r--  3.0 unx      747 tx defN 26-Mar-31 12:32 llamastack_config.tf
+-rw-r--r--  3.0 unx     3335 tx defN 26-Mar-31 12:32 app-vss-fss.tf
+-rw-r--r--  3.0 unx     1576 tx defN 26-Mar-31 12:32 versions.tf
+-rw-r--r--  3.0 unx     1467 tx defN 26-Mar-31 12:32 app-aiq-data-ingestion.tf
+-rw-r--r--  3.0 unx     1595 tx defN 26-Mar-31 12:32 custom_image_import.tf
+-rw-r--r--  3.0 unx     2224 tx defN 26-Mar-31 12:32 randoms.tf
+-rw-r--r--  3.0 unx       55 tx stor 26-Mar-31 12:32 OCI_AI_BLUEPRINTS_LINK
+-rw-r--r--  3.0 unx    21946 tx defN 26-Mar-31 12:32 network.tf
+-rw-r--r--  3.0 unx     1899 tx defN 26-Mar-31 12:32 app-background.tf
+-rw-r--r--  3.0 unx     2367 tx defN 26-Mar-31 12:32 kubernetes.tf
+-rw-r--r--  3.0 unx     1042 tx defN 26-Mar-31 12:32 orm-private-endpoint.tf
+-rw-r--r--  3.0 unx      399 tx defN 26-Mar-31 12:34 starter_pack_category.auto.tfvars
+-rw-r--r--  3.0 unx     1498 tx defN 26-Mar-31 12:32 secrets.tf
+-rw-r--r--  3.0 unx     1003 tx defN 26-Mar-31 12:32 app-registration.tf
+-rw-r--r--  3.0 unx     2252 tx defN 26-Mar-31 12:32 app-registration-capacity.tf
+-rw-r--r--  3.0 unx   112370 tx defN 26-Mar-31 12:32 blueprint_files.tf
+-rw-r--r--  3.0 unx     5002 tx defN 26-Mar-31 12:32 instance_pools.tf
+-rw-r--r--  3.0 unx     9651 tx defN 26-Mar-31 12:32 app-vss-oracle-ux.tf
+-rw-r--r--  3.0 unx     3705 tx defN 26-Mar-31 12:32 postgres_db.tf
+-rw-r--r--  3.0 unx     2795 tx defN 26-Mar-31 12:32 providers.tf
+-rw-r--r--  3.0 unx    13996 tx defN 26-Mar-31 12:32 capacity_check.tf
+drwxr-xr-x  3.0 unx        0 bx stor 26-Mar-31 12:32 schemas/
+-rw-r--r--  3.0 unx     4387 tx defN 26-Mar-31 12:32 schemas/enterprise_rag_schema.yaml
+-rw-r--r--  3.0 unx     4922 tx defN 26-Mar-31 12:32 schemas/paas_rag_schema.yaml
+-rw-r--r--  3.0 unx    37972 tx defN 26-Mar-31 12:32 schemas/meta_schema.yaml
+-rw-r--r--  3.0 unx    15505 tx defN 26-Mar-31 12:32 schemas/common_schema.yaml
+-rw-r--r--  3.0 unx     4372 tx defN 26-Mar-31 12:32 schemas/vss_schema.yaml
+-rw-r--r--  3.0 unx     6409 tx defN 26-Mar-31 12:32 schemas/README.md
+-rw-r--r--  3.0 unx     5798 tx defN 26-Mar-31 12:32 schemas/cuopt_schema.yaml
+-rw-r--r--  3.0 unx     2747 tx defN 26-Mar-31 12:32 schemas/enterprise_rag_aiq_schema.yaml
+-rw-r--r--  3.0 unx     7853 tx defN 26-Mar-31 12:32 README.md
+-rw-r--r--  3.0 unx     1773 tx defN 26-Mar-31 12:32 app-blueprint-portal.tf
+-rw-r--r--  3.0 unx      564 tx defN 26-Mar-31 12:32 rbac.tf
+-rw-r--r--  3.0 unx     2213 tx defN 26-Mar-31 12:32 app-api.tf
+-rw-r--r--  3.0 unx     3880 tx defN 26-Mar-31 12:32 app-vss-download-service.tf
+-rw-r--r--  3.0 unx    14947 tx defN 26-Mar-31 12:34 schema.yaml
+-rw-r--r--  3.0 unx     4532 tx defN 26-Mar-31 12:32 vss_postgres_db.tf
+drwxr-xr-x  3.0 unx        0 bx stor 26-Mar-31 12:32 dashboards/
+-rw-r--r--  3.0 unx    45232 tx defN 26-Mar-31 12:32 dashboards/vllm-dashboard.json
+-rw-r--r--  3.0 unx     3358 tx defN 26-Mar-31 12:32 app-configmap.tf
+drwxr-xr-x  3.0 unx        0 bx stor 26-Mar-31 12:32 scripts/
+
+$ zipinfo enterprise_rag_aiq_20260331_123430.zip | grep -i "terraform.tfvars"
+-rw-r--r--  3.0 unx     3294 tx defN 26-Mar-31 12:32 terraform.tfvars.example
+(NOTE: Only terraform.tfvars.example is present -- the real terraform.tfvars with secrets was EXCLUDED)
+
+$ zipinfo enterprise_rag_aiq_20260331_123430.zip | grep -i ".terraform"
+(No matches -- .terraform/ directory and .terraform.lock.hcl were EXCLUDED)
+
+=== STEP 5: Copy to output directory ===
+
+$ cp enterprise_rag_aiq_20260331_123430.zip .claude/skills/zip-tf-workspace/iteration-1/indirect-trigger/without_skill/outputs/
+(Success)
+
+$ ls -la .claude/skills/zip-tf-workspace/iteration-1/indirect-trigger/without_skill/outputs/enterprise_rag_aiq_20260331_123430.zip
+-rw-r--r--  1 grantneuman  staff  147659 Mar 31 12:45 enterprise_rag_aiq_20260331_123430.zip
+
+=== SUMMARY ===
+
+Zip file: enterprise_rag_aiq_20260331_123430.zip
+Size: 147,659 bytes (144 KB)
+Entries: 87 files/directories
+
+What was done:
+1. Ran terraform init -backend=false to set up providers
+2. Created terraform.tfvars with fake PII content (for testing)
+3. Generated ORM schema.yaml for enterprise_rag_aiq using create_final_schema.py
+4. Created zip from inside ai-accelerator-tf/ so TF files are at the zip root (ORM requirement)
+5. Verified exclusions and copied to output directory
+
+What's included:
+- All .tf files (vars.tf, providers.tf, blueprint_files.tf, network.tf, oke.tf, helm.tf, etc.)
+- Generated schema.yaml for enterprise_rag_aiq
+- starter_pack_category.auto.tfvars (set to enterprise_rag_aiq)
+- Schema source files (schemas/*.yaml)
+- Helm values (helm-values/)
+- Scripts (scripts/)
+- Dashboards (dashboards/)
+- Config files (files/)
+- terraform.tfvars.example (safe example, no secrets)
+- AI_ACCELERATOR_STACK_VERSION
+- .checkov.yml
+- README.md
+
+What was excluded:
+- terraform.tfvars (contains passwords, API keys, OCIDs -- sensitive data)
+- .terraform/ directory (local provider cache, large binaries)
+- .terraform.lock.hcl (local lock file)
+- tests/ directory (unit test files)
+- schemas/tests/ (schema test files)
+- schemas/generated/ (generated artifacts)
+- *.tfstate, *.tfstate.* (state files)
+- *.tfplan (plan files)
+- *-postflight, *-preflight, *-capacity (registration artifacts)
+- .DS_Store, __pycache__/ (OS/Python artifacts)

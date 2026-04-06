@@ -64,12 +64,12 @@ run "plan_enterprise_rag_aiq_small" {
   }
 
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag_aiq"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "enterprise_rag_aiq"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 }

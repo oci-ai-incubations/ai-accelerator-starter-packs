@@ -37,7 +37,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
     }
   }
   type  = "ENHANCED_CLUSTER"
-  count = var.network_configuration_mode == "create_new" ? 1 : 0
+  count = local.deploy_infrastructure && var.network_configuration_mode == "create_new" ? 1 : 0
 
   depends_on = [
     oci_core_subnet.oke_k8s_endpoint_subnet,
@@ -81,16 +81,22 @@ resource "oci_containerengine_cluster" "oke_cluster_existing_vcn" {
     }
   }
 
-  count = var.network_configuration_mode == "bring_your_own" ? 1 : 0
+  count = local.deploy_infrastructure && var.network_configuration_mode == "bring_your_own" ? 1 : 0
 }
 
 # Local to get the correct cluster based on configuration mode
 locals {
-  oke_cluster = var.network_configuration_mode == "create_new" ? oci_containerengine_cluster.oke_cluster[0] : oci_containerengine_cluster.oke_cluster_existing_vcn[0]
+  oke_cluster = local.deploy_infrastructure ? (
+    var.network_configuration_mode == "create_new" ?
+    oci_containerengine_cluster.oke_cluster[0] :
+    oci_containerengine_cluster.oke_cluster_existing_vcn[0]
+  ) : null
 }
 
 # OKE Node Pool
 resource "oci_containerengine_node_pool" "oke_node_pool" {
+  count = local.deploy_infrastructure ? 1 : 0
+
   cluster_id         = local.oke_cluster.id
   compartment_id     = var.compartment_ocid
   kubernetes_version = var.k8s_version
@@ -139,11 +145,11 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
 resource "tls_private_key" "oke_ssh_key" {
   algorithm = "RSA"
   rsa_bits  = 2048
-  count     = var.ssh_public_key == "" ? 1 : 0
+  count     = local.deploy_infrastructure && var.ssh_public_key == "" ? 1 : 0
 }
 
 resource "oci_containerengine_node_pool" "worker_cpu_pool" {
-  count = local.starter_pack_config.cpu_worker_node_pool_size > 0 ? 1 : 0
+  count = local.deploy_infrastructure && local.starter_pack_config.cpu_worker_node_pool_size > 0 ? 1 : 0
 
   cluster_id         = local.oke_cluster.id
   compartment_id     = var.compartment_ocid
@@ -207,7 +213,7 @@ resource "oci_containerengine_node_pool" "worker_cpu_pool" {
 
 resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
   addon_name                       = "NvidiaGpuPlugin"
-  cluster_id                       = oci_containerengine_cluster.oke_cluster[0].id
+  cluster_id                       = local.effective_cluster_id
   remove_addon_resources_on_delete = true
   override_existing                = true
 
@@ -215,8 +221,10 @@ resource "oci_containerengine_addon" "nvidia_gpu_plugin" {
     key   = "isDcgmExporterDisabled"
     value = "true"
   }
+
+  count = local.deploy_infrastructure ? 1 : 0
 }
 
 data "oci_containerengine_cluster_kube_config" "oke_kube_config" {
-  cluster_id = oci_containerengine_cluster.oke_cluster[0].id
+  cluster_id = local.effective_cluster_id
 }

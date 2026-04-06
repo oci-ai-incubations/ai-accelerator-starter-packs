@@ -5,7 +5,7 @@
 
 # Service for VSS Download Service
 resource "kubernetes_service_v1" "vss_download_service" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-download-service"
@@ -31,7 +31,7 @@ resource "kubernetes_service_v1" "vss_download_service" {
 
 # Deployment for VSS Download Service
 resource "kubernetes_deployment_v1" "vss_download_service_deployment" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-download-service"

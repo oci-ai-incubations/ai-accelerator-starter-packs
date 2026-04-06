@@ -1,7 +1,7 @@
 # ConfigMap to hold the blueprint JSON file
 # Not created for enterprise_rag since it's deployed via Helm, not OCI AI Blueprints
 resource "kubernetes_config_map_v1" "blueprint_config_map" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 0 : 1
+  count = local.deploy_app_non_rag ? 1 : 0
   metadata {
     name = "blueprint-config"
   }
@@ -40,7 +40,7 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
   ]
-  count = local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
+  count = local.deploy_application && local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
 }
 
 # Configure OKE secrets in the AIQ namespace (enterprise_rag_aiq only).
@@ -88,7 +88,7 @@ resource "kubernetes_job_v1" "configure_oke_for_aiq_namespace" {
 # Unique suffix for deployment names - changes only when the canonical blueprint content changes,
 # so the blueprint deployment job is not re-run on every apply.
 resource "random_id" "blueprint_deploy_id" {
-  count       = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count       = local.deploy_app_non_rag ? 1 : 0
   byte_length = 4
 
   keepers = {
@@ -99,7 +99,7 @@ resource "random_id" "blueprint_deploy_id" {
 # DNS Configuration Warning - outputs the required DNS setup when custom_dns is enabled
 # This runs BEFORE the blueprint deployment job so users see the message even if deployment fails
 resource "null_resource" "custom_dns_configuration_warning" {
-  count = var.use_custom_dns ? 1 : 0
+  count = local.deploy_application && var.use_custom_dns ? 1 : 0
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -134,7 +134,7 @@ resource "null_resource" "custom_dns_configuration_warning" {
 
 # Blueprint deployment job - not used for enterprise_rag since it's deployed via Helm
 resource "kubernetes_job_v1" "blueprint_deployment_job" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 0 : 1
+  count = local.deploy_app_non_rag ? 1 : 0
   metadata {
     name = "blueprint-deployment-job-${random_id.blueprint_deploy_id[0].hex}"
   }
@@ -161,6 +161,22 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
           args = [<<-EOT
             set -e
             API_URL="${local.public_endpoint.api_origin_secure}"
+            echo "Waiting for Corrino API to become reachable at $API_URL..."
+            for i in $(seq 1 30); do
+              STATUS=$(curl -sk -o /dev/null -w "%%{http_code}" -X POST "$API_URL/login/" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "username=$CORRINO_USERNAME&password=$CORRINO_PASSWORD" 2>/dev/null || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "Corrino API reachable (attempt $i)"
+                break
+              fi
+              echo "  Attempt $i/30: API returned $STATUS, waiting 10s..."
+              sleep 10
+            done
+            if [ "$STATUS" != "200" ]; then
+              echo "ERROR: Corrino API not reachable after 30 attempts"
+              exit 1
+            fi
             echo "Blueprint lifecycle: undeploying existing Ingress deployments before deploy..."
             python3 - "$API_URL" "$CORRINO_USERNAME" "$CORRINO_PASSWORD" << 'PYTHON_UNDEPLOY'
             import json, ssl, sys, time, urllib.request
@@ -284,11 +300,43 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
 
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
+    kubernetes_ingress_v1.corrino_cp_ingress,
     kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
     oci_objectstorage_bucket.paas_rag_bucket,
     oci_identity_customer_secret_key.aws_compat_access_key,
     null_resource.custom_dns_configuration_warning,
+  ]
+}
+
+# Destroy-time provisioner: undeploys all blueprints via Corrino API before app teardown.
+# During terraform destroy, this resource is destroyed FIRST (inverse dependency order),
+# so Corrino and the ingress are still alive when the undeploy script runs.
+resource "terraform_data" "blueprint_undeploy" {
+  count = local.deploy_app_non_rag ? 1 : 0
+
+  input = {
+    api_url  = local.public_endpoint.api_origin_secure
+    username = var.corrino_admin_username
+    password = var.corrino_admin_password
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "python3 ${path.module}/scripts/undeploy_blueprints.py '${self.output.api_url}' '${self.output.username}' '${self.output.password}'"
+  }
+
+  depends_on = [
+    kubernetes_job_v1.blueprint_deployment_job,
+    helm_release.ingress_nginx,
+    kubernetes_deployment_v1.corrino_cp_deployment,
+    kubernetes_deployment_v1.corrino_cp_background_deployment,
+    kubernetes_service_v1.corrino_cp_service,
+    kubernetes_ingress_v1.corrino_cp_ingress,
+    kubernetes_cluster_role_v1.corrino_cluster_role,
+    kubernetes_cluster_role_binding_v1.corrino_cluster_role_binding,
+    kubernetes_deployment_v1.postgres,
+    kubernetes_service_v1.postgres,
   ]
 }

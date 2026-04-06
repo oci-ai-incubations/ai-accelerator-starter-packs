@@ -76,5 +76,5 @@ resource "kubernetes_job_v1" "corrino_migration_job" {
     kubernetes_config_map_v1.corrino-configmap,
     kubernetes_service_v1.postgres,
   ]
-  count = 1
+  count = local.deploy_application ? 1 : 0
 }

@@ -52,6 +52,7 @@ variables {
   tavily_api_key                  = ""
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
+  db_password                     = "TestDBP@ssw0rd123!"
 }
 
 # Test: enterprise_rag starter pack plans successfully with correct deployment name and registration triggers
@@ -66,13 +67,13 @@ run "plan_enterprise_rag_small" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "enterprise_rag"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   # Postflight registration trigger should record the deployment region
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 

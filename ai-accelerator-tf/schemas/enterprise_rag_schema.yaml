@@ -63,6 +63,7 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
+      - worker_node_availability_domain
 
   - title: "Administrator Account"
     variables:

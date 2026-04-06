@@ -63,6 +63,14 @@ outputGroups:
     outputs:
       - ai_accelerator_stack_version
 
+  - title: "Infrastructure (for App-Only Stack)"
+    outputs:
+      - cluster_id
+      - autonomous_db_subnet_id
+      - node_subnet_id
+      - node_pool_id
+      - vcn_id
+
 # =============================================================================
 # Variable Groups - Common structure
 # =============================================================================
@@ -93,6 +101,10 @@ variableGroups:
       - use_custom_dns
       - fqdn_custom_domain
       - create_policies
+      - deploy_application
+      - existing_cluster_id
+      - existing_node_subnet_id
+      - existing_autonomous_db_subnet_id
 
 # =============================================================================
 # Variables - Common definitions
@@ -220,7 +232,20 @@ variables:
     description: "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
     default: true
     required: false
-    visible: true
+
+  deploy_application:
+    type: boolean
+    title: "Deploy Application"
+    description: "When unchecked, only infrastructure (VCN, OKE cluster, node pools) is created. Use this to create an infrastructure-only stack for node reuse."
+    default: true
+    required: false
+
+  existing_cluster_id:
+    type: string
+    title: "Existing Cluster OCID"
+    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE, node pools) is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   # ---------------------------------
   # Hidden Variables
@@ -333,7 +358,10 @@ variables:
 
   existing_node_subnet_id:
     type: string
-    visible: false
+    title: "Existing Node Subnet OCID"
+    description: "Subnet OCID for the worker node pool. Required when using an existing cluster. Get this value from the node_subnet_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   existing_pods_subnet_id:
     type: string
@@ -342,6 +370,13 @@ variables:
   existing_services_subnet_id:
     type: string
     visible: false
+
+  existing_autonomous_db_subnet_id:
+    type: string
+    title: "Existing Autonomous DB Subnet OCID"
+    description: "Subnet OCID for the Autonomous Database private endpoint. Required when using an existing cluster. Get this value from the autonomous_db_subnet_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   ingress_nginx_enabled:
     type: boolean
@@ -400,6 +435,15 @@ variables:
   cuopt_frontend_enabled:
     type: boolean
     visible: false
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+  cuopt_frontend_admin_password:
+    type: string
+    visible: false
+  google_maps_api_key:
+    type: string
+    visible: false
 
   cuopt_frontend_admin_password:
     type: password
@@ -455,7 +499,6 @@ variables:
       - "v0.0.1"
     default: "v0.0.4"
     required: true
-    visible: true
 
   corrino_image_version:
     title: "Corrino Image Version"
@@ -572,7 +615,9 @@ outputs:
   # Hidden outputs
   cluster_id:
     type: string
-    visible: false
+    title: "OKE Cluster OCID"
+    description: "Use as existing_cluster_id when deploying an app-only stack."
+    visible: true
 
   cluster_name:
     type: string
@@ -605,6 +650,18 @@ outputs:
   vcn_cidr:
     type: string
     visible: false
+
+  autonomous_db_subnet_id:
+    type: string
+    title: "Autonomous DB Subnet OCID"
+    description: "Use as existing_autonomous_db_subnet_id when deploying an app-only stack."
+    visible: true
+
+  node_subnet_id:
+    type: string
+    title: "Node Subnet OCID"
+    description: "Use as existing_node_subnet_id when deploying an app-only stack."
+    visible: true
 
   node_pool_id:
     type: string

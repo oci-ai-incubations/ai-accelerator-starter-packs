@@ -4,6 +4,7 @@
 # Secret for llamastack configuration
 
 resource "kubernetes_secret_v1" "llamastack_paas_config" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "llamastack-paas-config"
     namespace = "default"
@@ -17,6 +18,7 @@ resource "kubernetes_secret_v1" "llamastack_paas_config" {
 }
 
 resource "kubernetes_secret_v1" "llamastack_inference_config" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "llamastack-inference-config"
     namespace = "default"

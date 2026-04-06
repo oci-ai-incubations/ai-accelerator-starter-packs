@@ -73,6 +73,12 @@ variable "existing_services_subnet_id" {
   type        = string
 }
 
+variable "existing_autonomous_db_subnet_id" {
+  default     = ""
+  description = "OCID of the existing subnet for the Oracle Autonomous Database private endpoint. Required when using existing_cluster_id with paas_rag or enterprise_rag."
+  type        = string
+}
+
 variable "create_policies" {
   default     = true
   description = "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
@@ -159,7 +165,7 @@ locals {
   k8s_endpoint_private                = local.cluster_endpoint_visibility == "Private"
 
   # ORM PE needed when deploying from ORM with private K8s endpoint
-  create_orm_private_endpoint = local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
+  create_orm_private_endpoint = local.deploy_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
 
   # Operator needed when: LB is private/CIDR-scoped, or K8s endpoint is private
   # Force bastion+operator creation in these cases
@@ -170,7 +176,7 @@ locals {
   create_bastion_effective = var.create_bastion || local.needs_operator
 
   # Readiness checks should go through operator when ORM can't reach the LB
-  readiness_via_operator = local.deploy_private_k8s_and_loadbalancer && local.create_bastion_effective
+  readiness_via_operator = local.deploy_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.create_bastion_effective
 }
 
 ## OKE Node Pool Details
@@ -495,6 +501,22 @@ variable "worker_node_availability_domain" {
   description = "Availability domain to use for worker nodes. Required for GPU starter packs (cuopt, vss, enterprise_rag). Optional for paas_rag. When skip_capacity_check is false, capacity will be validated for this AD. When skip_capacity_check is true, capacity validation is skipped."
   type        = string
   default     = ""
+}
+
+variable "deploy_application" {
+  description = "When false, all application-layer resources are skipped. Use this to create an infrastructure-only stack."
+  type        = bool
+  default     = true
+}
+
+variable "existing_cluster_id" {
+  description = "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE cluster, node pools) is skipped and the app layer deploys directly onto the existing cluster."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.existing_cluster_id == "" || can(regex("^ocid1\\.cluster\\.", var.existing_cluster_id))
+    error_message = "existing_cluster_id must be empty or a valid OKE cluster OCID."
+  }
 }
 
 # -----------------------------------
@@ -944,15 +966,16 @@ locals {
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
   # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
-  starter_pack_deployment_name = var.starter_pack_category != "enterprise_rag" ? (
+  # enterprise_rag and enterprise_rag_aiq use Helm (not blueprints), so random_id.blueprint_deploy_id doesn't exist for them
+  starter_pack_deployment_name = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.deploy_application ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
   starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
-  canonical_blueprint_content    = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
-  starter_pack_blueprint_content = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
+  canonical_blueprint_content    = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
+  starter_pack_blueprint_content = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
 }
 
 # App Name Locals
@@ -963,18 +986,29 @@ locals {
 # Networking Locals
 locals {
   # Determine which VCN and subnets to use based on configuration mode
-  vcn_id = var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  # When using an existing cluster, network resources are not created -- use existing_* vars or null
+  vcn_id = local.use_existing_cluster ? var.existing_vcn_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  )
 
-  endpoint_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  endpoint_subnet_id = local.use_existing_cluster ? var.existing_endpoint_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  )
 
-  node_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  node_subnet_id = local.use_existing_cluster ? var.existing_node_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  )
 
-  lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  lb_subnet_id = local.use_existing_cluster ? var.existing_lb_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  )
 
-  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
+  autonomous_db_subnet_id = local.use_existing_cluster ? var.existing_autonomous_db_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_autonomous_db_subnet_id : oci_core_subnet.oke_db_subnet[0].id
+  )
 
-  # Only create new network resources when in create_new mode
-  create_network_resources = var.network_configuration_mode == "create_new"
+  # Only create new network resources when in create_new mode and creating infrastructure
+  create_network_resources = local.deploy_infrastructure && var.network_configuration_mode == "create_new"
 }
 
 # Accelerator specific stuff

@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "skill_name": "zip-tf",
+    "skill_path": ".claude/skills/zip-tf/SKILL.md",
+    "executor_model": "claude-opus-4-6",
+    "timestamp": "2026-03-31T21:30:00Z",
+    "evals_run": ["natural-language", "indirect-trigger", "slash-command"],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_name": "natural-language",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 10,
+      "total": 10,
+      "time_seconds": 184.7,
+      "tokens": 41985
+    },
+    {
+      "eval_name": "natural-language",
+      "configuration": "without_skill",
+      "pass_rate": 0.4,
+      "passed": 4,
+      "total": 10,
+      "time_seconds": 734.9,
+      "tokens": 34916
+    },
+    {
+      "eval_name": "indirect-trigger",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 10,
+      "total": 10,
+      "time_seconds": 170.7,
+      "tokens": 41192
+    },
+    {
+      "eval_name": "indirect-trigger",
+      "configuration": "without_skill",
+      "pass_rate": 0.6,
+      "passed": 6,
+      "total": 10,
+      "time_seconds": 835.0,
+      "tokens": 45571
+    },
+    {
+      "eval_name": "slash-command",
+      "configuration": "with_skill",
+      "pass_rate": 1.0,
+      "passed": 10,
+      "total": 10,
+      "time_seconds": 403.2,
+      "tokens": 43287
+    },
+    {
+      "eval_name": "slash-command",
+      "configuration": "without_skill",
+      "pass_rate": 0.4,
+      "passed": 4,
+      "total": 10,
+      "time_seconds": 195.7,
+      "tokens": 36307
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "mean_pass_rate": 1.0,
+      "mean_time_seconds": 252.9,
+      "mean_tokens": 42155
+    },
+    "without_skill": {
+      "mean_pass_rate": 0.47,
+      "mean_time_seconds": 588.5,
+      "mean_tokens": 38931
+    },
+    "delta": {
+      "pass_rate": "+0.53",
+      "time_seconds": "-335.6",
+      "tokens": "+3224"
+    }
+  },
+  "notes": [
+    "All 3 with-skill runs achieved 100% pass rate (30/30 assertions)",
+    "Baselines consistently failed on: zip structure (files at root vs ai-accelerator-tf/ top-level), output location (not in zipped/), timestamp naming, schema regeneration, user confirmation, and verification",
+    "Baselines consistently passed on: security exclusions (.terraform, .terraform.lock.hcl, terraform.tfvars) — Claude's security instinct is strong without a skill",
+    "Eval 1 baseline was strongest (6/10) because the prompt explicitly mentioned 'enterprise_rag_aiq' which hinted at schema generation",
+    "With-skill runs were faster on average (253s vs 589s) — the skill provides a clear path avoiding trial-and-error",
+    "The false positive on secrets.tf in PII scan is worth noting — the file references Terraform variable names, not actual secrets"
+  ]
+}

@@ -38,6 +38,7 @@ variableGroups:
     variables:
       - starter_pack_size
       - tavily_api_key
+      - worker_node_availability_domain
 
   - title: "Administrator Account"
     variables:

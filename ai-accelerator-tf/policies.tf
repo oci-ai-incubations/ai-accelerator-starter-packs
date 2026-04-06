@@ -36,7 +36,7 @@ resource "oci_identity_dynamic_group" "dyn_group" {
   compartment_id = var.tenancy_ocid
   matching_rule  = "ALL {instance.compartment.id = '${var.compartment_ocid}'}"
   freeform_tags  = local.corrino_tags
-  count          = var.create_policies ? 1 : 0
+  count          = local.deploy_infrastructure && var.create_policies ? 1 : 0
 
   # Ensure capacity is validated before creating IAM resources
   depends_on = [terraform_data.capacity_validated]
@@ -59,5 +59,5 @@ resource "oci_identity_policy" "oke_instances_tenancy_policy" {
   ]
   freeform_tags = local.corrino_tags
   depends_on    = [oci_identity_dynamic_group.dyn_group]
-  count         = var.create_policies ? 1 : 0
+  count         = local.deploy_infrastructure && var.create_policies ? 1 : 0
 }

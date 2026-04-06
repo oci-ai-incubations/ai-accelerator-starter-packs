@@ -1,10 +1,11 @@
 ## Ingress Nginx
 resource "helm_release" "ingress_nginx" {
+  count      = local.deploy_application ? 1 : 0
   name       = "ingress-nginx"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
   version    = "4.13.3"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   # Need to wait for webhooks so we don't hit timing issues.
   wait          = true
   wait_for_jobs = true
@@ -41,6 +42,7 @@ resource "helm_release" "ingress_nginx" {
 
 ## NVIDIA DCGM Exporter - Commented out temporarily due to chart not found
 resource "helm_release" "nvidia-gpu-operator" {
+  count            = local.deploy_application ? 1 : 0
   name             = "gpu-operator"
   repository       = "https://helm.ngc.nvidia.com/nvidia"
   chart            = "gpu-operator"
@@ -54,11 +56,12 @@ resource "helm_release" "nvidia-gpu-operator" {
 
 ## Cert Manager
 resource "helm_release" "cert_manager" {
+  count      = local.deploy_application ? 1 : 0
   name       = "cert-manager"
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
   version    = "1.19.1"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = true # wait to allow the webhook be properly configured
 
   set = [
@@ -78,9 +81,10 @@ resource "helm_release" "cert_manager" {
 
 ## Cert Manager Issuers
 resource "helm_release" "cert_manager_issuers" {
+  count     = local.deploy_application ? 1 : 0
   name      = "cert-manager-issuers"
   chart     = "${path.module}/helm-values/issuers"
-  namespace = kubernetes_namespace_v1.cluster_tools.id
+  namespace = kubernetes_namespace_v1.cluster_tools[0].id
   wait      = true
 
   set = [
@@ -96,11 +100,12 @@ resource "helm_release" "cert_manager_issuers" {
 
 ## Prometheus
 resource "helm_release" "prometheus" {
+  count      = local.deploy_application ? 1 : 0
   name       = "prometheus"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "prometheus"
   version    = "27.42.2"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = true
 
   set = [
@@ -168,11 +173,12 @@ resource "helm_release" "prometheus" {
 }
 
 resource "helm_release" "grafana" {
+  count      = local.deploy_application ? 1 : 0
   name       = "grafana"
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
   version    = "10.1.4"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = false
 
   set = [
@@ -287,7 +293,7 @@ datasources:
     datasources:
     - name: Prometheus
       type: prometheus
-      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools.id}.svc.cluster.local
+      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools[0].id}.svc.cluster.local
       access: proxy
       isDefault: true
       disableDeletion: true
@@ -317,9 +323,10 @@ EOF
 }
 
 resource "kubernetes_config_map_v1" "vllm_dashboard" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "vllm-custom-dashboard"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
     labels = {
       grafana_dashboard = "true"
     }
@@ -333,9 +340,10 @@ resource "kubernetes_config_map_v1" "vllm_dashboard" {
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "grafana" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "grafana-pvc"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
 
   spec {
@@ -360,15 +368,16 @@ resource "kubernetes_persistent_volume_claim_v1" "grafana" {
 }
 ## Kubernetes Secret: Grafana Admin Password
 data "kubernetes_secret_v1" "grafana" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "grafana"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
   depends_on = [helm_release.grafana]
 }
 
 locals {
-  grafana_admin_password = data.kubernetes_secret_v1.grafana.data.admin-password
+  grafana_admin_password = local.deploy_application ? data.kubernetes_secret_v1.grafana[0].data.admin-password : "not-deployed"
 }
 
 resource "helm_release" "milvus" {
@@ -425,12 +434,12 @@ resource "helm_release" "milvus" {
       value = "docker.io/milvusdb/milvus"
     }
   ]
-  count      = var.starter_pack_category == "vss" ? 1 : 0
+  count      = local.deploy_app_vss ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
 
 resource "kubernetes_namespace_v1" "app_namespace" {
-  count = local.starter_pack_config.app_namespace != "default" ? 1 : 0
+  count = local.deploy_application && local.starter_pack_config.app_namespace != "default" ? 1 : 0
   metadata {
     name = local.starter_pack_config.app_namespace
   }
@@ -440,7 +449,7 @@ resource "kubernetes_namespace_v1" "app_namespace" {
 # The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
 # scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
 resource "terraform_data" "label_nim_llm_node" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && !local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -465,7 +474,7 @@ resource "terraform_data" "label_nim_llm_node" {
 }
 
 resource "terraform_data" "label_nim_llm_node_via_operator" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -519,7 +528,8 @@ resource "helm_release" "rag" {
   repository_username = "$oauthtoken"
   repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
-  timeout = 5400 # Increase timeout to 90 minutes
+  timeout         = 5400 # Increase timeout to 90 minutes
+  cleanup_on_fail = true
 
   values = [
     {
@@ -587,7 +597,7 @@ resource "helm_release" "rag" {
       }
     ] : []
   )
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_rag ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node, terraform_data.label_nim_llm_node_via_operator
@@ -595,13 +605,13 @@ resource "helm_release" "rag" {
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
-  count    = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count    = local.deploy_app_rag ? 1 : 0
   content  = data.oci_containerengine_cluster_kube_config.oke.content
   filename = "${path.module}/kubeconfig_patch"
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && !local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -623,7 +633,7 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector_via_operator" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.readiness_via_operator ? 1 : 0
+  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -665,7 +675,8 @@ resource "helm_release" "aiq" {
   repository_username = "$oauthtoken"
   repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
-  timeout = 3600
+  timeout         = 3600
+  cleanup_on_fail = true
 
   values = [
     file("${path.module}/helm-values/aiq-aira-values.yaml")
@@ -704,7 +715,7 @@ resource "helm_release" "aiq" {
     }
   ]
 
-  count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
 
   # The aiq stack depends on the rag stack deployment to complete and
   # the AIQ namespace secrets to be created by configure_oke.
@@ -727,7 +738,7 @@ resource "terraform_data" "aiq_restart_on_tavily_change" {
   }
 
   depends_on = [helm_release.aiq]
-  count      = var.starter_pack_category == "enterprise_rag_aiq" && !local.readiness_via_operator ? 1 : 0
+  count      = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" && !local.readiness_via_operator ? 1 : 0
 }
 
 resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
@@ -752,5 +763,5 @@ resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
   }
 
   depends_on = [null_resource.operator_ready, helm_release.aiq]
-  count      = var.starter_pack_category == "enterprise_rag_aiq" && local.readiness_via_operator ? 1 : 0
+  count      = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" && local.readiness_via_operator ? 1 : 0
 }

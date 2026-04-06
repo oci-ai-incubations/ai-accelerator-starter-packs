@@ -36,6 +36,7 @@ locals {
 }
 
 resource "local_file" "capacity_registration" {
+  count    = local.deploy_infrastructure ? 1 : 0
   content  = local.capacity_content
   filename = local.capacity_filepath
 
@@ -49,6 +50,7 @@ resource "local_file" "capacity_registration" {
 }
 
 resource "null_resource" "capacity_registration" {
+  count      = local.deploy_infrastructure ? 1 : 0
   depends_on = [local_file.capacity_registration]
 
   provisioner "local-exec" {
