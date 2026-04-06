@@ -1,1 +1,1 @@
-starter_pack_category = "paas_rag"
+starter_pack_category = "vss"
