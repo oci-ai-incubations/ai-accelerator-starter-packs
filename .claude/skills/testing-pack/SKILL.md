@@ -69,7 +69,7 @@ If not provided as arguments, ask. Valid sizes per category:
 | Category | Sizes |
 |---|---|
 | `cuopt` | `poc`, `small`, `medium` |
-| `vss` | `small`, `medium` |
+| `vss` | `poc`, `small`, `medium` |
 | `paas_rag` | `small`, `medium` |
 | `enterprise_rag` | `small` |
 | `enterprise_rag_aiq` | `small` |
@@ -86,7 +86,13 @@ Ask user to select one. Common values: `SANJOSE`, `DEFAULT`.
 
 ### 0c. Region
 
-Ask which region to use. Default: `us-sanjose-1`.
+If the user specifies a region, use it. If not, determine the region based on the pack's GPU requirements:
+
+**For `paas_rag` (no GPU):** Ask the user which region to use. Default: `us-sanjose-1`. Any region works since paas_rag only needs CPU shapes.
+
+**For GPU packs (`enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`):** Run `/checking-capacity <category> <size>` to find regions with both hardware availability AND quota. Present the results and let the user pick a region from those with capacity. If no region has capacity, stop and report — don't deploy into a region that will fail the capacity check.
+
+The category-to-shape mapping is defined in `ai-accelerator-tf/vars.tf` under `local.starter_pack_configs` — look up `worker_node_shape` for the given category/size. Do NOT hardcode shape mappings in this skill; always read from `vars.tf` as the source of truth.
 
 ### 0d. Compartment
 
