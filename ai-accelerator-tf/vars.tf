@@ -633,6 +633,7 @@ variable "genai_region" {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 variable "dac_hours" {
   description = "Number of hours for the OCI GenAI Dedicated AI Cluster before auto-termination. Only used by riyadh_air starter pack."
@@ -642,6 +643,24 @@ variable "dac_hours" {
     condition     = var.dac_hours >= 1 && var.dac_hours <= 720
     error_message = "dac_hours must be between 1 and 720."
   }
+=======
+variable "dac_model_id" {
+  description = "HuggingFace model ID to import and deploy on the Dedicated AI Cluster (e.g. Qwen/Qwen3-VL-235B-A22B-Instruct)."
+  type        = string
+  default     = "Qwen/Qwen3-VL-235B-A22B-Instruct"
+}
+
+variable "dac_unit_shape" {
+  description = "GPU shape for the Dedicated AI Cluster. Must have sufficient memory for the selected model."
+  type        = string
+  default     = "H100_X8"
+}
+
+variable "dac_billing_acknowledgement" {
+  description = "Acknowledge that the Dedicated AI Cluster will be billed hourly until the stack is destroyed."
+  type        = bool
+  default     = false
+>>>>>>> f2d2cdf (Rename riyadh_air to contract_analysis, fix DSN/frontend/model config)
 }
 
 variable "cuopt_frontend_enabled" {
@@ -896,10 +915,10 @@ locals {
       # Add "large" here when implemented
     }
 
-    "riyadh_air" = {
+    "contract_analysis" = {
       "small" = {
-        blueprint_file                               = "riyadh-air-blueprint.json"
-        deployment_name                              = "riyadh-air"
+        blueprint_file                               = "contract-analysis-blueprint.json"
+        deployment_name                              = "contract-analysis"
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = false
@@ -1154,6 +1173,10 @@ variable "skin_enterprise_rag_aiq" {
   default     = ""
 =======
   # 26ai database needed for paas_rag and enterprise_rag categories
+<<<<<<< HEAD
   needs_26ai = contains(["paas_rag", "enterprise_rag", "riyadh_air"], var.starter_pack_category)
 >>>>>>> d873fa8 (Add riyadh_air starter pack with GenAI DAC, contract services, and Qwen3-VL-235B)
+=======
+  needs_26ai = contains(["paas_rag", "enterprise_rag", "contract_analysis"], var.starter_pack_category)
+>>>>>>> f2d2cdf (Rename riyadh_air to contract_analysis, fix DSN/frontend/model config)
 }

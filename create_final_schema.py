@@ -108,7 +108,6 @@ def represent_str(dumper, data):
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
-<<<<<<< HEAD
 def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more_url):
     """Inject per-skin selection variables into the merged schema.
 

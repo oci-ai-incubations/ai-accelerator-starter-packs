@@ -1,6 +1,6 @@
-# Riyadh Air starter pack test
+# Contract Analysis starter pack test
 # Dynamic URL path (blueprint_file != "").
-# Supplies db_password for 26ai.tf and dac_hours for GenAI DAC.
+# Supplies db_password for 26ai.tf and dac_billing_acknowledgement for GenAI DAC.
 
 mock_provider "oci" {
   override_data {
@@ -49,21 +49,21 @@ variables {
   corrino_admin_username          = "testadmin"
   corrino_admin_password          = "TestP@ssw0rd123!"
   corrino_admin_email             = "test@example.com"
-  starter_pack_category           = "riyadh_air"
+  starter_pack_category           = "contract_analysis"
   db_password                     = "TestDBP@ssw0rd123!"
-  dac_hours                       = 24
+  dac_billing_acknowledgement     = true
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
 }
 
-# Test: riyadh_air starter pack plans successfully with correct deployment name, DB defaults, and registration triggers
-run "plan_riyadh_air_small" {
+# Test: contract_analysis starter pack plans successfully with correct deployment name, DB defaults, and registration triggers
+run "plan_contract_analysis_small" {
   command = plan
 
-  # Deployment name should start with 'riyadh-air-' (suffixed with random_id hex)
+  # Deployment name should start with 'contract-analysis-' (suffixed with random_id hex)
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "riyadh-air-")
-    error_message = "riyadh_air deployment name should start with 'riyadh-air-'"
+    condition     = startswith(output.starter_pack_deployment_name, "contract-analysis-")
+    error_message = "contract_analysis deployment name should start with 'contract-analysis-'"
   }
 
   # Database username should default to ADMIN when not explicitly set
@@ -74,7 +74,7 @@ run "plan_riyadh_air_small" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "riyadh_air"
+    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "contract_analysis"
     error_message = "postflight trigger should capture starter pack category"
   }
 
