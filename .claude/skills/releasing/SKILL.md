@@ -285,12 +285,12 @@ gh release view $VERSION
 
 | Situation | Action |
 |---|---|
-| `/release-upgrade` fails | Fix the issue and re-run the skill |
+| Build phase fails | Fix the issue and re-run RELEASE_BUILD.md steps |
 | `gh release create` fails | Check if release already exists; use `gh release edit` if so |
 | No GPU capacity in any region | Report to user; wait for capacity or adjust pack sizes |
 | Agent team creation fails | Check `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var |
 | Testing reveals bugs | Enter Phase 5 fix-rebuild loop |
-| `/release-push` fails on PR merge | Check for conflicts; resolve manually |
+| Publish phase fails on PR merge | Check for conflicts; resolve manually |
 
 ---
 
@@ -300,13 +300,13 @@ Copy and track progress:
 
 ```
 Release Progress — $VERSION:
-- [ ] Phase 1: /release-upgrade completed
+- [ ] Phase 1: Release build completed (RELEASE_BUILD.md)
 - [ ] Phase 2: GitHub Release created (pre-release)
 - [ ] Phase 3: Test tracks planned, regions selected
 - [ ] Phase 4: All packs tested
 - [ ] Phase 5: Bugs fixed, zips rebuilt (if needed)
 - [ ] Phase 6a: GitHub Release promoted to latest
-- [ ] Phase 6b: /release-push completed (Slack, PR merge, tag)
+- [ ] Phase 6b: Release publish completed (RELEASE_PUBLISH.md)
 ```
 
 ## Reference Files
