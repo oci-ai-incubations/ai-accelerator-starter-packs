@@ -445,6 +445,16 @@ resource "kubernetes_namespace_v1" "app_namespace" {
   }
 }
 
+# Create the AIQ namespace before the configure_oke_for_aiq_namespace job runs.
+# The job creates NGC secrets in this namespace, and the AIQ Helm release deploys into it.
+# Without this, the job fails because the namespace doesn't exist yet. (BUG-010)
+resource "kubernetes_namespace_v1" "aiq_namespace" {
+  count = local.deploy_app_rag_aiq ? 1 : 0
+  metadata {
+    name = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
+  }
+}
+
 # Reserve the first GPU node (sorted by name) exclusively for the nim-llm pod.
 # The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
 # scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
@@ -495,6 +505,12 @@ resource "terraform_data" "label_nim_llm_node" {
 resource "terraform_data" "label_nim_llm_node_via_operator" {
   count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
+  input = {
+    operator_ip     = oci_core_instance.operator[0].private_ip
+    bastion_ip      = oci_core_instance.bastion[0].public_ip
+    ssh_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+  }
+
   triggers_replace = [
     local.cluster_id,
     "label_nim_llm_node_v2"
@@ -522,6 +538,16 @@ resource "terraform_data" "label_nim_llm_node_via_operator" {
   # Clean up taints on app stack destroy (BUG-009)
   provisioner "remote-exec" {
     when = destroy
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = self.output.operator_ip
+      private_key         = self.output.ssh_private_key
+      bastion_host        = self.output.bastion_ip
+      bastion_user        = "opc"
+      bastion_private_key = self.output.ssh_private_key
+      timeout             = "30m"
+    }
     inline = [
       "echo 'Cleaning up nim-llm taints from all GPU nodes...'",
       "for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule- 2>/dev/null && echo \"  Removed taint from $NODE\" || true; kubectl label node \"$NODE\" workload- 2>/dev/null || true; done",

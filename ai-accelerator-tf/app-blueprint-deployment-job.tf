@@ -75,6 +75,7 @@ resource "kubernetes_job_v1" "configure_oke_for_aiq_namespace" {
   }
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
+    kubernetes_namespace_v1.aiq_namespace,
   ]
   count = local.deploy_app_rag_aiq ? 1 : 0
 }
