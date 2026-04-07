@@ -514,7 +514,7 @@ data "kubernetes_secret_v1" "ngc_api_secret" {
     name      = "ngc-api-secret"
     namespace = local.starter_pack_config.app_namespace
   }
-  count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count      = local.deploy_app_rag ? 1 : 0
   depends_on = [kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
