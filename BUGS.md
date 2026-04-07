@@ -10,7 +10,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-004 | llamastack secrets "already exists" on existing cluster | High | 2026-03-31 |
 | Fixed | BUG-005 | ADB creation fails with 400 — missing private_endpoint_label | Critical | 2026-03-31 |
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
-| Open | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
+| Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
 
 ---
@@ -205,8 +205,9 @@ The infra stack now outputs the node subnet OCID, which the user copies into the
 
 ### BUG-007: VSS infra-only apply fails — blueprint_files.tf references empty FSS resources
 
-**Status:** Open
+**Status:** Fixed
 **Date found:** 2026-04-06
+**Date fixed:** 2026-04-07
 **Found by:** Track 2 agent during v0.0.5 VSS release testing
 **Severity:** Critical
 
@@ -218,21 +219,23 @@ Error: Invalid index
   503: mount_target_ocid = oci_file_storage_mount_target.vss_mount_target[0].id
        oci_file_storage_mount_target.vss_mount_target is empty tuple
 ```
-Same error on lines 503, 904, 905, 1344, 1345 — all referencing `oci_file_storage_file_system.vss_fss[0].id` or `oci_file_storage_mount_target.vss_mount_target[0].id`.
+Same error on lines 500, 902, 1342 — all referencing `oci_file_storage_file_system.vss_fss[0].id` or `oci_file_storage_mount_target.vss_mount_target[0].id`.
 
 **Root cause:**
-VSS blueprint locals in `blueprint_files.tf` unconditionally reference `oci_file_storage_mount_target.vss_mount_target[0].id` and `oci_file_storage_file_system.vss_fss[0].id`. These FSS resources are gated by a count condition that evaluates to 0 when `deploy_application = false`, making them empty tuples. But the locals that build blueprint JSON payloads reference them with `[0]` indexing without any guard.
+VSS blueprint locals in `blueprint_files.tf` used `var.starter_pack_category == "vss"` to gate the `input_file_system` blocks, but this condition is true even when `deploy_application = false`. The FSS resources (`vss_mount_target`, `vss_fss`) have count conditions that evaluate to 0 when `deploy_application = false`, making them empty tuples. The `[0]` indexing then fails.
 
 **Affected files:**
-- `ai-accelerator-tf/blueprint_files.tf` lines 503, 904, 905, 1344, 1345 — unguarded `[0]` references to FSS resources
+- `ai-accelerator-tf/blueprint_files.tf` lines 500, 902, 1342 — `input_file_system` blocks gated only on category, not on `deploy_application`
 
 **Workaround:**
 None — infra-only apply fails and blocks the two-stack model for VSS.
 
 **Resolution:**
-TBD — wrap references with `try()` or gate the entire blueprint local block with `local.deploy_application`.
+Changed the `input_file_system` condition from `var.starter_pack_category == "vss"` to `local.deploy_app_vss` (which is `local.deploy_application && var.starter_pack_category == "vss"`). This ensures the FSS references are only evaluated when the application layer is being deployed and the resources actually exist. Fixed on `release_v0.0.5`, commit `77979f3`.
 
-**Prevention:** All resource references in blueprint locals should be guarded with `try(..., "")` or gated behind `local.deploy_application` since blueprints are only relevant when deploying the application layer.
+**Verification:** `terraform apply` with `deploy_application = false` and `starter_pack_category = "vss"` should succeed without the empty tuple error.
+
+**Prevention:** All resource references in blueprint locals should use the compound `deploy_app_*` locals from `app-locals.tf` rather than raw category checks, since these include the `deploy_application` gate.
 
 ### BUG-008: Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate
 
