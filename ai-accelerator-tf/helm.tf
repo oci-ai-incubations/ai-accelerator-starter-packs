@@ -516,18 +516,21 @@ resource "terraform_data" "label_nim_llm_node_via_operator" {
     "label_nim_llm_node_v2"
   ]
 
-  connection {
-    type                = "ssh"
-    user                = "opc"
-    host                = oci_core_instance.operator[0].private_ip
-    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
-    bastion_host        = oci_core_instance.bastion[0].public_ip
-    bastion_user        = "opc"
-    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
-    timeout             = "30m"
-  }
+  # No resource-level connection block — Terraform validates it against destroy
+  # provisioner rules when any destroy provisioner exists on the resource.
+  # Both provisioners define their own connection instead.
 
   provisioner "remote-exec" {
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = self.output.operator_ip
+      private_key         = self.output.ssh_private_key
+      bastion_host        = self.output.bastion_ip
+      bastion_user        = "opc"
+      bastion_private_key = self.output.ssh_private_key
+      timeout             = "30m"
+    }
     inline = [
       "NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')",
       "kubectl label node \"$NODE\" workload=nim-llm --overwrite",
