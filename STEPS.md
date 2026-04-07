@@ -349,6 +349,203 @@ The release:
 - The zip files in `release_test_matrix/` are local build artifacts and are not committed to the repo.
 - To use a zip: download it from the GitHub release and upload to OCI Resource Manager to create a new stack.
 
+---
+
+# Release Testing Steps
+
+Testing all 5 packs using the two-stack model with parallel agent teams.
+
+## Step 12: Design Testing Plan
+
+> **Skill:** `/superpowers:brainstorming` — Used to design the parallel testing approach.
+> **Spec:** `docs/superpowers/specs/2026-04-06-v005-release-testing-plan.md`
+
+Analyzed GPU requirements per pack to identify infrastructure sharing opportunities:
+
+| Pack | Size | GPU Shape | GPU Workers |
+|------|------|-----------|-------------|
+| enterprise_rag | small | BM.GPU4.8 | 2 |
+| enterprise_rag_aiq | small | BM.GPU4.8 | 2 |
+| cuopt | poc | VM.GPU.A10.2 | 1 |
+| vss | poc | VM.GPU.A10.2 | 2 |
+| paas_rag | small | none (CPU) | 0 |
+
+Designed 3 parallel tracks:
+- **Track 1 (BM.GPU4.8):** enterprise_rag → enterprise_rag_aiq (back-to-back, re-apply infra between)
+- **Track 2 (VM.GPU.A10.2):** vss → cuopt (back-to-back, re-apply infra to scale down GPU pool)
+- **Track 3 (CPU):** paas_rag (independent, parallel with everything)
+
+Key principle: **re-apply infra every round** so the cluster matches the new pack's exact config.
+
+## Step 13: GPU Capacity Check
+
+> **Skill:** `/checking-capacity` — Checks hardware availability AND tenancy quota across regions.
+
+Ran capacity checks for BM.GPU4.8 and VM.GPU.A10.2 across all subscribed regions. Results:
+
+| Track | Shape | Region Selected | Hardware | Quota |
+|-------|-------|-----------------|----------|-------|
+| Track 1 | BM.GPU4.8 | ap-melbourne-1 | AVAILABLE | 32 |
+| Track 2 | VM.GPU.A10.2 | us-sanjose-1 (later changed) | AVAILABLE | varies |
+| Track 3 | CPU only | us-sanjose-1 | N/A | N/A |
+
+**Lesson learned:** Always check BOTH hardware capacity and tenancy quota. sa-saopaulo-1 had hardware but 0 quota. The `/checking-capacity` skill does both checks.
+
+## Step 14: Launch Parallel Agent Teams
+
+> **Tools:** Agent Teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`), `TeamCreate`, `SendMessage`
+>
+> **No existing skill covers this.** The parallel testing orchestration was done ad-hoc using Claude Code's agent teams feature.
+
+### Approach 1: Background subagents (FAILED)
+
+Initially launched 3 background subagents via the `Agent` tool with `run_in_background: true`. This failed because:
+- Background subagents **cannot use `AskUserQuestion`** — the tool call silently fails
+- They cannot prompt the user for OCI Console sign-in
+- The agents fell back to OCI CLI for stack operations (violating `/testing-pack` rule #1)
+
+**Key learning:** Foreground subagents pass `AskUserQuestion` through to the user. Background subagents auto-deny it.
+
+### Approach 2: Agent Teams (SUCCEEDED)
+
+Enabled agent teams via `~/.claude/settings.json`:
+```json
+{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" } }
+```
+
+Created team `v005-release-test` with 3 teammates:
+- `track1-gpu4` — enterprise_rag + enterprise_rag_aiq in ap-melbourne-1
+- `track2-a10` — vss + cuopt in us-sanjose-1 (later moved to us-phoenix-1)
+- `track3-cpu` — paas_rag in us-sanjose-1
+
+Each teammate is a full interactive Claude session — can open browsers, ask questions, use all tools.
+
+### Browser Isolation Issue
+
+All 3 teammates initially used `--session-name` for agent-browser, which **shares a single browser daemon**. All tracks fought over the same browser tab.
+
+**Fix:** Context7 research on agent-browser docs revealed two different flags:
+- `--session-name <name>` — State persistence only, **shared browser** (WRONG)
+- `--session <name>` — **Isolated browser instance** per session (CORRECT)
+
+Updated `/testing-pack` skill to use `--session` everywhere. Each track then got its own independent browser window.
+
+### Permissions Setup
+
+Added to `.claude/settings.json` for agent-browser and skill permissions:
+```
+Bash(agent-browser:*), Bash(helm:*), Bash(git worktree:*),
+Bash(openssl:*), Bash(sleep:*), Bash(date:*),
+Skill(testing-pack), Skill(monitoring-deployment), etc.
+```
+
+## Step 15: Track 3 — paas_rag/small (COMPLETE)
+
+> **Skill:** `/testing-pack paas_rag small`
+> **Region:** us-sanjose-1
+
+### Results
+
+| Phase | Result | Notes |
+|-------|--------|-------|
+| Schema validation | PASS | All ORM UI fields correct |
+| Infra apply | PASS | After re-apply (initial failed on dynamic group quota 50/50 — deleted 5 stale DGs) |
+| App apply | PASS | ~9 min total |
+| Frontend loads | PASS | OracleNet - Document Assistant Powered by Llama-Stack |
+| Corrino API login | PASS | Token received |
+| Workspace API | PASS | 2 recipes: frontend-paas, llamastack-paas |
+| Blueprints Portal | PASS | Blueprint Library visible |
+| Grafana | PASS | 302 redirect to login |
+| Cleanup | PASS | App destroy, infra destroy, ADB terminated |
+
+**Issue found:** Dynamic group quota exceeded (50/50 tenancy limit). Fixed by deleting 5 stale dynamic groups from old test deployments. This is a tenancy housekeeping issue, not a code bug.
+
+## Step 16: Track 1 — enterprise_rag/small (COMPLETE)
+
+> **Skill:** `/testing-pack enterprise_rag small`
+> **Region:** ap-melbourne-1
+
+### Bugs Found and Fixed
+
+1. **BUG-008:** `data.kubernetes_secret_v1.ngc_api_secret` in `helm.tf:517` had count gated only on category, not on `deploy_application`. Fixed: `count = local.deploy_app_rag ? 1 : 0`
+2. **BUG (ungated):** `configure_oke_for_aiq_namespace` in `app-blueprint-deployment-job.tf:79` missing `deploy_application` gate. Fixed: `count = local.deploy_app_rag_aiq ? 1 : 0`
+3. Dynamic group quota exceeded (32 orphaned DGs cleaned up)
+
+### Results
+
+| Phase | Result | Notes |
+|-------|--------|-------|
+| Schema validation | PASS | All ORM UI fields correct |
+| Infra apply | PASS | 3rd attempt (after bug fix + DG cleanup) |
+| App apply | PASS | All 13 RAG pods Running including NIM LLM |
+| Frontend loads | PASS | HTTPS 200, full UI with Collections, Chat, Settings |
+| Chat input | PASS | Text entry works, send button enables |
+| Cleanup | Deferred | GPU infra preserved for enterprise_rag_aiq round |
+
+## Step 17: Track 1 — enterprise_rag_aiq/small (IN PROGRESS)
+
+> **Skill:** `/testing-pack enterprise_rag_aiq small` (reusing Track 1 infra)
+> **Region:** ap-melbourne-1
+
+### Infra Re-apply
+
+Destroyed enterprise_rag app stack (GPU nodes preserved). Updated infra stack with enterprise_rag_aiq zip and re-applied. GPU nodes (BM.GPU4.8 x2) persisted since same shape.
+
+### Bug Found: Stale nim-llm Taint (BUG-009)
+
+After the enterprise_rag_aiq app deploy, 7+ pods stuck Pending. Root cause: the `label_nim_llm_node` resource from the enterprise_rag app deploy tainted **all** GPU nodes with `workload=nim-llm:NoSchedule`. This taint persists after app stack destroy — Terraform removes state but doesn't untaint nodes.
+
+The total GPU budget (8 for LLM + 8 for other NIMs = 16) fits exactly on 2x BM.GPU4.8 (16 GPUs). **This is NOT a sizing bug** — it's a taint lifecycle issue in the two-stack model.
+
+**Workaround:** `kubectl taint nodes <node> workload=nim-llm:NoSchedule-` on the non-LLM GPU node.
+
+### Status: Waiting for pods to schedule after manual untaint.
+
+## Step 18: Track 2 — vss/poc (IN PROGRESS)
+
+> **Skill:** `/testing-pack vss poc`
+> **Region:** us-phoenix-1 (changed from us-sanjose-1)
+
+### Bugs Found and Fixed
+
+1. **BUG-007:** `blueprint_files.tf` VSS `input_file_system` blocks used `var.starter_pack_category == "vss"` which evaluates true even when `deploy_application = false`, causing `[0]` indexing on empty FSS resources. Fixed: changed to `local.deploy_app_vss`.
+
+### Region Changes
+
+- **us-sanjose-1:** VM.GPU.A10.2 out of host capacity
+- **us-phoenix-1 attempt 1:** Wrong size — ORM defaulted to `small` (BM.GPU4.8) instead of `poc` (VM.GPU.A10.2). Failed with NotAuthorizedOrNotFound (NVAIE license required for BM shapes).
+- **us-phoenix-1 attempt 2:** Correct `poc` size. Infra apply in progress.
+
+**Lesson learned:** Always explicitly set `starter_pack_size` in the ORM wizard — the schema defaults to `small`, not `poc`.
+
+### Status: Infra apply running with correct VM.GPU.A10.2/poc size.
+
+## Step 19: Code Fixes Committed and Pushed
+
+All bug fixes and refactors committed to `release_v0.0.5` and pushed:
+
+```
+bac25c4 docs: mark BUG-007 as fixed with deploy_app_vss resolution
+8c3298d refactor: add deploy_app_rag_aiq compound local
+80264cb docs: add BUG-007/008 entries, release steps, testing plan
+58773b1 chore: update testing-pack skill to use --session
+77979f3 fix: gate k8s resources on deploy_application (BUG-007, BUG-008)
+e44a2f3 feat: auto-check GPU capacity when region not specified
+a83b74c Release v0.0.5
+```
+
+**Note:** The GitHub release zips still have the old (buggy) code. Zips need to be rebuilt and re-uploaded after all testing completes.
+
+## Remaining Steps
+
+- [ ] Track 1: Complete enterprise_rag_aiq testing after untaint workaround
+- [ ] Track 2: Complete VSS testing, then switch to cuopt
+- [ ] Rebuild all 5 release zips with bug fixes
+- [ ] Re-upload zips to GitHub release
+- [ ] Run `/release-push v0.0.5` for Slack announcement, PR merge, tagging
+
+---
+
 ## Steps Skipped (available in skills but not performed)
 
 | Skipped Step                        | Skill                                         | Why Skipped                                                              |
