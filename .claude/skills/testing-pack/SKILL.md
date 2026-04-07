@@ -22,11 +22,15 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button in agent-browser or `oci resource-manager job create-destroy-job`.
 
-5. **Use a unique agent-browser session name** to avoid conflicts with other Claude sessions. Generate one at the start:
+5. **Use an isolated agent-browser session** to avoid conflicts with other Claude sessions or parallel tracks. Generate a unique session name at the start:
    ```bash
    SESSION_NAME="oci-$(date +%s)"
    ```
-   Use `--session-name $SESSION_NAME` on ALL agent-browser commands. Close the session when done: `agent-browser --session-name $SESSION_NAME close`
+   Use `--session $SESSION_NAME` (NOT `--session-name`) on ALL agent-browser commands. Close the session when done: `agent-browser --session $SESSION_NAME close`
+
+   **IMPORTANT: `--session` vs `--session-name` are different flags:**
+   - `--session <name>` — Creates a **separate isolated browser instance** with its own cookies, storage, and navigation. **Use this one.** This is required for parallel test tracks to avoid browser conflicts.
+   - `--session-name <name>` — Only persists cookies/localStorage under a name but **shares** the browser daemon with all other sessions. Do NOT use this for parallel testing.
 
 ## Arguments
 
@@ -69,7 +73,7 @@ If not provided as arguments, ask. Valid sizes per category:
 | Category | Sizes |
 |---|---|
 | `cuopt` | `poc`, `small`, `medium` |
-| `vss` | `small`, `medium` |
+| `vss` | `poc`, `small`, `medium` |
 | `paas_rag` | `small`, `medium` |
 | `enterprise_rag` | `small` |
 | `enterprise_rag_aiq` | `small` |
@@ -86,7 +90,13 @@ Ask user to select one. Common values: `SANJOSE`, `DEFAULT`.
 
 ### 0c. Region
 
-Ask which region to use. Default: `us-sanjose-1`.
+If the user specifies a region, use it. If not, determine the region based on the pack's GPU requirements:
+
+**For `paas_rag` (no GPU):** Ask the user which region to use. Default: `us-sanjose-1`. Any region works since paas_rag only needs CPU shapes.
+
+**For GPU packs (`enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`):** Run `/checking-capacity <category> <size>` to find regions with both hardware availability AND quota. Present the results and let the user pick a region from those with capacity. If no region has capacity, stop and report — don't deploy into a region that will fail the capacity check.
+
+The category-to-shape mapping is defined in `ai-accelerator-tf/vars.tf` under `local.starter_pack_configs` — look up `worker_node_shape` for the given category/size. Do NOT hardcode shape mappings in this skill; always read from `vars.tf` as the source of truth.
 
 ### 0d. Compartment
 
@@ -204,13 +214,13 @@ Same zip is used for both infra and app stacks.
 
 ## Phase 3: ORM UI Schema Validation
 
-All ORM interactions use `agent-browser` in headed mode (`--headed --session-name oci`).
+All ORM interactions use `agent-browser` in headed mode (`--headed --session $SESSION_NAME`).
 
 ### 3a. Authenticate to OCI Console
 
 Open the OCI Console and check if authenticated. See [orm-browser-nav.md](references/orm-browser-nav.md) for the full login flow.
 
-1. `agent-browser --headed --session-name oci open "https://cloud.oracle.com"`
+1. `agent-browser --headed --session $SESSION_NAME open "https://cloud.oracle.com"`
 2. Take a snapshot — if login form visible (User Name / Password fields, or redirected to sign-in page), ask the user to enter credentials in the browser window. **Wait for user confirmation before proceeding.**
 3. If Console home page visible, continue.
 
@@ -308,7 +318,7 @@ After infra succeeds, navigate to the stack's "Application Information" tab and 
 
 Use agent-browser eval to get the values:
 ```bash
-agent-browser --session-name $SESSION_NAME eval --stdin <<'EVALEOF'
+agent-browser --session $SESSION_NAME eval --stdin <<'EVALEOF'
 var iframe = document.querySelector('iframe');
 var doc = iframe.contentDocument || iframe.contentWindow.document;
 var text = doc.body.innerText;
@@ -416,8 +426,8 @@ From the app stack's "Application Information" tab in agent-browser, extract:
 The deployed apps use self-signed certificates (nip.io domains). You must relaunch agent-browser with `--ignore-https-errors`:
 
 ```bash
-agent-browser --session-name $SESSION_NAME close 2>/dev/null
-agent-browser --headed --session-name $SESSION_NAME --ignore-https-errors open "https://<frontend-url>"
+agent-browser --session $SESSION_NAME close 2>/dev/null
+agent-browser --headed --session $SESSION_NAME --ignore-https-errors open "https://<frontend-url>"
 ```
 
 Verify the page loads (HTTP 200, expected content visible in snapshot).
@@ -451,7 +461,7 @@ If no pack-specific coverage skill exists, run basic smoke tests:
 ```bash
 cd /tmp
 git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
-agent-browser --session-name $SESSION_NAME close 2>/dev/null
+agent-browser --session $SESSION_NAME close 2>/dev/null
 ```
 
 ### 7b. Report

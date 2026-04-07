@@ -445,15 +445,29 @@ resource "kubernetes_namespace_v1" "app_namespace" {
   }
 }
 
+# Create the AIQ namespace before the configure_oke_for_aiq_namespace job runs.
+# The job creates NGC secrets in this namespace, and the AIQ Helm release deploys into it.
+# Without this, the job fails because the namespace doesn't exist yet. (BUG-010)
+resource "kubernetes_namespace_v1" "aiq_namespace" {
+  count = local.deploy_app_rag_aiq ? 1 : 0
+  metadata {
+    name = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
+  }
+}
+
 # Reserve the first GPU node (sorted by name) exclusively for the nim-llm pod.
 # The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
 # scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
 resource "terraform_data" "label_nim_llm_node" {
   count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
+  input = {
+    kubeconfig = local_sensitive_file.kubeconfig_patch[0].filename
+  }
+
   triggers_replace = [
     local.cluster_id,
-    "label_nim_llm_node_v1"
+    "label_nim_llm_node_v2"
   ]
 
   depends_on = [
@@ -471,32 +485,76 @@ resource "terraform_data" "label_nim_llm_node" {
       kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
     EOT
   }
+
+  # Clean up taints on app stack destroy so the two-stack model starts with
+  # clean node state for the next app deployment. (BUG-009)
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      export KUBECONFIG=${self.output.kubeconfig}
+      echo "Cleaning up nim-llm taints from all GPU nodes..."
+      for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+        kubectl taint node "$NODE" workload=nim-llm:NoSchedule- 2>/dev/null && echo "  Removed taint from $NODE" || true
+        kubectl label node "$NODE" workload- 2>/dev/null || true
+      done
+      echo "Taint cleanup complete."
+    EOT
+  }
 }
 
 resource "terraform_data" "label_nim_llm_node_via_operator" {
   count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
-  triggers_replace = [
-    local.cluster_id,
-    "label_nim_llm_node_v1"
-  ]
-
-  connection {
-    type                = "ssh"
-    user                = "opc"
-    host                = oci_core_instance.operator[0].private_ip
-    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
-    bastion_host        = oci_core_instance.bastion[0].public_ip
-    bastion_user        = "opc"
-    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
-    timeout             = "30m"
+  input = {
+    operator_ip     = oci_core_instance.operator[0].private_ip
+    bastion_ip      = oci_core_instance.bastion[0].public_ip
+    ssh_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
   }
 
+  triggers_replace = [
+    local.cluster_id,
+    "label_nim_llm_node_v2"
+  ]
+
+  # No resource-level connection block — Terraform validates it against destroy
+  # provisioner rules when any destroy provisioner exists on the resource.
+  # Both provisioners define their own connection instead.
+
   provisioner "remote-exec" {
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = self.output.operator_ip
+      private_key         = self.output.ssh_private_key
+      bastion_host        = self.output.bastion_ip
+      bastion_user        = "opc"
+      bastion_private_key = self.output.ssh_private_key
+      timeout             = "30m"
+    }
     inline = [
       "NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')",
       "kubectl label node \"$NODE\" workload=nim-llm --overwrite",
       "kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule --overwrite"
+    ]
+  }
+
+  # Clean up taints on app stack destroy (BUG-009)
+  provisioner "remote-exec" {
+    when = destroy
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = self.output.operator_ip
+      private_key         = self.output.ssh_private_key
+      bastion_host        = self.output.bastion_ip
+      bastion_user        = "opc"
+      bastion_private_key = self.output.ssh_private_key
+      timeout             = "30m"
+    }
+    inline = [
+      "echo 'Cleaning up nim-llm taints from all GPU nodes...'",
+      "for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule- 2>/dev/null && echo \"  Removed taint from $NODE\" || true; kubectl label node \"$NODE\" workload- 2>/dev/null || true; done",
+      "echo 'Taint cleanup complete.'"
     ]
   }
 
@@ -514,7 +572,7 @@ data "kubernetes_secret_v1" "ngc_api_secret" {
     name      = "ngc-api-secret"
     namespace = local.starter_pack_config.app_namespace
   }
-  count      = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count      = local.deploy_app_rag ? 1 : 0
   depends_on = [kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
@@ -715,7 +773,7 @@ resource "helm_release" "aiq" {
     }
   ]
 
-  count = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_app_rag_aiq ? 1 : 0
 
   # The aiq stack depends on the rag stack deployment to complete and
   # the AIQ namespace secrets to be created by configure_oke.
@@ -738,7 +796,7 @@ resource "terraform_data" "aiq_restart_on_tavily_change" {
   }
 
   depends_on = [helm_release.aiq]
-  count      = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" && !local.readiness_via_operator ? 1 : 0
+  count      = local.deploy_app_rag_aiq && !local.readiness_via_operator ? 1 : 0
 }
 
 resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
@@ -763,5 +821,5 @@ resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
   }
 
   depends_on = [null_resource.operator_ready, helm_release.aiq]
-  count      = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" && local.readiness_via_operator ? 1 : 0
+  count      = local.deploy_app_rag_aiq && local.readiness_via_operator ? 1 : 0
 }

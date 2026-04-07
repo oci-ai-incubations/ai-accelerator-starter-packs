@@ -497,7 +497,7 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -899,7 +899,7 @@ locals {
                 ]
               }
 
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -1339,7 +1339,7 @@ locals {
                 ]
               }
 
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id

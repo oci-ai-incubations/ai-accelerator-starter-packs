@@ -493,11 +493,12 @@ variables:
     title: "Accelerator Pack Stack Version"
     type: enum
     enum:
+      - "v0.0.5"
       - "v0.0.4"
       - "v0.0.3"
       - "v0.0.2"
       - "v0.0.1"
-    default: "v0.0.4"
+    default: "v0.0.5"
     required: true
 
   corrino_image_version:

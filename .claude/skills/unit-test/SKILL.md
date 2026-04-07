@@ -17,7 +17,7 @@ Run Terraform unit tests from the `ai-accelerator-tf/` directory.
 ## Commands
 
 ```bash
-cd /Users/dkennetz/code/ai-accelerator/ai-accelerator-tf
+cd "$(git rev-parse --show-toplevel)/ai-accelerator-tf"
 terraform init -backend=false
 ```
 

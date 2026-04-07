@@ -21,11 +21,14 @@ If not provided, ask the user.
 
 Map category/size to GPU shape:
 
+The authoritative category/size → shape mapping is in `ai-accelerator-tf/vars.tf` under `local.starter_pack_configs`. Look up `worker_node_shape` for the given category/size. Common mappings (verify against `vars.tf` if in doubt):
+
 | Category | Size | Shape | GPUs/Node | Nodes |
 |---|---|---|---|---|
 | `cuopt` | `poc` | `VM.GPU.A10.2` | 2 | 1 |
 | `cuopt` | `small` | `BM.GPU4.8` | 8 | 1 |
 | `cuopt` | `medium` | `BM.GPU.A100-v2.8` | 8 | 1 |
+| `vss` | `poc` | `VM.GPU.A10.2` | 2 | 2 |
 | `vss` | `small` | `BM.GPU4.8` | 8 | 1 |
 | `vss` | `medium` | `BM.GPU.L40S-NC.4` | 4 | 2 |
 | `enterprise_rag` | `small` | `BM.GPU4.8` | 8 | 2 |

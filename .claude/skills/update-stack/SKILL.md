@@ -18,7 +18,7 @@ Rebuild the deployment zip from current code and update an existing ORM stack.
 
 1. Regenerate schema for current category:
    ```bash
-   cd /Users/dkennetz/code/ai-accelerator
+   cd "$(git rev-parse --show-toplevel)"
    source venv/bin/activate
    python3 create_final_schema.py -c $(cat ai-accelerator-tf/starter_pack_category.auto.tfvars | grep -oP '(?<=")\w+(?=")')
    ```
@@ -33,10 +33,12 @@ Rebuild the deployment zip from current code and update an existing ORM stack.
    ```
    > For a general-purpose timestamped archive (not ORM upload), use `/zip-tf` instead.
 
-3. Update stack:
+3. Ask the user for their OCI CLI profile if not already set (common values: `SANJOSE`, `DEFAULT`).
+
+4. Update stack:
    ```bash
-   export OCI_CLI_PROFILE=SANJOSE
-   oci resource-manager stack update --stack-id $0 --config-source /Users/dkennetz/code/ai-accelerator/lifecycle.zip --force
+   export OCI_CLI_PROFILE=<profile>
+   oci resource-manager stack update --stack-id $0 --config-source lifecycle.zip --force
    ```
 
 4. Run plan job and poll until completion

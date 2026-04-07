@@ -10,6 +10,9 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-004 | llamastack secrets "already exists" on existing cluster | High | 2026-03-31 |
 | Fixed | BUG-005 | ADB creation fails with 400 — missing private_endpoint_label | Critical | 2026-03-31 |
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
+| Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
+| Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
+| Fixed | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
 
 ---
 
@@ -200,3 +203,110 @@ The infra stack now outputs the node subnet OCID, which the user copies into the
 **Verification:** Deploy a two-stack paas_rag: infra stack outputs `node_subnet_id`, app stack receives it as `existing_node_subnet_id`, blueprint deploys successfully (HTTP 200 from Corrino API, deployment status reaches `monitoring`/`active`).
 
 **Prevention:** When adding a new `existing_*` variable for the two-stack model, ensure it is: (1) output from the infra stack, (2) visible in the ORM schema, (3) in the "Advanced Options" variable group, and (4) in the "Infrastructure (for App-Only Stack)" output group. The Corrino `SubnetValidator` should also be updated to skip validation when `recipe_use_shared_node_pool = true` (defense in depth).
+
+### BUG-007: VSS infra-only apply fails — blueprint_files.tf references empty FSS resources
+
+**Status:** Fixed
+**Date found:** 2026-04-06
+**Date fixed:** 2026-04-07
+**Found by:** Track 2 agent during v0.0.5 VSS release testing
+**Severity:** Critical
+
+**Symptoms:**
+`terraform apply` with `deploy_application = false` (infra-only stack) fails with:
+```
+Error: Invalid index
+  on blueprint_files.tf line 503, in locals:
+  503: mount_target_ocid = oci_file_storage_mount_target.vss_mount_target[0].id
+       oci_file_storage_mount_target.vss_mount_target is empty tuple
+```
+Same error on lines 500, 902, 1342 — all referencing `oci_file_storage_file_system.vss_fss[0].id` or `oci_file_storage_mount_target.vss_mount_target[0].id`.
+
+**Root cause:**
+VSS blueprint locals in `blueprint_files.tf` used `var.starter_pack_category == "vss"` to gate the `input_file_system` blocks, but this condition is true even when `deploy_application = false`. The FSS resources (`vss_mount_target`, `vss_fss`) have count conditions that evaluate to 0 when `deploy_application = false`, making them empty tuples. The `[0]` indexing then fails.
+
+**Affected files:**
+- `ai-accelerator-tf/blueprint_files.tf` lines 500, 902, 1342 — `input_file_system` blocks gated only on category, not on `deploy_application`
+
+**Workaround:**
+None — infra-only apply fails and blocks the two-stack model for VSS.
+
+**Resolution:**
+Changed the `input_file_system` condition from `var.starter_pack_category == "vss"` to `local.deploy_app_vss` (which is `local.deploy_application && var.starter_pack_category == "vss"`). This ensures the FSS references are only evaluated when the application layer is being deployed and the resources actually exist. Fixed on `release_v0.0.5`, commit `77979f3`.
+
+**Verification:** `terraform apply` with `deploy_application = false` and `starter_pack_category = "vss"` should succeed without the empty tuple error.
+
+**Prevention:** All resource references in blueprint locals should use the compound `deploy_app_*` locals from `app-locals.tf` rather than raw category checks, since these include the `deploy_application` gate.
+
+### BUG-008: Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate
+
+**Status:** Fixed
+**Date found:** 2026-04-06
+**Date fixed:** 2026-04-06
+**Found by:** Track 1 agent during v0.0.5 enterprise_rag release testing
+**Severity:** Critical
+
+**Symptoms:**
+`terraform apply` with `deploy_application = false` (infra-only stack) fails with:
+```
+Error: Get "http://localhost/api/v1/namespaces/rag/secrets/ngc-api-secret": dial tcp [::1]:80: connect: connection refused
+
+  with data.kubernetes_secret_v1.ngc_api_secret[0],
+  on helm.tf line 512, in data "kubernetes_secret_v1" "ngc_api_secret":
+```
+
+**Root cause:**
+`data.kubernetes_secret_v1.ngc_api_secret` in `helm.tf` line 512 had a count condition gated only on the starter pack category (`contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0`) but NOT on `deploy_application`. When `deploy_application = false`, no OKE cluster exists yet, so the Kubernetes provider defaults to `localhost:80` and the data source connection fails.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:517` — count condition missing `local.deploy_application` check
+
+**Workaround:**
+None — infra-only apply fails and blocks the two-stack model for enterprise_rag.
+
+**Resolution:**
+Changed count condition from `contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0` to `local.deploy_app_rag ? 1 : 0` which includes the `deploy_application` check. Fixed by Track 1 agent during v0.0.5 testing.
+
+**Verification:** `terraform apply` with `deploy_application = false` and `starter_pack_category = "enterprise_rag"` should succeed without the localhost connection error.
+
+**Prevention:** All `data` sources that query the Kubernetes API must include `local.deploy_application` in their count condition, since the cluster does not exist during infra-only deploys.
+
+### BUG-009: Stale nim-llm taint blocks pod scheduling after two-stack pack switch
+
+**Status:** Fixed
+**Date found:** 2026-04-07
+**Date fixed:** 2026-04-07
+**Found by:** Track 1 agent during v0.0.5 enterprise_rag → enterprise_rag_aiq two-stack test
+**Severity:** High
+
+**Symptoms:**
+After deploying enterprise_rag app (round 1), destroying the app stack, re-applying infra with enterprise_rag_aiq zip, and deploying enterprise_rag_aiq app (round 2), 7+ pods are stuck in Pending state. The error from `kubectl describe pod` shows:
+```
+0/4 nodes are available: 2 node(s) had untolerated taint {workload: nim-llm}
+```
+The NIM LLM pod (8 GPUs) runs on one GPU node, but the second GPU node — which has 8 free GPUs needed by embed, rerank, nemoretriever, and other NIM services — is blocked by the `workload=nim-llm:NoSchedule` taint.
+
+**Root cause:**
+The `label_nim_llm_node` resource in `helm.tf` (gated by `local.deploy_app_rag`) taints **all** GPU worker nodes with `workload=nim-llm:NoSchedule`. This taint persists on the Kubernetes nodes even after the app stack is destroyed — `terraform destroy` removes Terraform state but does not untaint the nodes. When the second app (enterprise_rag_aiq) is deployed, the Helm chart's `label_nim_llm_node` step runs again, but the stale taints from round 1 are already present and block non-LLM GPU pods from scheduling on the second node.
+
+The total GPU budget is exactly 16 (8 for LLM + 1 each for 8 other NIMs), which fits on 2x BM.GPU4.8 (8 GPUs each) — **this is NOT a sizing bug**. It's purely a taint lifecycle issue in the two-stack model.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf` — `label_nim_llm_node` and `label_nim_llm_node_via_operator` resources taint GPU nodes with no destroy-time cleanup
+
+**Workaround:**
+Manually remove the nim-llm taint from the non-LLM GPU node between rounds:
+```bash
+kubectl taint nodes <second-gpu-node> workload=nim-llm:NoSchedule-
+```
+
+**Resolution:**
+Added destroy-time provisioners to both `label_nim_llm_node` (local-exec) and `label_nim_llm_node_via_operator` (remote-exec) that remove the `workload=nim-llm` taint and label from all GPU nodes on app stack destroy. Used `input`/`self.output` pattern to pass kubeconfig/SSH details to the destroy provisioner (Terraform 1.5 requires destroy provisioners to only reference `self`). Bumped `triggers_replace` from `v1` to `v2` to force resource replacement on existing stacks so the new destroy provisioner gets registered.
+
+For the `via_operator` variant: removed the resource-level `connection` block entirely because Terraform validates all connection blocks against destroy provisioner rules when any destroy provisioner exists on the resource. Both create and destroy provisioners now have their own inline `connection` blocks using `self.output.*`.
+
+Fixed in commits `c53d237` and `051a533` on `release_v0.0.5`.
+
+**Verification:** Deploy enterprise_rag app stack → verify taints exist on GPU nodes → destroy app stack → verify taints are removed from all GPU nodes. (Not yet integration-tested — deferred to next enterprise_rag_aiq deploy.)
+
+**Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds.
