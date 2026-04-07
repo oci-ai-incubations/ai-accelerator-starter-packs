@@ -715,7 +715,7 @@ resource "helm_release" "aiq" {
     }
   ]
 
-  count = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_app_rag_aiq ? 1 : 0
 
   # The aiq stack depends on the rag stack deployment to complete and
   # the AIQ namespace secrets to be created by configure_oke.
@@ -738,7 +738,7 @@ resource "terraform_data" "aiq_restart_on_tavily_change" {
   }
 
   depends_on = [helm_release.aiq]
-  count      = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" && !local.readiness_via_operator ? 1 : 0
+  count      = local.deploy_app_rag_aiq && !local.readiness_via_operator ? 1 : 0
 }
 
 resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
@@ -763,5 +763,5 @@ resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
   }
 
   depends_on = [null_resource.operator_ready, helm_release.aiq]
-  count      = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" && local.readiness_via_operator ? 1 : 0
+  count      = local.deploy_app_rag_aiq && local.readiness_via_operator ? 1 : 0
 }

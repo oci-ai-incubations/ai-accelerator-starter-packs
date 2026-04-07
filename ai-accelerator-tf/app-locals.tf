@@ -12,6 +12,7 @@ locals {
   # Compound gating locals — single source of truth for repeated count/for_each conditions
   deploy_app_vss      = local.deploy_application && var.starter_pack_category == "vss"
   deploy_app_rag      = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_rag_aiq  = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq"
   deploy_app_non_rag  = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
   deploy_app_26ai     = local.deploy_application && local.needs_26ai
   run_capacity_checks = local.deploy_infrastructure && !var.skip_capacity_check

@@ -191,7 +191,7 @@ resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
 }
 
 resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
-  count = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_app_rag_aiq ? 1 : 0
 
   wait_for_load_balancer = true
   metadata {

@@ -48,7 +48,7 @@ resource "kubernetes_job_v1" "aiq_load_files" {
     update = "60m"
   }
 
-  count = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_app_rag_aiq ? 1 : 0
 
   depends_on = [
     helm_release.aiq,
