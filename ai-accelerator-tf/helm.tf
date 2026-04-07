@@ -451,9 +451,13 @@ resource "kubernetes_namespace_v1" "app_namespace" {
 resource "terraform_data" "label_nim_llm_node" {
   count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
+  input = {
+    kubeconfig = local_sensitive_file.kubeconfig_patch[0].filename
+  }
+
   triggers_replace = [
     local.cluster_id,
-    "label_nim_llm_node_v1"
+    "label_nim_llm_node_v2"
   ]
 
   depends_on = [
@@ -471,6 +475,21 @@ resource "terraform_data" "label_nim_llm_node" {
       kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
     EOT
   }
+
+  # Clean up taints on app stack destroy so the two-stack model starts with
+  # clean node state for the next app deployment. (BUG-009)
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      export KUBECONFIG=${self.output.kubeconfig}
+      echo "Cleaning up nim-llm taints from all GPU nodes..."
+      for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+        kubectl taint node "$NODE" workload=nim-llm:NoSchedule- 2>/dev/null && echo "  Removed taint from $NODE" || true
+        kubectl label node "$NODE" workload- 2>/dev/null || true
+      done
+      echo "Taint cleanup complete."
+    EOT
+  }
 }
 
 resource "terraform_data" "label_nim_llm_node_via_operator" {
@@ -478,7 +497,7 @@ resource "terraform_data" "label_nim_llm_node_via_operator" {
 
   triggers_replace = [
     local.cluster_id,
-    "label_nim_llm_node_v1"
+    "label_nim_llm_node_v2"
   ]
 
   connection {
@@ -497,6 +516,16 @@ resource "terraform_data" "label_nim_llm_node_via_operator" {
       "NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')",
       "kubectl label node \"$NODE\" workload=nim-llm --overwrite",
       "kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule --overwrite"
+    ]
+  }
+
+  # Clean up taints on app stack destroy (BUG-009)
+  provisioner "remote-exec" {
+    when = destroy
+    inline = [
+      "echo 'Cleaning up nim-llm taints from all GPU nodes...'",
+      "for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule- 2>/dev/null && echo \"  Removed taint from $NODE\" || true; kubectl label node \"$NODE\" workload- 2>/dev/null || true; done",
+      "echo 'Taint cleanup complete.'"
     ]
   }
 
