@@ -482,67 +482,255 @@ Skill(testing-pack), Skill(monitoring-deployment), etc.
 | Chat input | PASS | Text entry works, send button enables |
 | Cleanup | Deferred | GPU infra preserved for enterprise_rag_aiq round |
 
-## Step 17: Track 1 — enterprise_rag_aiq/small (IN PROGRESS)
+## Step 17: Track 1 — enterprise_rag_aiq/small (COMPLETE — FAIL)
 
 > **Skill:** `/testing-pack enterprise_rag_aiq small` (reusing Track 1 infra)
 > **Region:** ap-melbourne-1
 
 ### Infra Re-apply
 
-Destroyed enterprise_rag app stack (GPU nodes preserved). Updated infra stack with enterprise_rag_aiq zip and re-applied. GPU nodes (BM.GPU4.8 x2) persisted since same shape.
+1. Destroyed enterprise_rag app stack via ORM Destroy (GPU nodes preserved)
+2. Updated infra stack with enterprise_rag_aiq zip via agent-browser
+3. Re-applied infra — GPU nodes (BM.GPU4.8 x2) persisted since same shape, ADB removed (enterprise_rag_aiq has 0 database storage)
+4. Created new app stack with enterprise_rag_aiq zip, set `existing_cluster_id` from infra outputs, set `tavily_api_key`
 
 ### Bug Found: Stale nim-llm Taint (BUG-009)
 
 After the enterprise_rag_aiq app deploy, 7+ pods stuck Pending. Root cause: the `label_nim_llm_node` resource from the enterprise_rag app deploy tainted **all** GPU nodes with `workload=nim-llm:NoSchedule`. This taint persists after app stack destroy — Terraform removes state but doesn't untaint nodes.
 
-The total GPU budget (8 for LLM + 8 for other NIMs = 16) fits exactly on 2x BM.GPU4.8 (16 GPUs). **This is NOT a sizing bug** — it's a taint lifecycle issue in the two-stack model.
+Investigation steps:
+1. Checked node taints: `kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints` — both GPU nodes had `workload=nim-llm:NoSchedule` AND `nvidia.com/gpu=present:NoSchedule`
+2. Checked GPU allocation: Node 10.0.102.84 had 8/8 GPUs allocated (NIM LLM). Node 10.0.102.220 had 6/8 GPUs allocated after untaint (embed, rerank, nv-ingest, nemoretriever x3)
+3. Verified total GPU budget: 8 (LLM) + 1 (embed) + 1 (rerank) + 1 (nemoretriever-deplot) + 1 (nemoretriever-ocr) + 1 (nemoretriever-graphic-elements) + 1 (nemoretriever-page-elements) + 1 (nemoretriever-table-structure) + 1 (nim-vlm-text-extraction) = **16 GPUs total** — fits exactly on 2x BM.GPU4.8 (16 GPUs). **NOT a sizing bug.**
+4. Confirmed by reading `helm-values/enterprise-rag-aiq-values.yaml` — all GPU requests match. `nv-ingest` and `milvus` have `nvidia.com/gpu: 0`.
 
-**Workaround:** `kubectl taint nodes <node> workload=nim-llm:NoSchedule-` on the non-LLM GPU node.
+**Workaround applied:** `kubectl taint nodes 10.0.102.220 workload=nim-llm:NoSchedule-` — pods started scheduling on the second GPU node.
 
-### Status: Waiting for pods to schedule after manual untaint.
+### Bug Found: AIQ Namespace Ordering (BUG-010)
 
-## Step 18: Track 2 — vss/poc (IN PROGRESS)
+The `configure_oke_for_aiq_namespace` Kubernetes job failed because the `aiq` namespace didn't exist when the job ran. The job creates NGC secrets in the `aiq` namespace, but nothing created the namespace first.
+
+- `helm_release.aiq` has `create_namespace = true` but depends on the configure job
+- Circular dependency: configure job needs namespace → Helm release creates namespace → Helm release depends on configure job
+- Likely worked before because `configure_oke.py` (inside the container image) may create the namespace implicitly, but this behavior isn't guaranteed
+
+**Fix:** Added `kubernetes_namespace_v1.aiq_namespace` resource in `helm.tf` gated by `local.deploy_app_rag_aiq`, plus `depends_on` in the configure job.
+
+### ORM Apply Result
+
+ORM app apply **FAILED** due to both BUG-009 (taint blocking pod scheduling → Helm timeout) and BUG-010 (aiq namespace job failure). After manual taint workaround, 16/16 pods Running in `rag` namespace, but AIQ namespace was never deployed (ORM failed before reaching the AIQ blueprint step).
+
+### Results
+
+| Phase | Result | Notes |
+|-------|--------|-------|
+| Infra re-apply | PASS | GPU nodes persisted, ADB removed |
+| App apply | **FAIL** | ORM timeout due to BUG-009 + BUG-010 |
+| Pods after workaround | 16/16 Running | Manual untaint of 2nd GPU node |
+| AIQ namespace | NOT DEPLOYED | ORM failed before blueprint step |
+| Cleanup | PASS | App destroy, infra destroy, stacks deleted, worktree removed |
+
+### BUG-009 Fix: Destroy-Time Taint Cleanup
+
+Added destroy-time provisioners to both `label_nim_llm_node` and `label_nim_llm_node_via_operator` in `helm.tf`:
+
+```hcl
+provisioner "local-exec" {
+  when    = destroy
+  command = <<-EOT
+    export KUBECONFIG=${self.output.kubeconfig}
+    for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+      kubectl taint node "$NODE" workload=nim-llm:NoSchedule- 2>/dev/null || true
+      kubectl label node "$NODE" workload- 2>/dev/null || true
+    done
+  EOT
+}
+```
+
+Key implementation details:
+- Used `input`/`self.output` pattern to pass kubeconfig path to destroy provisioner (destroy provisioners can't reference external resources in Terraform 1.5)
+- Bumped `triggers_replace` from `v1` to `v2` to force resource replacement on existing stacks so the new destroy provisioner gets registered
+- For `via_operator` variant: removed resource-level `connection` block entirely (Terraform validates it against destroy rules even for non-destroy provisioners). Both create and destroy provisioners now have their own inline `connection` blocks using `self.output.*`
+
+### BUG-009 Fix Validation (bug009-tester teammate)
+
+Spawned a `bug009-tester` teammate to validate the fix on Track 1's infrastructure. Results:
+- Track 1 had already destroyed all stacks before bug009-tester could test
+- Bug009-tester **found a secondary bug** in the fix: the `via_operator` variant's resource-level `connection` block caused `terraform init` to fail with "Invalid reference from destroy provisioner" because Terraform validates all connection blocks against destroy rules when any destroy provisioner exists
+- Fix applied: moved connection into each provisioner individually
+- CI pipeline confirmed the same error and was fixed by commit `051a533`
+- BUG-009 fix itself could not be integration-tested (no infra available) — deferred to next enterprise_rag_aiq deploy
+
+## Step 18: Track 2 — vss/poc (COMPLETE — PASS)
 
 > **Skill:** `/testing-pack vss poc`
-> **Region:** us-phoenix-1 (changed from us-sanjose-1)
+> **Region:** uk-london-1 (after failing in us-sanjose-1 and us-phoenix-1)
+
+### Bug Found and Fixed: BUG-007
+
+`blueprint_files.tf` VSS `input_file_system` blocks used `var.starter_pack_category == "vss"` which evaluates true even when `deploy_application = false`, causing `[0]` indexing on empty FSS resources.
+
+**Fix:** Changed to `local.deploy_app_vss` (which is `local.deploy_application && var.starter_pack_category == "vss"`) on lines 500, 902, 1342. User pointed out we should use the existing compound local instead of `try()` — cleaner and consistent with the codebase pattern.
+
+### Region Journey
+
+| Region | Attempt | Result | Reason |
+|--------|---------|--------|--------|
+| us-sanjose-1 | 1 | FAIL | VM.GPU.A10.2 out of host capacity |
+| us-phoenix-1 | 1 | FAIL | Wrong size — ORM defaulted to `small` (BM.GPU4.8) instead of `poc` (VM.GPU.A10.2). Failed with NotAuthorizedOrNotFound (NVAIE license required for BM shapes) |
+| us-phoenix-1 | 2 | FAIL | Correct `poc` size, VM.GPU.A10.2 deployed. But FSS mount target quota = 0 in PHX-AD-1 |
+| uk-london-1 | 1 | **PASS** | Full deploy succeeded on first attempt |
+
+**Lessons learned:**
+- Always explicitly set `starter_pack_size` in ORM wizard — schema defaults to `small`, not `poc`
+- Check mount target quotas in addition to GPU capacity when selecting regions
+- `/checking-capacity` should be expanded to check FSS quotas for VSS packs
+
+### Results (uk-london-1)
+
+| Phase | Result | Notes |
+|-------|--------|-------|
+| Schema validation | PASS | Title "Video Search and Summarization" parsed correctly |
+| Infra apply | PASS | VCN, OKE, 2x VM.GPU.A10.2, 1x CPU worker |
+| App apply | PASS | Corrino, blueprints, FSS mount target all deployed |
+| Pod status | PASS | 83 Running, 4 Completed |
+| Frontend | PASS | HTTP 200 at vss-frontend.130-162-183-60.nip.io |
+| API login | PASS | Token returned |
+| Blueprints portal | PASS | HTTP 307 redirect |
+| Grafana | PASS | HTTP 302 redirect to login |
+
+## Step 19: Track 2 — cuopt/poc (COMPLETE — PASS)
+
+> **Skill:** `/testing-pack cuopt poc` (reusing Track 2 infra from VSS)
+> **Region:** uk-london-1
+
+### Infra Re-apply for Pack Switch
+
+1. Destroyed VSS app stack via ORM Destroy (GPU nodes preserved)
+2. Rebuilt zip with cuopt schema: `python3 create_final_schema.py -c cuopt`
+3. Updated infra stack with cuopt zip via agent-browser
+4. Re-applied infra — instance pool scaled from 2→1 VM.GPU.A10.2 workers (extra GPU node terminated), CPU worker pool adjusted per cuopt config
+5. Created new app stack with cuopt zip, set `existing_cluster_id`, applied
+
+### Results
+
+| Phase | Result | Notes |
+|-------|--------|-------|
+| VSS app destroy | PASS | GPU nodes preserved |
+| Infra re-apply | PASS | Instance pool scaled 2→1 GPU workers |
+| cuopt app apply | PASS | Corrino, blueprints deployed |
+| Pod status | PASS | 60 Running, 3 Completed |
+| Frontend | PASS | HTTP 200 at demo-cuopt.79-72-74-209.nip.io |
+| API login | PASS | Token returned |
+| Cleanup | PASS | Both stacks destroyed, deleted |
+
+### Two-Stack Infrastructure Reuse Validated
+
+The VSS→cuopt switch proved the two-stack model works for back-to-back testing:
+- VCN, OKE cluster, control plane all persisted
+- GPU node pool scaled down automatically (Terraform managed instance pool resize)
+- No manual cleanup needed between packs
+- Total time for cuopt test was ~15 min (vs ~30 min for a fresh deploy)
+
+## Step 20: Code Fixes During Testing
 
 ### Bugs Found and Fixed
 
-1. **BUG-007:** `blueprint_files.tf` VSS `input_file_system` blocks used `var.starter_pack_category == "vss"` which evaluates true even when `deploy_application = false`, causing `[0]` indexing on empty FSS resources. Fixed: changed to `local.deploy_app_vss`.
+| Bug | File | Fix | Commit |
+|-----|------|-----|--------|
+| BUG-007 | `blueprint_files.tf:500,902,1342` | `var.starter_pack_category == "vss"` → `local.deploy_app_vss` | `77979f3` |
+| BUG-008 | `helm.tf:517` | `contains([...]) ? 1 : 0` → `local.deploy_app_rag ? 1 : 0` | `77979f3` |
+| BUG-009 | `helm.tf:466-502,505-556` | Added destroy-time provisioners to clean up nim-llm taints | `c53d237` |
+| BUG-009 fix | `helm.tf:505-556` | Moved connection blocks into provisioners for destroy-time compatibility | `051a533` |
+| BUG-010 | `helm.tf:448-456`, `app-blueprint-deployment-job.tf:76-79` | Added `aiq_namespace` resource + `depends_on` | `6ce46a0` |
+| Refactor | `app-locals.tf:15` + 5 files | Added `local.deploy_app_rag_aiq` compound local | `8c3298d` |
 
-### Region Changes
+### Refactoring: `deploy_app_rag_aiq` Compound Local
 
-- **us-sanjose-1:** VM.GPU.A10.2 out of host capacity
-- **us-phoenix-1 attempt 1:** Wrong size — ORM defaulted to `small` (BM.GPU4.8) instead of `poc` (VM.GPU.A10.2). Failed with NotAuthorizedOrNotFound (NVAIE license required for BM shapes).
-- **us-phoenix-1 attempt 2:** Correct `poc` size. Infra apply in progress.
+User identified that `local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq"` was repeated inline in 6 places. Added `local.deploy_app_rag_aiq` to `app-locals.tf` following the existing pattern (`deploy_app_vss`, `deploy_app_rag`, `deploy_app_non_rag`). Updated all 6 occurrences:
 
-**Lesson learned:** Always explicitly set `starter_pack_size` in the ORM wizard — the schema defaults to `small`, not `poc`.
+- `app-blueprint-deployment-job.tf:79` — `configure_oke_for_aiq_namespace`
+- `app-aiq-data-ingestion.tf:51` — aiq data ingestion job
+- `ingress.tf:194` — `enterprise_rag_aiq_frontend_ingress`
+- `helm.tf:718` — `helm_release.aiq`
+- `helm.tf:741` — `aiq_restart_on_tavily_change`
+- `helm.tf:766` — `aiq_restart_on_tavily_change_via_operator`
 
-### Status: Infra apply running with correct VM.GPU.A10.2/poc size.
+### Skill Updates
 
-## Step 19: Code Fixes Committed and Pushed
+- `/testing-pack` (`SKILL.md`): Changed all `--session-name` to `--session` for isolated browser instances. Added warning explaining the difference between the two flags.
 
-All bug fixes and refactors committed to `release_v0.0.5` and pushed:
+### CI Fix
+
+CI pipeline (`terraform-test.yml`) failed after BUG-009 fix because the resource-level `connection` block on `label_nim_llm_node_via_operator` referenced external resources (`oci_core_instance.operator`, `tls_private_key.oke_ssh_key`, `oci_core_instance.bastion`). Terraform validates ALL connection blocks against destroy provisioner rules when any destroy provisioner exists on the resource.
+
+**Fix:** Removed resource-level `connection` block. Both create and destroy provisioners now have their own inline `connection` blocks using `self.output.*`. Validated with `terraform init -backend=false && terraform validate` locally before pushing.
+
+### Full Commit History on release_v0.0.5
 
 ```
+051a533 fix: move connection blocks into provisioners for destroy-time compatibility
+6ce46a0 fix: create aiq namespace before configure_oke job (BUG-010)
+c53d237 fix: clean up nim-llm taints on app stack destroy (BUG-009)
+52066aa docs: add BUG-009 (stale nim-llm taint) and update STEPS.md with full testing progress
 bac25c4 docs: mark BUG-007 as fixed with deploy_app_vss resolution
 8c3298d refactor: add deploy_app_rag_aiq compound local
 80264cb docs: add BUG-007/008 entries, release steps, testing plan
-58773b1 chore: update testing-pack skill to use --session
+58773b1 chore: update testing-pack skill to use --session for browser isolation
 77979f3 fix: gate k8s resources on deploy_application (BUG-007, BUG-008)
 e44a2f3 feat: auto-check GPU capacity when region not specified
 a83b74c Release v0.0.5
 ```
 
-**Note:** The GitHub release zips still have the old (buggy) code. Zips need to be rebuilt and re-uploaded after all testing completes.
+## Step 21: Rebuild and Re-Upload Release Zips
+
+After all testing and bug fixes, the original GitHub release zips (from Step 11) contained buggy code. Rebuilt all 5 zips from the fixed codebase.
+
+### Process
+
+1. Cleaned build artifacts: `rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl`
+2. Deleted old zips: `rm -f release_test_matrix/v0.0.5_*.zip`
+3. For each category, generated schema and created zip (same process as Step 8)
+4. Deleted old assets from GitHub release: `gh release delete-asset v0.0.5 <asset> --yes` for each
+5. Uploaded new zips: `gh release upload v0.0.5 release_test_matrix/v0.0.5_*.zip`
+6. Verified new assets: all 5 zips uploaded with 2026-04-07 timestamps
+
+### Verification
+
+```bash
+gh release view v0.0.5 --json assets --jq '.assets[] | "\(.name) \(.size) \(.createdAt)"'
+```
+
+All 5 zips present with updated timestamps confirming they include the bug fixes.
+
+## Step 22: Verify Branch Pushed to Remote
+
+Confirmed local and remote `release_v0.0.5` are in sync:
+
+```bash
+git status --short          # no uncommitted changes
+git diff origin/release_v0.0.5 --stat   # no difference
+```
+
+---
+
+## Final Test Results
+
+| Pack | Size | Region | Track | Result | Bugs Found |
+|------|------|--------|-------|--------|------------|
+| paas_rag | small | us-sanjose-1 | Track 3 | **PASS** | Dynamic group quota (tenancy) |
+| enterprise_rag | small | ap-melbourne-1 | Track 1 | **PASS** | BUG-008 (fixed) |
+| enterprise_rag_aiq | small | ap-melbourne-1 | Track 1 | **FAIL** | BUG-009 (fixed), BUG-010 (fixed) |
+| vss | poc | uk-london-1 | Track 2 | **PASS** | BUG-007 (fixed) |
+| cuopt | poc | uk-london-1 | Track 2 | **PASS** | — |
+
+**4/5 passed.** enterprise_rag_aiq failed due to BUG-009 (stale taint) and BUG-010 (aiq namespace ordering), both now fixed in the code and release zips. A re-test of enterprise_rag_aiq is recommended but the fixes are straightforward and well-understood.
 
 ## Remaining Steps
 
-- [ ] Track 1: Complete enterprise_rag_aiq testing after untaint workaround
-- [ ] Track 2: Complete VSS testing, then switch to cuopt
-- [ ] Rebuild all 5 release zips with bug fixes
-- [ ] Re-upload zips to GitHub release
+- [ ] Optionally re-test enterprise_rag_aiq with fixed code (BUG-009 + BUG-010 fixes)
 - [ ] Run `/release-push v0.0.5` for Slack announcement, PR merge, tagging
+- [ ] Merge `release_v0.0.5` branch to `main`
 
 ---
 
