@@ -22,10 +22,25 @@ Consolidate `old-release-upgrade` and `old-release-push` into two reference file
 ├── SKILL.md                 # Orchestrator (slimmed, no duplication)
 ├── RELEASE_BUILD.md         # Build steps (from old-release-upgrade, minus test matrix)
 ├── RELEASE_PUBLISH.md       # Publish steps (from old-release-push, all steps kept)
-├── ZIP_PACKAGING.md         # Zip creation details (moved from old-release-upgrade)
 ├── PARALLEL_TESTING.md      # Agent teams setup (unchanged)
 └── LESSONS_LEARNED.md       # Anti-patterns (unchanged)
 ```
+
+No ZIP_PACKAGING.md — zip creation delegates to the existing `/zip-tf` skill (extended with optional args).
+
+## /zip-tf Skill Extension
+
+The existing `/zip-tf` skill needs two optional arguments to support release packaging:
+
+- **`$0` (optional)** — Output directory. Default: `zipped/`. For releases: `release_test_matrix/`.
+- **`$1` (optional)** — Custom filename (without `.zip`). Default: `<category>-<timestamp>`. For releases: `<version>_<category>`.
+
+Additional exclusions added to the zip command for release mode (when output dir is `release_test_matrix/`):
+- `tests/*` — unit test files not needed in ORM
+- `schemas/tests/*` — schema test files
+- `schemas/generated/*` — intermediate generated files
+
+The verification step already covers the essentials (no .terraform, no bad .tfvars, PII scan). No changes needed there.
 
 ## RELEASE_BUILD.md
 
@@ -38,14 +53,13 @@ Consolidated from `old-release-upgrade` SKILL.md. Steps:
 5. **Validate** — terraform fmt -recursive, terraform validate, schema gen (`python3 create_final_schema.py --all`), schema tests (`pytest schemas/tests/ -v`), feedback loop until clean
 6. **Display summary** — show `git diff`, ask user to confirm before proceeding
 7. **Commit and push** — commit version bump files, push `release_v<VERSION>` branch
-8. **Create per-pack zips** — see [ZIP_PACKAGING.md](ZIP_PACKAGING.md) for details. Scan for sensitive data, generate schema per category, zip with exclusions, output to `release_test_matrix/`
+8. **Create per-pack zips** — for each of the 5 categories, invoke `/zip-tf` with the release naming convention (`<version>_<category>.zip` in `release_test_matrix/` instead of the default timestamped name in `zipped/`)
 
 **Dropped from old-release-upgrade:**
 - Step 6 (Create Test Matrix) — no longer needed
 - TEST_MATRIX.md, TEST_MATRIX_FORMAT.md — dropped with test matrix
 - OWNERS.md — only used by test matrix
-
-**Reference files:** ZIP_PACKAGING.md (moved from old-release-upgrade, unchanged)
+- ZIP_PACKAGING.md — zip creation delegates to existing `/zip-tf` skill
 
 ## RELEASE_PUBLISH.md
 
@@ -68,7 +82,7 @@ Consolidated from `old-release-push` SKILL.md. All steps kept:
 The orchestrator SKILL.md is updated to:
 
 1. **Phase 1:** Replace the 7-line summary with "Read and follow [RELEASE_BUILD.md](RELEASE_BUILD.md)." Keep only the post-build verification (`ls release_test_matrix/`).
-2. **Phase 5 (Fix & Rebuild):** The zip rebuild steps reference ZIP_PACKAGING.md instead of inlining the full bash commands. Keep the GitHub Release asset re-upload steps (those are unique to Phase 5).
+2. **Phase 5 (Fix & Rebuild):** The zip rebuild steps reference `/zip-tf` instead of inlining the full bash commands. Keep the GitHub Release asset re-upload steps (those are unique to Phase 5).
 3. **Phase 6:** Replace the 5-line summary with "Read and follow [RELEASE_PUBLISH.md](RELEASE_PUBLISH.md)." Keep only the final verification commands.
 4. **Delegation map:** Update to reference RELEASE_BUILD.md and RELEASE_PUBLISH.md instead of `/release-upgrade` and `/release-push`.
 5. **Description:** Update to remove references to `/release-upgrade` and `/release-push`.
@@ -83,9 +97,9 @@ The orchestrator SKILL.md is updated to:
 
 ## Implementation Steps
 
-1. Create RELEASE_BUILD.md from old-release-upgrade content (minus test matrix, minus OWNERS.md)
-2. Create RELEASE_PUBLISH.md from old-release-push content (all steps)
-3. Move ZIP_PACKAGING.md from old-release-upgrade to releasing folder
-4. Update SKILL.md — slim down Phases 1, 5, and 6 to reference the new files
-5. Update SKILL.md description/delegation map
+1. Extend `/zip-tf` SKILL.md with optional output-dir and filename arguments, plus release-mode exclusions
+2. Create RELEASE_BUILD.md from old-release-upgrade content (minus test matrix, minus OWNERS.md, zip step invokes `/zip-tf`)
+3. Create RELEASE_PUBLISH.md from old-release-push content (all steps)
+4. Update releasing SKILL.md — slim down Phases 1, 5, and 6 to reference the new files
+5. Update releasing SKILL.md description/delegation map
 6. Verify no duplication remains between SKILL.md and the reference files
