@@ -81,6 +81,10 @@ rm -f .terraform.lock.hcl
 
 If any validation step fails, fix the issues and re-run from the top of this step. Only proceed when everything passes.
 
+Sync SOFTWARE_VERSIONS.md with current container images:
+
+Invoke `/sync-versions` to update `SOFTWARE_VERSIONS.md` with the latest container image versions from `blueprint_files.tf`. This ensures the versions doc ships current with the release. If changes are found, they will appear in the git diff at Step 6.
+
 ## Step 6: Display Summary
 
 - List all files that were modified
@@ -94,7 +98,8 @@ After user confirmation:
 ```bash
 git add ai-accelerator-tf/AI_ACCELERATOR_STACK_VERSION \
        ai-accelerator-tf/vars.tf \
-       ai-accelerator-tf/schemas/common_schema.yaml
+       ai-accelerator-tf/schemas/common_schema.yaml \
+       SOFTWARE_VERSIONS.md
 git commit -m "Release <VERSION>"
 git push -u origin release_v<VERSION>
 ```
