@@ -12,7 +12,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
 | Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
-| Open | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
+| Fixed | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
 
 ---
 
@@ -273,8 +273,9 @@ Changed count condition from `contains(["enterprise_rag", "enterprise_rag_aiq"],
 
 ### BUG-009: Stale nim-llm taint blocks pod scheduling after two-stack pack switch
 
-**Status:** Open
+**Status:** Fixed
 **Date found:** 2026-04-07
+**Date fixed:** 2026-04-07
 **Found by:** Track 1 agent during v0.0.5 enterprise_rag → enterprise_rag_aiq two-stack test
 **Severity:** High
 
@@ -291,7 +292,7 @@ The `label_nim_llm_node` resource in `helm.tf` (gated by `local.deploy_app_rag`)
 The total GPU budget is exactly 16 (8 for LLM + 1 each for 8 other NIMs), which fits on 2x BM.GPU4.8 (8 GPUs each) — **this is NOT a sizing bug**. It's purely a taint lifecycle issue in the two-stack model.
 
 **Affected files:**
-- `ai-accelerator-tf/helm.tf` — `label_nim_llm_node` resource taints all GPU nodes and has no destroy-time cleanup
+- `ai-accelerator-tf/helm.tf` — `label_nim_llm_node` and `label_nim_llm_node_via_operator` resources taint GPU nodes with no destroy-time cleanup
 
 **Workaround:**
 Manually remove the nim-llm taint from the non-LLM GPU node between rounds:
@@ -300,9 +301,12 @@ kubectl taint nodes <second-gpu-node> workload=nim-llm:NoSchedule-
 ```
 
 **Resolution:**
-TBD. Options:
-1. Add a destroy-time provisioner to `label_nim_llm_node` that removes the taint on app stack destroy
-2. Only taint the specific node where the LLM is scheduled (use `nodeSelector` match instead of tainting all GPU nodes)
-3. Add a pre-deploy step in the app stack that clears stale taints from GPU nodes before the Helm install
+Added destroy-time provisioners to both `label_nim_llm_node` (local-exec) and `label_nim_llm_node_via_operator` (remote-exec) that remove the `workload=nim-llm` taint and label from all GPU nodes on app stack destroy. Used `input`/`self.output` pattern to pass kubeconfig/SSH details to the destroy provisioner (Terraform 1.5 requires destroy provisioners to only reference `self`). Bumped `triggers_replace` from `v1` to `v2` to force resource replacement on existing stacks so the new destroy provisioner gets registered.
+
+For the `via_operator` variant: removed the resource-level `connection` block entirely because Terraform validates all connection blocks against destroy provisioner rules when any destroy provisioner exists on the resource. Both create and destroy provisioners now have their own inline `connection` blocks using `self.output.*`.
+
+Fixed in commits `c53d237` and `051a533` on `release_v0.0.5`.
+
+**Verification:** Deploy enterprise_rag app stack → verify taints exist on GPU nodes → destroy app stack → verify taints are removed from all GPU nodes. (Not yet integration-tested — deferred to next enterprise_rag_aiq deploy.)
 
 **Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds.
