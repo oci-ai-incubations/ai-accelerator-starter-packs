@@ -10,6 +10,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-004 | llamastack secrets "already exists" on existing cluster | High | 2026-03-31 |
 | Fixed | BUG-005 | ADB creation fails with 400 — missing private_endpoint_label | Critical | 2026-03-31 |
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
+| Open | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
+| Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
 
 ---
 
@@ -200,3 +202,67 @@ The infra stack now outputs the node subnet OCID, which the user copies into the
 **Verification:** Deploy a two-stack paas_rag: infra stack outputs `node_subnet_id`, app stack receives it as `existing_node_subnet_id`, blueprint deploys successfully (HTTP 200 from Corrino API, deployment status reaches `monitoring`/`active`).
 
 **Prevention:** When adding a new `existing_*` variable for the two-stack model, ensure it is: (1) output from the infra stack, (2) visible in the ORM schema, (3) in the "Advanced Options" variable group, and (4) in the "Infrastructure (for App-Only Stack)" output group. The Corrino `SubnetValidator` should also be updated to skip validation when `recipe_use_shared_node_pool = true` (defense in depth).
+
+### BUG-007: VSS infra-only apply fails — blueprint_files.tf references empty FSS resources
+
+**Status:** Open
+**Date found:** 2026-04-06
+**Found by:** Track 2 agent during v0.0.5 VSS release testing
+**Severity:** Critical
+
+**Symptoms:**
+`terraform apply` with `deploy_application = false` (infra-only stack) fails with:
+```
+Error: Invalid index
+  on blueprint_files.tf line 503, in locals:
+  503: mount_target_ocid = oci_file_storage_mount_target.vss_mount_target[0].id
+       oci_file_storage_mount_target.vss_mount_target is empty tuple
+```
+Same error on lines 503, 904, 905, 1344, 1345 — all referencing `oci_file_storage_file_system.vss_fss[0].id` or `oci_file_storage_mount_target.vss_mount_target[0].id`.
+
+**Root cause:**
+VSS blueprint locals in `blueprint_files.tf` unconditionally reference `oci_file_storage_mount_target.vss_mount_target[0].id` and `oci_file_storage_file_system.vss_fss[0].id`. These FSS resources are gated by a count condition that evaluates to 0 when `deploy_application = false`, making them empty tuples. But the locals that build blueprint JSON payloads reference them with `[0]` indexing without any guard.
+
+**Affected files:**
+- `ai-accelerator-tf/blueprint_files.tf` lines 503, 904, 905, 1344, 1345 — unguarded `[0]` references to FSS resources
+
+**Workaround:**
+None — infra-only apply fails and blocks the two-stack model for VSS.
+
+**Resolution:**
+TBD — wrap references with `try()` or gate the entire blueprint local block with `local.deploy_application`.
+
+**Prevention:** All resource references in blueprint locals should be guarded with `try(..., "")` or gated behind `local.deploy_application` since blueprints are only relevant when deploying the application layer.
+
+### BUG-008: Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate
+
+**Status:** Fixed
+**Date found:** 2026-04-06
+**Date fixed:** 2026-04-06
+**Found by:** Track 1 agent during v0.0.5 enterprise_rag release testing
+**Severity:** Critical
+
+**Symptoms:**
+`terraform apply` with `deploy_application = false` (infra-only stack) fails with:
+```
+Error: Get "http://localhost/api/v1/namespaces/rag/secrets/ngc-api-secret": dial tcp [::1]:80: connect: connection refused
+
+  with data.kubernetes_secret_v1.ngc_api_secret[0],
+  on helm.tf line 512, in data "kubernetes_secret_v1" "ngc_api_secret":
+```
+
+**Root cause:**
+`data.kubernetes_secret_v1.ngc_api_secret` in `helm.tf` line 512 had a count condition gated only on the starter pack category (`contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0`) but NOT on `deploy_application`. When `deploy_application = false`, no OKE cluster exists yet, so the Kubernetes provider defaults to `localhost:80` and the data source connection fails.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:517` — count condition missing `local.deploy_application` check
+
+**Workaround:**
+None — infra-only apply fails and blocks the two-stack model for enterprise_rag.
+
+**Resolution:**
+Changed count condition from `contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0` to `local.deploy_app_rag ? 1 : 0` which includes the `deploy_application` check. Fixed by Track 1 agent during v0.0.5 testing.
+
+**Verification:** `terraform apply` with `deploy_application = false` and `starter_pack_category = "enterprise_rag"` should succeed without the localhost connection error.
+
+**Prevention:** All `data` sources that query the Kubernetes API must include `local.deploy_application` in their count condition, since the cluster does not exist during infra-only deploys.
