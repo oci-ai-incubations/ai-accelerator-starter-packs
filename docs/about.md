@@ -7,7 +7,7 @@ AI Accelerator packs are a full deployment OCI resource manager templates that d
 All AI Accelerator Packs will deploy the OCI AI Blueprints which includes open-source components like **Prometheus, Grafana, PosgreSQL, KEDA & MLFlow**.
 This list is updated frequently as we continue curating more.
 
-## Delivery Vehicle Route Optimizer
+## Vehicle Delivery Route Optimizer
 
 ### Deployment Sizes & Services Required
 
@@ -42,7 +42,7 @@ Table with a list of sizes and supported packs.
 
 Other necessary VNET , public IP, load balancers and subnets are required.
 
-## Video Search & Summarization (VSS)
+## Video Search and Summarization
 
 ### Deployment Sizes & Services Required
 
@@ -67,7 +67,7 @@ Table with a list of sizes and supported packs.
 
 Other necessary VNET , public IP, load balancers and subnets are required.
 
-## AI-Q: Enterprise Reasoning Chat Agent IaaS Self-Hosted
+## Enterprise Knowledge Chat Agent - Self-Hosted AI Models
 
 ### Deployment Sizes & Services Required
 
@@ -84,7 +84,7 @@ Table with a list of sizes and supported packs.
 
 Other necessary VNET , public IP, load balancers and subnets are required.
 
-## Oracle-Net: Enterprise Reasoning Chat Agent With Shared Services
+## Enterprise Knowledge Chat Agent - Managed AI Models
 
 ### Deployment Sizes & Services Required
 
@@ -106,3 +106,18 @@ Table with a list of sizes and supported packs.
 |                 | OCI Software         | OCI AI Blueprints              | Free                | NA                  | NA       |
 
 Other necessary VNET , public IP, load balancers and subnets are required.
+
+## Enterprise Agentic AI Starter Kit
+
+### Deployment Sizes & Services Required
+
+| Deployment Size | Component                               | Requirements                   | SKU                                | Specs              | Quantity |
+| --------------- | --------------------------------------- | ------------------------------ | ---------------------------------- | ------------------ | -------- |
+| **SMALL**       | OCI Core Compute                        | Nvidia A100 40 GB GPU          | BM.GPU4.8                          | 8 GPUs             | 2        |
+|                 |                                         | CPU VM Flex                    | VM.Standard.E5.Flex                | ocpus=4, memory=32 | 2        |
+|                 | OCI Boot Volume                         | Boot Block Volume              | NA                                 | 300 GB             | 2        |
+|                 | OCI Services                            | Oracle Kubernetes Engine (OKE) | NA                                 | NA                 | 1        |
+|                 | NVIDIA AI Enterprise License & Software | NVIDIA NIMs                    | OCI Billed (attached to # of GPUs) | NA                 | 16       |
+|                 | OCI Software                            | OCI AI Blueprints              | Free                               | 1                  |
+
+Other necessary VNET, public IP, load balancers and subnets are required.
