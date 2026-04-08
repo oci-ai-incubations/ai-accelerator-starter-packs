@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
 argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
 ---
 
-# cuOpt Starter Pack — Test Coverage Specification
+# Vehicle Delivery Route Optimizer — Test Coverage Specification
 
 Source of truth for what to test on a deployed cuOpt stack. Covers the cuOpt interactive frontend (React SPA), the NVIDIA cuOpt solver backend, LlamaStack LLM service, and OCI infrastructure.
 

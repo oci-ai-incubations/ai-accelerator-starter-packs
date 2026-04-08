@@ -96,7 +96,7 @@ For detailed component and data-flow documentation, see the [NVIDIA VSS Blueprin
 
 ## Deployment and Access
 
-You can deploy the VSS Starter Pack from the **OCI Console**. Under **AI Accelerator Packs**, select the VSS pack (Video Search and Summarization for Content Moderation) and choose a deployment size, add the portal credentials and click Create. The console uses the pack's sizing to provision the right GPU compute, OKE cluster, networking, and the VSS software stack.
+You can deploy the **Video Search and Summarization** pack from the **OCI Console**. Under **AI Accelerator Packs**, select the Video Search and Summarization pack and choose a deployment size, add the portal credentials and click Create. The console uses the pack's sizing to provision the right GPU compute, OKE cluster, networking, and the VSS software stack.
 
 After deployment you get:
 

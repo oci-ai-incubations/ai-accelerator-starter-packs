@@ -1,12 +1,12 @@
 ---
 name: enterprise-rag-test-coverage
-description: Authoritative test specification for the Enterprise RAG starter pack. Documents API endpoints, UI interactions, document ingestion, RAG chat flows, and infrastructure. Split into phase-specific files.
+description: Authoritative test specification for the Self-Hosted Enterprise Chat Agent (enterprise_rag) starter pack. Documents API endpoints, UI interactions, document ingestion, RAG chat flows, and infrastructure. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
 argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
 ---
 
-# Enterprise RAG Starter Pack — Test Coverage Specification
+# Self-Hosted Enterprise Chat Agent — Test Coverage Specification
 
 Source of truth for what to test on a deployed Enterprise RAG stack. Covers the Enterprise RAG frontend (React SPA), the RAG server, ingestor server, NIM models, Milvus vector DB, and OCI infrastructure.
 
