@@ -1,6 +1,6 @@
-# Vehicle Route Optimizer Accelerator Pack
+# Vehicle Delivery Route Optimizer
 
-The **Vehicle Route Optimizer Starter Pack** is an AI Accelerator Pack that delivers a combined **hardware and software** solution for route optimization on Oracle Cloud Infrastructure (OCI) by deploying the [cuOpt NIM](https://docs.api.nvidia.com/nim/reference/nvidia-cuopt) with an interactive front-end to interact with the route planner.
+The **Vehicle Delivery Route Optimizer** is an AI Accelerator Pack that delivers a combined **hardware and software** solution for route optimization on Oracle Cloud Infrastructure (OCI) by deploying the [cuOpt NIM](https://docs.api.nvidia.com/nim/reference/nvidia-cuopt) with an interactive front-end to interact with the route planner.
 
 ## What You Get
 

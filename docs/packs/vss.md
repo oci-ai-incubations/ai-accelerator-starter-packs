@@ -1,6 +1,6 @@
-# VSS Starter Pack
+# Video Search and Summarization
 
-The **VSS Starter Pack** is an AI Accelerator Pack that delivers a combined **hardware and software** solution for video search and summarization on Oracle Cloud Infrastructure (OCI). It enables deployment of GPU-backed infrastructure and the full [NVIDIA Video Search and Summarization (VSS)](https://docs.nvidia.com/vss/latest/) platform in one go. 
+The **Video Search and Summarization** pack is an AI Accelerator Pack that delivers a combined **hardware and software** solution for video search and summarization on Oracle Cloud Infrastructure (OCI). It enables deployment of GPU-backed infrastructure and the full [NVIDIA Video Search and Summarization (VSS)](https://docs.nvidia.com/vss/latest/) platform in one go. 
 
 
 ## What You Get

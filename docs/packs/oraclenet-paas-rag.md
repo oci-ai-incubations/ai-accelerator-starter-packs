@@ -1,8 +1,8 @@
-# OracleNet RAG on OCI
+# Enterprise Knowledge Chat Agent - Managed AI Models
 
-#### Advanced AI-Powered Interface for Retrieval Augmented Generation
+#### Managed Enterprise Chat Agent for Retrieval Augmented Generation
 
-Deploy OracleNet on OCI to leverage a state-of-the-art interface for interacting with Retrieval Augmented Generation (RAG) systems. Powered by Llama-Stack, this frontend provides a seamless user experience with real-time chat, collection management, and customizable configurations.
+Deploy the **Managed Enterprise Chat Agent** on OCI to leverage a state-of-the-art interface for interacting with Retrieval Augmented Generation (RAG) systems. Powered by Llama-Stack, this frontend provides a seamless user experience with real-time chat, collection management, and customizable configurations.
 
 OracleNet integrates with backend technologies like Llama-Stack, OCI Gen-AI PaaS for embeddings/inference, and Oracle 26ai for advanced vector storage capabilities.
 

@@ -1,6 +1,6 @@
-# AI-Q Research Assistant Accelerator Pack
+# Enterprise Agentic AI Starter Kit
 
-The **AI-Q Research Assistant Accelerator Pack** is an AI Accelerator Pack that delivers a combined **hardware and software** solution for agentic research workflows on Oracle Cloud Infrastructure (OCI). It deploys the [NVIDIA AI-Q Research Assistant (AIRA)](https://github.com/NVIDIA-AI-Blueprints/aiq-research-assistant) blueprint — an agentic RAG system that combines document retrieval with live web search to produce cited, multi-source research reports.
+The **Enterprise Agentic AI Starter Kit** is an AI Accelerator Pack that delivers a combined **hardware and software** solution for agentic research workflows on Oracle Cloud Infrastructure (OCI). It deploys the [NVIDIA AI-Q Research Assistant (AIRA)](https://github.com/NVIDIA-AI-Blueprints/aiq-research-assistant) blueprint — an agentic RAG system that combines document retrieval with live web search to produce cited, multi-source research reports.
 
 ## What You Get
 
