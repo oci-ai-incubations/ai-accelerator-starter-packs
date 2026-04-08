@@ -42,6 +42,32 @@ ls -la release_test_matrix/
 
 If any zip is missing, stop and investigate.
 
+### 1b. Create Release PR
+
+Create the PR immediately after building. This PR becomes the **testing workspace** — agents post progress and results here throughout the release.
+
+```bash
+PR_NUMBER=$(gh pr create --base main --head release_v${VERSION} \
+  --title "Release ${VERSION}" \
+  --body "$(cat <<'PREOF'
+## Release ${VERSION}
+
+Testing workspace — agents will post progress and results below.
+
+### Checklist
+- [ ] Build complete
+- [ ] GitHub Release created (pre-release)
+- [ ] Testing planned
+- [ ] All packs tested
+- [ ] Bugs fixed (if needed)
+- [ ] Release finalized
+PREOF
+)" --json number --jq '.number')
+echo "PR #${PR_NUMBER} created"
+```
+
+Record `PR_NUMBER` for use in Phase 4.
+
 ---
 
 ## Phase 2: Create GitHub Release
@@ -168,6 +194,7 @@ Each teammate message should include:
 3. The compartment OCID
 4. Instruction to invoke `/testing-pack <category> <size>`
 5. For back-to-back tracks: instruction to destroy app stack, update infra with next pack's zip, re-apply, then `/testing-pack` for the second pack
+6. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
 
 ### 4c. Monitor progress
 
@@ -190,6 +217,26 @@ Build a combined results table:
 | vss               | poc   | uk-london-1    | Track 2 | PASS   | —          |
 | cuopt             | poc   | uk-london-1    | Track 2 | PASS   | —          |
 ```
+
+### 4e. Post combined results to PR
+
+After all teammates complete, post a combined summary to the PR:
+
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+## Release $VERSION — Combined Test Results
+
+| Pack | Size | Region | Infra | API | UI | Overall |
+|---|---|---|---|---|---|---|
+| <pack> | <size> | <region> | X/Y | X/Y | X/Y | PASS/FAIL |
+...
+
+**Overall: X/Y packs passed**
+EOF
+)"
+```
+
+If any pack failed, also update the PR body checklist to reflect the current state.
 
 ---
 

@@ -3,7 +3,7 @@ name: paas-rag-test-coverage
 description: Authoritative test specification for the Managed Enterprise Chat Agent (paas_rag) starter pack. Documents API endpoints, UI interactions, document management, RAG chat flows, and infrastructure. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
-argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
+argument-hint: [section] (optional — "api", "ui", "infra", or omit to run all three)
 ---
 
 # Managed Enterprise Chat Agent — Test Coverage Specification
@@ -27,10 +27,19 @@ Each file is **self-contained** — it has everything needed to execute its test
 | File | Tests | Count | Executor |
 |---|---|---|---|
 | `api-tests.md` | PA-1 through PA-10 | 10 | Main agent via `curl` |
-| `ui-tests.md` | PU-1 through PU-18 | 18 | Playwright sub-agent |
+| `ui-tests.md` | PU-1 through PU-18 | 18 | agent-browser |
 | `infra-tests.md` | PI-1 through PI-5 | 5 | Main agent via `kubectl` / OCI CLI |
 
 **Total: 33 tests** (10 API + 18 UI + 5 Infra)
+
+---
+
+## Invocation Behavior
+
+- **`/paas-rag-test-coverage infra`** — Read and execute `infra-tests.md` only.
+- **`/paas-rag-test-coverage api`** — Read and execute `api-tests.md` only.
+- **`/paas-rag-test-coverage ui`** — Read and execute `ui-tests.md` only.
+- **`/paas-rag-test-coverage`** (no argument) — Execute ALL three in order: `infra-tests.md`, then `api-tests.md`, then `ui-tests.md`.
 
 ---
 

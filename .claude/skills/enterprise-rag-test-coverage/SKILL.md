@@ -3,7 +3,7 @@ name: enterprise-rag-test-coverage
 description: Authoritative test specification for the Self-Hosted Enterprise Chat Agent (enterprise_rag) starter pack. Documents API endpoints, UI interactions, document ingestion, RAG chat flows, and infrastructure. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
-argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
+argument-hint: [section] (optional — "api", "ui", "infra", or omit to run all three)
 ---
 
 # Self-Hosted Enterprise Chat Agent — Test Coverage Specification
@@ -30,10 +30,19 @@ Each file is **self-contained** — it has everything needed to execute its test
 | File | Tests | Count | Executor |
 |---|---|---|---|
 | `api-tests.md` | EA-1 through EA-10 | 10 | Main agent via `curl` |
-| `ui-tests.md` | EU-1 through EU-18 | 18 | Playwright sub-agent |
+| `ui-tests.md` | EU-1 through EU-18 | 18 | agent-browser |
 | `infra-tests.md` | EI-1 through EI-10 | 10 | Main agent via `kubectl` / OCI CLI |
 
 **Total: 38 tests** (10 API + 18 UI + 10 Infra)
+
+---
+
+## Invocation Behavior
+
+- **`/enterprise-rag-test-coverage infra`** — Read and execute `infra-tests.md` only.
+- **`/enterprise-rag-test-coverage api`** — Read and execute `api-tests.md` only.
+- **`/enterprise-rag-test-coverage ui`** — Read and execute `ui-tests.md` only.
+- **`/enterprise-rag-test-coverage`** (no argument) — Execute ALL three in order: `infra-tests.md`, then `api-tests.md`, then `ui-tests.md`.
 
 ---
 

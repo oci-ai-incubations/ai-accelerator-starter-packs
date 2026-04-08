@@ -144,6 +144,26 @@ Pack-specific credentials:
 
 If category is `paas_rag`, `enterprise_rag`, or `enterprise_rag_aiq`, note that it requires `autonomous_db_subnet`. Confirm the schema includes ADB-specific fields.
 
+### 0h. PR number (optional)
+
+If provided by the caller (e.g., from `/releasing`), record `PR_NUMBER` for posting test progress and results to the GitHub PR. The caller passes this as `PR_NUMBER=<number>` in the message body.
+
+If not provided, skip PR posting — testing-pack works fine standalone without it.
+
+When `PR_NUMBER` is set, post a PR comment at each major milestone using:
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+<comment content>
+EOF
+)"
+```
+
+Milestones to post at:
+- Phase 4 start: testing started, region, track info
+- Phase 5 complete: deploy done, pods running, starting tests
+- After each test phase (6c-1, 6c-2, 6c-3): test results table
+- Phase 7: final summary with all results combined
+
 ---
 
 ## Phase 1: Discover Existing Stacks
@@ -432,25 +452,71 @@ agent-browser --headed --session $SESSION_NAME --ignore-https-errors open "https
 
 Verify the page loads (HTTP 200, expected content visible in snapshot).
 
-### 6c. Run pack-specific smoke tests
+### 6c. Run ALL pack-specific tests (Infra, API, UI)
 
-Invoke the appropriate test coverage skill:
+Determine the test coverage directory for the category:
 
-| Category | Skill |
+| Category | Test coverage directory |
 |---|---|
-| `paas_rag` | `/paas-rag-test-coverage` |
-| `enterprise_rag` | `/enterprise-rag-test-coverage` |
-| `enterprise_rag_aiq` | `/enterprise-rag-test-coverage` |
-| `cuopt` | `/cuopt-test-coverage` |
-| `vss` | `/vss-test-coverage` |
+| `paas_rag` | `.claude/skills/paas-rag-test-coverage/` |
+| `enterprise_rag` | `.claude/skills/enterprise-rag-test-coverage/` |
+| `enterprise_rag_aiq` | `.claude/skills/enterprise-rag-test-coverage/` |
+| `cuopt` | `.claude/skills/cuopt-test-coverage/` |
+| `vss` | `.claude/skills/vss-test-coverage/` |
 
-Pass the frontend URL and any credentials (Corrino admin username/password from `terraform.tfvars`).
+Execute **ALL THREE** test phases in order. Do NOT skip any phase. If a test fails, record the failure and continue to the next test. Only stop the entire sequence if the frontend is unreachable (HTTP connection refused).
 
-If no pack-specific coverage skill exists, run basic smoke tests:
+#### 6c-1. Execute Infra tests
+
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/infra-tests.md` NOW. This file is self-contained — it has every infrastructure test with kubectl/OCI CLI commands, expected output, and failure hints. Execute directly from it.
+
+For every test in `infra-tests.md`:
+1. Execute via `kubectl` or OCI CLI as specified in the file.
+2. Compare output against the verification criteria.
+3. Record pass/fail per test ID.
+
+If `PR_NUMBER` is set, post results to the PR:
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+### <category>/<size> — Infra Test Results
+
+| ID | Test | Result |
+|---|---|---|
+| XX-1 | Description | PASS/FAIL |
+...
+
+**X/Y passed**
+EOF
+)"
+```
+
+#### 6c-2. Execute API tests
+
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/api-tests.md` NOW. This file is self-contained — it has every API test with endpoint, method, request body, verification criteria, and curl commands. Execute directly from it.
+
+For every test in `api-tests.md`:
+1. Execute via `curl` using the frontend URL as the base URL.
+2. Compare HTTP status code and response body against the verification criteria.
+3. Record pass/fail per test ID.
+4. Pass forward any outputs needed by later tests (e.g., collection IDs, file IDs).
+
+If `PR_NUMBER` is set, post results to the PR (same table format as 6c-1).
+
+#### 6c-3. Execute UI tests
+
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with agent-browser commands, interaction steps, and verification criteria. Execute directly from it.
+
+For every test in `ui-tests.md`:
+1. Execute via `agent-browser` following the file's Session Setup and test steps.
+2. Take screenshots as evidence per the file's instructions.
+3. Record pass/fail per test ID.
+
+If `PR_NUMBER` is set, post results to the PR (same table format as 6c-1).
+
+If no test coverage directory exists for the category, fall back to basic smoke tests:
 1. Frontend loads (HTTP 200)
-2. Login succeeds (if applicable)
-3. Main page renders without errors
-4. At least one API health endpoint returns 200
+2. Main page renders without errors
+3. At least one API health endpoint returns 200
 
 ---
 
@@ -490,9 +556,20 @@ CLUSTER HEALTH:
   Core pods: corrino-cp, postgres, portal — <status>
   Pack pods: <list> — <status>
 
-APPLICATION TESTS:
+INFRA TESTS:
   <test-id>: <description> — PASS/FAIL
   ...
+  Result: X/Y passed
+
+API TESTS:
+  <test-id>: <description> — PASS/FAIL
+  ...
+  Result: X/Y passed
+
+UI TESTS:
+  <test-id>: <description> — PASS/FAIL
+  ...
+  Result: X/Y passed
 
 ISSUES:
   - <issue description, affected resource, severity>

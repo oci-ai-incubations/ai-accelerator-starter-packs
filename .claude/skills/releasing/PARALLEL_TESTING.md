@@ -58,6 +58,7 @@ You are testing starter packs for the <VERSION> release.
 Region: <region>
 OCI CLI Profile: <profile>
 Compartment: <compartment_name> (<compartment_ocid>)
+PR_NUMBER: <number>
 
 ## Round 1: <category>/<size>
 
@@ -67,6 +68,7 @@ When /testing-pack asks for parameters:
 - Region: <region>
 - OCI CLI Profile: <profile>
 - Compartment: <compartment_name>
+- PR Number: <number>
 - No PR-specific requirements
 
 ## Round 2: <category>/<size> (back-to-back)

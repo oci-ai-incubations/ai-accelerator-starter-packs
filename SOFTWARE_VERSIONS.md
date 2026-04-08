@@ -9,16 +9,16 @@ This document contains container image versions for each accelerator pack config
 | Container | Image | Version |
 |-----------|-------|---------|
 | cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
-| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | llama-stack_v_d684ec9 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.1 |
+| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.3 |
 
 ### Vehicle Route Optimizer Medium
 
 | Container | Image | Version |
 |-----------|-------|---------|
 | cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
-| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | llama-stack_v_d684ec9 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.1 |
+| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.3 |
 
 ## Video Search and Summarization
 
@@ -65,15 +65,15 @@ This document contains container image versions for each accelerator pack config
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | (no tag specified) |
-| Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | latest |
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | v0.0.3 |
 
 ### Managed Enterprise Chat Agent Medium
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | (no tag specified) |
-| Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | latest |
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | v0.0.3 |
 
 ## Self-Hosted Enterprise Chat Agent
 
@@ -81,9 +81,9 @@ This document contains container image versions for each accelerator pack config
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| RAG Server | nvcr.io/nvidia/blueprint/rag-server | 2.3.0 |
-| Ingestor Server | nvcr.io/nvidia/blueprint/ingestor-server | 2.3.0 |
-| RAG Frontend | iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend | v0.0.1 |
+| RAG Server | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci | v0.0.3 |
+| Ingestor Server | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci | v0.0.3 |
+| RAG Frontend | iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend | v0.0.2 |
 | Elasticsearch | docker.io/bitnamilegacy/elasticsearch | 9.0.3-debian-12-r1 |
 | Elasticsearch Volume Permissions | docker.io/bitnamilegacy/os-shell | 12-debian-12-r48 |
 | Elasticsearch Sysctl | docker.io/bitnamilegacy/os-shell | 12-debian-12-r48 |
@@ -93,7 +93,7 @@ This document contains container image versions for each accelerator pack config
 | VLM Embedding | nvcr.io/nvidia/nemo-microservices/llama-3.2-nemoretriever-1b-vlm-embed-v1 | 1.7.0 |
 | Rerank NIM | nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2 | 1.8.0 |
 | VLM NIM | nvcr.io/nim/nvidia/llama-3.1-nemotron-nano-vl-8b-v1 | 1.3.1 |
-| NV-Ingest | nvcr.io/nvidia/nemo-microservices/nv-ingest | 25.9.0 |
+| NV-Ingest | nvcr.io/nvidia/nemo-microservices/nv-ingest | 26.1.2 |
 | Milvus | docker.io/milvusdb/milvus | v2.5.17 |
 | Milvus etcd | milvusdb/etcd | 3.5.22-r1 |
 | MinIO | docker.io/minio/minio | RELEASE.2025-09-07T16-13-09Z |
@@ -122,12 +122,9 @@ nvcr.io/nim/nvidia/nemoretriever-page-elements-v2/1.5.0
 nvcr.io/nim/nvidia/nemoretriever-parse/1.2 
 nvcr.io/nim/nvidia/nemoretriever-table-structure-v1/1.5.0 
 nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us/2.0.0 
-nvcr.io/nvidia/blueprint/ingestor-server/2.3.0 
-nvcr.io/nvidia/blueprint/rag-frontend/2.3.0 
-nvcr.io/nvidia/blueprint/rag-server/2.3.0 
 nvcr.io/nvidia/blueprint/vss-engine/2.4.0 
 nvcr.io/nvidia/cuopt/cuopt/25.10.0-cuda12.9-py3.13 
 nvcr.io/nvidia/nemo-microservices/llama-3.2-nemoretriever-1b-vlm-embed-v1/1.7.0 
 nvcr.io/nvidia/nemo-microservices/nemoretriever-ocr-v1/1.1.0 
-nvcr.io/nvidia/nemo-microservices/nv-ingest/25.9.0
+nvcr.io/nvidia/nemo-microservices/nv-ingest/26.1.2
 ```
