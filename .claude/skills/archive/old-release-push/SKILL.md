@@ -107,11 +107,11 @@ Questions or feedback? Ask away, we want to know how to improve these for your u
 
 | Category             | Slack Display Name                                    |
 | -------------------- | ----------------------------------------------------- |
-| `paas_rag`           | AI.Q: GenAI PaaS RAG                                  |
-| `enterprise_rag`     | AI.Q: Enterprise AI Search Agent                      |
-| `enterprise_rag_aiq` | Enterprise Agentic AI Starter Kit                     |
-| `cuopt`              | Delivery Vehicle Route Optimizer                      |
-| `vss`                | Video Search and Summarization for Content Moderation |
+| `paas_rag`           | Enterprise Knowledge Chat Agent - Managed AI Models     |
+| `enterprise_rag`     | Enterprise Knowledge Chat Agent - Self-Hosted AI Models |
+| `enterprise_rag_aiq` | Enterprise Agentic AI Starter Kit                       |
+| `cuopt`              | Vehicle Delivery Route Optimizer                        |
+| `vss`                | Video Search and Summarization                          |
 
 ### Review
 
