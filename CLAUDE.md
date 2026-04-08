@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Accelerator Starter Packs — a Terraform-based infrastructure-as-code project that deploys AI workloads on Oracle Cloud Infrastructure (OCI) using Oracle Kubernetes Engine (OKE). It provisions networking, compute, Kubernetes clusters, Helm charts, and application services (Corrino platform) for multiple "starter pack" categories: `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, and `vss`.
+AI Accelerator Starter Packs — a Terraform-based infrastructure-as-code project that deploys AI workloads on Oracle Cloud Infrastructure (OCI) using Oracle Kubernetes Engine (OKE). It provisions networking, compute, Kubernetes clusters, Helm charts, and application services (Corrino platform) for multiple "starter pack" categories: `cuopt` (Vehicle Route Optimizer), `vss` (Video Search and Summarization), `enterprise_rag` (Self-Hosted Enterprise Chat Agent), `paas_rag` (Managed Enterprise Chat Agent), and `enterprise_rag_aiq` (Agentic AI Starter Kit). See `NAMING.md` for the full name mapping.
 
 All Terraform code lives in `ai-accelerator-tf/`. The repo root contains support scripts, schema generation tooling, and zip artifacts.
 

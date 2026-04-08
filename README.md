@@ -12,11 +12,11 @@ Each starter pack is a pre-configured AI workload that deploys onto the OKE clus
 
 | Pack | Category Key | Description | GPU Required |
 |------|-------------|-------------|--------------|
-| **cuOpt** | `cuopt` | NVIDIA cuOpt route optimization with a LlamaStack-powered chat interface | Yes |
-| **VSS** | `vss` | NVIDIA Video Summary Service — ingest, analyze, and query video content | Yes |
-| **PaaS RAG** | `paas_rag` | Retrieval-Augmented Generation backed by Oracle Autonomous Database 23ai | No |
-| **Enterprise RAG** | `enterprise_rag` | Full-stack RAG pipeline with NVIDIA NIMs, Milvus, NeMo microservices, and a React frontend | Yes |
-| **Enterprise RAG + AIQ** | `enterprise_rag_aiq` | Enterprise RAG extended with an NVIDIA AIQ research assistant and Tavily web search | Yes |
+| **Vehicle Route Optimizer** | `cuopt` | GPU-accelerated fleet route optimization using NVIDIA cuOpt NIM | Yes |
+| **Video Search and Summarization** | `vss` | AI video moderation — ingest, index, search, and summarize video content | Yes |
+| **Managed Enterprise Chat Agent** | `paas_rag` | Enterprise RAG chat with document upload, vector search, and cited answers — powered by OCI GenAI PaaS + Oracle 26ai | No |
+| **Self-Hosted Enterprise Chat Agent** | `enterprise_rag` | Enterprise RAG chat — auto-crawls web + internal data, builds a vector index, answers business questions with citations on OCI NVIDIA GPUs | Yes |
+| **Agentic AI Starter Kit** | `enterprise_rag_aiq` | Full-stack agentic AI environment powered by NVIDIA AIQ — reasoning models, vector DB, observability, and application layer | Yes |
 
 Each pack comes in **small** and **medium** sizes. See [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md) for the complete list of container images and versions deployed by each pack.
 
@@ -68,9 +68,9 @@ pip3 install -r requirements.txt
 
 - cuopt == Vehicle Delivery Route Optimizer
 - vss == Video Search and Summarization
-- paas_rag == RAG with GenAI PaaS on demand (no gpu deployment)
-- enterprise_rag == GPU RAG deployment
-- enterprise_rag_aiq == GPU RAG with aiq agents
+- paas_rag == Enterprise Knowledge Chat Agent - Managed AI Models
+- enterprise_rag == Enterprise Knowledge Chat Agent - Self-Hosted AI Models
+- enterprise_rag_aiq == Enterprise Agentic AI Starter Kit
 
 ```bash
 python3 create_final_schema.py -c cuopt

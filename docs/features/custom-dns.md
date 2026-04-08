@@ -25,10 +25,10 @@ Custom DNS is available for most AI Accelerator Packs:
 
 | Accelerator Pack                         | Custom DNS Support |
 | ---------------------------------------- | ------------------ |
-| Delivery Vehicle Route Optimizer (cuOpt) | Yes                |
-| Video Search & Summarization (VSS)       | Yes                |
-| AI-Q with Shared Services (PaaS RAG)     | Yes                |
-| Oracle-Net Self-Hosted (Enterprise RAG)  | Yes                |
+| Vehicle Delivery Route Optimizer (cuOpt)                            | Yes                |
+| Video Search and Summarization (vss)                                | Yes                |
+| Enterprise Knowledge Chat Agent - Managed AI Models (paas_rag)      | Yes                |
+| Enterprise Knowledge Chat Agent - Self-Hosted AI Models (enterprise_rag) | Yes           |
 
 ## Configuration Steps
 

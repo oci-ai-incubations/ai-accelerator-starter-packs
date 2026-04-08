@@ -1,12 +1,12 @@
 ---
 name: vss-test-coverage
-description: Authoritative test specification for the VSS (Video Summary Service) starter pack. Split into phase-specific files for optimal agent execution.
+description: Authoritative test specification for the Video Search and Summarization (vss) starter pack. Split into phase-specific files for optimal agent execution.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
 argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
 ---
 
-# VSS Starter Pack — Test Coverage Specification
+# Video Search and Summarization — Test Coverage Specification
 
 Source of truth for what to test on a deployed VSS stack. Covers the VSS Oracle UX frontend (Next.js), the VSS engine backend (NVIDIA Blueprint), supporting services (download-service, PostgreSQL, FSS), and OCI infrastructure.
 

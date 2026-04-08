@@ -1,6 +1,6 @@
-# VSS Starter Pack
+# Video Search and Summarization
 
-The **VSS Starter Pack** is an AI Accelerator Pack that delivers a combined **hardware and software** solution for video search and summarization on Oracle Cloud Infrastructure (OCI). It enables deployment of GPU-backed infrastructure and the full [NVIDIA Video Search and Summarization (VSS)](https://docs.nvidia.com/vss/latest/) platform in one go. 
+The **Video Search and Summarization** pack is an AI Accelerator Pack that delivers a combined **hardware and software** solution for video search and summarization on Oracle Cloud Infrastructure (OCI). It enables deployment of GPU-backed infrastructure and the full [NVIDIA Video Search and Summarization (VSS)](https://docs.nvidia.com/vss/latest/) platform in one go. 
 
 
 ## What You Get
@@ -96,7 +96,7 @@ For detailed component and data-flow documentation, see the [NVIDIA VSS Blueprin
 
 ## Deployment and Access
 
-You can deploy the VSS Starter Pack from the **OCI Console**. Under **AI Accelerator Packs**, select the VSS pack (Video Search and Summarization for Content Moderation) and choose a deployment size, add the portal credentials and click Create. The console uses the pack's sizing to provision the right GPU compute, OKE cluster, networking, and the VSS software stack.
+You can deploy the **Video Search and Summarization** pack from the **OCI Console**. Under **AI Accelerator Packs**, select the Video Search and Summarization pack and choose a deployment size, add the portal credentials and click Create. The console uses the pack's sizing to provision the right GPU compute, OKE cluster, networking, and the VSS software stack.
 
 After deployment you get:
 

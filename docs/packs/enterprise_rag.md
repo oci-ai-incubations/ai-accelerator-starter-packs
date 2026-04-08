@@ -1,6 +1,6 @@
-# Enterprise RAG Starter Pack
+# Enterprise Knowledge Chat Agent - Self-Hosted AI Models
 
-The Enterprise RAG Starter Pack packages GPU-backed infrastructure and the NVIDIA RAG Blueprint to run retrieval-augmented generation (RAG) workloads on Oracle Cloud Infrastructure (OCI). It provides a repeatable, production-oriented starting point for enterprise chat and knowledge-driven assistants.
+The **Self-Hosted Enterprise Chat Agent** (Enterprise Knowledge Chat Agent - Self-Hosted AI Models) packages GPU-backed infrastructure and the NVIDIA RAG Blueprint to run retrieval-augmented generation (RAG) workloads on Oracle Cloud Infrastructure (OCI). It provides a repeatable, production-oriented starting point for enterprise chat and knowledge-driven assistants.
 
 **Quick Start**
 - **Requirements:** OCI account, Kubernetes/OKE or VM hosts, and GPUs (recommended: 2× A100; consult the RAG Support Matrix for alternatives).

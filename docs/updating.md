@@ -8,10 +8,11 @@ This guide will discuss how to upgrade an already deployed AI Accelerator Pack t
 
 Go to: https://github.com/oracle-quickstart/oci-ai-blueprints/releases/tag/starter-packs and find the zip which corresponds to your pack:
 
-- aiQEnterpriseSearch.zip - GPU-based RAG system
-- vehicleRouteOptimizer.zip - Vehicle Route Plan Optimizer 
+- aiQEnterpriseSearch.zip - Enterprise Knowledge Chat Agent - Self-Hosted AI Models
+- vehicleRouteOptimizer.zip - Vehicle Delivery Route Optimizer
 - videoSearchSummarization.zip - Video Search and Summarization
-- aiQGenAIPowered.zip - PaaS based RAG system
+- aiQGenAIPowered.zip - Enterprise Knowledge Chat Agent - Managed AI Models
+- enterpriseAgenticAIStarterKit.zip - Enterprise Agentic AI Starter Kit
 
 Click on the zip you want to download to download it.
 
