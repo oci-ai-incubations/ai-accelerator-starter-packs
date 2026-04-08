@@ -13,6 +13,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
 | Fixed | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
+| Fixed | BUG-010 | worker_node_availability_domain required for paas_rag (CPU-only) | Medium | 2026-04-08 |
 
 ---
 
@@ -310,3 +311,30 @@ Fixed in commits `c53d237` and `051a533` on `release_v0.0.5`.
 **Verification:** Deploy enterprise_rag app stack → verify taints exist on GPU nodes → destroy app stack → verify taints are removed from all GPU nodes. (Not yet integration-tested — deferred to next enterprise_rag_aiq deploy.)
 
 **Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds.
+
+### BUG-010: worker_node_availability_domain required for paas_rag (CPU-only)
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Track 3 agent during v0.0.6 paas_rag release testing in us-sanjose-1
+**Severity:** Medium
+
+**Symptoms:**
+ORM UI shows "This variable is required" validation error on the `worker_node_availability_domain` field when creating a `paas_rag` stack. `paas_rag` is a CPU-only pack with no GPU worker pool, so this field should not be required.
+
+**Root cause:**
+The `worker_node_availability_domain` variable has a `required: true` attribute in the ORM schema. The capacity check precondition in `vars.tf` also references this variable. For `paas_rag`, no GPU workers are created, but the schema still marks the field as required because the common schema does not differentiate by category.
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml` — `worker_node_availability_domain` marked as required
+- `ai-accelerator-tf/schemas/paas_rag_schema.yaml` — should override to `required: false` or `visible: false`
+
+**Workaround:**
+Fill in any valid AD name — the value is ignored for `paas_rag` since no GPU worker pool is created.
+
+**Resolution:**
+Added explicit `required: false` and `visible: false` override for `worker_node_availability_domain` in `paas_rag_schema.yaml`. The common schema had `visible: false` but no `required` field, causing ORM to treat it as required. GPU packs (cuopt, vss, enterprise_rag, enterprise_rag_aiq) already override this to `required: true` with visible titles/descriptions. Fixed on `release_v0.0.6`, commit `25662c9`.
+
+**Date fixed:** 2026-04-08
+
+**Verification:** Regenerate schemas and verify that `generated/paas_rag_schema.yaml` shows `worker_node_availability_domain` with `required: false` and `visible: false`. ORM UI should no longer show the field or require it for paas_rag stacks.
