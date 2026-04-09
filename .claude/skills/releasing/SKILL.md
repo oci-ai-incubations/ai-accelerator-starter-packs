@@ -348,7 +348,7 @@ If yes, invoke:
 /publish-external <VERSION>
 ```
 
-This uploads the release zips to `oracle-quickstart/oci-ai-blueprints` with the console zip names and the enterprise_rag/paas_rag swap workaround. See [PUBLISH_EXTERNAL.md](PUBLISH_EXTERNAL.md) for details.
+This uploads the release zips to `oracle-quickstart/oci-ai-blueprints` with the console zip names and the enterprise_rag/paas_rag swap workaround. See the `/publish-external` skill for details.
 
 ---
 
@@ -386,4 +386,4 @@ Release Progress — $VERSION:
 - **[RELEASE_PUBLISH.md](RELEASE_PUBLISH.md)** — Publish phase: validate zips, rename, Slack, merge PR, tag
 - **[PARALLEL_TESTING.md](PARALLEL_TESTING.md)** — Agent teams setup, browser isolation, permissions, back-to-back pack switching
 - **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** — Anti-patterns and pitfalls discovered during real releases
-- **[PUBLISH_EXTERNAL.md](PUBLISH_EXTERNAL.md)** — Upload release zips to external oracle-quickstart/oci-ai-blueprints pre-release
+- **`/publish-external`** — Upload release zips to external oracle-quickstart/oci-ai-blueprints pre-release (separate skill)

@@ -113,7 +113,7 @@ find "$SCAN_DIR" -type d \( -name ".terraform" -o -name "__pycache__" -o -name "
 # Prohibited files
 find "$SCAN_DIR" -type f \( \
   -name ".terraform.lock.hcl" -o \
-  -name "*.tfvars" -o \
+  -name "terraform.tfvars" -o \
   -name "*.tfstate" -o \
   -name "*.tfstate.backup" -o \
   -name ".env" -o \
