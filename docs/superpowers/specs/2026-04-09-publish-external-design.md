@@ -66,9 +66,13 @@ For each of the 5 renamed zips in the staging directory:
 Target: `oracle-quickstart/oci-ai-blueprints`, release tag `starter-packs`.
 
 For each of the 5 zip files in the staging directory:
-1. Delete the existing asset by name: `gh release delete-asset starter-packs <name>.zip --repo oracle-quickstart/oci-ai-blueprints --yes`
-2. Upload the new file: `gh release upload starter-packs /tmp/publish-external-<version>/<name>.zip --repo oracle-quickstart/oci-ai-blueprints`
-3. Verify the upload succeeded before moving to the next asset
+1. Upload with `--clobber` to atomically replace the existing asset:
+   ```bash
+   gh release upload starter-packs /tmp/publish-external-<version>/<name>.zip \
+     --repo oracle-quickstart/oci-ai-blueprints --clobber
+   ```
+   `--clobber` deletes any existing asset with the same name before uploading the new one.
+2. Verify the upload succeeded before moving to the next asset
 
 If any upload fails, stop and report which assets have been updated and which haven't, so the user can resume manually.
 
@@ -98,15 +102,36 @@ If any upload fails, stop and report which assets have been updated and which ha
 
 ## Testing Strategy
 
-During implementation, create a temporary test release in the same repo to validate the skill end-to-end before touching the real `starter-packs` release:
+During implementation, validate the skill against a temporary test release before touching the real `starter-packs` release.
 
-1. Create `starter-packs-test` pre-release tag in `oracle-quickstart/oci-ai-blueprints`
-2. Hardcode the test tag in the skill while developing
-3. Run the full skill against the test release, verify assets upload correctly
-4. Once validated, switch the hardcoded tag back to `starter-packs`
-5. Delete the `starter-packs-test` release
+### Setup: Create test release
 
-This is a manual implementation-time step, not a permanent feature of the skill.
+```bash
+# Create an empty pre-release with a test tag (no assets yet)
+gh release create starter-packs-test \
+  --repo oracle-quickstart/oci-ai-blueprints \
+  --title "Starter Packs - Test" \
+  --prerelease \
+  --notes "Temporary release for testing publish-external skill. Safe to delete."
+```
+
+### Develop & test
+
+1. Hardcode `starter-packs-test` as the release tag in the skill while developing
+2. Run the full skill: `/publish-external v0.0.6`
+3. Verify all 5 assets appear on the test release with correct names and sizes
+4. Verify the swap is correct (enterprise_rag content in `aiQGenAIPowered.zip`, paas_rag content in `aiQEnterpriseSearch.zip`)
+
+### Finalize
+
+1. Switch the hardcoded tag in the skill back to `starter-packs`
+2. Delete the test release and tag:
+   ```bash
+   gh release delete starter-packs-test \
+     --repo oracle-quickstart/oci-ai-blueprints --yes --cleanup-tag
+   ```
+
+This is a manual implementation-time process, not a permanent feature of the skill.
 
 ## Error Handling
 
@@ -114,7 +139,6 @@ This is a manual implementation-time step, not a permanent feature of the skill.
 |---|---|
 | Missing source zip | Stop with error listing which zips are missing |
 | PII/secrets found | Stop with exact findings, do not upload anything |
-| `gh release delete-asset` fails | If asset doesn't exist (first upload), continue. For other errors, report and stop. |
-| `gh release upload` fails | Report which assets succeeded and which failed |
+| `gh release upload --clobber` fails | Report which assets succeeded and which failed |
 | Release not found | Stop — the `starter-packs` release must already exist |
 | Release is not pre-release | Warn user but continue (they may have promoted it) |
