@@ -79,6 +79,32 @@ resource "null_resource" "example" {
 
 **Always use agent teams for parallel testing.** Agent teams are full interactive sessions that can use all tools including `AskUserQuestion`.
 
+## Only Reuse Infra for Bare Metal Shapes
+
+**Do not reuse infrastructure between back-to-back packs on VM shapes.** The two-stack preserve-infrastructure model exists to avoid the 6-hour bare metal GPU host recycle time. VM shapes (VM.GPU.A10.2, VM.Standard.E5.Flex, etc.) provision in minutes — destroy and start fresh instead.
+
+Reusing infra on VMs causes problems without saving time:
+- Stale container images fill ephemeral storage, blocking the next pack's pods
+- Stale taints/labels from the previous pack block scheduling (BUG-009)
+- GPU operator state can get confused after pack switches
+
+**Rule:** Back-to-back pack switching (destroy app, re-apply infra, new app) only for BM.GPU4.8 tracks. For VM tracks, destroy everything and create fresh stacks.
+
+## Zip Race Condition in Parallel Testing
+
+**Never use a hardcoded shared zip path like `/tmp/testing-pack.zip` when running parallel tracks.** Multiple teammates write to the same path, causing one track to upload another track's zip to ORM.
+
+- Example (v0.0.6): Track 3 (paas_rag) deployed BM.GPU4.8 GPU nodes because its zip was overwritten by Track 1's enterprise_rag zip before upload
+- Fix: `/testing-pack` now uses `ZIP_PATH="/tmp/${WORKTREE_NAME}.zip"` — unique per worktree
+- Better fix: During releases, use `--zip-path` to pass the pre-built release zip directly, skipping worktree/zip creation entirely
+
+## Agent Teams Cannot Force-Interrupt Teammates
+
+**`SendMessage` queues messages — it does not interrupt a running teammate.** Messages are delivered only when the teammate's current turn ends. To deliver an urgent message to a busy teammate, the user must press Escape on the teammate's tab to interrupt its turn.
+
+- The tmux-based multi-agent-swarm pattern supports `tmux send-keys` for direct injection, but `TeamCreate`-based teams do not
+- For critical issues (wrong zip deployed, stop deployment), the user must manually interrupt
+
 ## Release Zip Lifecycle
 
 **Original zips become stale after bug fixes.** If testing reveals bugs that get fixed:

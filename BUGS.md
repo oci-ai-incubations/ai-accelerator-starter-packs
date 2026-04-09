@@ -18,6 +18,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-012 | Back-to-back pack switch on VMs leaves stale images filling ephemeral storage | Medium | 2026-04-09 |
 | Open | BUG-013 | Infra destroy fails when app destroy hasn't completed — no enforcement of destroy ordering | High | 2026-04-09 |
 | Open | BUG-014 | ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion | Medium | 2026-04-09 |
+| Open | BUG-015 | enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds" | Medium | 2026-04-09 |
+| Open | BUG-016 | existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI | Medium | 2026-04-09 |
 
 ---
 
@@ -316,6 +318,8 @@ Fixed in commits `c53d237` and `051a533` on `release_v0.0.5`.
 
 **Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds.
 
+**Recurrence (v0.0.6):** During Track 1's enterprise_rag → enterprise_rag_aiq pack switch in ap-melbourne-1, the stale `nim-llm` taint reappeared on GPU nodes despite the destroy provisioner fix. The GPU device-plugin daemonset showed DESIRED=0 and the operator-validator was stuck. Manual taint removal (`kubectl taint nodes <node> workload=nim-llm:NoSchedule-`) immediately restored GPU allocation. Root cause of recurrence needs investigation — the destroy provisioner may not have fired correctly during the ORM-managed app destroy, or the taint was re-applied during the infra re-apply before the new app stack was deployed.
+
 ### BUG-010: worker_node_availability_domain required for paas_rag (CPU-only)
 
 **Status:** Open
@@ -425,17 +429,30 @@ Updated the releasing skill's track design (Phase 3b in SKILL.md) to only use ba
 **Found by:** Track 2 agent during v0.0.6 VSS/cuopt release testing in uk-london-1
 **Severity:** High
 
+**How this was discovered (exact sequence of events):**
+During the v0.0.6 release, Track 2 was testing VSS/poc in uk-london-1. After completing VSS testing, it needed to destroy both stacks to deploy cuopt fresh (VM tracks don't reuse infra — see BUG-012). Here's exactly what Track 2 did:
+
+1. **Submitted app stack destroy** — ORM started running `terraform destroy` on the app stack
+2. **Polled app destroy status** every 3 minutes — after ~9 minutes, the app destroy **FAILED**. The `undeploy_blueprints.py` destroy provisioner couldn't reach the Corrino API (the Corrino CP pod may have already been terminated by an earlier destroy step, creating a chicken-and-egg problem)
+3. **Immediately submitted infra stack destroy** without retrying or investigating the app destroy failure. Track 2 reasoned that "since we're destroying everything anyway, the infra destroy would tear down the entire cluster including all app resources"
+4. **Infra destroy failed** with `409-Conflict: subnet references service VNIC` — the OCI load balancer (created by ingress-nginx's Kubernetes Service) was still alive because the app stack was never fully cleaned up
+5. **Three infra destroy retries** all failed on the same subnet VNIC conflict
+6. **Manual intervention required** — the release coordinator had to identify and delete the orphaned OCI load balancer via `oci lb load-balancer delete`, after which the infra destroy succeeded
+
+**Key lesson:** The Track 2 agent's reasoning ("infra destroy will clean up everything") was wrong. ORM's `terraform destroy` only destroys resources in its own state file. The app stack's load balancer is managed by the OCI cloud controller (triggered by Kubernetes), not by Terraform. Destroying the OKE cluster (infra) does NOT automatically clean up OCI load balancers — they become orphaned.
+
 **Symptoms:**
 Infra stack destroy failed repeatedly with `409-Conflict: subnet references service VNIC` in uk-london-1. Three destroy attempts all failed on the LB subnet, requiring manual OCI CLI intervention to delete the orphaned load balancer.
 
 **Root cause:**
 Track 2 started infra destroy before the app destroy had succeeded. The app destroy failed (Corrino API unreachable → `undeploy_blueprints.py` errored), leaving the entire app layer running: Helm releases, pods, services, ingress resources, and the OCI load balancer. The infra destroy then couldn't delete the LB subnet because the app's load balancer still had a VNIC attached to it.
 
-The `/testing-pack` and `/destroy-stack` skills do not enforce or verify that app destroy succeeded before allowing infra destroy to proceed.
+The `/testing-pack` and `/destroy-stack` skills do not enforce or verify that app destroy succeeded before allowing infra destroy to proceed. There is no guardrail preventing an agent from submitting infra destroy after a failed app destroy.
 
 **Affected files:**
 - `.claude/skills/testing-pack/SKILL.md` — Phase 5b destroy instructions say "app first then infra" but don't enforce it
 - `.claude/skills/releasing/PARALLEL_TESTING.md` — destroy ordering documented but not enforced
+- `.claude/skills/destroy-stack/SKILL.md` — no pre-flight check for active app stacks or OCI load balancers in the subnet
 
 **Workaround:**
 Manually delete the OCI load balancer via CLI, then retry infra destroy:
@@ -445,7 +462,9 @@ oci lb load-balancer delete --load-balancer-id <lb_ocid> --force
 ```
 
 **Resolution:**
-Pending. The `/destroy-stack` skill should verify app stack destroy succeeded before allowing infra destroy. Also see BUG-014 for the architectural fix.
+Pending. Two complementary fixes:
+1. **Skill-level:** The `/destroy-stack` skill should verify app stack destroy succeeded (check ORM job status = SUCCEEDED) before allowing infra destroy. If app destroy failed, require the user to retry or acknowledge before proceeding.
+2. **Terraform-level:** See BUG-014 for the architectural fix (move ingress-nginx to infra stack + LB cleanup safety net).
 
 ### BUG-014: ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion (architectural)
 
@@ -453,6 +472,13 @@ Pending. The `/destroy-stack` skill should verify app stack destroy succeeded be
 **Date found:** 2026-04-09
 **Found by:** Senior architect investigation during v0.0.6 release
 **Severity:** Medium
+
+**How this was discovered:**
+After diagnosing BUG-013, we investigated why the infra destroy couldn't recover even after multiple retries. The release coordinator identified the specific OCI load balancer blocking the subnet and deleted it manually. This prompted a deeper architectural investigation: why does destroying the app stack leave an OCI load balancer alive, and why can't the infra stack destroy handle it?
+
+Two architect teammates were spawned to analyze the codebase. They traced the dependency chain: `helm_release.ingress_nginx` (app stack) → Kubernetes Service type LoadBalancer → OCI cloud controller creates OCI LB → LB gets VNIC in `oke_lb_subnet` (infra stack). The architectural mismatch — the resource that triggers LB creation lives in a different Terraform state than the resource that owns the subnet — means Terraform can never handle the destroy ordering correctly across stacks.
+
+The architects also identified an async race condition: even if ingress-nginx moves to the infra stack, `helm uninstall` completes before the OCI cloud controller finishes deleting the LB (async operation). A `terraform_data.wait_for_lb_cleanup` safety net resource was recommended to bridge this gap.
 
 **Symptoms:**
 Even with correct app-before-infra destroy ordering, there is an async race condition: `helm uninstall ingress-nginx` completes when Kubernetes objects are deleted, but the OCI cloud controller deletes the load balancer asynchronously. Terraform may proceed to destroy the LB subnet before the OCI LB is fully terminated.
@@ -474,3 +500,60 @@ Pending (v0.0.7). Recommended fix from architect analysis:
 2. Add `cluster_tools_namespace` local for app-stack resources to reference the namespace by name
 3. Add `terraform_data.wait_for_lb_cleanup` with destroy provisioner that polls until OCI LBs are gone before subnet deletion
 4. ~5 files changed, no state migration needed if app stack is destroyed first (standard workflow)
+
+### BUG-015: enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds"
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Track 1 agent during v0.0.6 enterprise_rag testing in ap-melbourne-1 (test EA-5)
+**Severity:** Medium
+
+**Symptoms:**
+API document ingestion (EA-5) fails with error "single positional indexer is out-of-bounds" during the indexing phase. The document extraction succeeds but indexing fails. Interestingly, UI-based document ingestion (EU-4) succeeds on the same setup — suggesting a different code path or timing difference between API and UI ingestion.
+
+**Root cause:**
+Unknown. Likely an issue in the RAG ingestor server's indexing pipeline when called via the API path. The error message suggests a pandas/dataframe indexing issue in the ingestion code (upstream NVIDIA blueprint code, not our Terraform).
+
+**Affected files:**
+- Upstream: `nvcr.io/nvidia/blueprint/ingestor-server:2.3.0` (for enterprise_rag_aiq) or `ord.ocir.io/.../nvidia-rag-ingestion-oci:v0.0.3` (for enterprise_rag)
+
+**Workaround:**
+Use UI-based document ingestion instead of API. The UI path succeeds.
+
+**Resolution:**
+Pending. Needs investigation in the RAG ingestor server logs to identify the exact failure point. May be an upstream NVIDIA blueprint bug.
+
+### BUG-016: existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Track 2 (VSS) and Track 3 (paas_rag) during v0.0.6 release testing
+**Severity:** Medium
+
+**How this was discovered:**
+Both Track 2 (VSS in uk-london-1) and Track 3 (paas_rag in us-sanjose-1) hit the same issue independently. When creating the app stack, they filled in `existing_cluster_id` but missed `existing_node_subnet_id`. The app stack apply then crashed:
+- VSS: `can not marshal a nil pointer` on `data.oci_core_subnet.vss_fss_node_subnet[0]`
+- paas_rag: `Parameter subnetId cannot be None, whitespace or empty string` from Corrino SubnetValidator
+
+Both were fixed by going back to the infra stack's "Application Information" tab, copying the `node_subnet_id` output, and pasting it into the app stack's `existing_node_subnet_id` field.
+
+**Symptoms:**
+App stack apply fails with nil pointer or subnetId validation error when `existing_node_subnet_id` is empty. The field exists in the ORM schema but is not prominently surfaced — it's easy to miss when creating the app stack.
+
+**Root cause:**
+The `existing_node_subnet_id` variable was added in BUG-006 fix (v0.0.4) and is visible in the schema under "Advanced Options". However, in the ORM UI, it's grouped with other advanced fields and not marked as required for the app stack. Users (and testing agents) consistently miss it because the primary field they focus on is `existing_cluster_id`.
+
+The Corrino SubnetValidator requires a subnet ID for `shared_node_pool` recipes. When `existing_node_subnet_id` is empty, the `OKE_NODE_SUBNET_ID` configmap entry is empty, and the validator fails.
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml` — `existing_node_subnet_id` should be more prominently displayed or conditionally required when `existing_cluster_id` is set
+- `ai-accelerator-tf/app-configmap.tf` — populates `OKE_NODE_SUBNET_ID` from the variable
+
+**Workaround:**
+Always copy `node_subnet_id` from the infra stack outputs and paste into `existing_node_subnet_id` in the app stack. The `/testing-pack` skill Phase 4c documents this.
+
+**Resolution:**
+Pending. Options:
+1. Make `existing_node_subnet_id` conditionally required when `existing_cluster_id` is set (ORM schema `required` + `visible` conditions)
+2. Add a validation block in `vars.tf` that errors if `existing_cluster_id` is set but `existing_node_subnet_id` is empty
+3. Auto-derive the node subnet from the cluster OCID via a data source (eliminates the manual copy step entirely)

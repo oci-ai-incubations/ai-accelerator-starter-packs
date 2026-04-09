@@ -151,16 +151,16 @@ Present the track plan to the user and confirm. Adjust if they want different gr
 
 **Key principle:** Back-to-back switching only applies when rounds share the same BM worker_node_shape. For BM tracks, re-apply infra every round so the cluster matches the new pack's config. For VM tracks, destroy everything and create fresh stacks — VMs provision in minutes, and preserving infra risks stale container images filling ephemeral storage (BUG-012) and stale taints blocking scheduling (BUG-009).
 
-### 3c. Check GPU capacity per track
+### 3c. Check resource capacity per track
 
-For each GPU track, invoke `/checking-capacity <category> <size>` to find regions with both hardware availability AND quota.
+For **every** track (including CPU-only), invoke `/checking-capacity <category> <size>` to find regions with sufficient capacity and quotas. The capacity check audits all required resources — GPU hardware, FSS (File Storage), ADB (Autonomous Database), and customer secret key quotas — not just GPU.
 
 Present a combined table across all tracks and let the user pick regions:
 
 ```
-Track 1 (BM.GPU4.8):  ap-melbourne-1, us-sanjose-1, ...
+Track 1 (BM.GPU4.8):    ap-melbourne-1, us-sanjose-1, ...
 Track 2 (VM.GPU.A10.2): us-sanjose-1, uk-london-1, ...
-Track 3 (CPU only):   any region — ask user preference
+Track 3 (CPU — paas_rag): us-sanjose-1, us-ashburn-1, ... (ADB + FSS + secret key quotas)
 ```
 
 Record the region and AD for each track.
