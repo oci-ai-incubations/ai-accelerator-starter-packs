@@ -54,7 +54,7 @@ Upload tested release zips to the external-facing pre-release in `oracle-quickst
 
 ## Step 1: Locate Source Zips
 
-Set `VERSION` from the argument (strip leading `v` if present for file matching, keep it for display).
+Set `VERSION` from the argument. The version must include the `v` prefix (e.g., `v0.0.6`) since zip files are named `v0.0.6_enterprise_rag.zip`.
 
 Verify all 5 zips exist in `release_test_matrix/`:
 
@@ -112,7 +112,11 @@ Rename mapping (with swap):
 
 Unzip each file into a **separate** inspection directory and scan for prohibited content. The staging directory with the `.zip` files must NOT be modified — only the scan directory is used for inspection.
 
+**Note:** Shell variables do not persist between Bash tool calls. Re-define `VERSION_PREFIX`, `STAGING`, and `SCAN_DIR` at the start of each step.
+
 ```bash
+VERSION_PREFIX="<version>"
+STAGING="/tmp/publish-external-${VERSION_PREFIX}"
 SCAN_DIR="/tmp/publish-external-scan-${VERSION_PREFIX}"
 rm -rf "$SCAN_DIR" && mkdir -p "$SCAN_DIR"
 
@@ -126,6 +130,9 @@ done
 Run all scans:
 
 ```bash
+VERSION_PREFIX="<version>"
+SCAN_DIR="/tmp/publish-external-scan-${VERSION_PREFIX}"
+
 # Prohibited directories
 find "$SCAN_DIR" -type d \( -name ".terraform" -o -name "__pycache__" -o -name ".git" \) 2>/dev/null
 
@@ -133,14 +140,16 @@ find "$SCAN_DIR" -type d \( -name ".terraform" -o -name "__pycache__" -o -name "
 find "$SCAN_DIR" -type f \( \
   -name ".terraform.lock.hcl" -o \
   -name "*.tfvars" -o \
+  -name "*.tfstate" -o \
+  -name "*.tfstate.backup" -o \
   -name ".env" -o \
   -name "*.pem" -o \
   -name "*.key" -o \
   -name "id_rsa*" \
 \) 2>/dev/null
 
-# Secrets patterns in file contents
-grep -rl "BEGIN.*PRIVATE KEY\|password\s*=\s*\"[^\"]\+\"\|api_key\s*=\s*\"[^\"]\+\"" "$SCAN_DIR" 2>/dev/null || true
+# Secrets patterns in non-.tf files only (avoid false positives on Terraform variable descriptions)
+find "$SCAN_DIR" -type f ! -name "*.tf" | xargs grep -l "BEGIN.*PRIVATE KEY\|password\s*=\s*\"[^\"]\+\"\|api_key\s*=\s*\"[^\"]\+\"" 2>/dev/null || true
 ```
 
 If ANY of the above commands produce output, show exactly what was found and **STOP**. Do not proceed to upload.
@@ -158,6 +167,8 @@ Target: `oracle-quickstart/oci-ai-blueprints`, release tag `starter-packs-test`.
 Upload each zip with `--clobber` to replace any existing asset of the same name:
 
 ```bash
+VERSION_PREFIX="<version>"
+STAGING="/tmp/publish-external-${VERSION_PREFIX}"
 REPO="oracle-quickstart/oci-ai-blueprints"
 TAG="starter-packs-test"
 
@@ -195,6 +206,8 @@ Present a summary table to the user.
 Clean up:
 
 ```bash
+VERSION_PREFIX="<version>"
+STAGING="/tmp/publish-external-${VERSION_PREFIX}"
 rm -rf "$STAGING"
 ```
 
@@ -310,6 +323,21 @@ Verify:
 - `enterpriseAgenticAIStarterKit.zip` size matches `v0.0.6_enterprise_rag_aiq.zip` size
 - `vehicleRouteOptimizer.zip` size matches `v0.0.6_cuopt.zip` size
 - `videoSearchSummarization.zip` size matches `v0.0.6_vss.zip` size
+
+**Verify swap content correctness** — download the swapped assets and check the category inside:
+
+```bash
+mkdir -p /tmp/swap-verify && cd /tmp/swap-verify
+gh release download starter-packs-test --repo oracle-quickstart/oci-ai-blueprints --pattern "aiQGenAIPowered.zip" --clobber
+unzip -p aiQGenAIPowered.zip starter_pack_category.auto.tfvars
+# Expected: starter_pack_category = "enterprise_rag"
+
+gh release download starter-packs-test --repo oracle-quickstart/oci-ai-blueprints --pattern "aiQEnterpriseSearch.zip" --clobber
+unzip -p aiQEnterpriseSearch.zip starter_pack_category.auto.tfvars
+# Expected: starter_pack_category = "paas_rag"
+
+rm -rf /tmp/swap-verify
+```
 
 Record the asset timestamps for comparison with Run 2.
 

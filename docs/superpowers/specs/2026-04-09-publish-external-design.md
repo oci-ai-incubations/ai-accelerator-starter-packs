@@ -24,7 +24,7 @@ The OCI Console downloads starter pack zips from `oracle-quickstart/oci-ai-bluep
 
 ### Step 1: Locate Source Zips
 
-Read version from argument. Find all 5 zips in `release_test_matrix/`:
+Read version from argument. The version must include the `v` prefix (e.g., `v0.0.6`) since zip files are named `v0.0.6_enterprise_rag.zip`. Find all 5 zips in `release_test_matrix/`:
 - `<version>_enterprise_rag.zip`
 - `<version>_enterprise_rag_aiq.zip`
 - `<version>_paas_rag.zip`
@@ -53,11 +53,12 @@ For each of the 5 renamed zips in the staging directory:
    - `.terraform/` directories
    - `.terraform.lock.hcl` files
    - `*.tfvars` files (`terraform.tfvars`, `*.auto.tfvars`)
+   - `*.tfstate` and `*.tfstate.backup` files
    - `.env` files
    - `__pycache__/` directories
    - `.git/` directories
    - Private keys (`*.pem`, `*.key`, `id_rsa*`)
-   - Secrets patterns: `BEGIN.*PRIVATE KEY`, hardcoded passwords, API keys
+   - Secrets patterns (in non-`.tf` files only, to avoid false positives on Terraform variable descriptions): `BEGIN.*PRIVATE KEY`, hardcoded passwords, API keys
 3. If anything is found: show exactly what was found with file paths and **STOP**. Do not upload.
 4. Clean up the inspection directory after scanning. The staging directory (`/tmp/publish-external-<version>/`) with the 5 renamed `.zip` files is left untouched — these are what gets uploaded in Step 4.
 
