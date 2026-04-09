@@ -17,7 +17,7 @@ Upload tested release zips to the external-facing pre-release in `oracle-quickst
 ## Constants
 
 - **Target repo:** `oracle-quickstart/oci-ai-blueprints`
-- **Release tag:** `starter-packs-test`
+- **Release tag:** `starter-packs`
 - **Staging dir:** `/tmp/publish-external-<version>/`
 - **Scan dir:** `/tmp/publish-external-scan-<version>/`
 
@@ -138,7 +138,7 @@ rm -rf "$SCAN_DIR"
 
 ## Step 4: Upload One-by-One
 
-Target: `oracle-quickstart/oci-ai-blueprints`, release tag `starter-packs-test`.
+Target: `oracle-quickstart/oci-ai-blueprints`, release tag `starter-packs`.
 
 Upload each zip with `--clobber` to replace any existing asset of the same name:
 
@@ -146,7 +146,7 @@ Upload each zip with `--clobber` to replace any existing asset of the same name:
 VERSION="<version from argument>"
 STAGING="/tmp/publish-external-${VERSION}"
 REPO="oracle-quickstart/oci-ai-blueprints"
-TAG="starter-packs-test"
+TAG="starter-packs"
 
 for zip in "$STAGING"/*.zip; do
   echo "Uploading $(basename "$zip")..."
@@ -166,7 +166,7 @@ Check the release state and report results:
 
 ```bash
 REPO="oracle-quickstart/oci-ai-blueprints"
-TAG="starter-packs-test"
+TAG="starter-packs"
 
 gh release view "$TAG" --repo "$REPO" --json assets,isPrerelease \
   --jq '{prerelease: .isPrerelease, assets: [.assets[] | {name: .name, size: .size, updated: .updatedAt}]}'
