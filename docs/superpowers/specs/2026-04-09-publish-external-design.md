@@ -96,6 +96,18 @@ If any upload fails, stop and report which assets have been updated and which ha
 - Does not modify the release title, notes, or tag
 - Does not touch the internal GitHub release in `oci-ai-incubations/ai-accelerator-starter-packs`
 
+## Testing Strategy
+
+During implementation, create a temporary test release in the same repo to validate the skill end-to-end before touching the real `starter-packs` release:
+
+1. Create `starter-packs-test` pre-release tag in `oracle-quickstart/oci-ai-blueprints`
+2. Hardcode the test tag in the skill while developing
+3. Run the full skill against the test release, verify assets upload correctly
+4. Once validated, switch the hardcoded tag back to `starter-packs`
+5. Delete the `starter-packs-test` release
+
+This is a manual implementation-time step, not a permanent feature of the skill.
+
 ## Error Handling
 
 | Situation | Action |
