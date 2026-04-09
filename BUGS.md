@@ -16,6 +16,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-010 | worker_node_availability_domain required for paas_rag (CPU-only) | Medium | 2026-04-08 |
 | Open | BUG-011 | /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas | Medium | 2026-04-08 |
 | Fixed | BUG-012 | Back-to-back pack switch on VMs leaves stale images filling ephemeral storage | Medium | 2026-04-09 |
+| Open | BUG-013 | Infra destroy fails when app destroy hasn't completed — no enforcement of destroy ordering | High | 2026-04-09 |
+| Open | BUG-014 | ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion | Medium | 2026-04-09 |
 
 ---
 
@@ -359,7 +361,7 @@ Added explicit `required: false` and `visible: false` override for `worker_node_
 | `vss` | FSS mount targets, FSS file systems |
 | `paas_rag` | ADB instances, ADB OCPUs |
 | `enterprise_rag` | ADB instances, ADB OCPUs |
-| `enterprise_rag_aiq` | ADB instances, ADB OCPUs |
+| `enterprise_rag_aiq` | (GPU only — uses Milvus, not ADB) |
 | `cuopt` | (GPU only) |
 
 The `/checking-capacity` skill and the releasing skill's Phase 3 (Plan Testing) don't check these additional quotas before selecting a region.
@@ -371,14 +373,20 @@ The `/checking-capacity` skill and the releasing skill's Phase 3 (Plan Testing) 
 **Workaround:**
 Manually check FSS/ADB quotas before deploying:
 ```bash
+# FSS (AD-scoped — requires --availability-domain)
 oci limits resource-availability get --service-name filesystem --limit-name mount-target-count \
   --compartment-id <tenancy_ocid> --availability-domain <ad> --region <region>
-oci limits resource-availability get --service-name database --limit-name autonomous-database-count \
-  --compartment-id <tenancy_ocid> --availability-domain <ad> --region <region>
+
+# ADB (regional — do NOT pass --availability-domain, it will error)
+# Note: limit names are workload-specific. Default workload LH/DW uses adw-* limits.
+oci limits resource-availability get --service-name database --limit-name adw-ecpu-count \
+  --compartment-id <tenancy_ocid> --region <region>
+oci limits resource-availability get --service-name database --limit-name adw-total-storage-tb \
+  --compartment-id <tenancy_ocid> --region <region>
 ```
 
 **Resolution:**
-Pending. The `/checking-capacity` skill should be extended to check all pack-specific resource quotas (FSS for VSS, ADB for paas_rag/enterprise_rag/enterprise_rag_aiq) and only recommend regions where ALL required quotas are available.
+Pending. The `/checking-capacity` skill should be extended to check all pack-specific resource quotas (FSS for VSS, ADB for paas_rag/enterprise_rag) and only recommend regions where ALL required quotas are available. Note: `enterprise_rag_aiq` does NOT need ADB (uses Milvus instead of Oracle 26ai).
 
 ### BUG-012: Back-to-back pack switch on VMs leaves stale images filling ephemeral storage
 
@@ -409,3 +417,60 @@ Updated the releasing skill's track design (Phase 3b in SKILL.md) to only use ba
 **Verification:** During next release, VM tracks (e.g., vss/poc → cuopt/poc) should destroy everything between rounds. No `Insufficient ephemeral-storage` errors on the second pack.
 
 **Prevention:** The releasing skill's Phase 3b now explicitly checks `worker_node_shape` prefix (BM.* vs VM.*) when designing tracks. PARALLEL_TESTING.md documents both workflows separately.
+
+### BUG-013: Infra destroy fails when app destroy hasn't completed — no enforcement of destroy ordering
+
+**Status:** Open
+**Date found:** 2026-04-09
+**Found by:** Track 2 agent during v0.0.6 VSS/cuopt release testing in uk-london-1
+**Severity:** High
+
+**Symptoms:**
+Infra stack destroy failed repeatedly with `409-Conflict: subnet references service VNIC` in uk-london-1. Three destroy attempts all failed on the LB subnet, requiring manual OCI CLI intervention to delete the orphaned load balancer.
+
+**Root cause:**
+Track 2 started infra destroy before the app destroy had succeeded. The app destroy failed (Corrino API unreachable → `undeploy_blueprints.py` errored), leaving the entire app layer running: Helm releases, pods, services, ingress resources, and the OCI load balancer. The infra destroy then couldn't delete the LB subnet because the app's load balancer still had a VNIC attached to it.
+
+The `/testing-pack` and `/destroy-stack` skills do not enforce or verify that app destroy succeeded before allowing infra destroy to proceed.
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — Phase 5b destroy instructions say "app first then infra" but don't enforce it
+- `.claude/skills/releasing/PARALLEL_TESTING.md` — destroy ordering documented but not enforced
+
+**Workaround:**
+Manually delete the OCI load balancer via CLI, then retry infra destroy:
+```bash
+oci lb load-balancer list --compartment-id <compartment> --query "data[?\"subnet-ids\"[?contains(@, '<lb_subnet_ocid>')]].id" --raw-output
+oci lb load-balancer delete --load-balancer-id <lb_ocid> --force
+```
+
+**Resolution:**
+Pending. The `/destroy-stack` skill should verify app stack destroy succeeded before allowing infra destroy. Also see BUG-014 for the architectural fix.
+
+### BUG-014: ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion (architectural)
+
+**Status:** Open
+**Date found:** 2026-04-09
+**Found by:** Senior architect investigation during v0.0.6 release
+**Severity:** Medium
+
+**Symptoms:**
+Even with correct app-before-infra destroy ordering, there is an async race condition: `helm uninstall ingress-nginx` completes when Kubernetes objects are deleted, but the OCI cloud controller deletes the load balancer asynchronously. Terraform may proceed to destroy the LB subnet before the OCI LB is fully terminated.
+
+**Root cause:**
+Architectural mismatch: `ingress-nginx` (which creates the OCI LB via Kubernetes Service type LoadBalancer) is in the app stack, but `oke_lb_subnet` (where the LB is placed) is in the infra stack. These resources should be in the same Terraform state so destroy ordering is handled correctly. Additionally, the OCI cloud controller's async LB deletion means even correct Terraform ordering within a single state has a race window.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:2-3` — `ingress_nginx` gated on `deploy_application`
+- `ai-accelerator-tf/kubernetes.tf:42` — `cluster_tools` namespace gated on `deploy_application`
+- `ai-accelerator-tf/network.tf` — `oke_lb_subnet` gated on `create_network_resources`
+
+**Workaround:**
+Always destroy app stack first and verify completion. Manually delete remaining OCI LBs before infra destroy.
+
+**Resolution:**
+Pending (v0.0.7). Recommended fix from architect analysis:
+1. Move `ingress-nginx` and `cluster_tools` namespace to infra stack (gate on `deploy_infrastructure`)
+2. Add `cluster_tools_namespace` local for app-stack resources to reference the namespace by name
+3. Add `terraform_data.wait_for_lb_cleanup` with destroy provisioner that polls until OCI LBs are gone before subnet deletion
+4. ~5 files changed, no state migration needed if app stack is destroyed first (standard workflow)
