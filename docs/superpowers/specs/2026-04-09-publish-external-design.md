@@ -118,9 +118,11 @@ gh release create starter-packs-test \
 ### Develop & test
 
 1. Hardcode `starter-packs-test` as the release tag in the skill while developing
-2. Run the full skill: `/publish-external v0.0.6`
-3. Verify all 5 assets appear on the test release with correct names and sizes
+2. **Run 1 (fresh upload):** Run `/publish-external v0.0.6` against the empty test release
+3. Verify all 5 assets appear with correct names and sizes
 4. Verify the swap is correct (enterprise_rag content in `aiQGenAIPowered.zip`, paas_rag content in `aiQEnterpriseSearch.zip`)
+5. **Run 2 (clobber test):** Run `/publish-external v0.0.6` again — this time assets already exist, so `--clobber` must replace them. This is the production scenario (the real `starter-packs` release always has existing assets).
+6. Verify all 5 assets are present with updated timestamps from the second run
 
 ### Finalize
 
