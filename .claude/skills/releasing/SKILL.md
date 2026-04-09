@@ -134,15 +134,22 @@ Ask the user which packs and sizes to test. Default: all 5 packs at their standa
 
 ### 3b. Design parallel tracks
 
-Group packs by GPU shape to maximize infrastructure reuse:
+Group packs by GPU shape. **Back-to-back infra reuse is only for bare metal (BM.\*) shapes.** VM shapes provision in minutes — destroy everything and start fresh between packs.
 
-- **Track 1 (BM.GPU4.8):** enterprise_rag then enterprise_rag_aiq (back-to-back, re-apply infra between)
-- **Track 2 (VM.GPU.A10.2):** vss then cuopt (back-to-back, re-apply infra to scale GPU pool)
-- **Track 3 (CPU only):** paas_rag (independent)
+Check `worker_node_shape` in `vars.tf` → `local.starter_pack_configs` for each pack/size:
+- Shape starts with `BM.` → eligible for back-to-back switching (preserve infra between rounds)
+- Shape starts with `VM.` → must destroy both stacks between rounds (fresh infra each pack)
+- Shape is `none` (CPU) → single round, no switching needed
+
+For the default test matrix (poc/small sizes):
+
+- **Track 1 (BM.GPU4.8):** enterprise_rag/small then enterprise_rag_aiq/small — back-to-back (destroy app, re-apply infra, new app)
+- **Track 2 (VM.GPU.A10.2):** vss/poc then cuopt/poc — sequential with full destroy between rounds
+- **Track 3 (CPU only):** paas_rag/small (independent)
 
 Present the track plan to the user and confirm. Adjust if they want different groupings.
 
-**Key principle:** Re-apply infra every round so the cluster matches the new pack's exact config (node count, shape, ADB, etc.).
+**Key principle:** Back-to-back switching only applies when rounds share the same BM worker_node_shape. For BM tracks, re-apply infra every round so the cluster matches the new pack's config. For VM tracks, destroy everything and create fresh stacks — VMs provision in minutes, and preserving infra risks stale container images filling ephemeral storage (BUG-012) and stale taints blocking scheduling (BUG-009).
 
 ### 3c. Check GPU capacity per track
 
@@ -192,9 +199,10 @@ Each teammate message should include:
 1. The pack category and size to test
 2. The region and OCI CLI profile
 3. The compartment OCID
-4. Instruction to invoke `/testing-pack <category> <size>`
-5. For back-to-back tracks: instruction to destroy app stack, update infra with next pack's zip, re-apply, then `/testing-pack` for the second pack
-6. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
+4. Instruction to invoke `/testing-pack <category> <size> --zip-path release_test_matrix/<VERSION>_<category>.zip` — this uses the pre-built release zip directly, skipping worktree creation and zip rebuilding. This ensures teammates test the exact zips that will ship to users and avoids race conditions on shared temp files.
+5. For **BM tracks** (back-to-back): instruction to destroy the app stack (preserve infra), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` for the second pack
+6. For **VM tracks** (sequential fresh): instruction to destroy both stacks (app first, then infra), clean up resources (customer secret keys, orphaned ADB), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` fresh (creates new infra + app stacks)
+7. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
 
 ### 4c. Monitor progress
 
@@ -328,6 +336,22 @@ gh release view $VERSION
 
 ---
 
+## Phase 7: Publish to External Repo
+
+After Phase 6 (Finalize) completes, **ask the user:**
+
+> "Do you want to publish the release zips to the external oracle-quickstart/oci-ai-blueprints repo?"
+
+If yes, invoke:
+
+```
+/publish-external <VERSION>
+```
+
+This uploads the release zips to `oracle-quickstart/oci-ai-blueprints` with the console zip names and the enterprise_rag/paas_rag swap workaround. See [PUBLISH_EXTERNAL.md](PUBLISH_EXTERNAL.md) for details.
+
+---
+
 ## Error Handling
 
 | Situation | Action |
@@ -362,3 +386,4 @@ Release Progress — $VERSION:
 - **[RELEASE_PUBLISH.md](RELEASE_PUBLISH.md)** — Publish phase: validate zips, rename, Slack, merge PR, tag
 - **[PARALLEL_TESTING.md](PARALLEL_TESTING.md)** — Agent teams setup, browser isolation, permissions, back-to-back pack switching
 - **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** — Anti-patterns and pitfalls discovered during real releases
+- **[PUBLISH_EXTERNAL.md](PUBLISH_EXTERNAL.md)** — Upload release zips to external oracle-quickstart/oci-ai-blueprints pre-release
