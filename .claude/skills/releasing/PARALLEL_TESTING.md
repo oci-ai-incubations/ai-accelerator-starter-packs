@@ -108,9 +108,17 @@ Skill(checking-capacity), Skill(diagnosing-stack),
 Skill(bug-tracker), Skill(destroy-stack)
 ```
 
-## Back-to-Back Pack Switching
+## Zip Path Isolation
 
-When a track runs multiple packs sequentially:
+Each teammate MUST use a unique zip file path. The `/testing-pack` skill defines `ZIP_PATH="/tmp/${WORKTREE_NAME}.zip"` — since each worktree has a unique timestamp-based name, zip files won't collide.
+
+**Anti-pattern:** Using a hardcoded path like `/tmp/testing-pack.zip`. When multiple tracks run in parallel, one track's zip overwrites another's before upload, causing the wrong schema to be deployed to ORM (e.g., VSS wizard appearing when deploying enterprise_rag).
+
+## Back-to-Back Pack Switching (Bare Metal Only)
+
+> **This workflow applies only to bare metal (BM.\*) tracks.** For VM tracks, see "VM Track Switching" below.
+
+When a BM track runs multiple packs sequentially:
 
 1. **Destroy app stack first** — this cleans up Helm releases, secrets, configmaps, PVCs
 2. **Rebuild zip** with the new pack's schema
@@ -122,7 +130,17 @@ When a track runs multiple packs sequentially:
 5. **Create new app stack** with the new zip, using `existing_cluster_id` from infra outputs
 6. **Apply app stack**
 
-This is the two-stack model — infra persists while app stacks are swapped.
+This is the two-stack model — infra persists while app stacks are swapped. It exists to avoid the 6-hour bare metal GPU host recycle time.
+
+## VM Track Switching
+
+VM shapes (VM.GPU.A10.2, etc.) provision in minutes — there is no benefit to preserving infra between packs. Reusing VM infra causes stale container images to fill ephemeral storage (BUG-012) and stale taints/labels to block scheduling (BUG-009).
+
+When a VM track runs multiple packs sequentially:
+
+1. **Destroy both stacks** — app stack first, then infra stack
+2. **Clean up orphaned resources** — customer secret keys (quota of 2 per user), orphaned ADB instances
+3. **Invoke `/testing-pack` fresh** for the next pack — this creates new infra + app stacks from scratch
 
 ## Monitoring Progress
 

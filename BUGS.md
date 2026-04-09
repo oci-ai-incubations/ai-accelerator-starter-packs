@@ -14,6 +14,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
 | Fixed | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
 | Fixed | BUG-010 | worker_node_availability_domain required for paas_rag (CPU-only) | Medium | 2026-04-08 |
+| Open | BUG-011 | /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas | Medium | 2026-04-08 |
+| Fixed | BUG-012 | Back-to-back pack switch on VMs leaves stale images filling ephemeral storage | Medium | 2026-04-09 |
 
 ---
 
@@ -338,3 +340,72 @@ Added explicit `required: false` and `visible: false` override for `worker_node_
 **Date fixed:** 2026-04-08
 
 **Verification:** Regenerate schemas and verify that `generated/paas_rag_schema.yaml` shows `worker_node_availability_domain` with `required: false` and `visible: false`. ORM UI should no longer show the field or require it for paas_rag stacks.
+
+### BUG-011: /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Release coordinator during v0.0.6 release testing
+**Severity:** Medium
+
+**Symptoms:**
+`/checking-capacity` reported us-sanjose-1 as viable for VSS (11 VM.GPU.A10.2 available), but the deploy failed because FSS mount target quota was exhausted (2/2 used). The capacity check only validates GPU shape availability and tenancy GPU quota — it does not check quotas for other resources the pack requires.
+
+**Root cause:**
+`/checking-capacity` was designed to solve the most common deployment blocker (GPU capacity), but each pack requires additional resources with their own quotas:
+
+| Pack | Additional quota-gated resources |
+|---|---|
+| `vss` | FSS mount targets, FSS file systems |
+| `paas_rag` | ADB instances, ADB OCPUs |
+| `enterprise_rag` | ADB instances, ADB OCPUs |
+| `enterprise_rag_aiq` | ADB instances, ADB OCPUs |
+| `cuopt` | (GPU only) |
+
+The `/checking-capacity` skill and the releasing skill's Phase 3 (Plan Testing) don't check these additional quotas before selecting a region.
+
+**Affected files:**
+- `.claude/skills/checking-capacity/SKILL.md` — only checks `compute` service limits for GPU shapes
+- `.claude/skills/releasing/SKILL.md` — Phase 3 relies solely on `/checking-capacity` for region selection
+
+**Workaround:**
+Manually check FSS/ADB quotas before deploying:
+```bash
+oci limits resource-availability get --service-name filesystem --limit-name mount-target-count \
+  --compartment-id <tenancy_ocid> --availability-domain <ad> --region <region>
+oci limits resource-availability get --service-name database --limit-name autonomous-database-count \
+  --compartment-id <tenancy_ocid> --availability-domain <ad> --region <region>
+```
+
+**Resolution:**
+Pending. The `/checking-capacity` skill should be extended to check all pack-specific resource quotas (FSS for VSS, ADB for paas_rag/enterprise_rag/enterprise_rag_aiq) and only recommend regions where ALL required quotas are available.
+
+### BUG-012: Back-to-back pack switch on VMs leaves stale images filling ephemeral storage
+
+**Status:** Fixed
+**Date found:** 2026-04-09
+**Date fixed:** 2026-04-09
+**Found by:** Track 2 agent during v0.0.6 cuopt release testing in uk-london-1
+**Severity:** Medium
+
+**Symptoms:**
+After deploying VSS/poc (Round 1) and switching to cuopt/poc (Round 2) on the same VM.GPU.A10.2 infra, the cuopt NIM pod fails to schedule with `Insufficient ephemeral-storage`. The GPU node has large cached container images from the previous VSS deployment (vss-engine, riva NIM, embedding NIM, rerank NIM, etc.) consuming disk space.
+
+**Root cause:**
+The two-stack back-to-back model destroys the app stack but preserves infra (including GPU nodes). Container images from the previous pack remain cached on the node's disk. When the next pack's containers request ephemeral storage (cuopt NIM requests 200Gi), the node doesn't have enough free space.
+
+This is unnecessary for VM shapes — VMs provision in minutes, so there's no benefit to preserving infra between packs. The 6-hour recycle time that motivates infra reuse only applies to bare metal shapes (BM.GPU4.8).
+
+**Affected files:**
+- `.claude/skills/releasing/SKILL.md` — Phase 4 track design groups VM packs for back-to-back switching
+- `.claude/skills/releasing/PARALLEL_TESTING.md` — back-to-back switching docs don't distinguish VM vs BM
+
+**Workaround:**
+For VM tracks, destroy everything (app + infra) between packs and create fresh stacks. This avoids stale images entirely.
+
+**Resolution:**
+Updated the releasing skill's track design (Phase 3b in SKILL.md) to only use back-to-back pack switching for bare metal (BM.*) shapes. VM tracks now destroy both stacks and create fresh infra between rounds. Updated PARALLEL_TESTING.md to split the back-to-back section into "Bare Metal Only" and "VM Track Switching" sections. LESSONS_LEARNED.md already contained the rule (added during initial diagnosis). Fixed on `release_v0.0.6`.
+
+**Verification:** During next release, VM tracks (e.g., vss/poc → cuopt/poc) should destroy everything between rounds. No `Insufficient ephemeral-storage` errors on the second pack.
+
+**Prevention:** The releasing skill's Phase 3b now explicitly checks `worker_node_shape` prefix (BM.* vs VM.*) when designing tracks. PARALLEL_TESTING.md documents both workflows separately.
