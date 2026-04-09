@@ -336,7 +336,7 @@ gh release view $VERSION
 
 ---
 
-## Phase 7: Publish to External Repo
+## Phase 7: Publish to External Repo (Optional)
 
 After Phase 6 (Finalize) completes, **ask the user:**
 
