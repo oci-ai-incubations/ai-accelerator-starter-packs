@@ -12,7 +12,14 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
 | Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
-| Fixed | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
+| Open | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
+| Fixed | BUG-010 | worker_node_availability_domain required for paas_rag (CPU-only) | Medium | 2026-04-08 |
+| Open | BUG-011 | /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas | Medium | 2026-04-08 |
+| Fixed | BUG-012 | Back-to-back pack switch on VMs leaves stale images filling ephemeral storage | Medium | 2026-04-09 |
+| Open | BUG-013 | Infra destroy fails when app destroy hasn't completed — no enforcement of destroy ordering | High | 2026-04-09 |
+| Open | BUG-014 | ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion | Medium | 2026-04-09 |
+| Open | BUG-015 | enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds" | Medium | 2026-04-09 |
+| Open | BUG-016 | existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI | Medium | 2026-04-09 |
 
 ---
 
@@ -273,9 +280,9 @@ Changed count condition from `contains(["enterprise_rag", "enterprise_rag_aiq"],
 
 ### BUG-009: Stale nim-llm taint blocks pod scheduling after two-stack pack switch
 
-**Status:** Fixed
+**Status:** Open (fix incomplete)
 **Date found:** 2026-04-07
-**Date fixed:** 2026-04-07
+**Date fixed:** 2026-04-07 (partial — destroy provisioner added but has chicken-and-egg bug)
 **Found by:** Track 1 agent during v0.0.5 enterprise_rag → enterprise_rag_aiq two-stack test
 **Severity:** High
 
@@ -307,6 +314,257 @@ For the `via_operator` variant: removed the resource-level `connection` block en
 
 Fixed in commits `c53d237` and `051a533` on `release_v0.0.5`.
 
-**Verification:** Deploy enterprise_rag app stack → verify taints exist on GPU nodes → destroy app stack → verify taints are removed from all GPU nodes. (Not yet integration-tested — deferred to next enterprise_rag_aiq deploy.)
+**v0.0.6 re-occurrence (2026-04-09):** During v0.0.6 release testing, Track 1 (enterprise_rag → enterprise_rag_aiq in ap-melbourne-1) hit this bug again. The destroy provisioner ran but cleaned 0 nodes. Root cause: the provisioner's node selector uses `nvidia.com/gpu.present=true`, but this label is set by NFD (Node Feature Discovery). When NFD can't schedule on a node because of the `workload=nim-llm:NoSchedule` taint (NFD only tolerates `nvidia.com/gpu`), the `gpu.present` label is never set — so the destroy provisioner's selector matches 0 nodes. **Chicken-and-egg:** the taint blocks NFD → NFD can't set the label → the provisioner can't find the node → the taint persists.
 
-**Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds.
+**Fix needed:** Change the destroy provisioner's node selector to something that doesn't depend on NFD labels. Options:
+1. Select by `node.kubernetes.io/instance-type` (set by OKE, not NFD)
+2. Select all nodes in the GPU worker pool by OKE node pool label
+3. Remove taints from ALL worker nodes (not just GPU-labeled ones) — safe since the taint is pack-specific
+
+**Workaround (still valid):**
+Manually remove the nim-llm taint from affected GPU nodes between rounds:
+```bash
+kubectl taint nodes <node-name> workload=nim-llm:NoSchedule-
+```
+
+**Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds. Destroy provisioner node selectors must NOT depend on labels set by daemonsets that can be blocked by the very taints being cleaned up.
+
+**Recurrence (v0.0.6):** During Track 1's enterprise_rag → enterprise_rag_aiq pack switch in ap-melbourne-1, the stale `nim-llm` taint reappeared on GPU nodes despite the destroy provisioner fix. The GPU device-plugin daemonset showed DESIRED=0 and the operator-validator was stuck. Manual taint removal (`kubectl taint nodes <node> workload=nim-llm:NoSchedule-`) immediately restored GPU allocation. Root cause of recurrence needs investigation — the destroy provisioner may not have fired correctly during the ORM-managed app destroy, or the taint was re-applied during the infra re-apply before the new app stack was deployed.
+
+### BUG-010: worker_node_availability_domain required for paas_rag (CPU-only)
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Track 3 agent during v0.0.6 paas_rag release testing in us-sanjose-1
+**Severity:** Medium
+
+**Symptoms:**
+ORM UI shows "This variable is required" validation error on the `worker_node_availability_domain` field when creating a `paas_rag` stack. `paas_rag` is a CPU-only pack with no GPU worker pool, so this field should not be required.
+
+**Root cause:**
+The `worker_node_availability_domain` variable has a `required: true` attribute in the ORM schema. The capacity check precondition in `vars.tf` also references this variable. For `paas_rag`, no GPU workers are created, but the schema still marks the field as required because the common schema does not differentiate by category.
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml` — `worker_node_availability_domain` marked as required
+- `ai-accelerator-tf/schemas/paas_rag_schema.yaml` — should override to `required: false` or `visible: false`
+
+**Workaround:**
+Fill in any valid AD name — the value is ignored for `paas_rag` since no GPU worker pool is created.
+
+**Resolution:**
+Added explicit `required: false` and `visible: false` override for `worker_node_availability_domain` in `paas_rag_schema.yaml`. The common schema had `visible: false` but no `required` field, causing ORM to treat it as required. GPU packs (cuopt, vss, enterprise_rag, enterprise_rag_aiq) already override this to `required: true` with visible titles/descriptions. Fixed on `release_v0.0.6`, commit `25662c9`.
+
+**Date fixed:** 2026-04-08
+
+**Verification:** Regenerate schemas and verify that `generated/paas_rag_schema.yaml` shows `worker_node_availability_domain` with `required: false` and `visible: false`. ORM UI should no longer show the field or require it for paas_rag stacks.
+
+### BUG-011: /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Release coordinator during v0.0.6 release testing
+**Severity:** Medium
+
+**Symptoms:**
+`/checking-capacity` reported us-sanjose-1 as viable for VSS (11 VM.GPU.A10.2 available), but the deploy failed because FSS mount target quota was exhausted (2/2 used). The capacity check only validates GPU shape availability and tenancy GPU quota — it does not check quotas for other resources the pack requires.
+
+**Root cause:**
+`/checking-capacity` was designed to solve the most common deployment blocker (GPU capacity), but each pack requires additional resources with their own quotas:
+
+| Pack | Additional quota-gated resources |
+|---|---|
+| `vss` | FSS mount targets, FSS file systems |
+| `paas_rag` | ADB instances, ADB OCPUs |
+| `enterprise_rag` | ADB instances, ADB OCPUs |
+| `enterprise_rag_aiq` | (GPU only — uses Milvus, not ADB) |
+| `cuopt` | (GPU only) |
+
+The `/checking-capacity` skill and the releasing skill's Phase 3 (Plan Testing) don't check these additional quotas before selecting a region.
+
+**Affected files:**
+- `.claude/skills/checking-capacity/SKILL.md` — only checks `compute` service limits for GPU shapes
+- `.claude/skills/releasing/SKILL.md` — Phase 3 relies solely on `/checking-capacity` for region selection
+
+**Workaround:**
+Manually check FSS/ADB quotas before deploying:
+```bash
+# FSS (AD-scoped — requires --availability-domain)
+oci limits resource-availability get --service-name filesystem --limit-name mount-target-count \
+  --compartment-id <tenancy_ocid> --availability-domain <ad> --region <region>
+
+# ADB (regional — do NOT pass --availability-domain, it will error)
+# Note: limit names are workload-specific. Default workload LH/DW uses adw-* limits.
+oci limits resource-availability get --service-name database --limit-name adw-ecpu-count \
+  --compartment-id <tenancy_ocid> --region <region>
+oci limits resource-availability get --service-name database --limit-name adw-total-storage-tb \
+  --compartment-id <tenancy_ocid> --region <region>
+```
+
+**Resolution:**
+Pending. The `/checking-capacity` skill should be extended to check all pack-specific resource quotas (FSS for VSS, ADB for paas_rag/enterprise_rag) and only recommend regions where ALL required quotas are available. Note: `enterprise_rag_aiq` does NOT need ADB (uses Milvus instead of Oracle 26ai).
+
+### BUG-012: Back-to-back pack switch on VMs leaves stale images filling ephemeral storage
+
+**Status:** Fixed
+**Date found:** 2026-04-09
+**Date fixed:** 2026-04-09
+**Found by:** Track 2 agent during v0.0.6 cuopt release testing in uk-london-1
+**Severity:** Medium
+
+**Symptoms:**
+After deploying VSS/poc (Round 1) and switching to cuopt/poc (Round 2) on the same VM.GPU.A10.2 infra, the cuopt NIM pod fails to schedule with `Insufficient ephemeral-storage`. The GPU node has large cached container images from the previous VSS deployment (vss-engine, riva NIM, embedding NIM, rerank NIM, etc.) consuming disk space.
+
+**Root cause:**
+The two-stack back-to-back model destroys the app stack but preserves infra (including GPU nodes). Container images from the previous pack remain cached on the node's disk. When the next pack's containers request ephemeral storage (cuopt NIM requests 200Gi), the node doesn't have enough free space.
+
+This is unnecessary for VM shapes — VMs provision in minutes, so there's no benefit to preserving infra between packs. The 6-hour recycle time that motivates infra reuse only applies to bare metal shapes (BM.GPU4.8).
+
+**Affected files:**
+- `.claude/skills/releasing/SKILL.md` — Phase 4 track design groups VM packs for back-to-back switching
+- `.claude/skills/releasing/PARALLEL_TESTING.md` — back-to-back switching docs don't distinguish VM vs BM
+
+**Workaround:**
+For VM tracks, destroy everything (app + infra) between packs and create fresh stacks. This avoids stale images entirely.
+
+**Resolution:**
+Updated the releasing skill's track design (Phase 3b in SKILL.md) to only use back-to-back pack switching for bare metal (BM.*) shapes. VM tracks now destroy both stacks and create fresh infra between rounds. Updated PARALLEL_TESTING.md to split the back-to-back section into "Bare Metal Only" and "VM Track Switching" sections. LESSONS_LEARNED.md already contained the rule (added during initial diagnosis). Fixed on `release_v0.0.6`.
+
+**Verification:** During next release, VM tracks (e.g., vss/poc → cuopt/poc) should destroy everything between rounds. No `Insufficient ephemeral-storage` errors on the second pack.
+
+**Prevention:** The releasing skill's Phase 3b now explicitly checks `worker_node_shape` prefix (BM.* vs VM.*) when designing tracks. PARALLEL_TESTING.md documents both workflows separately.
+
+### BUG-013: Infra destroy fails when app destroy hasn't completed — no enforcement of destroy ordering
+
+**Status:** Open
+**Date found:** 2026-04-09
+**Found by:** Track 2 agent during v0.0.6 VSS/cuopt release testing in uk-london-1
+**Severity:** High
+
+**How this was discovered (exact sequence of events):**
+During the v0.0.6 release, Track 2 was testing VSS/poc in uk-london-1. After completing VSS testing, it needed to destroy both stacks to deploy cuopt fresh (VM tracks don't reuse infra — see BUG-012). Here's exactly what Track 2 did:
+
+1. **Submitted app stack destroy** — ORM started running `terraform destroy` on the app stack
+2. **Polled app destroy status** every 3 minutes — after ~9 minutes, the app destroy **FAILED**. The `undeploy_blueprints.py` destroy provisioner couldn't reach the Corrino API (the Corrino CP pod may have already been terminated by an earlier destroy step, creating a chicken-and-egg problem)
+3. **Immediately submitted infra stack destroy** without retrying or investigating the app destroy failure. Track 2 reasoned that "since we're destroying everything anyway, the infra destroy would tear down the entire cluster including all app resources"
+4. **Infra destroy failed** with `409-Conflict: subnet references service VNIC` — the OCI load balancer (created by ingress-nginx's Kubernetes Service) was still alive because the app stack was never fully cleaned up
+5. **Three infra destroy retries** all failed on the same subnet VNIC conflict
+6. **Manual intervention required** — the release coordinator had to identify and delete the orphaned OCI load balancer via `oci lb load-balancer delete`, after which the infra destroy succeeded
+
+**Key lesson:** The Track 2 agent's reasoning ("infra destroy will clean up everything") was wrong. ORM's `terraform destroy` only destroys resources in its own state file. The app stack's load balancer is managed by the OCI cloud controller (triggered by Kubernetes), not by Terraform. Destroying the OKE cluster (infra) does NOT automatically clean up OCI load balancers — they become orphaned.
+
+**Symptoms:**
+Infra stack destroy failed repeatedly with `409-Conflict: subnet references service VNIC` in uk-london-1. Three destroy attempts all failed on the LB subnet, requiring manual OCI CLI intervention to delete the orphaned load balancer.
+
+**Root cause:**
+Track 2 started infra destroy before the app destroy had succeeded. The app destroy failed (Corrino API unreachable → `undeploy_blueprints.py` errored), leaving the entire app layer running: Helm releases, pods, services, ingress resources, and the OCI load balancer. The infra destroy then couldn't delete the LB subnet because the app's load balancer still had a VNIC attached to it.
+
+The `/testing-pack` and `/destroy-stack` skills do not enforce or verify that app destroy succeeded before allowing infra destroy to proceed. There is no guardrail preventing an agent from submitting infra destroy after a failed app destroy.
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — Phase 5b destroy instructions say "app first then infra" but don't enforce it
+- `.claude/skills/releasing/PARALLEL_TESTING.md` — destroy ordering documented but not enforced
+- `.claude/skills/destroy-stack/SKILL.md` — no pre-flight check for active app stacks or OCI load balancers in the subnet
+
+**Workaround:**
+Manually delete the OCI load balancer via CLI, then retry infra destroy:
+```bash
+oci lb load-balancer list --compartment-id <compartment> --query "data[?\"subnet-ids\"[?contains(@, '<lb_subnet_ocid>')]].id" --raw-output
+oci lb load-balancer delete --load-balancer-id <lb_ocid> --force
+```
+
+**Resolution:**
+Pending. Two complementary fixes:
+1. **Skill-level:** The `/destroy-stack` skill should verify app stack destroy succeeded (check ORM job status = SUCCEEDED) before allowing infra destroy. If app destroy failed, require the user to retry or acknowledge before proceeding.
+2. **Terraform-level:** See BUG-014 for the architectural fix (move ingress-nginx to infra stack + LB cleanup safety net).
+
+### BUG-014: ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion (architectural)
+
+**Status:** Open
+**Date found:** 2026-04-09
+**Found by:** Senior architect investigation during v0.0.6 release
+**Severity:** Medium
+
+**How this was discovered:**
+After diagnosing BUG-013, we investigated why the infra destroy couldn't recover even after multiple retries. The release coordinator identified the specific OCI load balancer blocking the subnet and deleted it manually. This prompted a deeper architectural investigation: why does destroying the app stack leave an OCI load balancer alive, and why can't the infra stack destroy handle it?
+
+Two architect teammates were spawned to analyze the codebase. They traced the dependency chain: `helm_release.ingress_nginx` (app stack) → Kubernetes Service type LoadBalancer → OCI cloud controller creates OCI LB → LB gets VNIC in `oke_lb_subnet` (infra stack). The architectural mismatch — the resource that triggers LB creation lives in a different Terraform state than the resource that owns the subnet — means Terraform can never handle the destroy ordering correctly across stacks.
+
+The architects also identified an async race condition: even if ingress-nginx moves to the infra stack, `helm uninstall` completes before the OCI cloud controller finishes deleting the LB (async operation). A `terraform_data.wait_for_lb_cleanup` safety net resource was recommended to bridge this gap.
+
+**Symptoms:**
+Even with correct app-before-infra destroy ordering, there is an async race condition: `helm uninstall ingress-nginx` completes when Kubernetes objects are deleted, but the OCI cloud controller deletes the load balancer asynchronously. Terraform may proceed to destroy the LB subnet before the OCI LB is fully terminated.
+
+**Root cause:**
+Architectural mismatch: `ingress-nginx` (which creates the OCI LB via Kubernetes Service type LoadBalancer) is in the app stack, but `oke_lb_subnet` (where the LB is placed) is in the infra stack. These resources should be in the same Terraform state so destroy ordering is handled correctly. Additionally, the OCI cloud controller's async LB deletion means even correct Terraform ordering within a single state has a race window.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:2-3` — `ingress_nginx` gated on `deploy_application`
+- `ai-accelerator-tf/kubernetes.tf:42` — `cluster_tools` namespace gated on `deploy_application`
+- `ai-accelerator-tf/network.tf` — `oke_lb_subnet` gated on `create_network_resources`
+
+**Workaround:**
+Always destroy app stack first and verify completion. Manually delete remaining OCI LBs before infra destroy.
+
+**Resolution:**
+Pending (v0.0.7). Recommended fix from architect analysis:
+1. Move `ingress-nginx` and `cluster_tools` namespace to infra stack (gate on `deploy_infrastructure`)
+2. Add `cluster_tools_namespace` local for app-stack resources to reference the namespace by name
+3. Add `terraform_data.wait_for_lb_cleanup` with destroy provisioner that polls until OCI LBs are gone before subnet deletion
+4. ~5 files changed, no state migration needed if app stack is destroyed first (standard workflow)
+
+### BUG-015: enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds"
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Track 1 agent during v0.0.6 enterprise_rag testing in ap-melbourne-1 (test EA-5)
+**Severity:** Medium
+
+**Symptoms:**
+API document ingestion (EA-5) fails with error "single positional indexer is out-of-bounds" during the indexing phase. The document extraction succeeds but indexing fails. Interestingly, UI-based document ingestion (EU-4) succeeds on the same setup — suggesting a different code path or timing difference between API and UI ingestion.
+
+**Root cause:**
+Unknown. Likely an issue in the RAG ingestor server's indexing pipeline when called via the API path. The error message suggests a pandas/dataframe indexing issue in the ingestion code (upstream NVIDIA blueprint code, not our Terraform).
+
+**Affected files:**
+- Upstream: `nvcr.io/nvidia/blueprint/ingestor-server:2.3.0` (for enterprise_rag_aiq) or `ord.ocir.io/.../nvidia-rag-ingestion-oci:v0.0.3` (for enterprise_rag)
+
+**Workaround:**
+Use UI-based document ingestion instead of API. The UI path succeeds.
+
+**Resolution:**
+Pending. Needs investigation in the RAG ingestor server logs to identify the exact failure point. May be an upstream NVIDIA blueprint bug.
+
+### BUG-016: existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI
+
+**Status:** Open
+**Date found:** 2026-04-08
+**Found by:** Track 2 (VSS) and Track 3 (paas_rag) during v0.0.6 release testing
+**Severity:** Medium
+
+**How this was discovered:**
+Both Track 2 (VSS in uk-london-1) and Track 3 (paas_rag in us-sanjose-1) hit the same issue independently. When creating the app stack, they filled in `existing_cluster_id` but missed `existing_node_subnet_id`. The app stack apply then crashed:
+- VSS: `can not marshal a nil pointer` on `data.oci_core_subnet.vss_fss_node_subnet[0]`
+- paas_rag: `Parameter subnetId cannot be None, whitespace or empty string` from Corrino SubnetValidator
+
+Both were fixed by going back to the infra stack's "Application Information" tab, copying the `node_subnet_id` output, and pasting it into the app stack's `existing_node_subnet_id` field.
+
+**Symptoms:**
+App stack apply fails with nil pointer or subnetId validation error when `existing_node_subnet_id` is empty. The field exists in the ORM schema but is not prominently surfaced — it's easy to miss when creating the app stack.
+
+**Root cause:**
+The `existing_node_subnet_id` variable was added in BUG-006 fix (v0.0.4) and is visible in the schema under "Advanced Options". However, in the ORM UI, it's grouped with other advanced fields and not marked as required for the app stack. Users (and testing agents) consistently miss it because the primary field they focus on is `existing_cluster_id`.
+
+The Corrino SubnetValidator requires a subnet ID for `shared_node_pool` recipes. When `existing_node_subnet_id` is empty, the `OKE_NODE_SUBNET_ID` configmap entry is empty, and the validator fails.
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml` — `existing_node_subnet_id` should be more prominently displayed or conditionally required when `existing_cluster_id` is set
+- `ai-accelerator-tf/app-configmap.tf` — populates `OKE_NODE_SUBNET_ID` from the variable
+
+**Workaround:**
+Always copy `node_subnet_id` from the infra stack outputs and paste into `existing_node_subnet_id` in the app stack. The `/testing-pack` skill Phase 4c documents this.
+
+**Resolution:**
+Pending. Options:
+1. Make `existing_node_subnet_id` conditionally required when `existing_cluster_id` is set (ORM schema `required` + `visible` conditions)
+2. Add a validation block in `vars.tf` that errors if `existing_cluster_id` is set but `existing_node_subnet_id` is empty
+3. Auto-derive the node subnet from the cluster OCID via a data source (eliminates the manual copy step entirely)

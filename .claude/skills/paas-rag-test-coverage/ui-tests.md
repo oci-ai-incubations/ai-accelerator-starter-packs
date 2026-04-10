@@ -1,12 +1,26 @@
 # PaaS RAG UI Tests
 
-18 tests executed via Playwright in a **single browser context** with **continuous video recording**. Execute in order — collection creation and document upload must complete before chat/citation tests.
+18 tests executed via **agent-browser** in a **single browser session** with **screenshot evidence at each step**. Execute in order — collection creation and document upload must complete before chat/citation tests.
 
-**MANDATORY:** Execute ALL tests in order. If a test fails, record the failure, refresh the page, and continue. Do NOT skip any test.
+**MANDATORY:** Execute ALL tests in order. If a test fails, record the failure, reload the page, and continue. Do NOT skip any test.
 
 **No authentication required.**
 
 **Two pages:** `/` (Chat with collections sidebar), `/settings` (Settings)
+
+---
+
+## Session Setup
+
+```bash
+EVIDENCE_DIR="/tmp/paas-rag-evidence-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$EVIDENCE_DIR"
+SESSION="paas-rag-test-$(date +%s)"
+BASE_URL="$STARTER_PACK_URL"
+agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
+agent-browser --session $SESSION wait --load networkidle
+agent-browser --session $SESSION wait 3000
+```
 
 ---
 
@@ -65,41 +79,52 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 
 - **Page:** `/`
 - **Selector:** Oracle logo, title text, navigation buttons
-- **Interaction:** None (visual check)
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — identify header elements (logo img, "Chat" button, "Settings" button/icon)
+  2. Verify Oracle logo, "Chat" nav button, and "Settings" nav button/icon are present in the snapshot
 - **Verify:**
   - Oracle logo is visible (img element)
   - "Chat" navigation button is visible and active
   - "Settings" navigation button/icon is visible in header
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-01-header-renders.png"`
 
 ### PU-2: Collections Sidebar Visible (P0 smoke, 30s)
 
 - **Page:** `/`
 - **Selector:** Left sidebar panel with collection list
-- **Interaction:** None (visual check)
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — identify sidebar elements (search input, "New Collection" button, collection list area)
+  2. Verify sidebar, search input, and "New Collection" button are present in the snapshot
 - **Verify:**
   - Sidebar is visible (left side of page)
   - Search input for filtering collections is present
   - "New Collection" button is visible at the bottom of the sidebar
   - Collections list area is present (may be empty on fresh deploy with empty state message)
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-02-sidebar-visible.png"`
 
 ### PU-3: Empty Chat State (P0 smoke, 30s)
 
 - **Page:** `/`
 - **Selector:** Chat messages area when no messages exist
-- **Interaction:** None (visual check)
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — identify chat area elements (welcome text, sparkle icon, message input, send button)
+  2. Verify welcome message, input textarea, and send button are present in the snapshot
 - **Verify:**
   - Welcome message "Welcome to OracleNet" or similar greeting text is visible
   - Oracle sparkle animation/icon is visible
   - Message input textarea is visible at the bottom
   - Send button is visible (disabled when input is empty)
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-03-empty-chat.png"`
 
 ### PU-4: Create Collection Modal (P0 e2e, 30s)
 
 - **Page:** `/`
 - **Selector:** "New Collection" button, modal dialog
 - **Interaction:**
-  1. Click "New Collection" button in sidebar
-  2. Verify modal opens
+  1. `agent-browser --session $SESSION snapshot -i` — find the "New Collection" button ref
+  2. `agent-browser --session $SESSION click @<new-collection-button-ref>` — open the modal
+  3. `agent-browser --session $SESSION wait 1000`
+  4. `agent-browser --session $SESSION snapshot -i` — verify modal contents (name input, embedding model dropdown, dimensions input, metadata fields, Cancel/Create buttons)
 - **Verify:**
   - Modal dialog appears with "Create Collection" or similar heading
   - Collection name text input is visible (required)
@@ -108,20 +133,30 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   - Optional metadata fields are visible (Purpose, Source, Content Type)
   - "Add Custom Field" button is visible
   - "Cancel" and "Create Collection" buttons are visible
-- **Dismiss:** Click "Cancel" to close the modal before PU-5.
+- **Dismiss:** Click "Cancel" to close the modal before PU-5:
+  1. `agent-browser --session $SESSION click @<cancel-button-ref>`
+  2. `agent-browser --session $SESSION wait 500`
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-04-create-modal.png"`
 
 ### PU-5: Create Collection with Embedding Model (P0 e2e, 60s)
 
 - **Page:** `/`
 - **Selector:** "New Collection" button, modal form fields
 - **Interaction:**
-  1. Click "New Collection" button
-  2. Type "ui_test_collection" in the collection name input
-  3. Select an embedding model from the dropdown (pick the first available option)
-  4. Set embedding dimensions (2048 or use default)
-  5. Optionally fill in Purpose: "testing"
-  6. Click "Create Collection"
-  7. Wait for modal to close and success toast
+  1. `agent-browser --session $SESSION snapshot -i` — find "New Collection" button ref
+  2. `agent-browser --session $SESSION click @<new-collection-button-ref>` — open modal
+  3. `agent-browser --session $SESSION wait 1000`
+  4. `agent-browser --session $SESSION snapshot -i` — find form field refs (name input, embedding model dropdown, dimensions input, purpose input, create button)
+  5. `agent-browser --session $SESSION fill @<name-input-ref> "ui_test_collection"` — enter collection name
+  6. `agent-browser --session $SESSION click @<embedding-model-dropdown-ref>` — open embedding model dropdown
+  7. `agent-browser --session $SESSION wait 500`
+  8. `agent-browser --session $SESSION snapshot -i` — find available model options
+  9. `agent-browser --session $SESSION click @<first-model-option-ref>` — select first available model
+  10. Optionally: `agent-browser --session $SESSION fill @<purpose-input-ref> "testing"` — fill in purpose
+  11. `agent-browser --session $SESSION snapshot -i` — verify form is filled and "Create Collection" button is enabled
+  12. `agent-browser --session $SESSION click @<create-collection-button-ref>` — submit
+  13. `agent-browser --session $SESSION wait 2000` — wait for modal to close and success toast
+  14. `agent-browser --session $SESSION snapshot -i` — verify modal closed and toast appeared
 - **Verify:**
   - Collection name input accepts text
   - Embedding model dropdown populates with options (from `/v1/models`)
@@ -129,25 +164,38 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   - Clicking "Create Collection" triggers submission
   - Success toast notification appears
   - Modal closes after successful creation
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-05-collection-created.png"`
 
 ### PU-6: Collection Appears in Sidebar (P0 smoke, 60s)
 
 - **Page:** `/`
 - **Selector:** Collection list in sidebar
-- **Interaction:** Wait for sidebar to refresh (may need to reload page)
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — look for "ui_test_collection" in the sidebar
+  2. If not found, reload and re-check:
+     - `agent-browser --session $SESSION reload`
+     - `agent-browser --session $SESSION wait --load networkidle`
+     - `agent-browser --session $SESSION wait 2000`
+     - `agent-browser --session $SESSION snapshot -i`
 - **Verify:**
   - "ui_test_collection" appears in the sidebar collection list
   - Collection item has a checkbox for selection
   - Collection item has a chevron/details button (hover to reveal)
 - **Note:** If the collection doesn't appear immediately, reload the page. The list fetches from `/v1/vector_stores`.
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-06-collection-in-sidebar.png"`
 
 ### PU-7: Open Collection Drawer (P0 e2e, 30s)
 
 - **Page:** `/`
 - **Selector:** Chevron/details button on "ui_test_collection" item
 - **Interaction:**
-  1. Hover over the "ui_test_collection" item to reveal the chevron button
-  2. Click the chevron/details button
+  1. `agent-browser --session $SESSION snapshot -i` — find the "ui_test_collection" item ref
+  2. `agent-browser --session $SESSION hover @<collection-item-ref>` — hover to reveal the chevron button
+  3. `agent-browser --session $SESSION wait 500`
+  4. `agent-browser --session $SESSION snapshot -i` — find the revealed chevron/details button ref
+  5. `agent-browser --session $SESSION click @<chevron-button-ref>` — open the drawer
+  6. `agent-browser --session $SESSION wait 1000`
+  7. `agent-browser --session $SESSION snapshot -i` — verify drawer contents
 - **Verify:**
   - Collection drawer slides in from the right with a backdrop overlay
   - Close button (X) is visible
@@ -155,130 +203,184 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   - Metadata tags section is visible (shows "purpose: testing" if set in PU-5)
   - "Upload Documents" button is visible
   - "Delete Collection" button is visible (red/danger style)
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-07-collection-drawer.png"`
 
 ### PU-8: Upload Document via Drawer (P0 e2e, 3min timeout)
 
 - **Page:** `/` (collection drawer open from PU-7)
 - **Selector:** "Upload Documents" button, file input, upload controls
 - **Interaction:**
-  1. Click "Upload Documents" button in the drawer
-  2. Drawer switches to upload view with drag-and-drop zone
-  3. Upload a test file via `page.setInputFiles('input[type="file"]', ...)` with a Buffer containing test text (use `.txt` format)
-  4. File appears in the file list with "pending" status
-  5. Click "Upload" button
-  6. Watch progress: uploading → attaching → indexing → completed
+  1. `agent-browser --session $SESSION snapshot -i` — find "Upload Documents" button ref
+  2. `agent-browser --session $SESSION click @<upload-documents-button-ref>` — switch to upload view
+  3. `agent-browser --session $SESSION wait 1000`
+  4. `agent-browser --session $SESSION snapshot -i` — find file input ref in the drag-and-drop zone
+  5. Create a test file: `echo "This is a test document for PaaS RAG UI testing. It contains information about retrieval augmented generation." > /tmp/test_document.txt`
+  6. `agent-browser --session $SESSION upload @<file-input-ref> /tmp/test_document.txt` — upload the test file
+  7. `agent-browser --session $SESSION wait 1000`
+  8. `agent-browser --session $SESSION snapshot -i` — verify file appears in list with "pending" status, find "Upload" button ref
+  9. `agent-browser --session $SESSION click @<upload-button-ref>` — start upload
+  10. Poll for completion (up to 3 minutes):
+      - `agent-browser --session $SESSION wait 5000`
+      - `agent-browser --session $SESSION snapshot -i` — check for "completed" status (green checkmark)
+      - Repeat until status shows "completed" or timeout
 - **Verify:**
   - Upload view shows drag-and-drop zone with accepted formats (.txt, .pdf, .doc, .docx, .md)
   - File appears in list after selection
   - Progress bar shows during upload
   - Status transitions through stages (may see uploading, attaching, indexing, completed)
   - File reaches "completed" status (green checkmark or similar indicator)
-- **CRITICAL:** File indexing is async. After upload, the status will poll every 2 seconds. Wait for the file to reach "completed" state. This may take 30-120 seconds.
-- **Note:** To upload a file in Playwright, use `page.setInputFiles('input[type="file"]', ...)` with a Buffer containing test text.
+- **CRITICAL:** File indexing is async. After upload, the status will poll every 2 seconds. Wait for the file to reach "completed" state. This may take 30-120 seconds. Use a polling loop with `wait 5000` + `snapshot -i` to check status.
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-08-document-uploaded.png"`
 
 ### PU-9: Close Collection Drawer (P1 smoke, 30s)
 
 - **Page:** `/` (collection drawer open)
 - **Selector:** Close button (X) on the drawer, or back chevron
-- **Interaction:** Click the close button (X) or click the backdrop overlay
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — find close button (X) ref
+  2. `agent-browser --session $SESSION click @<close-button-ref>` — close the drawer
+  3. `agent-browser --session $SESSION wait 500`
+  4. `agent-browser --session $SESSION snapshot -i` — verify drawer is closed
 - **Verify:**
   - Drawer closes with slide-out animation
   - Chat area returns to full width
   - Sidebar and chat input are accessible again
 - **Note:** **Always close the drawer before proceeding** — an open drawer blocks interaction with elements behind it.
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-09-drawer-closed.png"`
 
 ### PU-10: Select Collection for Chat (P0 e2e, 30s)
 
 - **Page:** `/`
 - **Selector:** Checkbox on "ui_test_collection" item in sidebar
-- **Interaction:** Click the checkbox on the "ui_test_collection" item
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — find the checkbox ref on the "ui_test_collection" item
+  2. `agent-browser --session $SESSION click @<checkbox-ref>` — select the collection
+  3. `agent-browser --session $SESSION wait 500`
+  4. `agent-browser --session $SESSION snapshot -i` — verify selection state and "Searching in:" badge
 - **Verify:**
   - Checkbox shows selected state (checked)
   - "Searching in:" badge appears above the message input showing "ui_test_collection"
   - Message input placeholder or state may change to indicate RAG mode
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-10-collection-selected.png"`
 
 ### PU-11: Send RAG Chat Message (P0 e2e, 3min timeout)
 
 - **Page:** `/`
 - **Selector:** Chat input textarea, Send button
 - **Interaction:**
-  1. Ensure "ui_test_collection" is still selected (badge visible above input)
-  2. Click the chat input textarea
-  3. Type "What is in the uploaded document?"
-  4. Click Send button (or press Enter)
-  5. Wait for the assistant response to complete
+  1. `agent-browser --session $SESSION snapshot -i` — verify "ui_test_collection" badge is visible, find chat input ref
+  2. `agent-browser --session $SESSION click @<chat-input-ref>` — focus the input
+  3. `agent-browser --session $SESSION fill @<chat-input-ref> "What is in the uploaded document?"` — type the message
+  4. `agent-browser --session $SESSION snapshot -i` — find the Send button ref (should now be enabled)
+  5. `agent-browser --session $SESSION click @<send-button-ref>` — send the message
+  6. Poll for response completion (up to 3 minutes):
+     - `agent-browser --session $SESSION wait 5000`
+     - `agent-browser --session $SESSION snapshot -i` — check for assistant response (look for bot message bubble, typing indicator gone)
+     - Repeat until assistant response appears and streaming completes, or timeout
 - **Verify:**
   - User message appears in the chat (right-aligned, with User icon)
   - Typing indicator appears (3 bouncing dots)
   - Assistant response appears (left-aligned, with Bot icon) with non-empty text
   - Typing indicator disappears when response completes
   - Response contains markdown-formatted text
-- **CRITICAL:** LLM response with RAG retrieval may take 30-120 seconds. Wait patiently. Update banner: "PU-11: Waiting for RAG response... Xs elapsed". Do NOT click Send again while streaming.
+- **CRITICAL:** LLM response with RAG retrieval may take 30-120 seconds. Wait patiently. Use a polling loop with `wait 5000` + `snapshot -i`. Do NOT click Send again while streaming.
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-11-rag-chat-response.png"`
 
 ### PU-12: Streaming Response Renders (P0 smoke, 30s)
 
 - **Page:** `/` (after PU-11 response completed)
 - **Selector:** Assistant message bubble
-- **Interaction:** None (verify the completed response from PU-11)
+- **Interaction:**
+  1. `agent-browser --session $SESSION snapshot -i` — inspect the completed assistant response from PU-11
+  2. `agent-browser --session $SESSION get text @<assistant-message-ref>` — get the response text content
 - **Verify:**
   - Assistant message contains readable text (not empty, not error)
   - Text is rendered as formatted markdown content
   - Message bubble has correct styling (left-aligned, oracle-red-tinted background)
   - No error message (red background with AlertCircle icon)
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-12-streaming-response.png"`
 
 ### PU-13: View Inline Citations (P0 e2e, 30s)
 
 - **Page:** `/`
 - **Selector:** Citation footnotes in the assistant message
 - **Interaction:**
-  1. Look for numbered footnote references (e.g., `[1]`, `[2]`) in the assistant response
-  2. If footnotes are present, look for "Download" button next to each footnote
-  3. If URL citations are present, look for expandable "Source" button
+  1. `agent-browser --session $SESSION snapshot -i` — look for numbered footnote references (e.g., `[1]`, `[2]`) in the assistant response
+  2. If footnotes are present, look for "Download" button refs next to each footnote
+  3. If URL citations are present, look for expandable "Source" button refs
 - **Verify:**
   - Citation footnotes are visible as numbered references in the response text
   - Each footnote shows the source filename
   - "Download" button is visible for file citations
 - **Note:** If no citations appear, the RAG query may not have returned citations. Record as conditional pass and continue.
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-13-inline-citations.png"`
 
 ### PU-14: Chat Without Collection (P1 e2e, 2min timeout)
 
 - **Page:** `/`
 - **Selector:** Collection checkbox, chat input, Send button
 - **Interaction:**
-  1. Deselect all collections — click the checkbox on "ui_test_collection" to uncheck it
-  2. Verify no "Searching in:" badges remain above the input
-  3. Type "What is retrieval augmented generation?" in the chat input
-  4. Click Send
-  5. Wait for response
+  1. `agent-browser --session $SESSION snapshot -i` — find the checkbox ref on "ui_test_collection"
+  2. `agent-browser --session $SESSION click @<checkbox-ref>` — deselect the collection (uncheck)
+  3. `agent-browser --session $SESSION wait 500`
+  4. `agent-browser --session $SESSION snapshot -i` — verify no "Searching in:" badges remain
+  5. `agent-browser --session $SESSION click @<chat-input-ref>` — focus the input
+  6. `agent-browser --session $SESSION fill @<chat-input-ref> "What is retrieval augmented generation?"` — type the message
+  7. `agent-browser --session $SESSION snapshot -i` — find Send button ref
+  8. `agent-browser --session $SESSION click @<send-button-ref>` — send
+  9. Poll for response completion (up to 2 minutes):
+     - `agent-browser --session $SESSION wait 5000`
+     - `agent-browser --session $SESSION snapshot -i` — check for assistant response
+     - Repeat until assistant response appears and streaming completes, or timeout
 - **Verify:**
   - Message sends successfully even without collections selected
   - Assistant responds with text about RAG (pure LLM mode, no retrieval)
   - No citation footnotes on this response (knowledge base not used)
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-14-chat-no-collection.png"`
 
 ### PU-15: Documents Modal — View and Manage (P1 e2e, 30s)
 
 - **Page:** `/`
 - **Selector:** Collection drawer → document count card → Documents modal
 - **Interaction:**
-  1. Open the collection drawer for "ui_test_collection" (hover + click chevron)
-  2. Click the document count card (should show >=1 document)
-  3. Documents modal opens (large modal)
+  1. `agent-browser --session $SESSION snapshot -i` — find the "ui_test_collection" item ref
+  2. `agent-browser --session $SESSION hover @<collection-item-ref>` — hover to reveal the chevron button
+  3. `agent-browser --session $SESSION wait 500`
+  4. `agent-browser --session $SESSION snapshot -i` — find the revealed chevron/details button ref
+  5. `agent-browser --session $SESSION click @<chevron-button-ref>` — open the drawer
+  6. `agent-browser --session $SESSION wait 1000`
+  7. `agent-browser --session $SESSION snapshot -i` — find the document count card ref (should show >=1 document)
+  8. `agent-browser --session $SESSION click @<document-count-card-ref>` — open documents modal
+  9. `agent-browser --session $SESSION wait 1000`
+  10. `agent-browser --session $SESSION snapshot -i` — verify documents modal contents (search input, table, pagination)
 - **Verify:**
   - Documents modal appears with search input
   - Table with columns: ID, Created At, Attributes, Action
   - At least 1 document row visible (the uploaded test file)
   - Each row has Download and Delete action buttons
   - Pagination controls are visible (Previous/Next)
-- **Dismiss:** Close the modal (click X or close button), then close the collection drawer.
+- **Dismiss:** Close the modal, then close the collection drawer:
+  1. `agent-browser --session $SESSION snapshot -i` — find modal close button (X) ref
+  2. `agent-browser --session $SESSION click @<modal-close-ref>` — close modal
+  3. `agent-browser --session $SESSION wait 500`
+  4. `agent-browser --session $SESSION snapshot -i` — find drawer close button (X) ref
+  5. `agent-browser --session $SESSION click @<drawer-close-ref>` — close drawer
+  6. `agent-browser --session $SESSION wait 500`
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-15-documents-modal.png"`
 
 ### PU-16: Settings Page — Navigation and Model Config (P1 e2e, 30s)
 
 - **Page:** Navigate from `/` to `/settings`
 - **Selector:** Settings button/icon in the header
 - **Interaction:**
-  1. Click the Settings button in the header
-  2. Verify URL changes to `/settings`
-  3. Click "Model Configuration" in the settings sidebar
+  1. `agent-browser --session $SESSION snapshot -i` — find the Settings button/icon ref in the header
+  2. `agent-browser --session $SESSION click @<settings-button-ref>` — navigate to settings
+  3. `agent-browser --session $SESSION wait --url "**/settings"` — wait for URL change
+  4. `agent-browser --session $SESSION wait --load networkidle`
+  5. `agent-browser --session $SESSION snapshot -i` — verify settings page loaded, find "Model Configuration" nav item ref
+  6. `agent-browser --session $SESSION click @<model-config-nav-ref>` — click "Model Configuration"
+  7. `agent-browser --session $SESSION wait 500`
+  8. `agent-browser --session $SESSION snapshot -i` — verify model config section contents
 - **Verify:**
   - URL changes to `/settings`
   - Settings sidebar navigation is visible with sections: RAG Configuration, Model Configuration, Advanced
@@ -287,33 +389,62 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
     - Temperature slider (0-2 range, step 0.1)
     - Instructions textarea (system prompt)
   - "Reset to Defaults" button is visible at the bottom of the sidebar
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-16-settings-model-config.png"`
 
 ### PU-17: Settings — Reset to Defaults (P1 e2e, 30s)
 
 - **Page:** `/settings`
 - **Selector:** Temperature slider, "Reset to Defaults" button
 - **Interaction:**
-  1. Note the current temperature value
-  2. Drag or click the temperature slider to change its value
-  3. Verify the displayed value changes
-  4. Click "Reset to Defaults" button
+  1. `agent-browser --session $SESSION snapshot -i` — find temperature slider ref and "Reset to Defaults" button ref
+  2. Note the current temperature value displayed
+  3. `agent-browser --session $SESSION click @<temperature-slider-ref>` — interact with slider to change value
+  4. `agent-browser --session $SESSION wait 500`
+  5. `agent-browser --session $SESSION snapshot -i` — verify the displayed value changed
+  6. `agent-browser --session $SESSION click @<reset-to-defaults-button-ref>` — reset
+  7. `agent-browser --session $SESSION wait 1000`
+  8. `agent-browser --session $SESSION snapshot -i` — verify values returned to defaults
 - **Verify:**
   - Temperature slider is interactive and updates the displayed value
   - After reset, temperature returns to default (0.7)
   - Instructions textarea returns to default ("You are a helpful assistant" or similar)
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-17-settings-reset.png"`
 
 ### PU-18: Delete Test Collection (P1 e2e, 30s) — CLEANUP
 
 - **Page:** `/` (navigate back from settings)
 - **Selector:** Collection drawer for "ui_test_collection"
 - **Interaction:**
-  1. Navigate back to `/` (click "Chat" button or Oracle logo in header)
-  2. Open the collection drawer for "ui_test_collection" (hover + click chevron)
-  3. Click "Delete Collection" button (red/danger)
-  4. Confirm deletion in the browser `confirm()` dialog
+  1. `agent-browser --session $SESSION snapshot -i` — find "Chat" button or Oracle logo ref in header
+  2. `agent-browser --session $SESSION click @<chat-button-ref>` — navigate back to `/`
+  3. `agent-browser --session $SESSION wait --load networkidle`
+  4. `agent-browser --session $SESSION wait 1000`
+  5. `agent-browser --session $SESSION snapshot -i` — find the "ui_test_collection" item ref
+  6. `agent-browser --session $SESSION hover @<collection-item-ref>` — hover to reveal chevron
+  7. `agent-browser --session $SESSION wait 500`
+  8. `agent-browser --session $SESSION snapshot -i` — find chevron/details button ref
+  9. `agent-browser --session $SESSION click @<chevron-button-ref>` — open drawer
+  10. `agent-browser --session $SESSION wait 1000`
+  11. `agent-browser --session $SESSION snapshot -i` — find "Delete Collection" button ref (red/danger)
+  12. `agent-browser --session $SESSION click @<delete-collection-button-ref>` — click delete
+  13. `agent-browser --session $SESSION dialog accept` — accept the confirm() dialog
+  14. `agent-browser --session $SESSION wait 1000`
+  15. `agent-browser --session $SESSION snapshot -i` — verify collection removed from sidebar
 - **Verify:**
   - Browser confirmation dialog appears
   - After confirmation, collection disappears from the sidebar
   - Drawer closes
   - Success toast notification may appear
-- **Note:** Playwright handles `confirm()` dialogs via `page.on('dialog', d => d.accept())`. Set up the dialog handler BEFORE clicking delete.
+- **Note:** agent-browser auto-accepts `alert` and `beforeunload` dialogs by default, but `confirm()` dialogs need explicit `agent-browser dialog accept`. The correct pattern is: click Delete, then immediately run `agent-browser dialog accept` to handle the confirm() dialog, then verify deletion.
+- **Evidence:** `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-18-collection-deleted.png"`
+
+---
+
+## Teardown
+
+```bash
+agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/PU-final-state.png"
+agent-browser --session $SESSION close
+echo "Evidence screenshots saved to: $EVIDENCE_DIR"
+ls -la "$EVIDENCE_DIR"
+```

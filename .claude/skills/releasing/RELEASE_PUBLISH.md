@@ -121,7 +121,7 @@ Only proceed after the user confirms the Slack message has been posted.
    gh pr list --head release_v<VERSION> --state open --json number,title,url
    ```
 
-   If no PR exists, ask the user to create one first.
+   The release PR was created during the build phase (Phase 1b of the releasing skill). If for some reason it doesn't exist, create one:
 
 2. **Merge the PR:**
 

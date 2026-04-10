@@ -76,4 +76,7 @@ release_test_matrix/
 # Git worktrees
 .worktrees/
 
+# Superpowers brainstorming/planning artifacts (auto-generated, not for review)
+docs/superpowers/
+
 /Users/grantneuman/workspace/ai-accelerator-starter-packs/STEPS.md

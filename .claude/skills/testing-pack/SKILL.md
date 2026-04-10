@@ -36,10 +36,13 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 - `$0` - Category: `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`
 - `$1` - Size: `poc`, `small`, `medium` (category-dependent)
+- `--zip-path <path>` (optional) — Path to a pre-built ORM zip. When provided, **skip Phase -1 (worktree) and Phase 2 (zip creation)** entirely. The zip is used as-is for both infra and app stacks. This is the preferred mode during release testing, where zips are already built and verified.
 
 ---
 
 ## Phase -1: Create Isolated Worktree
+
+**Skip this phase if `--zip-path` was provided.** Set `ZIP_PATH` to the provided path and proceed directly to Phase 0.
 
 Create a git worktree based on the **current branch** (not main, unless the current branch IS main). This isolates the test run from the working directory so concurrent work doesn't interfere.
 
@@ -144,6 +147,26 @@ Pack-specific credentials:
 
 If category is `paas_rag`, `enterprise_rag`, or `enterprise_rag_aiq`, note that it requires `autonomous_db_subnet`. Confirm the schema includes ADB-specific fields.
 
+### 0h. PR number (optional)
+
+If provided by the caller (e.g., from `/releasing`), record `PR_NUMBER` for posting test progress and results to the GitHub PR. The caller passes this as `PR_NUMBER=<number>` in the message body.
+
+If not provided, skip PR posting — testing-pack works fine standalone without it.
+
+When `PR_NUMBER` is set, post a PR comment at each major milestone using:
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+<comment content>
+EOF
+)"
+```
+
+Milestones to post at:
+- Phase 4 start: testing started, region, track info
+- Phase 5 complete: deploy done, pods running, starting tests
+- After each test phase (6c-1, 6c-2, 6c-3): test results table
+- Phase 7: final summary with all results combined
+
 ---
 
 ## Phase 1: Discover Existing Stacks
@@ -175,6 +198,14 @@ Record stack OCIDs for later phases.
 
 ## Phase 2: Zip
 
+**Skip this entire phase if `--zip-path` was provided.** Set `ZIP_PATH` to the provided path and proceed directly to Phase 3. The pre-built zip is used as-is — no worktree, schema gen, or zip creation needed.
+
+When building a zip (no `--zip-path`), define `ZIP_PATH` using the unique worktree name to avoid race conditions with parallel tracks:
+```bash
+ZIP_PATH="/tmp/${WORKTREE_NAME}.zip"
+```
+All zip operations in this phase and uploads in Phases 4-5 MUST use `${ZIP_PATH}`, never a hardcoded path like `/tmp/testing-pack.zip`.
+
 ### 2a. Set category in auto.tfvars
 
 ```bash
@@ -191,21 +222,28 @@ python3 create_final_schema.py -c <category>
 
 ### 2c. Create zip
 
-Same exclusion logic as `/zip-tf`:
+Same exclusion logic as `/zip-tf`. **Use a unique zip path derived from the worktree name** to avoid race conditions when multiple tracks run in parallel:
 
 ```bash
+ZIP_PATH="/tmp/${WORKTREE_NAME}.zip"
 rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
-cd ai-accelerator-tf && zip -r /tmp/testing-pack.zip . \
+cd ai-accelerator-tf && zip -r "${ZIP_PATH}" . \
   -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' \
-  '*__pycache__/*' '*.pytest_cache/*' 'tests/*'
-zip /tmp/testing-pack.zip starter_pack_category.auto.tfvars
+  '*__pycache__/*' '*.pytest_cache/*' 'tests/*' \
+  'schemas/generated/*' 'schemas/tests/*'
+zip "${ZIP_PATH}" starter_pack_category.auto.tfvars
 ```
 
 ### 2d. Verify zip
 
 ```bash
-unzip -l /tmp/testing-pack.zip | head -30
+unzip -l "${ZIP_PATH}" | head -30
 # Confirm: schema.yaml present, no .tfvars (except auto.tfvars), TF files at root
+
+# Verify schema matches expected category
+SCHEMA_TITLE=$(unzip -p "${ZIP_PATH}" schema.yaml | grep '^title:' | head -1)
+echo "Schema title: ${SCHEMA_TITLE}"
+# Must match expected pack — if it shows a different pack name, the zip is wrong. Stop and rebuild.
 ```
 
 Same zip is used for both infra and app stacks.
@@ -291,7 +329,13 @@ Summarize which fields were correct/incorrect. If any field is wrong, stop and r
 Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack name, and click through the wizard:
 
 - Step 1: Upload zip, set name with date/time (e.g., `Enterprise RAG AIQ - Infra - 2026-04-02 0946`), click Next
-- Step 2: Fill variables — uncheck `Deploy Application`, check `Skip Capacity Check`, fill admin/DB credentials. Validate no required field errors before clicking Next.
+- Step 2: Fill variables:
+  - **CRITICAL: Verify `starter_pack_size` matches the target size** (e.g., `poc`, `small`, `medium`). The ORM schema defaults to `small` — if you're testing `poc`, you MUST change the dropdown. Deploying the wrong size silently provisions the wrong GPU shape (e.g., BM.GPU4.8 instead of VM.GPU.A10.2). This is a known pitfall — see LESSONS_LEARNED.md.
+  - Uncheck `Deploy Application`
+  - Check `Skip Capacity Check`
+  - Fill admin/DB credentials
+  - Validate no required field errors before clicking Next.
+  - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (e.g., `poc`, `small`, `medium`). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
 - Step 3: Check "Run apply", click Create
 
 See `references/orm-browser-nav.md` for checkbox toggling, password validation, and React Select patterns.
@@ -345,12 +389,15 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through
 
 - Step 1: Upload zip, set name with date/time (e.g., `Enterprise RAG AIQ - App - 2026-04-02 0946`), click Next
 - Step 2: Fill variables:
+  - **CRITICAL: Verify `starter_pack_size` matches the target size** (must match infra stack). ORM defaults to `small` — if testing `poc`, you MUST change the dropdown.
   - `Deploy Application` = checked
   - `Skip Capacity Check` = checked
   - `Existing Cluster OCID` = cluster OCID from Phase 4c
+  - `Existing Node Subnet OCID` = node subnet OCID from Phase 4c (**required** — without this, shared_node_pool recipes fail with nil pointer or subnetId validation error. See BUG-016.)
   - `Existing Autonomous DB Subnet OCID` = subnet OCID from Phase 4c (for ADB packs)
   - Fill admin/DB credentials (same as infra stack)
   - Validate no required field errors
+  - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (must match infra stack). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
 - Step 3: Check "Run apply", click Create
 
 ### 5b. Monitor app apply with kubectl
@@ -432,25 +479,71 @@ agent-browser --headed --session $SESSION_NAME --ignore-https-errors open "https
 
 Verify the page loads (HTTP 200, expected content visible in snapshot).
 
-### 6c. Run pack-specific smoke tests
+### 6c. Run ALL pack-specific tests (Infra, API, UI)
 
-Invoke the appropriate test coverage skill:
+Determine the test coverage directory for the category:
 
-| Category | Skill |
+| Category | Test coverage directory |
 |---|---|
-| `paas_rag` | `/paas-rag-test-coverage` |
-| `enterprise_rag` | `/enterprise-rag-test-coverage` |
-| `enterprise_rag_aiq` | `/enterprise-rag-test-coverage` |
-| `cuopt` | `/cuopt-test-coverage` |
-| `vss` | `/vss-test-coverage` |
+| `paas_rag` | `.claude/skills/paas-rag-test-coverage/` |
+| `enterprise_rag` | `.claude/skills/enterprise-rag-test-coverage/` |
+| `enterprise_rag_aiq` | `.claude/skills/enterprise-rag-test-coverage/` |
+| `cuopt` | `.claude/skills/cuopt-test-coverage/` |
+| `vss` | `.claude/skills/vss-test-coverage/` |
 
-Pass the frontend URL and any credentials (Corrino admin username/password from `terraform.tfvars`).
+Execute **ALL THREE** test phases in order. Do NOT skip any phase. If a test fails, record the failure and continue to the next test. Only stop the entire sequence if the frontend is unreachable (HTTP connection refused).
 
-If no pack-specific coverage skill exists, run basic smoke tests:
+#### 6c-1. Execute Infra tests
+
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/infra-tests.md` NOW. This file is self-contained — it has every infrastructure test with kubectl/OCI CLI commands, expected output, and failure hints. Execute directly from it.
+
+For every test in `infra-tests.md`:
+1. Execute via `kubectl` or OCI CLI as specified in the file.
+2. Compare output against the verification criteria.
+3. Record pass/fail per test ID.
+
+If `PR_NUMBER` is set, post results to the PR:
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+### <category>/<size> — Infra Test Results
+
+| ID | Test | Result |
+|---|---|---|
+| XX-1 | Description | PASS/FAIL |
+...
+
+**X/Y passed**
+EOF
+)"
+```
+
+#### 6c-2. Execute API tests
+
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/api-tests.md` NOW. This file is self-contained — it has every API test with endpoint, method, request body, verification criteria, and curl commands. Execute directly from it.
+
+For every test in `api-tests.md`:
+1. Execute via `curl` using the frontend URL as the base URL.
+2. Compare HTTP status code and response body against the verification criteria.
+3. Record pass/fail per test ID.
+4. Pass forward any outputs needed by later tests (e.g., collection IDs, file IDs).
+
+If `PR_NUMBER` is set, post results to the PR (same table format as 6c-1).
+
+#### 6c-3. Execute UI tests
+
+> **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with agent-browser commands, interaction steps, and verification criteria. Execute directly from it.
+
+For every test in `ui-tests.md`:
+1. Execute via `agent-browser` following the file's Session Setup and test steps.
+2. Take screenshots as evidence per the file's instructions.
+3. Record pass/fail per test ID.
+
+If `PR_NUMBER` is set, post results to the PR (same table format as 6c-1).
+
+If no test coverage directory exists for the category, fall back to basic smoke tests:
 1. Frontend loads (HTTP 200)
-2. Login succeeds (if applicable)
-3. Main page renders without errors
-4. At least one API health endpoint returns 200
+2. Main page renders without errors
+3. At least one API health endpoint returns 200
 
 ---
 
@@ -490,9 +583,20 @@ CLUSTER HEALTH:
   Core pods: corrino-cp, postgres, portal — <status>
   Pack pods: <list> — <status>
 
-APPLICATION TESTS:
+INFRA TESTS:
   <test-id>: <description> — PASS/FAIL
   ...
+  Result: X/Y passed
+
+API TESTS:
+  <test-id>: <description> — PASS/FAIL
+  ...
+  Result: X/Y passed
+
+UI TESTS:
+  <test-id>: <description> — PASS/FAIL
+  ...
+  Result: X/Y passed
 
 ISSUES:
   - <issue description, affected resource, severity>

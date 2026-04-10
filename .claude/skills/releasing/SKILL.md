@@ -42,6 +42,32 @@ ls -la release_test_matrix/
 
 If any zip is missing, stop and investigate.
 
+### 1b. Create Release PR
+
+Create the PR immediately after building. This PR becomes the **testing workspace** — agents post progress and results here throughout the release.
+
+```bash
+PR_NUMBER=$(gh pr create --base main --head release_v${VERSION} \
+  --title "Release ${VERSION}" \
+  --body "$(cat <<'PREOF'
+## Release ${VERSION}
+
+Testing workspace — agents will post progress and results below.
+
+### Checklist
+- [ ] Build complete
+- [ ] GitHub Release created (pre-release)
+- [ ] Testing planned
+- [ ] All packs tested
+- [ ] Bugs fixed (if needed)
+- [ ] Release finalized
+PREOF
+)" --json number --jq '.number')
+echo "PR #${PR_NUMBER} created"
+```
+
+Record `PR_NUMBER` for use in Phase 4.
+
 ---
 
 ## Phase 2: Create GitHub Release
@@ -108,26 +134,33 @@ Ask the user which packs and sizes to test. Default: all 5 packs at their standa
 
 ### 3b. Design parallel tracks
 
-Group packs by GPU shape to maximize infrastructure reuse:
+Group packs by GPU shape. **Back-to-back infra reuse is only for bare metal (BM.\*) shapes.** VM shapes provision in minutes — destroy everything and start fresh between packs.
 
-- **Track 1 (BM.GPU4.8):** enterprise_rag then enterprise_rag_aiq (back-to-back, re-apply infra between)
-- **Track 2 (VM.GPU.A10.2):** vss then cuopt (back-to-back, re-apply infra to scale GPU pool)
-- **Track 3 (CPU only):** paas_rag (independent)
+Check `worker_node_shape` in `vars.tf` → `local.starter_pack_configs` for each pack/size:
+- Shape starts with `BM.` → eligible for back-to-back switching (preserve infra between rounds)
+- Shape starts with `VM.` → must destroy both stacks between rounds (fresh infra each pack)
+- Shape is `none` (CPU) → single round, no switching needed
+
+For the default test matrix (poc/small sizes):
+
+- **Track 1 (BM.GPU4.8):** enterprise_rag/small then enterprise_rag_aiq/small — back-to-back (destroy app, re-apply infra, new app)
+- **Track 2 (VM.GPU.A10.2):** vss/poc then cuopt/poc — sequential with full destroy between rounds
+- **Track 3 (CPU only):** paas_rag/small (independent)
 
 Present the track plan to the user and confirm. Adjust if they want different groupings.
 
-**Key principle:** Re-apply infra every round so the cluster matches the new pack's exact config (node count, shape, ADB, etc.).
+**Key principle:** Back-to-back switching only applies when rounds share the same BM worker_node_shape. For BM tracks, re-apply infra every round so the cluster matches the new pack's config. For VM tracks, destroy everything and create fresh stacks — VMs provision in minutes, and preserving infra risks stale container images filling ephemeral storage (BUG-012) and stale taints blocking scheduling (BUG-009).
 
-### 3c. Check GPU capacity per track
+### 3c. Check resource capacity per track
 
-For each GPU track, invoke `/checking-capacity <category> <size>` to find regions with both hardware availability AND quota.
+For **every** track (including CPU-only), invoke `/checking-capacity <category> <size>` to find regions with sufficient capacity and quotas. The capacity check audits all required resources — GPU hardware, FSS (File Storage), ADB (Autonomous Database), and customer secret key quotas — not just GPU.
 
 Present a combined table across all tracks and let the user pick regions:
 
 ```
-Track 1 (BM.GPU4.8):  ap-melbourne-1, us-sanjose-1, ...
+Track 1 (BM.GPU4.8):    ap-melbourne-1, us-sanjose-1, ...
 Track 2 (VM.GPU.A10.2): us-sanjose-1, uk-london-1, ...
-Track 3 (CPU only):   any region — ask user preference
+Track 3 (CPU — paas_rag): us-sanjose-1, us-ashburn-1, ... (ADB + FSS + secret key quotas)
 ```
 
 Record the region and AD for each track.
@@ -166,14 +199,30 @@ Each teammate message should include:
 1. The pack category and size to test
 2. The region and OCI CLI profile
 3. The compartment OCID
-4. Instruction to invoke `/testing-pack <category> <size>`
-5. For back-to-back tracks: instruction to destroy app stack, update infra with next pack's zip, re-apply, then `/testing-pack` for the second pack
+4. Instruction to invoke `/testing-pack <category> <size> --zip-path release_test_matrix/<VERSION>_<category>.zip` — this uses the pre-built release zip directly, skipping worktree creation and zip rebuilding. This ensures teammates test the exact zips that will ship to users and avoids race conditions on shared temp files.
+5. For **BM tracks** (back-to-back): instruction to destroy the app stack (preserve infra), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` for the second pack
+6. For **VM tracks** (sequential fresh): instruction to destroy both stacks (app first, then infra), clean up resources (customer secret keys, orphaned ADB), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` fresh (creates new infra + app stacks)
+7. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
 
-### 4c. Monitor progress
+### 4c. Launch monitor teammate
+
+In addition to the testing tracks, launch a **monitor** teammate. See [MONITOR_TEAMMATES.md](MONITOR_TEAMMATES.md) for the full guide.
+
+The monitor's prompt should include:
+1. The `/testing-pack` skill path to read
+2. The OCI CLI profile and compartment OCID
+3. The expected pack/size/region for each track
+4. Instruction to **log every deviation in `BUGS.md` via `/bug-tracker log` immediately** — not at the end, not in a batch, but as each deviation is found
+5. Instruction to report deviations to team-lead via SendMessage with the BUG-NNN ID
+6. Access to OCI CLI, context7 MCP, and agent-browser (with its own unique session name)
+
+The monitor independently cross-checks OCI state (stack variables, job status, resource state) rather than trusting teammate self-reports. It verifies: zip paths, starter_pack_size, two-stack model compliance, destroy ordering, and required app stack variables.
+
+### 4d. Monitor progress
 
 Teammates are full interactive Claude sessions. They will ask questions via `AskUserQuestion` when they need input (OCI login, compartment selection, etc.).
 
-Check in periodically with `SendMessage` to get status updates.
+Check in periodically with `SendMessage` to get status updates. The monitor teammate will also proactively report deviations.
 
 ### 4d. Collect results
 
@@ -190,6 +239,26 @@ Build a combined results table:
 | vss               | poc   | uk-london-1    | Track 2 | PASS   | —          |
 | cuopt             | poc   | uk-london-1    | Track 2 | PASS   | —          |
 ```
+
+### 4e. Post combined results to PR
+
+After all teammates complete, post a combined summary to the PR:
+
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+## Release $VERSION — Combined Test Results
+
+| Pack | Size | Region | Infra | API | UI | Overall |
+|---|---|---|---|---|---|---|
+| <pack> | <size> | <region> | X/Y | X/Y | X/Y | PASS/FAIL |
+...
+
+**Overall: X/Y packs passed**
+EOF
+)"
+```
+
+If any pack failed, also update the PR body checklist to reflect the current state.
 
 ---
 
@@ -281,6 +350,51 @@ gh release view $VERSION
 
 ---
 
+## Phase 7: Publish to External Repo
+
+After Phase 6 (Finalize) completes, invoke:
+
+```
+/publish-external <VERSION>
+```
+
+This uploads the release zips to `oracle-quickstart/oci-ai-blueprints` with the console zip names and the enterprise_rag/paas_rag swap workaround. See the `/publish-external` skill for details.
+
+---
+
+## Phase 8: Verify Packs in OCI Console
+
+After publishing to external, verify that each zip loads the correct pack category in the OCI Console. See [VERIFY_CONSOLE_PACKS.md](VERIFY_CONSOLE_PACKS.md) for the full playbook.
+
+### 8a. Launch verification agent
+
+Use agent-browser with a unique session (e.g., `--session verify-packs`). The user must authenticate in the OCI Console manually.
+
+### 8b. Test each pack via zipUrl
+
+For each of the 5 packs, navigate to:
+```
+https://cloud.oracle.com/resourcemanager/stacks/create?zipUrl=https://github.com/oracle-quickstart/oci-ai-blueprints/releases/download/starter-packs/<ZIPNAME>.zip
+```
+
+Accept Terms of Use, click through to Step 2 (Configure Variables), and verify the correct pack loaded using the **Category Fingerprint Matrix** in VERIFY_CONSOLE_PACKS.md. The deployment size dropdown label is the most reliable identifier:
+
+| Zip | Expected Label |
+|---|---|
+| `aiQGenAIPowered.zip` | "Enterprise RAG Deployment Size" |
+| `aiQEnterpriseSearch.zip` | "RAG Deployment Size" |
+| `enterpriseAgenticAIStarterKit.zip` | "Enterprise RAG + AIQ Deployment Size" |
+| `vehicleRouteOptimizer.zip` | "cuOpt Deployment Size" |
+| `videoSearchSummarization.zip` | "VSS Deployment Size" |
+
+### 8c. Screenshot each pack
+
+Save screenshots to `/tmp/pack-verification/<ZIPNAME>_<category>.png`. Present results to the user.
+
+If any pack loads the wrong category, **STOP** — the swap workaround may be incorrect or the wrong zip was uploaded. Check the zip contents with `unzip -p <zip> ai-accelerator-tf/starter_pack_category.auto.tfvars`.
+
+---
+
 ## Error Handling
 
 | Situation | Action |
@@ -303,10 +417,12 @@ Release Progress — $VERSION:
 - [ ] Phase 1: Release build completed (RELEASE_BUILD.md)
 - [ ] Phase 2: GitHub Release created (pre-release)
 - [ ] Phase 3: Test tracks planned, regions selected
-- [ ] Phase 4: All packs tested
+- [ ] Phase 4: All packs tested (with monitor teammate)
 - [ ] Phase 5: Bugs fixed, zips rebuilt (if needed)
 - [ ] Phase 6a: GitHub Release promoted to latest
 - [ ] Phase 6b: Release publish completed (RELEASE_PUBLISH.md)
+- [ ] Phase 7: Published to external repo
+- [ ] Phase 8: All 5 packs verified in OCI Console
 ```
 
 ## Reference Files
@@ -314,4 +430,7 @@ Release Progress — $VERSION:
 - **[RELEASE_BUILD.md](RELEASE_BUILD.md)** — Build phase: branch, version bump, validate, zip creation
 - **[RELEASE_PUBLISH.md](RELEASE_PUBLISH.md)** — Publish phase: validate zips, rename, Slack, merge PR, tag
 - **[PARALLEL_TESTING.md](PARALLEL_TESTING.md)** — Agent teams setup, browser isolation, permissions, back-to-back pack switching
+- **[MONITOR_TEAMMATES.md](MONITOR_TEAMMATES.md)** — Monitor agent setup, compliance checks, bug tracking requirements
+- **[VERIFY_CONSOLE_PACKS.md](VERIFY_CONSOLE_PACKS.md)** — OCI Console pack verification playbook, zipUrl approach, category fingerprint matrix
 - **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** — Anti-patterns and pitfalls discovered during real releases
+- **`/publish-external`** — Upload release zips to external oracle-quickstart/oci-ai-blueprints pre-release (separate skill)
