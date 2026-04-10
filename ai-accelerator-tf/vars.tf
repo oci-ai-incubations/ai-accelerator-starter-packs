@@ -3,20 +3,6 @@
 # 
 
 # Authentication Configuration
-variable "ngc_secret" {
-  type        = string
-  default     = "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"
-  sensitive   = true
-  description = "NVIDIA NGC secret for docker registry authentication (nvcr.io) and image pull secrets"
-}
-
-variable "ngc_api_secret" {
-  type        = string
-  default     = "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"
-  sensitive   = true
-  description = "NVIDIA NGC API secret for accessing NGC services and APIs"
-}
-
 variable "use_instance_principal" {
   type        = bool
   default     = false
@@ -84,6 +70,12 @@ variable "existing_pods_subnet_id" {
 variable "existing_services_subnet_id" {
   default     = ""
   description = "OCID of the existing subnet for services. Required when network_configuration_mode is 'bring_your_own'"
+  type        = string
+}
+
+variable "existing_autonomous_db_subnet_id" {
+  default     = ""
+  description = "OCID of the existing subnet for the Oracle Autonomous Database private endpoint. Required when using existing_cluster_id with paas_rag or enterprise_rag."
   type        = string
 }
 
@@ -164,6 +156,27 @@ variable "cluster_endpoint_visibility_existing_vcn" {
 # Combined local for backward compatibility
 locals {
   cluster_endpoint_visibility = var.network_configuration_mode == "create_new" ? var.cluster_endpoint_visibility_new_vcn : var.cluster_endpoint_visibility_existing_vcn
+}
+
+# Deployment mode locals
+locals {
+  # Deployment mode detection
+  deploy_private_k8s_and_loadbalancer = var.deploy_private_k8s_and_loadbalancer
+  k8s_endpoint_private                = local.cluster_endpoint_visibility == "Private"
+
+  # ORM PE needed when deploying from ORM with private K8s endpoint
+  create_orm_private_endpoint = local.deploy_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.k8s_endpoint_private
+
+  # Operator needed when: LB is private/CIDR-scoped, or K8s endpoint is private
+  # Force bastion+operator creation in these cases
+  needs_operator = local.deploy_private_k8s_and_loadbalancer && (
+    local.k8s_endpoint_private ||
+    var.blueprints_endpoint_visibility == "Private"
+  )
+  create_bastion_effective = var.create_bastion || local.needs_operator
+
+  # Readiness checks should go through operator when ORM can't reach the LB
+  readiness_via_operator = local.deploy_infrastructure && local.deploy_private_k8s_and_loadbalancer && local.create_bastion_effective
 }
 
 ## OKE Node Pool Details
@@ -252,6 +265,13 @@ variable "current_user_ocid" {
 variable "show_advanced" {
   type    = bool
   default = false
+}
+
+# ORM Deployment Configuration
+variable "deploy_private_k8s_and_loadbalancer" {
+  type        = bool
+  default     = false
+  description = "Deploys a completely private stack not accessible via internet. More secure, but the final URL will not be accessible from the public internet without first port forwarding. Suitable for production deployments."
 }
 
 # Bastion and Operator Configuration
@@ -380,7 +400,7 @@ variable "oci_tag_values" {
 
 variable "accelerator_pack_stack_version" {
   type        = string
-  default     = "v0.0.3"
+  default     = "v0.0.5"
   description = "Stack release version for AI Accelerator Starter Packs"
 }
 
@@ -483,6 +503,22 @@ variable "worker_node_availability_domain" {
   default     = ""
 }
 
+variable "deploy_application" {
+  description = "When false, all application-layer resources are skipped. Use this to create an infrastructure-only stack."
+  type        = bool
+  default     = true
+}
+
+variable "existing_cluster_id" {
+  description = "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE cluster, node pools) is skipped and the app layer deploys directly onto the existing cluster."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.existing_cluster_id == "" || can(regex("^ocid1\\.cluster\\.", var.existing_cluster_id))
+    error_message = "existing_cluster_id must be empty or a valid OKE cluster OCID."
+  }
+}
+
 # -----------------------------------
 variable "tavily_api_key" {
   description = "Tavily API key used by the AIQ Research Assistant for web search integration. Optional; leave empty to disable Tavily-powered search."
@@ -581,7 +617,32 @@ variable "genai_region" {
 variable "cuopt_frontend_enabled" {
   description = "Enable cuopt frontend"
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "google_maps_api_key" {
+  description = "Google Maps API key for the cuOpt frontend map visualization"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cuopt_frontend_admin_username" {
+  description = "Admin username for the cuOpt frontend login"
+  type        = string
+  default     = ""
+}
+
+variable "cuopt_frontend_admin_password" {
+  description = "Admin password for the cuOpt frontend login"
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = var.cuopt_frontend_admin_password == "" || (length(var.cuopt_frontend_admin_password) >= 8 && can(regex("[0-9]", var.cuopt_frontend_admin_password)))
+    error_message = "Password must be at least 8 characters and contain at least one number."
+  }
 }
 
 # -----------------------------------
@@ -818,7 +879,7 @@ locals {
         deployment_name                              = "enterprise-rag"
         app_namespace                                = "rag"
         nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = false
+        create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -848,7 +909,7 @@ locals {
         app_namespace                                = "rag"
         aiq_namespace                                = "aiq"
         nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = false
+        create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -875,7 +936,7 @@ locals {
         app_namespace                                = "rag"
         aiq_namespace                                = "aiq"
         nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = false
+        create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 2
         cpu_worker_node_pool_size                    = 0
@@ -905,15 +966,16 @@ locals {
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
   # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
-  starter_pack_deployment_name = var.starter_pack_category != "enterprise_rag" ? (
+  # enterprise_rag and enterprise_rag_aiq use Helm (not blueprints), so random_id.blueprint_deploy_id doesn't exist for them
+  starter_pack_deployment_name = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.deploy_application ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
   starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
-  canonical_blueprint_content    = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
-  starter_pack_blueprint_content = var.starter_pack_category != "enterprise_rag" ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
+  canonical_blueprint_content    = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
+  starter_pack_blueprint_content = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
 }
 
 # App Name Locals
@@ -924,18 +986,29 @@ locals {
 # Networking Locals
 locals {
   # Determine which VCN and subnets to use based on configuration mode
-  vcn_id = var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  # When using an existing cluster, network resources are not created -- use existing_* vars or null
+  vcn_id = local.use_existing_cluster ? var.existing_vcn_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  )
 
-  endpoint_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  endpoint_subnet_id = local.use_existing_cluster ? var.existing_endpoint_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  )
 
-  node_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  node_subnet_id = local.use_existing_cluster ? var.existing_node_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  )
 
-  lb_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  lb_subnet_id = local.use_existing_cluster ? var.existing_lb_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  )
 
-  db_subnet_id = var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_db_subnet[0].id # Placeholder for bring_your_own
+  autonomous_db_subnet_id = local.use_existing_cluster ? var.existing_autonomous_db_subnet_id : (
+    var.network_configuration_mode == "bring_your_own" ? var.existing_autonomous_db_subnet_id : oci_core_subnet.oke_db_subnet[0].id
+  )
 
-  # Only create new network resources when in create_new mode
-  create_network_resources = var.network_configuration_mode == "create_new"
+  # Only create new network resources when in create_new mode and creating infrastructure
+  create_network_resources = local.deploy_infrastructure && var.network_configuration_mode == "create_new"
 }
 
 # Accelerator specific stuff

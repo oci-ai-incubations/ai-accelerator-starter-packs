@@ -6,6 +6,7 @@ globs: ["ai-accelerator-tf/tests/**", "ai-accelerator-tf/schemas/tests/**"]
 
 ## Terraform Unit Tests
 
+- **Version split:** ORM runs Terraform 1.5.7, but unit tests require >= 1.7 (for `mock_provider`). All Terraform code must stay 1.5-compatible — only the test harness uses 1.7+ features. The language constructs under test (locals, count, for_each, validations) behave identically across versions.
 - Test files must be flat in `tests/` — Terraform does not recurse subdirectories.
 - Every test file needs `override_data` blocks for: `home_region`, `ads`, `oracle_linux`.
 - All providers are mocked with `mock_provider` blocks — no real infrastructure.

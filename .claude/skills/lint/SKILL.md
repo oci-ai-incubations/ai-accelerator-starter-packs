@@ -14,7 +14,7 @@ Run the full linting suite on the Terraform codebase.
 Run all of these from `ai-accelerator-tf/`:
 
 ```bash
-cd /Users/dkennetz/code/ai-accelerator/ai-accelerator-tf
+cd "$(git rev-parse --show-toplevel)/ai-accelerator-tf"
 terraform fmt -check -diff -recursive
 terraform validate
 tflint --recursive

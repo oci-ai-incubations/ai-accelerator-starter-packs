@@ -6,7 +6,7 @@ resource "oci_identity_dynamic_group" "operator_dg" {
   description    = "DG For operator to access the cluster"
   compartment_id = var.tenancy_ocid
   matching_rule  = "ALL {instance.id = '${oci_core_instance.operator[0].id}'}"
-  count          = local.create_network_resources && var.create_bastion && var.create_policies ? 1 : 0
+  count          = local.create_network_resources && local.create_bastion_effective && var.create_policies ? 1 : 0
 }
 
 resource "oci_identity_policy" "operator_policy" {
@@ -17,7 +17,7 @@ resource "oci_identity_policy" "operator_policy" {
   statements = [
     "Allow dynamic-group 'operator_dg-${random_string.deploy_id.result}' to manage cluster-family in compartment id ${var.compartment_ocid}"
   ]
-  count = local.create_network_resources && var.create_bastion && var.create_policies ? 1 : 0
+  count = local.create_network_resources && local.create_bastion_effective && var.create_policies ? 1 : 0
   depends_on = [
     oci_identity_dynamic_group.operator_dg
   ]
@@ -36,7 +36,7 @@ resource "oci_identity_dynamic_group" "dyn_group" {
   compartment_id = var.tenancy_ocid
   matching_rule  = "ALL {instance.compartment.id = '${var.compartment_ocid}'}"
   freeform_tags  = local.corrino_tags
-  count          = var.create_policies ? 1 : 0
+  count          = local.deploy_infrastructure && var.create_policies ? 1 : 0
 
   # Ensure capacity is validated before creating IAM resources
   depends_on = [terraform_data.capacity_validated]
@@ -59,5 +59,5 @@ resource "oci_identity_policy" "oke_instances_tenancy_policy" {
   ]
   freeform_tags = local.corrino_tags
   depends_on    = [oci_identity_dynamic_group.dyn_group]
-  count         = var.create_policies ? 1 : 0
+  count         = local.deploy_infrastructure && var.create_policies ? 1 : 0
 }

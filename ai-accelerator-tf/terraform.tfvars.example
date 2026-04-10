@@ -28,6 +28,7 @@ network_configuration_mode = "create_new"  # Options: "create_new", "bring_your_
 # existing_endpoint_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
 # existing_node_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
 # existing_lb_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
+# existing_autonomous_db_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
 # existing_pods_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
 # existing_services_subnet_id = "ocid1.subnet.oc1..aaaaaaaa..."
 

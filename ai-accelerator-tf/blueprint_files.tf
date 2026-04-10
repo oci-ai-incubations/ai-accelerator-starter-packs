@@ -184,14 +184,24 @@ locals {
               recipe_id                            = "demo",
               deployment_name                      = "demo",
               recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2",
+              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3",
               recipe_replica_count                 = 1,
               recipe_flex_shape_ocpu_count         = 1,
               recipe_flex_shape_memory_size_in_gbs = 8,
               recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "3000",
+              recipe_container_port                = "80",
               service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+              recipe_container_env = [
+                { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
+                { key = "LLAMASTACK_ENDPOINT", value = "http://$${llamastack.service_name}:80" },
+                { key = "LLAMASTACK_MODEL", value = "" },
+                { key = "GOOGLE_MAPS_API_KEY", value = var.google_maps_api_key },
+                { key = "ADMIN_USERNAME", value = var.cuopt_frontend_admin_username },
+                { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
+                { key = "NODE_ENV", value = "production" },
+                { key = "PORT", value = "3001" },
+              ]
               recipe_additional_ingress_ports = [
                 {
                   port_name    = "cuopt"
@@ -487,7 +497,7 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -889,7 +899,7 @@ locals {
                 ]
               }
 
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -1329,7 +1339,7 @@ locals {
                 ]
               }
 
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id

@@ -27,7 +27,8 @@ locals {
 
   # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
   vss_oracle_ux = {
-    image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-prod-0.0.4"
+    # image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-prod-0.0.4"
+    image_uri                  = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
     download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-prod-0.0.4"
     # vss_backend_service is dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
     vss_backend_deployment = "recipe-vss-deployment"
@@ -36,7 +37,7 @@ locals {
 
 # ConfigMap for VSS Oracle UX specific configuration
 resource "kubernetes_config_map_v1" "vss_oracle_ux_config" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-oracle-ux-config"
@@ -54,7 +55,7 @@ resource "kubernetes_config_map_v1" "vss_oracle_ux_config" {
 
 # Service for VSS Oracle UX
 resource "kubernetes_service_v1" "vss_oracle_ux_service" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-oracle-ux"
@@ -80,7 +81,7 @@ resource "kubernetes_service_v1" "vss_oracle_ux_service" {
 
 # Deployment for VSS Oracle UX
 resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   metadata {
     name = "vss-oracle-ux"
@@ -102,6 +103,16 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
       metadata {
         labels = {
           app = "vss-oracle-ux"
+        }
+        # Force pod restart when ConfigMap data changes (e.g. after blueprint
+        # redeployment updates the VSS backend service URL). Without this,
+        # the pod keeps stale env vars because K8s doesn't restart pods on
+        # ConfigMap changes.
+        annotations = {
+          "checksum/config" = sha256(jsonencode({
+            config    = kubernetes_config_map_v1.vss_oracle_ux_config[0].data
+            blueprint = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
+          }))
         }
       }
 
@@ -128,6 +139,11 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
           env {
             name  = "LOCAL"
             value = "false"
+          }
+
+          env {
+            name  = "NEXT_DEPLOYMENT_ID"
+            value = sha256(local.canonical_blueprint_content)
           }
 
           # OCI Configuration from corrino-configmap
@@ -280,7 +296,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
 # Ingress for VSS Oracle UX - Exposes the frontend at starter_pack_url
 # =============================================================================
 resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
-  count = var.starter_pack_category == "vss" ? 1 : 0
+  count = local.deploy_app_vss ? 1 : 0
 
   wait_for_load_balancer = true
 

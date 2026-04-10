@@ -33,7 +33,7 @@ data "oci_core_images" "oracle_linux" {
 
 # Get cluster kube config for provider configuration
 data "oci_containerengine_cluster_kube_config" "oke" {
-  cluster_id    = local.oke_cluster.id
+  cluster_id    = local.effective_cluster_id
   token_version = "2.0.0"
 }
 

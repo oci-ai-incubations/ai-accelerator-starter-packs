@@ -1,10 +1,11 @@
 ## Ingress Nginx
 resource "helm_release" "ingress_nginx" {
+  count      = local.deploy_application ? 1 : 0
   name       = "ingress-nginx"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
   version    = "4.13.3"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   # Need to wait for webhooks so we don't hit timing issues.
   wait          = true
   wait_for_jobs = true
@@ -41,6 +42,7 @@ resource "helm_release" "ingress_nginx" {
 
 ## NVIDIA DCGM Exporter - Commented out temporarily due to chart not found
 resource "helm_release" "nvidia-gpu-operator" {
+  count            = local.deploy_application ? 1 : 0
   name             = "gpu-operator"
   repository       = "https://helm.ngc.nvidia.com/nvidia"
   chart            = "gpu-operator"
@@ -54,11 +56,12 @@ resource "helm_release" "nvidia-gpu-operator" {
 
 ## Cert Manager
 resource "helm_release" "cert_manager" {
+  count      = local.deploy_application ? 1 : 0
   name       = "cert-manager"
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
   version    = "1.19.1"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = true # wait to allow the webhook be properly configured
 
   set = [
@@ -78,9 +81,10 @@ resource "helm_release" "cert_manager" {
 
 ## Cert Manager Issuers
 resource "helm_release" "cert_manager_issuers" {
+  count     = local.deploy_application ? 1 : 0
   name      = "cert-manager-issuers"
   chart     = "${path.module}/helm-values/issuers"
-  namespace = kubernetes_namespace_v1.cluster_tools.id
+  namespace = kubernetes_namespace_v1.cluster_tools[0].id
   wait      = true
 
   set = [
@@ -96,11 +100,12 @@ resource "helm_release" "cert_manager_issuers" {
 
 ## Prometheus
 resource "helm_release" "prometheus" {
+  count      = local.deploy_application ? 1 : 0
   name       = "prometheus"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "prometheus"
   version    = "27.42.2"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = true
 
   set = [
@@ -168,11 +173,12 @@ resource "helm_release" "prometheus" {
 }
 
 resource "helm_release" "grafana" {
+  count      = local.deploy_application ? 1 : 0
   name       = "grafana"
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
   version    = "10.1.4"
-  namespace  = kubernetes_namespace_v1.cluster_tools.id
+  namespace  = kubernetes_namespace_v1.cluster_tools[0].id
   wait       = false
 
   set = [
@@ -287,7 +293,7 @@ datasources:
     datasources:
     - name: Prometheus
       type: prometheus
-      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools.id}.svc.cluster.local
+      url: http://prometheus-server.${kubernetes_namespace_v1.cluster_tools[0].id}.svc.cluster.local
       access: proxy
       isDefault: true
       disableDeletion: true
@@ -317,9 +323,10 @@ EOF
 }
 
 resource "kubernetes_config_map_v1" "vllm_dashboard" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "vllm-custom-dashboard"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
     labels = {
       grafana_dashboard = "true"
     }
@@ -333,9 +340,10 @@ resource "kubernetes_config_map_v1" "vllm_dashboard" {
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "grafana" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "grafana-pvc"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
 
   spec {
@@ -360,15 +368,16 @@ resource "kubernetes_persistent_volume_claim_v1" "grafana" {
 }
 ## Kubernetes Secret: Grafana Admin Password
 data "kubernetes_secret_v1" "grafana" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "grafana"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
   depends_on = [helm_release.grafana]
 }
 
 locals {
-  grafana_admin_password = data.kubernetes_secret_v1.grafana.data.admin-password
+  grafana_admin_password = local.deploy_application ? data.kubernetes_secret_v1.grafana[0].data.admin-password : "not-deployed"
 }
 
 resource "helm_release" "milvus" {
@@ -425,14 +434,24 @@ resource "helm_release" "milvus" {
       value = "docker.io/milvusdb/milvus"
     }
   ]
-  count      = var.starter_pack_category == "vss" ? 1 : 0
+  count      = local.deploy_app_vss ? 1 : 0
   depends_on = [oci_containerengine_node_pool.worker_cpu_pool]
 }
 
 resource "kubernetes_namespace_v1" "app_namespace" {
-  count = local.starter_pack_config.app_namespace != "default" ? 1 : 0
+  count = local.deploy_application && local.starter_pack_config.app_namespace != "default" ? 1 : 0
   metadata {
     name = local.starter_pack_config.app_namespace
+  }
+}
+
+# Create the AIQ namespace before the configure_oke_for_aiq_namespace job runs.
+# The job creates NGC secrets in this namespace, and the AIQ Helm release deploys into it.
+# Without this, the job fails because the namespace doesn't exist yet. (BUG-010)
+resource "kubernetes_namespace_v1" "aiq_namespace" {
+  count = local.deploy_app_rag_aiq ? 1 : 0
+  metadata {
+    name = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
   }
 }
 
@@ -440,11 +459,15 @@ resource "kubernetes_namespace_v1" "app_namespace" {
 # The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
 # scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
 resource "terraform_data" "label_nim_llm_node" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
+
+  input = {
+    kubeconfig = local_sensitive_file.kubeconfig_patch[0].filename
+  }
 
   triggers_replace = [
     local.cluster_id,
-    "label_nim_llm_node_v1"
+    "label_nim_llm_node_v2"
   ]
 
   depends_on = [
@@ -462,6 +485,95 @@ resource "terraform_data" "label_nim_llm_node" {
       kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
     EOT
   }
+
+  # Clean up taints on app stack destroy so the two-stack model starts with
+  # clean node state for the next app deployment. (BUG-009)
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      export KUBECONFIG=${self.output.kubeconfig}
+      echo "Cleaning up nim-llm taints from all GPU nodes..."
+      for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+        kubectl taint node "$NODE" workload=nim-llm:NoSchedule- 2>/dev/null && echo "  Removed taint from $NODE" || true
+        kubectl label node "$NODE" workload- 2>/dev/null || true
+      done
+      echo "Taint cleanup complete."
+    EOT
+  }
+}
+
+resource "terraform_data" "label_nim_llm_node_via_operator" {
+  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
+
+  input = {
+    operator_ip     = oci_core_instance.operator[0].private_ip
+    bastion_ip      = oci_core_instance.bastion[0].public_ip
+    ssh_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+  }
+
+  triggers_replace = [
+    local.cluster_id,
+    "label_nim_llm_node_v2"
+  ]
+
+  # No resource-level connection block — Terraform validates it against destroy
+  # provisioner rules when any destroy provisioner exists on the resource.
+  # Both provisioners define their own connection instead.
+
+  provisioner "remote-exec" {
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = self.output.operator_ip
+      private_key         = self.output.ssh_private_key
+      bastion_host        = self.output.bastion_ip
+      bastion_user        = "opc"
+      bastion_private_key = self.output.ssh_private_key
+      timeout             = "30m"
+    }
+    inline = [
+      "NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')",
+      "kubectl label node \"$NODE\" workload=nim-llm --overwrite",
+      "kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule --overwrite"
+    ]
+  }
+
+  # Clean up taints on app stack destroy (BUG-009)
+  provisioner "remote-exec" {
+    when = destroy
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = self.output.operator_ip
+      private_key         = self.output.ssh_private_key
+      bastion_host        = self.output.bastion_ip
+      bastion_user        = "opc"
+      bastion_private_key = self.output.ssh_private_key
+      timeout             = "30m"
+    }
+    inline = [
+      "echo 'Cleaning up nim-llm taints from all GPU nodes...'",
+      "for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule- 2>/dev/null && echo \"  Removed taint from $NODE\" || true; kubectl label node \"$NODE\" workload- 2>/dev/null || true; done",
+      "echo 'Taint cleanup complete.'"
+    ]
+  }
+
+  depends_on = [
+    null_resource.operator_ready,
+    oci_core_instance_pool.worker_nodes_pool,
+    oci_core_cluster_network.worker_nodes_cluster_network,
+    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
+  ]
+}
+
+# Read the NGC API key created by configure_oke.py to authenticate with NGC helm registry
+data "kubernetes_secret_v1" "ngc_api_secret" {
+  metadata {
+    name      = "ngc-api-secret"
+    namespace = local.starter_pack_config.app_namespace
+  }
+  count      = local.deploy_app_rag ? 1 : 0
+  depends_on = [kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
 resource "helm_release" "rag" {
@@ -472,78 +584,92 @@ resource "helm_release" "rag" {
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
 
   repository_username = "$oauthtoken"
-  repository_password = var.ngc_secret
+  repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
-  timeout = 5400 # Increase timeout to 90 minutes
+  timeout         = 5400 # Increase timeout to 90 minutes
+  cleanup_on_fail = true
 
   values = [
-    file("${path.module}/helm-values/enterprise-rag-values.yaml")
+    {
+      enterprise_rag     = file("${path.module}/helm-values/enterprise-rag-values.yaml")
+      enterprise_rag_aiq = file("${path.module}/helm-values/enterprise-rag-aiq-values.yaml")
+    }[var.starter_pack_category]
   ]
 
-  set_sensitive = [
-    {
-      name  = "envVars.ORACLE_USER"
-      value = var.db_username
-    },
-    {
-      name  = "envVars.ORACLE_PASSWORD"
-      value = var.db_password
-    },
-    {
-      name  = "ingestor-server.envVars.ORACLE_USER"
-      value = var.db_username
-    },
-    {
-      name  = "ingestor-server.envVars.ORACLE_PASSWORD"
-      value = var.db_password
-    },
-    {
-      name  = "imagePullSecret.password"
-      value = var.ngc_secret
-    },
-    {
-      name  = "ngcApiSecret.password"
-      value = var.ngc_api_secret
-    }
-  ]
+  set_sensitive = concat(
+    [
+      {
+        name  = "imagePullSecret.password"
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
+      },
+      {
+        name  = "ngcApiSecret.password"
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
+      }
+    ],
+    # Oracle 26ai credentials are only needed for enterprise_rag (not enterprise_rag_aiq)
+    var.starter_pack_category == "enterprise_rag" ? [
+      {
+        name  = "envVars.ORACLE_USER"
+        value = var.db_username
+      },
+      {
+        name  = "envVars.ORACLE_PASSWORD"
+        value = var.db_password
+      },
+      {
+        name  = "ingestor-server.envVars.ORACLE_USER"
+        value = var.db_username
+      },
+      {
+        name  = "ingestor-server.envVars.ORACLE_PASSWORD"
+        value = var.db_password
+      }
+    ] : []
+  )
 
-  set = [
-    {
-      name  = "envVars.ORACLE_CS"
-      value = local.oracle26ai_high_connection_string
-    },
-    {
-      name  = "ingestor-server.envVars.ORACLE_CS"
-      value = local.oracle26ai_high_connection_string
-    },
-    {
-      name  = "global.ngcApiKey"
-      value = var.ngc_api_secret
-    },
-    {
-      name  = "nim-llm.image.repository"
-      value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
-    },
-    {
-      name  = "nim-llm.image.tag"
-      value = "1.14.0"
-    }
-  ]
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  set = concat(
+    [
+      {
+        name  = "global.ngcApiKey"
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
+      },
+      {
+        name  = "nim-llm.image.repository"
+        value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+      },
+      {
+        name  = "nim-llm.image.tag"
+        value = "1.14.0"
+      }
+    ],
+    # Oracle 26ai connection string is only needed for enterprise_rag (not enterprise_rag_aiq)
+    var.starter_pack_category == "enterprise_rag" ? [
+      {
+        name  = "envVars.ORACLE_CS"
+        value = local.oracle26ai_high_connection_string
+      },
+      {
+        name  = "ingestor-server.envVars.ORACLE_CS"
+        value = local.oracle26ai_high_connection_string
+      }
+    ] : []
+  )
+  count = local.deploy_app_rag ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node
+    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node, terraform_data.label_nim_llm_node_via_operator
   ]
 }
 
 resource "local_sensitive_file" "kubeconfig_patch" {
-  count    = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count    = local.deploy_app_rag ? 1 : 0
   content  = data.oci_containerengine_cluster_kube_config.oke.content
   filename = "${path.module}/kubeconfig_patch"
 }
 
 resource "terraform_data" "patch_nim_llm_service_selector" {
-  count = contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? 1 : 0
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
@@ -564,6 +690,38 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
   }
 }
 
+resource "terraform_data" "patch_nim_llm_service_selector_via_operator" {
+  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
+
+  triggers_replace = [
+    local.cluster_id,
+    "patch_nim_llm_service_selector_v1"
+  ]
+
+  connection {
+    type                = "ssh"
+    user                = "opc"
+    host                = oci_core_instance.operator[0].private_ip
+    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+    bastion_host        = oci_core_instance.bastion[0].public_ip
+    bastion_user        = "opc"
+    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+    timeout             = "30m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
+    ]
+  }
+
+  depends_on = [
+    null_resource.operator_ready,
+    helm_release.rag,
+    kubernetes_secret_v1.oci_config_secret,
+  ]
+}
+
 
 resource "helm_release" "aiq" {
   name             = "aiq-aira"
@@ -573,9 +731,10 @@ resource "helm_release" "aiq" {
   chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq-aira-v1.2.1.tgz"
 
   repository_username = "$oauthtoken"
-  repository_password = var.ngc_secret
+  repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
 
-  timeout = 3600
+  timeout         = 3600
+  cleanup_on_fail = true
 
   values = [
     file("${path.module}/helm-values/aiq-aira-values.yaml")
@@ -585,11 +744,11 @@ resource "helm_release" "aiq" {
     [
       {
         name  = "imagePullSecret.password"
-        value = var.ngc_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       },
       {
         name  = "ngcApiSecret.password"
-        value = var.ngc_api_secret
+        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       }
     ],
     var.tavily_api_key != "" ? [
@@ -599,7 +758,6 @@ resource "helm_release" "aiq" {
       }
     ] : []
   )
-
   set = [
     {
       name  = "backendEnvVars.RAG_SERVER_URL"
@@ -615,12 +773,15 @@ resource "helm_release" "aiq" {
     }
   ]
 
-  count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_app_rag_aiq ? 1 : 0
 
-  # The aiq stack depends on the rag stack deployment to complete.
+  # The aiq stack depends on the rag stack deployment to complete and
+  # the AIQ namespace secrets to be created by configure_oke.
   depends_on = [
     helm_release.rag,
-    terraform_data.patch_nim_llm_service_selector
+    terraform_data.patch_nim_llm_service_selector,
+    terraform_data.patch_nim_llm_service_selector_via_operator,
+    kubernetes_job_v1.configure_oke_for_aiq_namespace,
   ]
 }
 
@@ -635,5 +796,30 @@ resource "terraform_data" "aiq_restart_on_tavily_change" {
   }
 
   depends_on = [helm_release.aiq]
-  count      = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count      = local.deploy_app_rag_aiq && !local.readiness_via_operator ? 1 : 0
+}
+
+resource "terraform_data" "aiq_restart_on_tavily_change_via_operator" {
+  triggers_replace = [var.tavily_api_key]
+
+  connection {
+    type                = "ssh"
+    user                = "opc"
+    host                = oci_core_instance.operator[0].private_ip
+    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+    bastion_host        = oci_core_instance.bastion[0].public_ip
+    bastion_user        = "opc"
+    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+    timeout             = "30m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "kubectl rollout restart deployment -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")}",
+      "kubectl rollout status deployment -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")} --timeout=300s"
+    ]
+  }
+
+  depends_on = [null_resource.operator_ready, helm_release.aiq]
+  count      = local.deploy_app_rag_aiq && local.readiness_via_operator ? 1 : 0
 }

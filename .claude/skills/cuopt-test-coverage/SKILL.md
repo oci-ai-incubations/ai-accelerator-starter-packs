@@ -1,12 +1,12 @@
 ---
 name: cuopt-test-coverage
-description: Authoritative test specification for the cuOpt (Vehicle Route Optimizer) starter pack. Documents API endpoints, UI interactions, chat flows, and infrastructure components. Split into phase-specific files.
+description: Authoritative test specification for the cuOpt (Vehicle Delivery Route Optimizer) starter pack. Documents API endpoints, UI interactions, chat flows, and infrastructure components. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
 argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
 ---
 
-# cuOpt Starter Pack — Test Coverage Specification
+# Vehicle Delivery Route Optimizer — Test Coverage Specification
 
 Source of truth for what to test on a deployed cuOpt stack. Covers the cuOpt interactive frontend (React SPA), the NVIDIA cuOpt solver backend, LlamaStack LLM service, and OCI infrastructure.
 

@@ -3,6 +3,7 @@
 
 # ConfigMap for PostgreSQL configuration
 resource "kubernetes_config_map_v1" "postgres_secret" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "bp-postgres-secret"
     labels = {
@@ -20,6 +21,7 @@ resource "kubernetes_config_map_v1" "postgres_secret" {
 
 # PersistentVolumeClaim for PostgreSQL data
 resource "kubernetes_persistent_volume_claim_v1" "postgresql_pv_claim" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "bp-postgresql-pv-claim"
   }
@@ -45,6 +47,7 @@ resource "kubernetes_persistent_volume_claim_v1" "postgresql_pv_claim" {
 
 # PostgreSQL Deployment
 resource "kubernetes_deployment_v1" "postgres" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "bp-postgres"
   }
@@ -96,7 +99,7 @@ resource "kubernetes_deployment_v1" "postgres" {
 
           env_from {
             config_map_ref {
-              name = kubernetes_config_map_v1.postgres_secret.metadata[0].name
+              name = kubernetes_config_map_v1.postgres_secret[0].metadata[0].name
             }
           }
 
@@ -113,7 +116,7 @@ resource "kubernetes_deployment_v1" "postgres" {
         volume {
           name = "bp-postgresdata"
           persistent_volume_claim {
-            claim_name = kubernetes_persistent_volume_claim_v1.postgresql_pv_claim.metadata[0].name
+            claim_name = kubernetes_persistent_volume_claim_v1.postgresql_pv_claim[0].metadata[0].name
           }
         }
       }
@@ -130,6 +133,7 @@ resource "kubernetes_deployment_v1" "postgres" {
 # PostgreSQL Service (ClusterIP - cluster-internal access)
 # Creates cluster-internal DNS name: postgres.default.svc.cluster.local
 resource "kubernetes_service_v1" "postgres" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "bp-postgres"
     labels = {
@@ -157,8 +161,9 @@ resource "kubernetes_service_v1" "postgres" {
 
 # tflint-ignore: terraform_unused_declarations
 data "kubernetes_service_v1" "postgres_service" {
+  count = local.deploy_application ? 1 : 0
   metadata {
-    name = kubernetes_service_v1.postgres.metadata[0].name
+    name = kubernetes_service_v1.postgres[0].metadata[0].name
   }
 
   depends_on = [kubernetes_service_v1.postgres]

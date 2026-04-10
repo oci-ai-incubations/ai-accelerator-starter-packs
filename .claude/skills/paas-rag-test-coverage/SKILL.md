@@ -1,12 +1,12 @@
 ---
 name: paas-rag-test-coverage
-description: Authoritative test specification for the PaaS RAG (OracleNet) starter pack. Documents API endpoints, UI interactions, document management, RAG chat flows, and infrastructure. Split into phase-specific files.
+description: Authoritative test specification for the Managed Enterprise Chat Agent (paas_rag) starter pack. Documents API endpoints, UI interactions, document management, RAG chat flows, and infrastructure. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
 argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
 ---
 
-# PaaS RAG Starter Pack — Test Coverage Specification
+# Managed Enterprise Chat Agent — Test Coverage Specification
 
 Source of truth for what to test on a deployed PaaS RAG stack. Covers the OracleNet frontend (React SPA), the LlamaStack backend, Oracle 26ai vector database, OCI Object Storage, and OCI infrastructure.
 

@@ -33,7 +33,7 @@ terraform test -filter=tests/core_plan.tftest.hcl                      # one fil
 terraform test -filter=tests/starter_pack_cuopt.tftest.hcl             # one starter pack
 ```
 
-**Note:** The main module targets Terraform 1.5 for OCI Resource Manager compatibility (`required_version = ">= 1.5"` in `versions.tf`). However, tests require **Terraform >= 1.7** locally because `mock_provider` is a 1.7+ feature. Run tests with a local Terraform install, not through OCI Resource Manager.
+**Terraform version split:** OCI Resource Manager (ORM) only supports up to **Terraform 1.5.7**, so all Terraform code must remain 1.5-compatible (`required_version = ">= 1.5"` in `versions.tf`). Unit tests require **Terraform >= 1.7** because `mock_provider` is a 1.7+ feature. This split is intentional — the test harness uses newer Terraform features, but the language constructs under test (locals, count, for_each, validations) behave identically across 1.5–1.9. Do not use Terraform 1.6+ language features (like `import` blocks or `removed` blocks) in the main module code — only in test files.
 
 ## Common Scenarios
 
@@ -240,6 +240,7 @@ variables {
   starter_pack_category           = "enterprise_rag"   # change per test file
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
+  db_password                     = "TestDBP@ssw0rd123!"  # required for enterprise_rag and paas_rag (needs_26ai)
 }
 ```
 

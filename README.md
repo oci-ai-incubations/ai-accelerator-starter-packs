@@ -12,11 +12,11 @@ Each starter pack is a pre-configured AI workload that deploys onto the OKE clus
 
 | Pack | Category Key | Description | GPU Required |
 |------|-------------|-------------|--------------|
-| **cuOpt** | `cuopt` | NVIDIA cuOpt route optimization with a LlamaStack-powered chat interface | Yes |
-| **VSS** | `vss` | NVIDIA Video Summary Service — ingest, analyze, and query video content | Yes |
-| **PaaS RAG** | `paas_rag` | Retrieval-Augmented Generation backed by Oracle Autonomous Database 23ai | No |
-| **Enterprise RAG** | `enterprise_rag` | Full-stack RAG pipeline with NVIDIA NIMs, Milvus, NeMo microservices, and a React frontend | Yes |
-| **Enterprise RAG + AIQ** | `enterprise_rag_aiq` | Enterprise RAG extended with an NVIDIA AIQ research assistant and Tavily web search | Yes |
+| **Vehicle Route Optimizer** | `cuopt` | GPU-accelerated fleet route optimization using NVIDIA cuOpt NIM | Yes |
+| **Video Search and Summarization** | `vss` | AI video moderation — ingest, index, search, and summarize video content | Yes |
+| **Managed Enterprise Chat Agent** | `paas_rag` | Enterprise RAG chat with document upload, vector search, and cited answers — powered by OCI GenAI PaaS + Oracle 26ai | No |
+| **Self-Hosted Enterprise Chat Agent** | `enterprise_rag` | Enterprise RAG chat — auto-crawls web + internal data, builds a vector index, answers business questions with citations on OCI NVIDIA GPUs | Yes |
+| **Agentic AI Starter Kit** | `enterprise_rag_aiq` | Full-stack agentic AI environment powered by NVIDIA AIQ — reasoning models, vector DB, observability, and application layer | Yes |
 
 Each pack comes in **small** and **medium** sizes. See [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md) for the complete list of container images and versions deployed by each pack.
 
@@ -48,6 +48,62 @@ The fastest way to deploy is through **OCI Resource Manager**, which provides a 
 Deployment takes approximately **20–40 minutes** depending on the starter pack. When complete, the **Outputs** tab shows the URL to access your deployed application.
 
 > For GPU starter packs, ensure you select an **availability domain** that has GPU capacity for your chosen shape. The stack includes a capacity pre-check that will fail fast if the selected AD has no capacity.
+
+---
+
+## Deploying a local zip to OCI Console
+
+It is also possible to zip the terraform in this repository for a specific stack and deploy via the oci console this way.
+
+To do so:
+
+1. Install python packages locally
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip3 install -r requirements.txt
+```
+
+2. Generate the correct schema. Note, running with `-h` will display the available packs.
+
+- cuopt == Vehicle Delivery Route Optimizer
+- vss == Video Search and Summarization
+- paas_rag == Enterprise Knowledge Chat Agent - Managed AI Models
+- enterprise_rag == Enterprise Knowledge Chat Agent - Self-Hosted AI Models
+- enterprise_rag_aiq == Enterprise Agentic AI Starter Kit
+
+```bash
+python3 create_final_schema.py -c cuopt
+Building schema for category: cuopt
+Updating /Users/dkennetz/code/ai-accelerator/ai-accelerator-tf/starter_pack_category.auto.tfvars with category: cuopt
+Generated: /Users/dkennetz/code/ai-accelerator/ai-accelerator-tf/schema.yaml
+Done!
+```
+
+3. Zip the contents
+```bash
+zip -r cuopt.zip ai-accelerator-tf 
+updating: ai-accelerator-tf/ (stored 0%)
+updating: ai-accelerator-tf/helm.tf (deflated 79%)
+updating: ai-accelerator-tf/data.tf (deflated 58%)
+updating: ai-accelerator-tf/outputs.tf (deflated 77%)
+...
+```
+
+4. Upload in the console:
+- Go to Developer Services -> Stacks (Under Resource Manager) -> Click the correct compartment -> Create Stack
+- Select the button next to ".zip file" and upload your recently zipped file (you should see Vehicle Delivery Route Optimizer in the display box)
+- Click Next
+
+5. Fill out pack specific information. 
+- Most packs default to "small" but some have a PoC size if you are trying something out.
+- Pay special attention to the "Create IAM Policies" button. By default, we will try to create policies in your tenancy for the packs. If you do not want this, visit [iam_policies](./docs/iam-policies.md).
+- Enabling a bastion will allow you to ssh directly to the nodes
+- Deploying Private K8s and Load Balancer will deploy everything in a closed network. Perhaps this is preferable, but you will not be able to access the UI without tunneling.
+- There are additional networking docs [here](./docs/private-network-deployment.md) and [here](./docs/limiting_ips_for_public_ingress.md).
+
+6. When all is complete, click Next -> Run apply -> Create to deploy!
+- Packs can take anywhere from 20 minutes to ~1 hour to deploy depending on the pack.
 
 ---
 

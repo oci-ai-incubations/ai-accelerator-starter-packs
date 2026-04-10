@@ -22,18 +22,16 @@ replicaCount: 1
 namespace: "nv-nvidia-blueprint-rag"
 
 # -- Image pull secret for all images used by this chart
+# Secret is pre-created by configure_oke.py; the chart just references it.
 imagePullSecret:
   name: "ngc-secret"
-  registry: "nvcr.io"
-  username: "$oauthtoken"
-  password: ""
-  create: true
+  create: false
 
 # -- Secret containing API keys for NVIDIA NGC model registry
+# Secret is pre-created by configure_oke.py; the chart just references it.
 ngcApiSecret:
-  name: "ngc-api"
-  password: ""
-  create: true
+  name: "ngc-api-secret"
+  create: false
 
 # -- RAG server container image
 image:

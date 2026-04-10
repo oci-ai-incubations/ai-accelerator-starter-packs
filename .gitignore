@@ -5,6 +5,7 @@
 *.tfstate
 *.tfstate.*
 CLAUDE.md
+terraform_vars.json
 
 # Crash log files
 crash.log
@@ -62,4 +63,17 @@ ai-accelerator-tf/schemas/generated/
 terraform_vars.json
 
 
-release_test_matrix/*
+# Zipped archives from /zip-tf (track the directory via .gitkeep, ignore contents)
+zipped/*
+!zipped/.gitkeep
+
+# Release test matrix artifacts
+release_test_matrix/
+
+# Excel temp/lock files
+~$*
+
+# Git worktrees
+.worktrees/
+
+/Users/grantneuman/workspace/ai-accelerator-starter-packs/STEPS.md

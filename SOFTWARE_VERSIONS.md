@@ -2,17 +2,9 @@
 
 This document contains container image versions for each accelerator pack configuration.
 
-## cuOpt Starter Pack
+## Vehicle Route Optimizer
 
-### cuOpt Small
-
-| Container | Image | Version |
-|-----------|-------|---------|
-| cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
-| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | llama-stack_v_d684ec9 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.1 |
-
-### cuOpt Medium
+### Vehicle Route Optimizer Small
 
 | Container | Image | Version |
 |-----------|-------|---------|
@@ -20,9 +12,31 @@ This document contains container image versions for each accelerator pack config
 | LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | llama-stack_v_d684ec9 |
 | cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.1 |
 
-## VSS Starter Pack
+### Vehicle Route Optimizer Medium
 
-### VSS Small
+| Container | Image | Version |
+|-----------|-------|---------|
+| cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
+| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | llama-stack_v_d684ec9 |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.1 |
+
+## Video Search and Summarization
+
+### Video Search and Summarization POC
+
+| Container | Image | Version |
+|-----------|-------|---------|
+| VSS Engine | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine | 2.4.0-poc-custom |
+| VSS Oracle UX | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-oracle-ux-dev-0.0.4 |
+| Download Service | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-download-service-prod-0.0.4 |
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| Elasticsearch | docker.io/elasticsearch | 9.1.2 |
+| Neo4j | docker.io/neo4j | 5.26.4 |
+| Embedding NIM | nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2 | 1.9.0 |
+| Rerank NIM | nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2 | 1.7.0 |
+| Riva NIM | nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us | 2.0.0 |
+
+### Video Search and Summarization Small
 
 | Container | Image | Version |
 |-----------|-------|---------|
@@ -33,7 +47,7 @@ This document contains container image versions for each accelerator pack config
 | Rerank NIM | nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2 | 1.7.0 |
 | LLM NIM | nvcr.io/nim/meta/llama-3.1-8b-instruct | 1.13.1 |
 
-### VSS Medium
+### Video Search and Summarization Medium
 
 | Container | Image | Version |
 |-----------|-------|---------|
@@ -45,25 +59,25 @@ This document contains container image versions for each accelerator pack config
 | Riva NIM | nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us | 2.0.0 |
 | LLM NIM | nvcr.io/nim/meta/llama-3.1-8b-instruct | 1.13.1 |
 
-## PaaS RAG Starter Pack
+## Managed Enterprise Chat Agent
 
-### PaaS RAG Small
-
-| Container | Image | Version |
-|-----------|-------|---------|
-| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | (no tag specified) |
-| Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | latest |
-
-### PaaS RAG Medium
+### Managed Enterprise Chat Agent Small
 
 | Container | Image | Version |
 |-----------|-------|---------|
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | (no tag specified) |
 | Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | latest |
 
-## Enterprise RAG Starter Pack
+### Managed Enterprise Chat Agent Medium
 
-### Enterprise RAG Small
+| Container | Image | Version |
+|-----------|-------|---------|
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | (no tag specified) |
+| Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | latest |
+
+## Self-Hosted Enterprise Chat Agent
+
+### Self-Hosted Enterprise Chat Agent Small
 
 | Container | Image | Version |
 |-----------|-------|---------|
