@@ -335,6 +335,7 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack 
   - Check `Skip Capacity Check`
   - Fill admin/DB credentials
   - Validate no required field errors before clicking Next.
+  - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (e.g., `poc`, `small`, `medium`). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
 - Step 3: Check "Run apply", click Create
 
 See `references/orm-browser-nav.md` for checkbox toggling, password validation, and React Select patterns.
@@ -396,6 +397,7 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through
   - `Existing Autonomous DB Subnet OCID` = subnet OCID from Phase 4c (for ADB packs)
   - Fill admin/DB credentials (same as infra stack)
   - Validate no required field errors
+  - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (must match infra stack). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
 - Step 3: Check "Run apply", click Create
 
 ### 5b. Monitor app apply with kubectl

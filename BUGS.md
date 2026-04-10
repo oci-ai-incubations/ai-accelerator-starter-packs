@@ -12,7 +12,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
 | Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
-| Fixed | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
+| Open | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
 | Fixed | BUG-010 | worker_node_availability_domain required for paas_rag (CPU-only) | Medium | 2026-04-08 |
 | Open | BUG-011 | /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas | Medium | 2026-04-08 |
 | Fixed | BUG-012 | Back-to-back pack switch on VMs leaves stale images filling ephemeral storage | Medium | 2026-04-09 |
@@ -280,9 +280,9 @@ Changed count condition from `contains(["enterprise_rag", "enterprise_rag_aiq"],
 
 ### BUG-009: Stale nim-llm taint blocks pod scheduling after two-stack pack switch
 
-**Status:** Fixed
+**Status:** Open (fix incomplete)
 **Date found:** 2026-04-07
-**Date fixed:** 2026-04-07
+**Date fixed:** 2026-04-07 (partial — destroy provisioner added but has chicken-and-egg bug)
 **Found by:** Track 1 agent during v0.0.5 enterprise_rag → enterprise_rag_aiq two-stack test
 **Severity:** High
 
@@ -314,9 +314,20 @@ For the `via_operator` variant: removed the resource-level `connection` block en
 
 Fixed in commits `c53d237` and `051a533` on `release_v0.0.5`.
 
-**Verification:** Deploy enterprise_rag app stack → verify taints exist on GPU nodes → destroy app stack → verify taints are removed from all GPU nodes. (Not yet integration-tested — deferred to next enterprise_rag_aiq deploy.)
+**v0.0.6 re-occurrence (2026-04-09):** During v0.0.6 release testing, Track 1 (enterprise_rag → enterprise_rag_aiq in ap-melbourne-1) hit this bug again. The destroy provisioner ran but cleaned 0 nodes. Root cause: the provisioner's node selector uses `nvidia.com/gpu.present=true`, but this label is set by NFD (Node Feature Discovery). When NFD can't schedule on a node because of the `workload=nim-llm:NoSchedule` taint (NFD only tolerates `nvidia.com/gpu`), the `gpu.present` label is never set — so the destroy provisioner's selector matches 0 nodes. **Chicken-and-egg:** the taint blocks NFD → NFD can't set the label → the provisioner can't find the node → the taint persists.
 
-**Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds.
+**Fix needed:** Change the destroy provisioner's node selector to something that doesn't depend on NFD labels. Options:
+1. Select by `node.kubernetes.io/instance-type` (set by OKE, not NFD)
+2. Select all nodes in the GPU worker pool by OKE node pool label
+3. Remove taints from ALL worker nodes (not just GPU-labeled ones) — safe since the taint is pack-specific
+
+**Workaround (still valid):**
+Manually remove the nim-llm taint from affected GPU nodes between rounds:
+```bash
+kubectl taint nodes <node-name> workload=nim-llm:NoSchedule-
+```
+
+**Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds. Destroy provisioner node selectors must NOT depend on labels set by daemonsets that can be blocked by the very taints being cleaned up.
 
 **Recurrence (v0.0.6):** During Track 1's enterprise_rag → enterprise_rag_aiq pack switch in ap-melbourne-1, the stale `nim-llm` taint reappeared on GPU nodes despite the destroy provisioner fix. The GPU device-plugin daemonset showed DESIRED=0 and the operator-validator was stuck. Manual taint removal (`kubectl taint nodes <node> workload=nim-llm:NoSchedule-`) immediately restored GPU allocation. Root cause of recurrence needs investigation — the destroy provisioner may not have fired correctly during the ORM-managed app destroy, or the taint was re-applied during the infra re-apply before the new app stack was deployed.
 
