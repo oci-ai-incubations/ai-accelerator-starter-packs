@@ -204,11 +204,25 @@ Each teammate message should include:
 6. For **VM tracks** (sequential fresh): instruction to destroy both stacks (app first, then infra), clean up resources (customer secret keys, orphaned ADB), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` fresh (creates new infra + app stacks)
 7. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
 
-### 4c. Monitor progress
+### 4c. Launch monitor teammate
+
+In addition to the testing tracks, launch a **monitor** teammate. See [MONITOR_TEAMMATES.md](MONITOR_TEAMMATES.md) for the full guide.
+
+The monitor's prompt should include:
+1. The `/testing-pack` skill path to read
+2. The OCI CLI profile and compartment OCID
+3. The expected pack/size/region for each track
+4. Instruction to **log every deviation in `BUGS.md` via `/bug-tracker log` immediately** — not at the end, not in a batch, but as each deviation is found
+5. Instruction to report deviations to team-lead via SendMessage with the BUG-NNN ID
+6. Access to OCI CLI, context7 MCP, and agent-browser (with its own unique session name)
+
+The monitor independently cross-checks OCI state (stack variables, job status, resource state) rather than trusting teammate self-reports. It verifies: zip paths, starter_pack_size, two-stack model compliance, destroy ordering, and required app stack variables.
+
+### 4d. Monitor progress
 
 Teammates are full interactive Claude sessions. They will ask questions via `AskUserQuestion` when they need input (OCI login, compartment selection, etc.).
 
-Check in periodically with `SendMessage` to get status updates.
+Check in periodically with `SendMessage` to get status updates. The monitor teammate will also proactively report deviations.
 
 ### 4d. Collect results
 
@@ -336,19 +350,48 @@ gh release view $VERSION
 
 ---
 
-## Phase 7: Publish to External Repo (Optional)
+## Phase 7: Publish to External Repo
 
-After Phase 6 (Finalize) completes, **ask the user:**
-
-> "Do you want to publish the release zips to the external oracle-quickstart/oci-ai-blueprints repo?"
-
-If yes, invoke:
+After Phase 6 (Finalize) completes, invoke:
 
 ```
 /publish-external <VERSION>
 ```
 
 This uploads the release zips to `oracle-quickstart/oci-ai-blueprints` with the console zip names and the enterprise_rag/paas_rag swap workaround. See the `/publish-external` skill for details.
+
+---
+
+## Phase 8: Verify Packs in OCI Console
+
+After publishing to external, verify that each zip loads the correct pack category in the OCI Console. See [VERIFY_CONSOLE_PACKS.md](VERIFY_CONSOLE_PACKS.md) for the full playbook.
+
+### 8a. Launch verification agent
+
+Use agent-browser with a unique session (e.g., `--session verify-packs`). The user must authenticate in the OCI Console manually.
+
+### 8b. Test each pack via zipUrl
+
+For each of the 5 packs, navigate to:
+```
+https://cloud.oracle.com/resourcemanager/stacks/create?zipUrl=https://github.com/oracle-quickstart/oci-ai-blueprints/releases/download/starter-packs/<ZIPNAME>.zip
+```
+
+Accept Terms of Use, click through to Step 2 (Configure Variables), and verify the correct pack loaded using the **Category Fingerprint Matrix** in VERIFY_CONSOLE_PACKS.md. The deployment size dropdown label is the most reliable identifier:
+
+| Zip | Expected Label |
+|---|---|
+| `aiQGenAIPowered.zip` | "Enterprise RAG Deployment Size" |
+| `aiQEnterpriseSearch.zip` | "RAG Deployment Size" |
+| `enterpriseAgenticAIStarterKit.zip` | "Enterprise RAG + AIQ Deployment Size" |
+| `vehicleRouteOptimizer.zip` | "cuOpt Deployment Size" |
+| `videoSearchSummarization.zip` | "VSS Deployment Size" |
+
+### 8c. Screenshot each pack
+
+Save screenshots to `/tmp/pack-verification/<ZIPNAME>_<category>.png`. Present results to the user.
+
+If any pack loads the wrong category, **STOP** — the swap workaround may be incorrect or the wrong zip was uploaded. Check the zip contents with `unzip -p <zip> ai-accelerator-tf/starter_pack_category.auto.tfvars`.
 
 ---
 
@@ -374,10 +417,12 @@ Release Progress — $VERSION:
 - [ ] Phase 1: Release build completed (RELEASE_BUILD.md)
 - [ ] Phase 2: GitHub Release created (pre-release)
 - [ ] Phase 3: Test tracks planned, regions selected
-- [ ] Phase 4: All packs tested
+- [ ] Phase 4: All packs tested (with monitor teammate)
 - [ ] Phase 5: Bugs fixed, zips rebuilt (if needed)
 - [ ] Phase 6a: GitHub Release promoted to latest
 - [ ] Phase 6b: Release publish completed (RELEASE_PUBLISH.md)
+- [ ] Phase 7: Published to external repo
+- [ ] Phase 8: All 5 packs verified in OCI Console
 ```
 
 ## Reference Files
@@ -385,5 +430,7 @@ Release Progress — $VERSION:
 - **[RELEASE_BUILD.md](RELEASE_BUILD.md)** — Build phase: branch, version bump, validate, zip creation
 - **[RELEASE_PUBLISH.md](RELEASE_PUBLISH.md)** — Publish phase: validate zips, rename, Slack, merge PR, tag
 - **[PARALLEL_TESTING.md](PARALLEL_TESTING.md)** — Agent teams setup, browser isolation, permissions, back-to-back pack switching
+- **[MONITOR_TEAMMATES.md](MONITOR_TEAMMATES.md)** — Monitor agent setup, compliance checks, bug tracking requirements
+- **[VERIFY_CONSOLE_PACKS.md](VERIFY_CONSOLE_PACKS.md)** — OCI Console pack verification playbook, zipUrl approach, category fingerprint matrix
 - **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** — Anti-patterns and pitfalls discovered during real releases
 - **`/publish-external`** — Upload release zips to external oracle-quickstart/oci-ai-blueprints pre-release (separate skill)
