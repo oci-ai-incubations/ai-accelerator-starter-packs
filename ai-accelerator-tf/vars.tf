@@ -897,7 +897,7 @@ locals {
     "contract_analysis" = {
       "small" = {
         blueprint_file                               = "contract-analysis-blueprint.json"
-        deployment_name                              = "contract-analysis"
+        deployment_name                              = "dox"
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = false

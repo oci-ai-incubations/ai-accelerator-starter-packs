@@ -1631,7 +1631,7 @@ locals {
             recipe_id                            = "contract-backend"
             recipe_mode                          = "service"
             deployment_name                      = "contract-backend"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend:v1.0.2"
             recipe_replica_count                 = 1
             recipe_flex_shape_ocpu_count         = 4
             recipe_flex_shape_memory_size_in_gbs = 32
@@ -1642,10 +1642,11 @@ locals {
               { "key" = "DB_MODE", value = "oracle" },
               { "key" = "ORACLE_USER", value = var.db_username },
               { "key" = "ORACLE_PASSWORD", value = var.db_password },
-              { "key" = "ORACLE_DSN", value = replace(local.oracle26ai_high_connection_string, "tcps://", "") },
+              { "key" = "ORACLE_DSN", value = local.oracle26ai_high_connection_string },
+              { "key" = "ORACLE_SSL_SERVER_DN_MATCH", value = "False" },
               { "key" = "QWEN_URL", value = local.dac_inference_url },
               { "key" = "QWEN_MODEL", value = "/models/${var.dac_model_id}" },
-              { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
+              { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:80" },
               { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
               { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
               { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
@@ -1661,7 +1662,7 @@ locals {
             recipe_id                            = "contract-frontend"
             recipe_mode                          = "service"
             deployment_name                      = "contract-frontend"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:v1.0.1"
             recipe_replica_count                 = 1
             recipe_flex_shape_ocpu_count         = 4
             recipe_flex_shape_memory_size_in_gbs = 32

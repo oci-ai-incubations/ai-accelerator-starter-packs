@@ -62,8 +62,8 @@ run "plan_contract_analysis_small" {
 
   # Deployment name should start with 'contract-analysis-' (suffixed with random_id hex)
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "contract-analysis-")
-    error_message = "contract_analysis deployment name should start with 'contract-analysis-'"
+    condition     = startswith(output.starter_pack_deployment_name, "dox-")
+    error_message = "contract_analysis deployment name should start with 'dox-'"
   }
 
   # Database username should default to ADMIN when not explicitly set
