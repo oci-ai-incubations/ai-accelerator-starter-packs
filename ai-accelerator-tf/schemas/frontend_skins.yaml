@@ -1,0 +1,40 @@
+# Frontend skin catalog — consumed by both create_final_schema.py (repo root) and Terraform
+learn_more_url: "https://docs.oracle.com/ai-accelerator/frontend-skins"
+
+cuopt:
+  default: "Oracle Interactive - Route visualization"
+  skins:
+    - key: "Oracle Interactive - Route visualization"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
+      provider: "Oracle"
+    - key: "NVIDIA cuOpt - Solver dashboard"
+      image_uri: "nvcr.io/nvidia/cuopt-frontend:1.0.0"
+      provider: "NVIDIA"
+
+vss:
+  default: "Oracle Custom - Enhanced search"
+  skins:
+    - key: "Oracle Custom - Enhanced search"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
+      provider: "Oracle"
+
+paas_rag:
+  default: "Oracle Net - Chat interface"
+  skins:
+    - key: "Oracle Net - Chat interface"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3"
+      provider: "Oracle"
+
+enterprise_rag:
+  default: "Oracle RAG - Document chat"
+  skins:
+    - key: "Oracle RAG - Document chat"
+      image_uri: "iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend:v0.0.2"
+      provider: "Oracle"
+
+enterprise_rag_aiq:
+  default: "NVIDIA AIRA - Agentic workflows"
+  skins:
+    - key: "NVIDIA AIRA - Agentic workflows"
+      image_uri: "nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0"
+      provider: "NVIDIA"
