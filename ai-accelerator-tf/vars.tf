@@ -491,6 +491,12 @@ variable "starter_pack_size" {
   }
 }
 
+variable "frontend_skin" {
+  type        = string
+  description = "Frontend skin selection — set via ORM schema enum. Leave empty to use the default skin for the selected category."
+  default     = ""
+}
+
 variable "skip_capacity_check" {
   description = "Skip the compute capacity pre-validation. Enable this only if you are certain capacity exists or want to bypass the pre-check. Note: Deployment may still fail later if capacity is unavailable."
   type        = bool
