@@ -1,6 +1,9 @@
 """Schema structure and validation tests."""
 import re
+from pathlib import Path
+
 import pytest
+import yaml
 import jsonschema
 from jsonschema import Draft7Validator, FormatChecker
 
@@ -241,3 +244,28 @@ class TestVariableTypesComplete:
                     f"{category}: variable '{var_name}' has type 'object' "
                     f"but missing required 'attributes' property"
                 )
+
+
+class TestFrontendSkinCatalogSync:
+    """frontend_skin enum values match the catalog YAML."""
+
+    @pytest.mark.parametrize("category", CATEGORIES)
+    def test_frontend_skin_enum_matches_catalog(self, generated_schemas, category):
+        """frontend_skin enum values must match keys in frontend_skins.yaml."""
+        schema = generated_schemas[category]
+        skin_var = schema["variables"]["frontend_skin"]
+
+        # Load the skin catalog
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+
+        expected_keys = [s["key"] for s in catalog[category]["skins"]]
+        assert skin_var["enum"] == expected_keys, (
+            f"{category}: frontend_skin enum {skin_var['enum']} "
+            f"does not match catalog keys {expected_keys}"
+        )
+        assert skin_var["default"] == catalog[category]["default"], (
+            f"{category}: frontend_skin default '{skin_var['default']}' "
+            f"does not match catalog default '{catalog[category]['default']}'"
+        )
