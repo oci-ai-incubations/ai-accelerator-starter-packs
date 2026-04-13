@@ -1,0 +1,186 @@
+# Frontend Skins — Architecture
+
+This document describes how the frontend skins system works end-to-end, from the YAML catalog to the deployed container image.
+
+## Problem
+
+Frontend container images were hardcoded across multiple Terraform files (`blueprint_files.tf`, `app-vss-oracle-ux.tf`, Helm values). Adding a new frontend option or swapping an image required changes in several places. There was no way for ORM users to choose which frontend UI they wanted.
+
+## Design Principle: Single Source of Truth
+
+One YAML file defines all available skins. Two consumers read it:
+
+1. **`create_final_schema.py`** (Python) — reads it at schema generation time to build the ORM dropdown
+2. **`frontend-skins.tf`** (Terraform) — reads it at plan/apply time to resolve the user's selection to an image URI
+
+Adding a new skin is a single-file change to the catalog. No Terraform code, schema YAML, or Python script changes needed.
+
+## Data Flow
+
+```
+┌─────────────────────────────────────────┐
+│  schemas/frontend_skins.yaml            │
+│  (single source of truth)               │
+└──────────┬──────────────┬───────────────┘
+           │              │
+     Schema Gen       Terraform
+           │              │
+           ▼              ▼
+┌──────────────────┐  ┌──────────────────────────┐
+│ create_final_     │  │ frontend-skins.tf        │
+│ schema.py         │  │                          │
+│                   │  │ yamldecode(file(...))     │
+│ Reads catalog,    │  │ coalesce(var, default)    │
+│ injects enum into │  │ resolves to image_uri     │
+│ generated schema  │  │                          │
+└────────┬─────────┘  └────────────┬─────────────┘
+         │                         │
+         ▼                         ▼
+┌──────────────────┐  ┌──────────────────────────┐
+│ ORM UI Dropdown   │  │ local.frontend_skin_     │
+│                   │  │   image_uri              │
+│ User selects a    │  │   provider               │
+│ skin from the     │  │   name                   │
+│ enum list         │  │                          │
+└────────┬─────────┘  └────────────┬─────────────┘
+         │                         │
+         │   var.frontend_skin     │
+         └────────────►────────────┘
+                                   │
+                    ┌──────────────┼──────────────┐
+                    │              │              │
+                    ▼              ▼              ▼
+              Blueprint       Helm set       Outputs
+              consumers       overrides
+              (cuopt,vss,     (enterprise_   (skin name,
+               paas_rag)       rag)           image, provider,
+                                              learn more URL)
+```
+
+## File-by-File Walkthrough
+
+### `ai-accelerator-tf/schemas/frontend_skins.yaml`
+
+The catalog. Each starter pack category has a `default` skin and a list of `skins`, where each skin has a `key` (dropdown display text), `image_uri`, and `provider`.
+
+```yaml
+cuopt:
+  default: "Oracle Interactive - Route visualization"
+  skins:
+    - key: "Oracle Interactive - Route visualization"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
+      provider: "Oracle"
+    - key: "NVIDIA cuOpt - Solver dashboard"
+      image_uri: "nvcr.io/nvidia/cuopt-frontend:1.0.0"
+      provider: "NVIDIA"
+```
+
+The `key` is what appears in the ORM dropdown. It must be short and self-descriptive because ORM enum dropdowns show the raw string value with no per-item description.
+
+### `create_final_schema.py`
+
+The `inject_frontend_skin()` function runs **after** the common+category schema deep merge. It:
+
+1. Reads the skin keys for the current category from the catalog
+2. Builds an `enum` variable definition with those keys as options
+3. Injects it into the merged schema's `variables` section (overwriting the hidden `string` fallback from `common_schema.yaml`)
+4. Appends `frontend_skin` to the "Deployment Configuration" variable group
+
+For cuopt specifically, it sets conditional visibility tied to `cuopt_frontend_enabled` so the dropdown only appears when the frontend toggle is on.
+
+The injection happens per-category during `--all` generation, so each pack's generated schema only contains that pack's skin options.
+
+### `ai-accelerator-tf/frontend-skins.tf`
+
+Terraform-side resolution. Key locals:
+
+- **`frontend_skins_catalog`** — `yamldecode(file(...))` reads the same YAML
+- **`effective_frontend_skin`** — `coalesce(var.frontend_skin, catalog_default)` handles the case where `var.frontend_skin` is empty (local dev without ORM)
+- **`selected_skin`** — filters the category's skin list to find the matching entry
+- **`frontend_skin_image_uri`** — the resolved container image, used by all consumers
+
+### `ai-accelerator-tf/vars.tf`
+
+```hcl
+variable "frontend_skin" {
+  type    = string
+  default = ""
+}
+```
+
+Default is empty string. ORM populates it from the schema enum's default. Local dev uses the `coalesce` fallback in `frontend-skins.tf`.
+
+### Consumer Files
+
+**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — replaced hardcoded image URI strings with `local.frontend_skin_image_uri`.
+
+**Helm packs** (`helm.tf`) — added `set` blocks that split `local.frontend_skin_image_uri` into `frontend.image.repository` and `frontend.image.tag` using `split(":", ...)`, following the existing pattern used for `nim-llm.image.repository`.
+
+**`enterprise_rag_aiq`** is scoped to a single skin in v1 (no `set` override). Its frontend is served by a separate Helm chart (`aiq`) with its own ingress resource in a different namespace, so swapping skins requires more than an image URI change.
+
+### Schema Files
+
+**`common_schema.yaml`** defines:
+- A hidden `frontend_skin` variable (`type: string, visible: false`) as a fallback
+- 4 output definitions (`frontend_skin_name`, `frontend_skin_image_uri`, `frontend_skin_provider`, `frontend_skins_learn_more`)
+- A "Frontend Skin" output group
+
+The hidden variable gets overwritten by `create_final_schema.py`'s injection with the proper `type: enum` definition. It exists so Terraform always has the variable declared even without ORM.
+
+### Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `frontend_skin_name` | `string` | Selected skin's display name |
+| `frontend_skin_image_uri` | `copyableString` | Container image URI (with copy button in ORM) |
+| `frontend_skin_provider` | `string` | "Oracle" or "NVIDIA" |
+| `frontend_skins_learn_more` | `link` | Clickable URL to `docs/skins/README.md` |
+
+## Testing
+
+### Terraform Unit Tests
+
+`tests/starter_pack_frontend_skins.tftest.hcl` — 7 test runs:
+
+- One `*_default_skin_resolves` test per category (5 tests) — validates the `coalesce` fallback works when `frontend_skin` is empty
+- `cuopt_explicit_nvidia_skin` — validates explicit non-default skin selection
+- `skin_outputs_populated` — validates all 4 outputs resolve to non-null values
+
+Existing per-pack tests (`starter_pack_cuopt.tftest.hcl`, etc.) also exercise skin resolution implicitly via the `coalesce` fallback.
+
+### Schema Tests
+
+- `schema_expectations.yaml` — `frontend_skin` in `required_variables`, 4 skin outputs in `required_outputs`, per-category `variable_properties` checking `type: enum`
+- `test_schema_structure.py::TestFrontendSkinCatalogSync` — validates that each generated schema's `frontend_skin` enum values and default match the catalog YAML
+
+## Adding a New Skin
+
+One-file change in `schemas/frontend_skins.yaml`:
+
+```yaml
+vss:
+  default: "Oracle Custom - Enhanced search"
+  skins:
+    - key: "Oracle Custom - Enhanced search"
+      image_uri: "iad.ocir.io/.../vss-oracle-ux-dev-0.0.4"
+      provider: "Oracle"
+    - key: "NVIDIA Blueprint - Video analytics"        # add this
+      image_uri: "nvcr.io/nvidia/blueprint/vss-frontend:2.4.0"
+      provider: "NVIDIA"
+```
+
+Then regenerate schemas:
+
+```bash
+python create_final_schema.py --all
+```
+
+No Terraform code changes. No schema YAML changes. No Python script changes. The new skin appears in the ORM dropdown and is resolvable by Terraform.
+
+Also update `docs/skins/README.md` with the new skin's details (provider, image, version, repo link, description).
+
+## Limitations
+
+- **`enterprise_rag_aiq` is single-skin in v1.** Its frontend is deployed by a separate Helm chart with its own ingress and namespace. Multi-skin support requires designing ingress routing logic to toggle between Helm chart frontends.
+- **ORM enum dropdowns show raw string values.** There are no per-item descriptions in the dropdown itself. The skin `key` must be self-descriptive. A "Learn More" link in the variable description points users to `docs/skins/README.md` for details.
+- **One skin active at a time.** The system does not support deploying multiple frontends simultaneously. Switching skins requires re-applying the stack.
