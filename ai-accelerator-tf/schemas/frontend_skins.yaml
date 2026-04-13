@@ -1,5 +1,5 @@
 # Frontend skin catalog — consumed by both create_final_schema.py (repo root) and Terraform
-learn_more_url: "https://docs.oracle.com/ai-accelerator/frontend-skins"
+learn_more_url: "https://github.com/oci-ai-incubations/ai-accelerator-starter-packs/blob/main/docs/skins/README.md"
 
 cuopt:
   default: "Oracle Interactive - Route visualization"
