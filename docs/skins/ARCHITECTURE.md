@@ -95,17 +95,15 @@ The `container_port` field in the catalog maps to `recipe_container_port`. Witho
 
 ### Per-skin environment variables (`container_env`)
 
-Each skin can specify a `container_env` list of static key/value pairs. These are environment variables that the skin's container needs but that differ between skins (e.g., `PORT`, `NODE_ENV`).
+All skins share the same interface — they receive the same base set of environment variables (infrastructure endpoints, user credentials) defined in `blueprint_files.tf`. This means every skin image gets `CUOPT_ENDPOINT`, `LLAMASTACK_ENDPOINT`, `ADMIN_USERNAME`, etc. regardless of whether it uses them. Unused env vars in a container are harmless.
 
-The pattern in `blueprint_files.tf`:
-- If `container_env` is **empty** (`[]`): no env vars are injected — the image uses its Dockerfile defaults. This is the case for Core App skins that are self-contained.
-- If `container_env` is **non-empty**: the skin-specific static values are merged with dynamic infrastructure values (Terraform variables like `ADMIN_USERNAME`, blueprint interpolation like `CUOPT_ENDPOINT`) that can't live in the YAML catalog. Both sets are injected together.
+Each skin can additionally specify a `container_env` list of static key/value overrides in the YAML catalog. These are appended after the shared base, allowing skins to override specific values like `PORT` or add new ones like `NODE_ENV`:
 
 ```yaml
-# Core App — no env overrides, uses image defaults
+# Core App — no overrides needed, image uses its defaults
 container_env: []
 
-# Partner Contributed — needs PORT and NODE_ENV overrides
+# Partner Contributed — overrides PORT and adds NODE_ENV
 container_env:
   - key: "NODE_ENV"
     value: "production"
@@ -113,7 +111,7 @@ container_env:
     value: "3001"
 ```
 
-This avoids a binary `inject_env` toggle and handles the case where two skins both need env vars but differ on specific values.
+In `blueprint_files.tf`, the final env is always: `concat(shared_base, local.frontend_skin_container_env)`.
 
 ### `create_final_schema.py`
 
