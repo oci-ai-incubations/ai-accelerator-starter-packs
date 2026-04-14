@@ -926,8 +926,8 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
         frontend_url                 = "aiq"
       }
       "medium" = {
@@ -953,8 +953,8 @@ locals {
           ocpus         = 0
           memory        = 0
         }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
+        database_storage_size_in_tbs = 8
+        database_compute_count       = 16
         frontend_url                 = "aiq"
       }
     }
@@ -1019,6 +1019,6 @@ locals {
 }
 
 locals {
-  # 26ai database needed for paas_rag and enterprise_rag categories
-  needs_26ai = contains(["paas_rag", "enterprise_rag"], var.starter_pack_category)
+  # 26ai database needed for paas_rag, enterprise_rag, and enterprise_rag_aiq categories
+  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
 }
