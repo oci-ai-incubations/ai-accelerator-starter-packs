@@ -8,10 +8,12 @@ cuopt:
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2"
       provider: "Oracle"
       container_port: "3000"
+      inject_env: false
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
       provider: "Oracle"
       container_port: "80"
+      inject_env: true
 
 vss:
   default: "Oracle Custom - Enhanced search (Core App)"
@@ -20,6 +22,7 @@ vss:
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
       provider: "Oracle"
       container_port: "3000"
+      inject_env: false
 
 paas_rag:
   default: "Oracle Net - Chat interface (Core App)"
@@ -28,6 +31,7 @@ paas_rag:
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3"
       provider: "Oracle"
       container_port: "3000"
+      inject_env: false
 
 enterprise_rag:
   default: "Oracle RAG - Document chat (Core App)"
@@ -36,6 +40,7 @@ enterprise_rag:
       image_uri: "iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend:v0.0.2"
       provider: "Oracle"
       container_port: "3000"
+      inject_env: false
 
 enterprise_rag_aiq:
   default: "NVIDIA AIRA - Agentic workflows (Core App)"
@@ -44,3 +49,4 @@ enterprise_rag_aiq:
       image_uri: "nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0"
       provider: "NVIDIA"
       container_port: "3000"
+      inject_env: false

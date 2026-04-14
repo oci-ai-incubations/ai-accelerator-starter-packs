@@ -192,7 +192,7 @@ locals {
               recipe_use_shared_node_pool          = true,
               recipe_container_port                = local.frontend_skin_container_port,
               service_endpoint_subdomain           = local.starter_pack_config.frontend_url
-              recipe_container_env = [
+              recipe_container_env = local.frontend_skin_inject_env ? [
                 { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
                 { key = "LLAMASTACK_ENDPOINT", value = "http://$${llamastack.service_name}:80" },
                 { key = "LLAMASTACK_MODEL", value = "" },
@@ -201,7 +201,7 @@ locals {
                 { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
                 { key = "NODE_ENV", value = "production" },
                 { key = "PORT", value = "3001" },
-              ]
+              ] : []
               recipe_additional_ingress_ports = [
                 {
                   port_name    = "cuopt"
