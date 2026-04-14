@@ -93,25 +93,11 @@ Different frontend images may serve on different ports. In OCI AI Blueprints, tw
 
 The `container_port` field in the catalog maps to `recipe_container_port`. Without it, swapping between skins that listen on different ports (e.g., Core App on 3000, Partner Contributed on 80) would result in a 502 Bad Gateway because the ingress routes traffic to a port that nothing is listening on.
 
-### Per-skin environment variables (`container_env`)
+### Environment variables
 
-All skins share the same interface — they receive the same base set of environment variables (infrastructure endpoints, user credentials) defined in `blueprint_files.tf`. This means every skin image gets `CUOPT_ENDPOINT`, `LLAMASTACK_ENDPOINT`, `ADMIN_USERNAME`, etc. regardless of whether it uses them. Unused env vars in a container are harmless.
+All skins within a pack share the same interface — they receive the same set of environment variables defined in `blueprint_files.tf`. This means every skin image gets `CUOPT_ENDPOINT`, `LLAMASTACK_ENDPOINT`, `ADMIN_USERNAME`, `PORT`, etc. regardless of whether it uses them. Unused env vars in a container are harmless.
 
-Each skin can additionally specify a `container_env` list of static key/value overrides in the YAML catalog. These are appended after the shared base, allowing skins to override specific values like `PORT` or add new ones like `NODE_ENV`:
-
-```yaml
-# Core App — no overrides needed, image uses its defaults
-container_env: []
-
-# Partner Contributed — overrides PORT and adds NODE_ENV
-container_env:
-  - key: "NODE_ENV"
-    value: "production"
-  - key: "PORT"
-    value: "3001"
-```
-
-In `blueprint_files.tf`, the final env is always: `concat(shared_base, local.frontend_skin_container_env)`.
+Environment variables are NOT part of the skin catalog. They live in `blueprint_files.tf` and apply identically to all skins for that pack. This keeps the skin catalog simple — each skin only defines `image_uri`, `provider`, and `container_port`.
 
 ### `create_final_schema.py`
 

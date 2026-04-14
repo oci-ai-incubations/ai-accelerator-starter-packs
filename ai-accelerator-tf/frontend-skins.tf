@@ -26,5 +26,4 @@ locals {
   frontend_skin_provider       = local.selected_skin.provider
   frontend_skin_name           = local.selected_skin.key
   frontend_skin_container_port = local.selected_skin.container_port
-  frontend_skin_container_env  = try(local.selected_skin.container_env, [])
 }
