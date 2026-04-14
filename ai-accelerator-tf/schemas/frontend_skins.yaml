@@ -7,8 +7,12 @@ cuopt:
     - key: "Vehicle Route Optimizer Frontend (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2"
       provider: "Oracle"
-      container_port: "3000"
-      container_env: []
+      container_port: "3001"
+      container_env:
+        - key: "NODE_ENV"
+          value: "production"
+        - key: "PORT"
+          value: "3001"
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
       provider: "Oracle"
