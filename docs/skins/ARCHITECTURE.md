@@ -41,7 +41,7 @@ Adding a new skin is a single-file change to the catalog. No Terraform code, sch
 │                   │  │   image_uri              │
 │ User selects a    │  │   provider               │
 │ skin from the     │  │   name                   │
-│ enum list         │  │                          │
+│ enum list         │  │   container_port          │
 └────────┬─────────┘  └────────────┬─────────────┘
          │                         │
          │   var.frontend_skin     │
@@ -61,21 +61,37 @@ Adding a new skin is a single-file change to the catalog. No Terraform code, sch
 
 ### `ai-accelerator-tf/schemas/frontend_skins.yaml`
 
-The catalog. Each starter pack category has a `default` skin and a list of `skins`, where each skin has a `key` (dropdown display text), `image_uri`, and `provider`.
+The catalog. Each starter pack category has a `default` skin and a list of `skins`, where each skin has:
+
+- `key` — dropdown display text, suffixed with `(Core App)` or `(Partner Contributed)`
+- `image_uri` — full container image URI including tag
+- `provider` — "Oracle" or "NVIDIA"
+- `container_port` — the port the application inside the container listens on (maps to `recipe_container_port` in OCI AI Blueprints)
 
 ```yaml
 cuopt:
-  default: "Oracle Interactive - Route visualization"
+  default: "Vehicle Route Optimizer Frontend (Core App)"
   skins:
-    - key: "Oracle Interactive - Route visualization"
+    - key: "Vehicle Route Optimizer Frontend (Core App)"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2"
+      provider: "Oracle"
+      container_port: "3000"
+    - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
       provider: "Oracle"
-    - key: "NVIDIA cuOpt - Solver dashboard"
-      image_uri: "nvcr.io/nvidia/cuopt-frontend:1.0.0"
-      provider: "NVIDIA"
+      container_port: "80"
 ```
 
-The `key` is what appears in the ORM dropdown. It must be short and self-descriptive because ORM enum dropdowns show the raw string value with no per-item description.
+The `key` is what appears in the ORM dropdown. It must be short and self-descriptive because ORM enum dropdowns show the raw string value with no per-item description. Keys are suffixed with `(Core App)` for Oracle-built and tested skins, or `(Partner Contributed)` for third-party skins.
+
+### Why `container_port` matters
+
+Different frontend images may serve on different ports. In OCI AI Blueprints, two port concepts exist:
+
+- **`recipe_container_port`** — the port the application inside the container listens on. This must match what the frontend process actually binds to.
+- **`recipe_host_port`** — the outward-facing port that OCI AI Blueprints opens for traffic. Defaults to port 80 if not specified.
+
+The `container_port` field in the catalog maps to `recipe_container_port`. Without it, swapping between skins that listen on different ports (e.g., Core App on 3000, Partner Contributed on 80) would result in a 502 Bad Gateway because the ingress routes traffic to a port that nothing is listening on.
 
 ### `create_final_schema.py`
 
@@ -98,6 +114,7 @@ Terraform-side resolution. Key locals:
 - **`effective_frontend_skin`** — `coalesce(var.frontend_skin, catalog_default)` handles the case where `var.frontend_skin` is empty (local dev without ORM)
 - **`selected_skin`** — filters the category's skin list to find the matching entry
 - **`frontend_skin_image_uri`** — the resolved container image, used by all consumers
+- **`frontend_skin_container_port`** — the port the container listens on, used by blueprint and K8s consumers
 
 ### `ai-accelerator-tf/vars.tf`
 
@@ -112,7 +129,7 @@ Default is empty string. ORM populates it from the schema enum's default. Local 
 
 ### Consumer Files
 
-**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — replaced hardcoded image URI strings with `local.frontend_skin_image_uri`.
+**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — replaced hardcoded image URI strings with `local.frontend_skin_image_uri` and hardcoded `recipe_container_port` values with `local.frontend_skin_container_port`.
 
 **Helm packs** (`helm.tf`) — added `set` blocks that split `local.frontend_skin_image_uri` into `frontend.image.repository` and `frontend.image.tag` using `split(":", ...)`, following the existing pattern used for `nim-llm.image.repository`.
 
@@ -159,14 +176,16 @@ One-file change in `schemas/frontend_skins.yaml`:
 
 ```yaml
 vss:
-  default: "Oracle Custom - Enhanced search"
+  default: "Oracle Custom - Enhanced search (Core App)"
   skins:
-    - key: "Oracle Custom - Enhanced search"
+    - key: "Oracle Custom - Enhanced search (Core App)"
       image_uri: "iad.ocir.io/.../vss-oracle-ux-dev-0.0.4"
       provider: "Oracle"
-    - key: "NVIDIA Blueprint - Video analytics"        # add this
+      container_port: "3000"
+    - key: "NVIDIA Blueprint - Video analytics (Partner Contributed)"   # add this
       image_uri: "nvcr.io/nvidia/blueprint/vss-frontend:2.4.0"
       provider: "NVIDIA"
+      container_port: "8080"
 ```
 
 Then regenerate schemas:

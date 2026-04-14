@@ -29,6 +29,7 @@ When in doubt, select the Core App skin for a fully supported experience.
 | Provider | Oracle |
 | Image | `iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2` |
 | Version | v0.0.2 |
+| Container Port | 3000 |
 | Repository | [vehicle_route_optimizer_frontend](https://github.com/oci-ai-incubations/vehicle_route_optimizer_frontend) |
 
 Oracle's core frontend for the Vehicle Delivery Route Optimizer. Provides the primary interface for interacting with the NVIDIA cuOpt GPU-accelerated solver, submitting vehicle routing optimization problems, and viewing results. This is the fully tested, Oracle-supported frontend for this pack.
@@ -41,6 +42,7 @@ Oracle's core frontend for the Vehicle Delivery Route Optimizer. Provides the pr
 | Provider | Oracle |
 | Image | `iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3` |
 | Version | v0.0.3 |
+| Container Port | 80 |
 | Repository | [cuopt-ev-routing-frontend](https://github.com/oci-ai-incubations/cuopt-ev-routing-frontend) |
 
 Partner-contributed interactive route visualization UI for fleet delivery optimization. Supports Google Maps and Leaflet map rendering, drag-and-drop route editing, vehicle fleet configuration, and real-time optimization result display. Includes an admin login for managing optimization sessions and a chat-powered natural language interface for building and modifying route constraints via OCI GenAI. This frontend offers additional features beyond the Core App but has not been tested to the same standard.
@@ -59,6 +61,7 @@ Partner-contributed interactive route visualization UI for fleet delivery optimi
 | Provider | Oracle |
 | Image | `iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4` |
 | Version | 0.0.4 |
+| Container Port | 3000 |
 | Repository | [vss-oracle-ux](https://github.com/oci-ai-incubations/vss-oracle-ux) |
 
 Oracle-built frontend for video search and summarization. Upload videos, search across ingested content using natural language queries, view AI-generated scene summaries with timestamps, and play back flagged segments directly in the browser. Includes a video timeline with scene markers and a document-style download service for exporting analysis results.
@@ -77,6 +80,7 @@ Oracle-built frontend for video search and summarization. Upload videos, search 
 | Provider | Oracle |
 | Image | `iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend:v0.0.2` |
 | Version | v0.0.2 |
+| Container Port | 3000 |
 | Repository | [enterprise-rag-frontend](https://github.com/oci-ai-incubations/enterprise-rag-frontend) |
 
 Chat-based document Q&A interface for the self-hosted enterprise RAG pipeline. Upload documents (PDF, DOCX, TXT), ask questions in natural language, and receive cited answers grounded in your uploaded content. The UI displays source citations with page references, supports multi-turn conversations, and provides document management for uploading, listing, and deleting ingested files.
@@ -95,6 +99,7 @@ Chat-based document Q&A interface for the self-hosted enterprise RAG pipeline. U
 | Provider | Oracle |
 | Image | `iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3` |
 | Version | v0.0.3 |
+| Container Port | 3000 |
 | Repository | [oraclenet-frontend](https://github.com/oci-ai-incubations/oraclenet-frontend) |
 
 Oracle Net chat interface for the managed enterprise RAG pipeline. Provides document upload, vector-search-powered Q&A with cited answers, and multi-turn conversation support. Powered by OCI GenAI PaaS for LLM inference and Oracle 26ai for vector storage, requiring no GPU infrastructure. Includes model selection for choosing between available OCI GenAI models.
@@ -113,6 +118,7 @@ Oracle Net chat interface for the managed enterprise RAG pipeline. Provides docu
 | Provider | NVIDIA |
 | Image | `nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0` |
 | Version | v1.2.0 |
+| Container Port | 3000 |
 | Repository | [NVIDIA AIQ Frontends](https://github.com/NVIDIA-AI-Blueprints/aiq/tree/develop/frontends/ui) |
 
 NVIDIA AIRA (AI Research Assistant) frontend for the agentic AI starter kit. Provides a chat-based interface for interacting with AI agents that can reason over documents, execute multi-step workflows, and use tools. Includes observability integration with Phoenix for tracing agent execution, viewing tool call chains, and debugging agentic reasoning paths.
