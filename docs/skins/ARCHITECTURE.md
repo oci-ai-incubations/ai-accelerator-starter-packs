@@ -93,6 +93,28 @@ Different frontend images may serve on different ports. In OCI AI Blueprints, tw
 
 The `container_port` field in the catalog maps to `recipe_container_port`. Without it, swapping between skins that listen on different ports (e.g., Core App on 3000, Partner Contributed on 80) would result in a 502 Bad Gateway because the ingress routes traffic to a port that nothing is listening on.
 
+### Per-skin environment variables (`container_env`)
+
+Each skin can specify a `container_env` list of static key/value pairs. These are environment variables that the skin's container needs but that differ between skins (e.g., `PORT`, `NODE_ENV`).
+
+The pattern in `blueprint_files.tf`:
+- If `container_env` is **empty** (`[]`): no env vars are injected — the image uses its Dockerfile defaults. This is the case for Core App skins that are self-contained.
+- If `container_env` is **non-empty**: the skin-specific static values are merged with dynamic infrastructure values (Terraform variables like `ADMIN_USERNAME`, blueprint interpolation like `CUOPT_ENDPOINT`) that can't live in the YAML catalog. Both sets are injected together.
+
+```yaml
+# Core App — no env overrides, uses image defaults
+container_env: []
+
+# Partner Contributed — needs PORT and NODE_ENV overrides
+container_env:
+  - key: "NODE_ENV"
+    value: "production"
+  - key: "PORT"
+    value: "3001"
+```
+
+This avoids a binary `inject_env` toggle and handles the case where two skins both need env vars but differ on specific values.
+
 ### `create_final_schema.py`
 
 The `inject_frontend_skin()` function runs **after** the common+category schema deep merge. It:
