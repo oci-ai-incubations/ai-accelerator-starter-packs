@@ -2,39 +2,39 @@
 learn_more_url: "https://github.com/oci-ai-incubations/ai-accelerator-starter-packs/blob/main/docs/skins/README.md"
 
 cuopt:
-  default: "Oracle Interactive - Route visualization"
+  default: "Vehicle Route Optimizer Frontend (Core App)"
   skins:
-    - key: "Oracle Interactive - Route visualization"
+    - key: "Vehicle Route Optimizer Frontend (Core App)"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2"
+      provider: "Oracle"
+    - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
       provider: "Oracle"
-    - key: "NVIDIA cuOpt - Solver dashboard"
-      image_uri: "nvcr.io/nvidia/cuopt-frontend:1.0.0"
-      provider: "NVIDIA"
 
 vss:
-  default: "Oracle Custom - Enhanced search"
+  default: "Oracle Custom - Enhanced search (Core App)"
   skins:
-    - key: "Oracle Custom - Enhanced search"
+    - key: "Oracle Custom - Enhanced search (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
       provider: "Oracle"
 
 paas_rag:
-  default: "Oracle Net - Chat interface"
+  default: "Oracle Net - Chat interface (Core App)"
   skins:
-    - key: "Oracle Net - Chat interface"
+    - key: "Oracle Net - Chat interface (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3"
       provider: "Oracle"
 
 enterprise_rag:
-  default: "Oracle RAG - Document chat"
+  default: "Oracle RAG - Document chat (Core App)"
   skins:
-    - key: "Oracle RAG - Document chat"
+    - key: "Oracle RAG - Document chat (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend:v0.0.2"
       provider: "Oracle"
 
 enterprise_rag_aiq:
-  default: "NVIDIA AIRA - Agentic workflows"
+  default: "NVIDIA AIRA - Agentic workflows (Core App)"
   skins:
-    - key: "NVIDIA AIRA - Agentic workflows"
+    - key: "NVIDIA AIRA - Agentic workflows (Core App)"
       image_uri: "nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0"
       provider: "NVIDIA"

@@ -54,13 +54,13 @@ variables {
   skip_capacity_check             = true
 }
 
-# Test: cuopt default skin resolves to Oracle Interactive
+# Test: cuopt default skin resolves to Core App
 run "cuopt_default_skin_resolves" {
   command = plan
 
   assert {
-    condition     = local.frontend_skin_name == "Oracle Interactive - Route visualization"
-    error_message = "cuopt default skin name should be 'Oracle Interactive - Route visualization'"
+    condition     = local.frontend_skin_name == "Vehicle Route Optimizer Frontend (Core App)"
+    error_message = "cuopt default skin name should be 'Vehicle Route Optimizer Frontend (Core App)'"
   }
 
   assert {
@@ -74,27 +74,27 @@ run "cuopt_default_skin_resolves" {
   }
 }
 
-# Test: cuopt explicit NVIDIA skin override resolves correctly
-run "cuopt_explicit_nvidia_skin" {
+# Test: cuopt explicit Partner Contributed skin override resolves correctly
+run "cuopt_explicit_partner_skin" {
   command = plan
 
   variables {
-    frontend_skin = "NVIDIA cuOpt - Solver dashboard"
+    frontend_skin = "Oracle Interactive - Route visualization (Partner Contributed)"
   }
 
   assert {
-    condition     = local.frontend_skin_name == "NVIDIA cuOpt - Solver dashboard"
-    error_message = "cuopt explicit skin name should be 'NVIDIA cuOpt - Solver dashboard'"
+    condition     = local.frontend_skin_name == "Oracle Interactive - Route visualization (Partner Contributed)"
+    error_message = "cuopt partner skin name should match selection"
   }
 
   assert {
-    condition     = local.frontend_skin_provider == "NVIDIA"
-    error_message = "cuopt explicit skin provider should be 'NVIDIA'"
+    condition     = local.frontend_skin_provider == "Oracle"
+    error_message = "cuopt partner skin provider should be 'Oracle'"
   }
 
   assert {
     condition     = local.frontend_skin_image_uri != ""
-    error_message = "cuopt explicit skin image_uri should not be empty"
+    error_message = "cuopt partner skin image_uri should not be empty"
   }
 }
 
@@ -107,8 +107,8 @@ run "vss_default_skin_resolves" {
   }
 
   assert {
-    condition     = local.frontend_skin_name == "Oracle Custom - Enhanced search"
-    error_message = "vss default skin name should be 'Oracle Custom - Enhanced search'"
+    condition     = local.frontend_skin_name == "Oracle Custom - Enhanced search (Core App)"
+    error_message = "vss default skin name should be 'Oracle Custom - Enhanced search (Core App)'"
   }
 
   assert {
@@ -132,8 +132,8 @@ run "paas_rag_default_skin_resolves" {
   }
 
   assert {
-    condition     = local.frontend_skin_name == "Oracle Net - Chat interface"
-    error_message = "paas_rag default skin name should be 'Oracle Net - Chat interface'"
+    condition     = local.frontend_skin_name == "Oracle Net - Chat interface (Core App)"
+    error_message = "paas_rag default skin name should be 'Oracle Net - Chat interface (Core App)'"
   }
 
   assert {
@@ -152,8 +152,8 @@ run "enterprise_rag_default_skin_resolves" {
   }
 
   assert {
-    condition     = local.frontend_skin_name == "Oracle RAG - Document chat"
-    error_message = "enterprise_rag default skin name should be 'Oracle RAG - Document chat'"
+    condition     = local.frontend_skin_name == "Oracle RAG - Document chat (Core App)"
+    error_message = "enterprise_rag default skin name should be 'Oracle RAG - Document chat (Core App)'"
   }
 
   assert {
@@ -172,8 +172,8 @@ run "enterprise_rag_aiq_default_skin_resolves" {
   }
 
   assert {
-    condition     = local.frontend_skin_name == "NVIDIA AIRA - Agentic workflows"
-    error_message = "enterprise_rag_aiq default skin name should be 'NVIDIA AIRA - Agentic workflows'"
+    condition     = local.frontend_skin_name == "NVIDIA AIRA - Agentic workflows (Core App)"
+    error_message = "enterprise_rag_aiq default skin name should be 'NVIDIA AIRA - Agentic workflows (Core App)'"
   }
 
   assert {
