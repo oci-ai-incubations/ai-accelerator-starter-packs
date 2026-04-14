@@ -131,7 +131,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
           image_pull_policy = "Always"
 
           port {
-            container_port = 3000
+            container_port = tonumber(local.frontend_skin_container_port)
             name           = "http"
           }
 

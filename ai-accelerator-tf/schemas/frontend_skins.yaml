@@ -7,9 +7,11 @@ cuopt:
     - key: "Vehicle Route Optimizer Frontend (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2"
       provider: "Oracle"
+      container_port: "3000"
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
       provider: "Oracle"
+      container_port: "80"
 
 vss:
   default: "Oracle Custom - Enhanced search (Core App)"
@@ -17,6 +19,7 @@ vss:
     - key: "Oracle Custom - Enhanced search (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
       provider: "Oracle"
+      container_port: "3000"
 
 paas_rag:
   default: "Oracle Net - Chat interface (Core App)"
@@ -24,6 +27,7 @@ paas_rag:
     - key: "Oracle Net - Chat interface (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3"
       provider: "Oracle"
+      container_port: "3000"
 
 enterprise_rag:
   default: "Oracle RAG - Document chat (Core App)"
@@ -31,6 +35,7 @@ enterprise_rag:
     - key: "Oracle RAG - Document chat (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend:v0.0.2"
       provider: "Oracle"
+      container_port: "3000"
 
 enterprise_rag_aiq:
   default: "NVIDIA AIRA - Agentic workflows (Core App)"
@@ -38,3 +43,4 @@ enterprise_rag_aiq:
     - key: "NVIDIA AIRA - Agentic workflows (Core App)"
       image_uri: "nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0"
       provider: "NVIDIA"
+      container_port: "3000"

@@ -22,7 +22,8 @@ locals {
   ][0]
 
   # The values consumers need
-  frontend_skin_image_uri = local.selected_skin.image_uri
-  frontend_skin_provider  = local.selected_skin.provider
-  frontend_skin_name      = local.selected_skin.key
+  frontend_skin_image_uri      = local.selected_skin.image_uri
+  frontend_skin_provider       = local.selected_skin.provider
+  frontend_skin_name           = local.selected_skin.key
+  frontend_skin_container_port = local.selected_skin.container_port
 }

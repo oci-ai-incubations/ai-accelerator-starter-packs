@@ -190,7 +190,7 @@ locals {
               recipe_flex_shape_memory_size_in_gbs = 8,
               recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "80",
+              recipe_container_port                = local.frontend_skin_container_port,
               service_endpoint_subdomain           = local.starter_pack_config.frontend_url
               recipe_container_env = [
                 { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
@@ -1526,7 +1526,7 @@ locals {
             recipe_flex_shape_memory_size_in_gbs = 32,
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
-            recipe_container_port                = "3000",
+            recipe_container_port                = local.frontend_skin_container_port,
             service_endpoint_subdomain           = local.starter_pack_config.frontend_url
             recipe_additional_ingress_ports = [
               {
