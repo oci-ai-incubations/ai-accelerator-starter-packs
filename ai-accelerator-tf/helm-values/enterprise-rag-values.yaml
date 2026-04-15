@@ -35,8 +35,8 @@ ngcApiSecret:
 
 # -- RAG server container image
 image:
-  repository: ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
-  tag: "v0.0.5"
+  repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
+  tag: "v0.0.6"
   pullPolicy: Always
 
 # -- RAG server service configuration
@@ -109,7 +109,7 @@ envVars:
   APP_RETRIEVER_TOPK: "10"
 
   ##===LLM Model specific configurations===
-  APP_LLM_MODELNAME: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+  APP_LLM_MODELNAME: "nvidia/nemotron-3-super-120b-a12b"
   # URL on which LLM model is hosted. If "", Nvidia hosted API is used
   APP_LLM_SERVERURL: "nim-llm:8000"
   # LLM model parameters
@@ -118,12 +118,12 @@ envVars:
   LLM_TOP_P: "1.0"
 
   ##===Query Rewriter Model specific configurations===
-  APP_QUERYREWRITER_MODELNAME: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+  APP_QUERYREWRITER_MODELNAME: "nvidia/nemotron-3-super-120b-a12b"
   # URL on which query rewriter model is hosted. If "", Nvidia hosted API is used
   APP_QUERYREWRITER_SERVERURL: "nim-llm:8000"
 
   ##===Filter Expression Generator Model specific configurations===
-  APP_FILTEREXPRESSIONGENERATOR_MODELNAME: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+  APP_FILTEREXPRESSIONGENERATOR_MODELNAME: "nvidia/nemotron-3-super-120b-a12b"
   # URL on which filter expression generator model is hosted. If "", Nvidia hosted API is used
   APP_FILTEREXPRESSIONGENERATOR_SERVERURL: "nim-llm:8000"
   # enable filter expression generator for natural language to filter expression conversion
@@ -131,16 +131,16 @@ envVars:
 
   ##===Embedding Model specific configurations===
   # URL on which embedding model is hosted. If "", Nvidia hosted API is used
-  APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000/v1"
-  APP_EMBEDDINGS_MODELNAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
+  APP_EMBEDDINGS_SERVERURL: "nemotron-embedding-ms:8000/v1"
+  APP_EMBEDDINGS_MODELNAME: "nvidia/llama-nemotron-embed-1b-v2"
 
   ##===Reranking Model specific configurations===
   # URL on which ranking model is hosted. If "", Nvidia hosted API is used
-  APP_RANKING_SERVERURL: "nemoretriever-ranking-ms:8000"
-  APP_RANKING_MODELNAME: "nvidia/llama-3.2-nv-rerankqa-1b-v2"
+  APP_RANKING_SERVERURL: "nemotron-ranking-ms:8000"
+  APP_RANKING_MODELNAME: "nvidia/llama-nemotron-rerank-1b-v2"
   ENABLE_RERANKER: "True"
-  # Default confidence threshold for filtering documents by reranker relevance scores (0.0 to 1.0)
-  RERANKER_CONFIDENCE_THRESHOLD: "0.0"
+  # Default score threshold for filtering documents by reranker relevance scores (0.0 to 1.0)
+  RERANKER_SCORE_THRESHOLD: "0.0"
 
   ##===VLM Model specific configurations===
   ENABLE_VLM_INFERENCE: "false"
@@ -194,7 +194,7 @@ envVars:
   # Minimum groundedness score threshold (0-2)
   RESPONSE_GROUNDEDNESS_THRESHOLD: "1"
   # reflection llm
-  REFLECTION_LLM: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+  REFLECTION_LLM: "nvidia/nemotron-3-super-120b-a12b"
   # reflection llm server url. If "", Nvidia hosted API is used
   REFLECTION_LLM_SERVERURL: "nim-llm:8000"
 
@@ -233,8 +233,8 @@ ingestor-server:
     password: ""
 
   image:
-    repository: ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
-    tag: "v0.0.3"
+    repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
+    tag: "v0.0.6"
     pullPolicy: Always
 
   # -- Service config for ingestor-server
@@ -282,8 +282,8 @@ ingestor-server:
     LLM_API_KEY: ""
 
     # === Embeddings Configurations ===
-    APP_EMBEDDINGS_SERVERURL: "nemoretriever-embedding-ms:8000/v1"
-    APP_EMBEDDINGS_MODELNAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
+    APP_EMBEDDINGS_SERVERURL: "nemotron-embedding-ms:8000/v1"
+    APP_EMBEDDINGS_MODELNAME: "nvidia/llama-nemotron-embed-1b-v2"
     APP_EMBEDDINGS_DIMENSIONS: "2048"
 
     # === NV-Ingest Configurations ===
@@ -291,10 +291,11 @@ ingestor-server:
     APP_NVINGEST_MESSAGECLIENTPORT: "7670"
 
     # === NV-Ingest extraction configurations ===
-    APP_NVINGEST_PDFEXTRACTMETHOD: "None"  # Method used for text extraction from "None", "pdfium", "nemoretriever_parse"
+    APP_NVINGEST_PDFEXTRACTMETHOD: "None"  # Method used for text extraction from "None", "pdfium", "nemotron_parse"
     APP_NVINGEST_EXTRACTTEXT: "True"  # Enable text extraction
     APP_NVINGEST_EXTRACTINFOGRAPHICS: "False"  # Enable infographic extraction
     APP_NVINGEST_EXTRACTTABLES: "True"  # Enable table extraction
+    APP_NVINGEST_EXTRACTTABLESMETHOD: "yolox"  # Method for table extraction: "yolox", "nemotron_parse", or None
     APP_NVINGEST_EXTRACTCHARTS: "True"  # Enable chart extraction
     APP_NVINGEST_EXTRACTIMAGES: "False"  # Enable image extraction
     APP_NVINGEST_EXTRACTPAGEASIMAGE: "False"  # Extracts each page as image if enabled
@@ -312,7 +313,7 @@ ingestor-server:
 
     # === General ===
     # Summary Model Configurations
-    SUMMARY_LLM: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+    SUMMARY_LLM: "nvidia/nemotron-3-super-120b-a12b"
     SUMMARY_LLM_SERVERURL: "nim-llm:8000"
     SUMMARY_LLM_MAX_CHUNK_LENGTH: "50000"
     SUMMARY_CHUNK_OVERLAP: "200"
@@ -545,118 +546,135 @@ zipkin:
 #     adminUser: REPLACE_HERE
 #     adminPassword: REPLACE_HERE
 
-# -- NIMs (dependencies) configuration
-# subsection: nim-llm
-# NIM LLM
-nim-llm:
-  enabled: true
-  nodeSelector:
-    workload: nim-llm
-  tolerations:
-    - key: workload
-      operator: Equal
-      value: nim-llm
-      effect: NoSchedule
-  service:
-    name: "nim-llm"
-  image:
-    repository: nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5
-    pullPolicy: IfNotPresent
-    tag: "1.14.0"
-  resources:
-    limits:
-      nvidia.com/gpu: "8"
-    requests:
-      nvidia.com/gpu: "8"
-  
-  env:
-    - name: NIM_MODEL_PROFILE
-      value: 089d3c0d578020772271e4637f690b66a5054b68151361ba80df2aff9717aea8
-    - name: NIM_GPU_MEMORY_UTILIZATION
-      value: "0.90"
+# -- NIMs deployed via NIM Operator (v2.5.0 requires apps.nvidia.com/v1alpha1 CRDs)
+nimOperator:
+  draResources:
+    enabled: false
+    name: "rag-claim"
+    type: "TimeSlicing"
 
-  volumes:
-    - name: dshm
-      emptyDir:
-        medium: Memory
-        sizeLimit: "64Gi"
-  
-  volumeMounts:
-    - name: dshm
-      mountPath: "/dev/shm"
+  # NIM LLM (Nemotron 3 Super 120B — 2 GPUs)
+  nim-llm:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nvcr.io/nim/nvidia/nemotron-3-super-120b-a12b
+      pullPolicy: IfNotPresent
+      tag: "1.8.0"
+    resources:
+      limits:
+        nvidia.com/gpu: "8"
+      requests:
+        nvidia.com/gpu: "8"
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    storage:
+      pvc:
+        create: true
+        size: "500Gi"
+    env:
+      - name: NIM_HTTP_API_PORT
+        value: "8000"
+      - name: NIM_SERVED_MODEL_NAME
+        value: "nvidia/nemotron-3-super-120b-a12b"
+      - name: NIM_MAX_MODEL_LEN
+        value: "32768"
+    expose:
+      service:
+        type: ClusterIP
+        port: 8000
+        grpcPort: 8001
 
-  model:
-    ngcAPIKey: ""
-    name: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
-    hfTokenSecret: ""
+  # NIM Text Embedding
+  nvidia-nim-llama-32-nv-embedqa-1b-v2:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nvcr.io/nim/nvidia/llama-nemotron-embed-1b-v2
+      tag: "1.13.0"
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+      requests:
+        nvidia.com/gpu: 1
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    storage:
+      pvc:
+        create: true
+        size: "50Gi"
+    env:
+      - name: OMP_NUM_THREADS
+        value: "1"
+      - name: NIM_TRITON_PERFORMANCE_MODE
+        value: "throughput"
+    expose:
+      service:
+        type: ClusterIP
+        port: 8000
+        name: "nemotron-embedding-ms"
 
-# subsection: nvidia-nim-llama-32-nv-embedqa-1b-v2
-# NIM Text Embedding
-nvidia-nim-llama-32-nv-embedqa-1b-v2:
-  enabled: true
-  service:
-    name: "nemoretriever-embedding-ms"
-  image:
-    repository: nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2
-    tag: "1.10.1"
-  resources:
-    limits:
-      nvidia.com/gpu: 1
-    requests:
-      nvidia.com/gpu: 1
-  nim:
-    ngcAPIKey: ""
+  # NIM VLM Embedding (disabled)
+  nvidia-nim-llama-nemotron-embed-vl-1b-v2:
+    enabled: false
+    image:
+      repository: nvcr.io/nim/nvidia/llama-nemotron-embed-vl-1b-v2
+      tag: "1.12.0"
+    storage:
+      pvc:
+        create: true
+        size: "50Gi"
+    expose:
+      service:
+        type: ClusterIP
+        port: 8000
+        name: "nemotron-vlm-embedding-ms"
 
-# subsection: nvidia-nim-llama-32-nemoretriever-1b-vlm-embed-v1
-# NIM VLM Embedding
-nvidia-nim-llama-32-nemoretriever-1b-vlm-embed-v1:
-  enabled: false
-  service:
-    name: "nemoretriever-vlm-embedding-ms"
-  image:
-    repository: nvcr.io/nvidia/nemo-microservices/llama-3.2-nemoretriever-1b-vlm-embed-v1
-    tag: "1.7.0"
-  resources:
-    limits:
-      nvidia.com/gpu: 1
-    requests:
-      nvidia.com/gpu: 1
-  nim:
-    ngcAPIKey: ""
+  # NIM Text Reranking
+  nvidia-nim-llama-32-nv-rerankqa-1b-v2:
+    enabled: true
+    replicas: 1
+    image:
+      repository: nvcr.io/nim/nvidia/llama-nemotron-rerank-1b-v2
+      tag: "1.10.0"
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+      requests:
+        nvidia.com/gpu: 1
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    storage:
+      pvc:
+        create: true
+        size: "50Gi"
+    expose:
+      service:
+        type: ClusterIP
+        port: 8000
+        name: "nemotron-ranking-ms"
 
-# subsection: text-reranking-nim
-# NIM Text Reranking
-nvidia-nim-llama-32-nv-rerankqa-1b-v2:
-  enabled: true
-  service:
-    name: "nemoretriever-ranking-ms"
-  image:
-    repository: nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2
-    tag: "1.8.0"
-  resources:
-    limits:
-      nvidia.com/gpu: 1
-    requests:
-      nvidia.com/gpu: 1
-  nim:
-    ngcAPIKey: ""
-
-# subsection: nim-vlm
-# NIM Vision-Language (VLM)
-nim-vlm:
-  enabled: false
-  service:
-    name: "nim-vlm"
-  image:
-    repository: nvcr.io/nim/nvidia/llama-3.1-nemotron-nano-vl-8b-v1
-    tag: "1.3.1"
-  resources:
-    limits:
-      nvidia.com/gpu: 1
-    requests:
-      nvidia.com/gpu: 1
-  nim:
-    ngcAPIKey: ""
+  # NIM Vision-Language (disabled)
+  nim-vlm:
+    enabled: false
+    image:
+      repository: nvcr.io/nim/nvidia/nemotron-nano-12b-v2-vl
+      tag: "1.5.0"
+    storage:
+      pvc:
+        create: true
+        size: "50Gi"
+    expose:
+      service:
+        type: ClusterIP
+        port: 8000
+        name: "nim-vlm"
 
 # -- NV-Ingest dependency configuration
 # subsection: nv-ingest
@@ -677,6 +695,10 @@ nv-ingest:
   resources:
     limits:
       nvidia.com/gpu: 0
+      memory: "48Gi"
+    requests:
+      memory: "24Gi"
+      cpu: "24000m"
   envVars:
     ARROW_DEFAULT_MEMORY_POOL: "system"
     INGEST_LOG_LEVEL: WARNING
@@ -692,8 +714,8 @@ nv-ingest:
     REDIS_INGEST_TASK_QUEUE: "ingest_task_queue"
     NV_INGEST_DEFAULT_TIMEOUT_MS: "1234"
     MAX_INGEST_PROCESS_WORKERS: 16
-    EMBEDDING_NIM_ENDPOINT: "http://nemoretriever-embedding-ms:8000/v1"
-    EMBEDDING_NIM_MODEL_NAME: "nvidia/llama-3.2-nv-embedqa-1b-v2"
+    EMBEDDING_NIM_ENDPOINT: "http://nemotron-embedding-ms:8000/v1"
+    EMBEDDING_NIM_MODEL_NAME: "nvidia/llama-nemotron-embed-1b-v2"
     MESSAGE_CLIENT_HOST: "rag-redis-master"
     MESSAGE_CLIENT_PORT: 6379
     MESSAGE_CLIENT_TYPE: "redis"
@@ -704,25 +726,25 @@ nv-ingest:
     MODEL_PREDOWNLOAD_PATH: "/workspace/models/"
     INSTALL_AUDIO_EXTRACTION_DEPS: "true"
 
-    # Paddle OCR endpoints
-    PADDLE_GRPC_ENDPOINT: nv-ingest-ocr:8001
-    PADDLE_HTTP_ENDPOINT: http://nv-ingest-ocr:8000/v1/infer
+    # OCR endpoints (NIM Operator service name: nemoretriever-ocr-v1)
+    PADDLE_GRPC_ENDPOINT: nemoretriever-ocr-v1:8001
+    PADDLE_HTTP_ENDPOINT: http://nemoretriever-ocr-v1:8000/v1/infer
     PADDLE_INFER_PROTOCOL: grpc
 
-    # OCR routing (defaults to Paddle OCR service)
-    OCR_GRPC_ENDPOINT: nv-ingest-ocr:8001
-    OCR_HTTP_ENDPOINT: http://nv-ingest-ocr:8000/v1/infer
+    # OCR routing
+    OCR_GRPC_ENDPOINT: nemoretriever-ocr-v1:8001
+    OCR_HTTP_ENDPOINT: http://nemoretriever-ocr-v1:8000/v1/infer
     OCR_INFER_PROTOCOL: grpc
-    OCR_MODEL_NAME: paddle
+    OCR_MODEL_NAME: scene_text_ensemble
 
-    # NeMo Retriever Parse (VLM text extraction)
-    NEMORETRIEVER_PARSE_HTTP_ENDPOINT: http://nim-vlm-text-extraction-nemoretriever-parse:8000/v1/chat/completions
+    # Nemotron Parse (VLM text extraction)
+    NEMORETRIEVER_PARSE_HTTP_ENDPOINT: http://nim-vlm-text-extraction-nemotron-parse:8000/v1/chat/completions
     NEMORETRIEVER_PARSE_INFER_PROTOCOL: http
-    NEMORETRIEVER_PARSE_MODEL_NAME: nvidia/nemoretriever-parse
+    NEMORETRIEVER_PARSE_MODEL_NAME: nvidia/nemotron-parse
 
-    # YOLOX endpoints
-    YOLOX_GRPC_ENDPOINT: nemoretriever-page-elements-v2:8001
-    YOLOX_HTTP_ENDPOINT: http://nemoretriever-page-elements-v2:8000/v1/infer
+    # YOLOX endpoints (NIM Operator service names use nemoretriever-* prefix)
+    YOLOX_GRPC_ENDPOINT: nemoretriever-page-elements-v3:8001
+    YOLOX_HTTP_ENDPOINT: http://nemoretriever-page-elements-v3:8000/v1/infer
     YOLOX_INFER_PROTOCOL: grpc
     YOLOX_GRAPHIC_ELEMENTS_GRPC_ENDPOINT: nemoretriever-graphic-elements-v1:8001
     YOLOX_GRAPHIC_ELEMENTS_HTTP_ENDPOINT: http://nemoretriever-graphic-elements-v1:8000/v1/infer
@@ -756,9 +778,9 @@ nv-ingest:
   zipkinDeployed: false
 
   # Sub-NIMs deployed by NV-Ingest
-  # NIM OCR (PaddleOCR)
-  paddleocr-nim:
-    deployed: true
+  # OCR NIM (using PaddleOCR image via nemoretriever_ocr_v1 key)
+  nemoretriever_ocr_v1:
+    enabled: true
     replicaCount: 1
     image:
       repository: nvcr.io/nim/baidu/paddleocr
@@ -784,47 +806,13 @@ nv-ingest:
       requests:
         nvidia.com/gpu: 1
 
-  # Nemo Retriever OCR
-  nemoretriever-ocr:
-    deployed: false
-    replicaCount: 1
-    image:
-      repository: nvcr.io/nvidia/nemo-microservices/nemoretriever-ocr-v1
-      tag: "1.1.0"
-    imagePullSecrets:
-      - name: ngc-secret
-    env:
-      - name: NIM_HTTP_API_PORT
-        value: "8000"
-      - name: NIM_TRITON_LOG_VERBOSE
-        value: "1"
-      - name: NIM_TRITON_RATE_LIMIT
-        value: "1"
-      - name: CUDA_VISIBLE_DEVICES
-        value: "0"
-      - name: NIM_TRITON_MAX_BATCH_SIZE
-        value: "32"
-      - name: NIM_TRITON_CUDA_MEMORY_POOL_MB
-        value: "2048"
-      - name: NIM_TRITON_CPU_THREADS_PRE_PROCESSOR
-        value: "2"
-      - name: NIM_TRITON_CPU_THREADS_POST_PROCESSOR
-        value: "1"
-      - name: OMP_NUM_THREADS
-        value: "1"
-    resources:
-      limits:
-        nvidia.com/gpu: 1
-      requests:
-        nvidia.com/gpu: 1
-
   # NIM Graphic Elements
-  nemoretriever-graphic-elements-v1:
+  graphic_elements:
     deployed: true
     replicaCount: 1
     image:
-      repository: nvcr.io/nim/nvidia/nemoretriever-graphic-elements-v1
-      tag: "1.5.0"
+      repository: nvcr.io/nim/nvidia/nemotron-graphic-elements-v1
+      tag: "1.8.0"
     env:
       - name: NIM_HTTP_API_PORT
         value: "8000"
@@ -847,12 +835,12 @@ nv-ingest:
         nvidia.com/gpu: 1
 
   # NIM Page Elements
-  nemoretriever-page-elements-v2:
+  page_elements:
     deployed: true
     replicaCount: 1
     image:
-      repository: nvcr.io/nim/nvidia/nemoretriever-page-elements-v2
-      tag: "1.5.0"
+      repository: nvcr.io/nim/nvidia/nemotron-page-elements-v3
+      tag: "1.8.0"
     env:
       - name: NIM_HTTP_API_PORT
         value: "8000"
@@ -893,12 +881,12 @@ nv-ingest:
         nvidia.com/gpu: 1
 
   # NIM Table Structure
-  nemoretriever-table-structure-v1:
+  table_structure:
     deployed: true
     replicaCount: 1
     image:
-      repository: nvcr.io/nim/nvidia/nemoretriever-table-structure-v1
-      tag: "1.5.0"
+      repository: nvcr.io/nim/nvidia/nemotron-table-structure-v1
+      tag: "1.8.0"
     env:
       - name: NIM_HTTP_API_PORT
         value: "8000"
@@ -920,9 +908,9 @@ nv-ingest:
       requests:
         nvidia.com/gpu: 1
 
-  # NIM VLM Text Extraction
-  nim-vlm-text-extraction:
-    deployed: false
+  # NIM VLM Text Extraction (Nemotron Parse)
+  nemotron_parse:
+    enabled: false
     image:
-      repository: nvcr.io/nim/nvidia/nemoretriever-parse
-      tag: "1.2"
+      repository: nvcr.io/nim/nvidia/nemotron-parse
+      tag: "1.5.0"
