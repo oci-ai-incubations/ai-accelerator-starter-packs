@@ -721,9 +721,11 @@ nv-ingest:
     MINIO_PUBLIC_ADDRESS: "http://localhost:9000"
     MINIO_BUCKET: "nv-ingest"
     MILVUS_ENDPOINT: "http://milvus:19530"
-    OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"
+    OTEL_TRACES_EXPORTER: "none"
+    OTEL_METRICS_EXPORTER: "none"
     MODEL_PREDOWNLOAD_PATH: "/workspace/models/"
-    INSTALL_AUDIO_EXTRACTION_DEPS: "true"
+    INSTALL_AUDIO_EXTRACTION_DEPS: "false"
 
     # Paddle OCR endpoints
     PADDLE_GRPC_ENDPOINT: nemoretriever-ocr-v1:8001
