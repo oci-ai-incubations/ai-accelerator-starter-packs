@@ -457,116 +457,9 @@ resource "kubernetes_namespace_v1" "aiq_namespace" {
   }
 }
 
-# Reserve the first GPU node (sorted by name) exclusively for the nim-llm pod.
-# The taint (workload=nim-llm:NoSchedule) prevents 1-GPU inference pods from
-# scheduling there; nim-llm's nodeSelector + toleration ensure it lands on it.
-resource "terraform_data" "label_nim_llm_node" {
-  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
-
-  input = {
-    kubeconfig = local_sensitive_file.kubeconfig_patch[0].filename
-  }
-
-  triggers_replace = [
-    local.cluster_id,
-    "label_nim_llm_node_v2"
-  ]
-
-  depends_on = [
-    oci_core_instance_pool.worker_nodes_pool,
-    oci_core_cluster_network.worker_nodes_cluster_network,
-    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-    local_sensitive_file.kubeconfig_patch
-  ]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename}
-      NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')
-      kubectl label node "$NODE" workload=nim-llm --overwrite
-      kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
-    EOT
-  }
-
-  # Clean up taints on app stack destroy so the two-stack model starts with
-  # clean node state for the next app deployment. (BUG-009)
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      export KUBECONFIG=${self.output.kubeconfig}
-      echo "Cleaning up nim-llm taints from all GPU nodes..."
-      for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-        kubectl taint node "$NODE" workload=nim-llm:NoSchedule- 2>/dev/null && echo "  Removed taint from $NODE" || true
-        kubectl label node "$NODE" workload- 2>/dev/null || true
-      done
-      echo "Taint cleanup complete."
-    EOT
-  }
-}
-
-resource "terraform_data" "label_nim_llm_node_via_operator" {
-  count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
-
-  input = {
-    operator_ip     = oci_core_instance.operator[0].private_ip
-    bastion_ip      = oci_core_instance.bastion[0].public_ip
-    ssh_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
-  }
-
-  triggers_replace = [
-    local.cluster_id,
-    "label_nim_llm_node_v2"
-  ]
-
-  # No resource-level connection block — Terraform validates it against destroy
-  # provisioner rules when any destroy provisioner exists on the resource.
-  # Both provisioners define their own connection instead.
-
-  provisioner "remote-exec" {
-    connection {
-      type                = "ssh"
-      user                = "opc"
-      host                = self.output.operator_ip
-      private_key         = self.output.ssh_private_key
-      bastion_host        = self.output.bastion_ip
-      bastion_user        = "opc"
-      bastion_private_key = self.output.ssh_private_key
-      timeout             = "30m"
-    }
-    inline = [
-      "NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')",
-      "kubectl label node \"$NODE\" workload=nim-llm --overwrite",
-      "kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule --overwrite"
-    ]
-  }
-
-  # Clean up taints on app stack destroy (BUG-009)
-  provisioner "remote-exec" {
-    when = destroy
-    connection {
-      type                = "ssh"
-      user                = "opc"
-      host                = self.output.operator_ip
-      private_key         = self.output.ssh_private_key
-      bastion_host        = self.output.bastion_ip
-      bastion_user        = "opc"
-      bastion_private_key = self.output.ssh_private_key
-      timeout             = "30m"
-    }
-    inline = [
-      "echo 'Cleaning up nim-llm taints from all GPU nodes...'",
-      "for NODE in $(kubectl get nodes -l 'nvidia.com/gpu.present=true' -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do kubectl taint node \"$NODE\" workload=nim-llm:NoSchedule- 2>/dev/null && echo \"  Removed taint from $NODE\" || true; kubectl label node \"$NODE\" workload- 2>/dev/null || true; done",
-      "echo 'Taint cleanup complete.'"
-    ]
-  }
-
-  depends_on = [
-    null_resource.operator_ready,
-    oci_core_instance_pool.worker_nodes_pool,
-    oci_core_cluster_network.worker_nodes_cluster_network,
-    kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-  ]
-}
+# NIM Operator handles GPU node scheduling via NIMCache/NIMService CRs.
+# The workload=nim-llm taint is no longer applied — the nvidia.com/gpu taint
+# from GPU Feature Discovery is sufficient, and NIMCache CRs include tolerations.
 
 # Read the NGC API key created by configure_oke.py to authenticate with NGC helm registry
 data "kubernetes_secret_v1" "ngc_api_secret" {
@@ -578,12 +471,29 @@ data "kubernetes_secret_v1" "ngc_api_secret" {
   depends_on = [kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
 }
 
+resource "helm_release" "nim_operator" {
+  count            = local.deploy_app_rag ? 1 : 0
+  name             = "nim-operator"
+  repository       = "https://helm.ngc.nvidia.com/nvidia"
+  chart            = "k8s-nim-operator"
+  version          = "3.1.0"
+  namespace        = "nim-operator"
+  create_namespace = true
+  wait             = true
+  timeout          = 600
+
+  repository_username = "$oauthtoken"
+  repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
+
+  depends_on = [helm_release.nvidia-gpu-operator, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job]
+}
+
 resource "helm_release" "rag" {
   name             = "rag"
   namespace        = local.starter_pack_config.app_namespace
   create_namespace = true
 
-  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz"
+  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.5.0.tgz"
 
   repository_username = "$oauthtoken"
   repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
@@ -637,14 +547,6 @@ resource "helm_release" "rag" {
         value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       },
       {
-        name  = "nim-llm.image.repository"
-        value = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
-      },
-      {
-        name  = "nim-llm.image.tag"
-        value = "1.14.0"
-      },
-      {
         name  = "frontend.image.repository"
         value = split(":", local.frontend_skin_image_uri)[0]
       },
@@ -668,7 +570,8 @@ resource "helm_release" "rag" {
   count = local.deploy_app_rag ? 1 : 0
   depends_on = [
     oci_core_instance_pool.worker_nodes_pool, oci_core_cluster_network.worker_nodes_cluster_network, kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
-    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret, terraform_data.label_nim_llm_node, terraform_data.label_nim_llm_node_via_operator
+    oci_database_autonomous_database.oracle_26ai, kubernetes_secret_v1.oci_config_secret,
+    helm_release.nim_operator
   ]
 }
 
