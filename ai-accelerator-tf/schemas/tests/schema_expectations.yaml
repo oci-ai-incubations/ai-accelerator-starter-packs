@@ -26,6 +26,10 @@ required_outputs:
   - worker_ssh_via_bastion_command
   - corrino_admin_username
   - corrino_admin_password
+  - frontend_skin_name
+  - frontend_skin_image_uri
+  - frontend_skin_provider
+  - frontend_skins_learn_more
 
 # Variables that must exist in every schema
 required_variables:
@@ -38,6 +42,7 @@ required_variables:
   - corrino_admin_username
   - corrino_admin_password
   - corrino_admin_email
+  - frontend_skin
 
 # Per-category: required outputs/variables, absent checks, property assertions
 # absent_* = names that must NOT exist (different from visible:false, which hides but keeps in schema)
@@ -53,6 +58,8 @@ category_specific:
       cuopt_frontend_enabled:
         visible: true
         type: boolean
+      frontend_skin:
+        type: enum
     output_properties:
       starter_pack_url:
         type: string
@@ -65,6 +72,9 @@ category_specific:
       db_password:
         visible: true
         type: password
+      frontend_skin:
+        type: enum
+        visible: true
     output_properties:
       starter_pack_url:
         type: string
@@ -78,6 +88,9 @@ category_specific:
         visible: false
       db_username:
         visible: false
+      frontend_skin:
+        type: enum
+        visible: true
     output_properties:
       starter_pack_url:
         type: string
@@ -100,7 +113,16 @@ category_specific:
       db_password:
         type: password
         required: true
+      frontend_skin:
+        type: enum
+        visible: true
     output_properties:
       starter_pack_url:
         type: string
+        visible: true
+
+  enterprise_rag_aiq:
+    variable_properties:
+      frontend_skin:
+        type: enum
         visible: true

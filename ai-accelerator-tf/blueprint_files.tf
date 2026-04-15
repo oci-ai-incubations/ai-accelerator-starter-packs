@@ -184,13 +184,13 @@ locals {
               recipe_id                            = "demo",
               deployment_name                      = "demo",
               recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3",
+              recipe_image_uri                     = local.frontend_skin_image_uri,
               recipe_replica_count                 = 1,
               recipe_flex_shape_ocpu_count         = 1,
               recipe_flex_shape_memory_size_in_gbs = 8,
               recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "80",
+              recipe_container_port                = local.frontend_skin_container_port,
               service_endpoint_subdomain           = local.starter_pack_config.frontend_url
               recipe_container_env = [
                 { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
@@ -1520,13 +1520,13 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3",
+            recipe_image_uri                     = local.frontend_skin_image_uri,
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
-            recipe_container_port                = "3000",
+            recipe_container_port                = local.frontend_skin_container_port,
             service_endpoint_subdomain           = local.starter_pack_config.frontend_url
             recipe_additional_ingress_ports = [
               {

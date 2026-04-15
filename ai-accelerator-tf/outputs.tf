@@ -300,3 +300,24 @@ output "ai_accelerator_stack_version" {
   description = "AI Accelerator Starter Packs stack version"
   value       = file("${path.module}/AI_ACCELERATOR_STACK_VERSION")
 }
+
+# Frontend Skin Information
+output "frontend_skin_name" {
+  description = "Selected frontend skin"
+  value       = local.deploy_application ? local.frontend_skin_name : null
+}
+
+output "frontend_skin_image_uri" {
+  description = "Container image URI for the selected frontend skin"
+  value       = local.deploy_application ? local.frontend_skin_image_uri : null
+}
+
+output "frontend_skin_provider" {
+  description = "Provider of the selected frontend skin"
+  value       = local.deploy_application ? local.frontend_skin_provider : null
+}
+
+output "frontend_skins_learn_more" {
+  description = "URL for frontend skin documentation"
+  value       = local.frontend_skins_catalog.learn_more_url
+}

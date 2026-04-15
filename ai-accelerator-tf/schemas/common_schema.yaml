@@ -33,6 +33,13 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
+  - title: "Frontend Skin"
+    outputs:
+      - frontend_skin_name
+      - frontend_skin_image_uri
+      - frontend_skin_provider
+      - frontend_skins_learn_more
+
   - title: "Bastion Access"
     outputs:
       - bastion_ssh_target
@@ -122,6 +129,10 @@ variables:
 
   # Category is set via starter_pack_category.auto.tfvars
   starter_pack_category:
+    type: string
+    visible: false
+
+  frontend_skin:
     type: string
     visible: false
 
@@ -612,6 +623,27 @@ outputs:
   autonomous_database_id:
     type: ocid
     title: "Database OCID"
+    visible: true
+
+  frontend_skin_name:
+    type: string
+    title: "Frontend Skin"
+    visible: true
+
+  frontend_skin_image_uri:
+    type: copyableString
+    title: "Frontend Image"
+    visible: true
+
+  frontend_skin_provider:
+    type: string
+    title: "Frontend Provider"
+    visible: true
+
+  frontend_skins_learn_more:
+    type: link
+    title: "Frontend Skin Details"
+    displayText: "Learn More"
     visible: true
 
   # Hidden outputs

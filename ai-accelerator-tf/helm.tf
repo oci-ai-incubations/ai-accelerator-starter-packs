@@ -641,6 +641,14 @@ resource "helm_release" "rag" {
       {
         name  = "nim-llm.image.tag"
         value = "1.14.0"
+      },
+      {
+        name  = "frontend.image.repository"
+        value = split(":", local.frontend_skin_image_uri)[0]
+      },
+      {
+        name  = "frontend.image.tag"
+        value = split(":", local.frontend_skin_image_uri)[1]
       }
     ],
     # Oracle 26ai connection string is only needed for enterprise_rag (not enterprise_rag_aiq)

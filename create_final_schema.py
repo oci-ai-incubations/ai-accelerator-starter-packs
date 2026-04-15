@@ -108,6 +108,44 @@ def represent_str(dumper, data):
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
+def inject_frontend_skin(merged_schema, skins_data, category, learn_more_url):
+    """Inject frontend_skin enum variable into the merged schema."""
+    if category not in skins_data:
+        return  # No skins defined for this category
+
+    category_skins = skins_data[category]
+    skin_keys = [skin["key"] for skin in category_skins["skins"]]
+    default_skin = category_skins["default"]
+
+    # Build the variable definition
+    skin_var = {
+        "type": "enum",
+        "title": "Frontend Skin",
+        "description": (
+            "Select a frontend UI for this deployment. "
+            f"<a href='{learn_more_url}'>Learn more about available skins</a>"
+        ),
+        "enum": skin_keys,
+        "default": default_skin,
+        "required": True,
+        "visible": True,
+    }
+
+    # cuopt: only show skin selector when frontend is enabled
+    if category == "cuopt":
+        skin_var["visible"] = {"and": ["cuopt_frontend_enabled"]}
+
+    # Inject into variables section
+    merged_schema.setdefault("variables", {})["frontend_skin"] = skin_var
+
+    # Append to "Deployment Configuration" variable group
+    for group in merged_schema.get("variableGroups", []):
+        if group.get("title") == "Deployment Configuration":
+            if "frontend_skin" not in group["variables"]:
+                group["variables"].append("frontend_skin")
+            break
+
+
 CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"]
 
 
@@ -119,7 +157,7 @@ def get_args():
     return parser.parse_args()
 
 
-def generate_schema_for_category(common: dict, category: str, schemas_dir: Path, output_path: Path) -> None:
+def generate_schema_for_category(common: dict, category: str, schemas_dir: Path, output_path: Path, skins_data: dict = None) -> None:
     """Generate merged schema for a single category and write to output_path."""
     category_path = schemas_dir / f"{category}_schema.yaml"
     if category_path.exists():
@@ -127,7 +165,12 @@ def generate_schema_for_category(common: dict, category: str, schemas_dir: Path,
             category_schema = yaml.safe_load(f)
         final = deep_merge(common, category_schema)
     else:
-        final = common
+        final = deepcopy(common)
+
+    # Inject frontend skin enum after merge (overwrites hidden fallback from common)
+    if skins_data:
+        learn_more_url = skins_data.get("learn_more_url", "")
+        inject_frontend_skin(final, skins_data, category, learn_more_url)
 
     with open(output_path, 'w') as f:
         f.write("# AUTO-GENERATED - Do not edit directly!\n")
@@ -154,6 +197,13 @@ def main():
     with open(common_path) as f:
         common = yaml.safe_load(f)
 
+    # Load frontend skins catalog
+    skins_path = schemas_dir / "frontend_skins.yaml"
+    skins_data = None
+    if skins_path.exists():
+        with open(skins_path) as f:
+            skins_data = yaml.safe_load(f)
+
     yaml.add_representer(str, represent_str)
 
     if args.all:
@@ -162,7 +212,7 @@ def main():
         for category in CATEGORIES:
             print(f"Building schema for category: {category}")
             output_path = generated_dir / f"{category}_schema.yaml"
-            generate_schema_for_category(common, category, schemas_dir, output_path)
+            generate_schema_for_category(common, category, schemas_dir, output_path, skins_data)
             print(f"  Generated: {output_path}")
         print("Done!")
     else:
@@ -178,7 +228,7 @@ def main():
             print(f"Warning: {tfvars_path} not found, skipping update")
 
         output_path = tf_dir / "schema.yaml"
-        generate_schema_for_category(common, category, schemas_dir, output_path)
+        generate_schema_for_category(common, category, schemas_dir, output_path, skins_data)
         print(f"Generated: {output_path}")
         print("Done!")
 

@@ -28,7 +28,7 @@ locals {
   # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
   vss_oracle_ux = {
     # image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-prod-0.0.4"
-    image_uri                  = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
+    image_uri                  = local.frontend_skin_image_uri
     download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-prod-0.0.4"
     # vss_backend_service is dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
     vss_backend_deployment = "recipe-vss-deployment"
@@ -131,7 +131,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
           image_pull_policy = "Always"
 
           port {
-            container_port = 3000
+            container_port = tonumber(local.frontend_skin_container_port)
             name           = "http"
           }
 
