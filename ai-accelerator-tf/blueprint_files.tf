@@ -1503,120 +1503,88 @@ locals {
       ]
     }
   })
+  _paas_rag_frontend_deployments = [
+    for skin in local.enabled_frontend_skins : {
+      name       = skin.variable_name
+      depends_on = ["llamastack"]
+      recipe = {
+        recipe_id                            = replace(skin.variable_name, "_", "-")
+        deployment_name                      = replace(skin.variable_name, "_", "-")
+        recipe_mode                          = "service"
+        recipe_image_uri                     = skin.image_uri
+        recipe_replica_count                 = 1
+        recipe_flex_shape_ocpu_count         = 4
+        recipe_flex_shape_memory_size_in_gbs = 32
+        recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+        recipe_use_shared_node_pool          = true
+        recipe_container_port                = skin.container_port
+        service_endpoint_subdomain           = skin.subdomain
+        recipe_additional_ingress_ports = [
+          { port_name = "models", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/models", path_type = "Prefix" },
+          { port_name = "health", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/health", path_type = "Prefix" },
+          { port_name = "responses", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/responses", path_type = "Prefix" },
+          { port_name = "vectorstores", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/vector_stores", path_type = "Prefix" },
+          { port_name = "files", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/files", path_type = "Prefix" },
+          { port_name = "base", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
+        ]
+      }
+    }
+  ]
 
   _paas_rag_small_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
-        {
-          name    = "llamastack"
-          exports = ["service_name"]
-          recipe = merge(
-            {
-              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
-              recipe_id                             = "llamastack"
-              recipe_mode                           = "service"
-              deployment_name                       = "llamastack"
-              recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-              recipe_node_pool_size                 = local.starter_pack_config.cpu_worker_node_pool_size
-              recipe_use_shared_node_pool           = true
-              recipe_replica_count                  = 1
-              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
-              recipe_container_command_args         = ["/config/config.yaml"]
-              recipe_container_env = [
-                { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
-                { "key" = "OCI26AI_USER", value = var.db_username },
-                { "key" = "OCI26AI_PASSWORD", value = var.db_password },
-                { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
-                { "key" = "OCI_REGION", value = var.genai_region },
-                { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
-                { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store" },
-                { "key" = "S3_BUCKET_NAME", value = local.bucket_name },
-                { "key" = "AWS_REGION", value = var.region },
-                { "key" = "AWS_ACCESS_KEY_ID", value = local.aws_compat_access_key_id },
-                { "key" = "AWS_SECRET_ACCESS_KEY", value = local.aws_compat_access_key_key },
-                { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
-                { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
-                { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
-              ],
-              pvcs = {
-                retain_after_undeploy = false
-                volumes = [
-                  { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
+      deployments = concat(
+        [
+          {
+            name    = "llamastack"
+            exports = ["service_name"]
+            recipe = merge(
+              {
+                recipe_id                     = "llamastack"
+                recipe_mode                   = "service"
+                deployment_name               = "llamastack"
+                recipe_node_shape             = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+                recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
+                recipe_use_shared_node_pool   = true
+                recipe_replica_count          = 1
+                recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
+                recipe_container_command_args = ["/config/config.yaml"]
+                recipe_container_env = [
+                  { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
+                  { "key" = "OCI26AI_USER", value = var.db_username },
+                  { "key" = "OCI26AI_PASSWORD", value = var.db_password },
+                  { "key" = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
+                  { "key" = "OCI_REGION", value = var.genai_region },
+                  { "key" = "OCI_AUTH_TYPE", value = "instance_principal" },
+                  { "key" = "SQLITE_STORE_DIR", value = "/sqlite-store" },
+                  { "key" = "S3_BUCKET_NAME", value = local.bucket_name },
+                  { "key" = "AWS_REGION", value = var.region },
+                  { "key" = "AWS_ACCESS_KEY_ID", value = local.aws_compat_access_key_id },
+                  { "key" = "AWS_SECRET_ACCESS_KEY", value = local.aws_compat_access_key_key },
+                  { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
+                  { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
+                  { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
+                ],
+                pvcs = {
+                  retain_after_undeploy = false
+                  volumes = [
+                    { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
+                  ]
+                },
+                recipe_container_port                = "8321"
+                recipe_flex_shape_ocpu_count         = 8
+                recipe_flex_shape_memory_size_in_gbs = 64
+                recipe_secret_mounts = [
+                  { "name" = "llamastack-paas-config", "mount_location" = "/config" }
                 ]
               },
-              recipe_container_port                = "8321"
-              recipe_flex_shape_ocpu_count         = 8
-              recipe_flex_shape_memory_size_in_gbs = 64
-              recipe_secret_mounts = [
-                { "name" = "llamastack-paas-config", "mount_location" = "/config" }
-              ]
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-          )
-        },
-        {
-          name       = "frontend",
-          depends_on = ["llamastack"],
-          recipe = {
-            recipe_id                            = "frontend",
-            deployment_name                      = "frontend",
-            recipe_mode                          = "service",
-            recipe_image_uri                     = local.frontend_skin_image_uri,
-            recipe_replica_count                 = 1,
-            recipe_flex_shape_ocpu_count         = 4,
-            recipe_flex_shape_memory_size_in_gbs = 32,
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-            recipe_use_shared_node_pool          = true,
-            recipe_container_port                = local.frontend_skin_container_port,
-            service_endpoint_subdomain           = local.starter_pack_config.frontend_url
-            recipe_additional_ingress_ports = [
-              {
-                port_name    = "models"
-                service_name = "$${llamastack.service_name}"
-                port         = 8321
-                path         = "/v1/models"
-                path_type    = "Prefix"
-              },
-              {
-                port_name    = "health"
-                service_name = "$${llamastack.service_name}"
-                port         = 8321
-                path         = "/v1/health"
-                path_type    = "Prefix"
-              },
-              {
-                port_name    = "responses"
-                service_name = "$${llamastack.service_name}"
-                port         = 8321
-                path         = "/v1/responses"
-                path_type    = "Prefix"
-              },
-              {
-                port_name    = "vectorstores"
-                service_name = "$${llamastack.service_name}"
-                port         = 8321
-                path         = "/v1/vector_stores"
-                path_type    = "Prefix"
-              },
-              {
-                port_name    = "files"
-                service_name = "$${llamastack.service_name}"
-                port         = 8321
-                path         = "/v1/files"
-                path_type    = "Prefix"
-              },
-              {
-                port_name    = "base"
-                service_name = "$${llamastack.service_name}"
-                port         = 8321
-                path         = "/v1"
-                path_type    = "Prefix"
-              }
-            ]
-          }
-        }
-      ]
+              var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+            )
+          },
+        ],
+        local._paas_rag_frontend_deployments
+      )
     }
   })
 }
