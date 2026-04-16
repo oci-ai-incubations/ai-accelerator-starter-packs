@@ -29,9 +29,9 @@ required_outputs:
   - corrino_admin_username
   - corrino_admin_password
   - frontend_skin_name
-  - frontend_skin_image_uri
   - frontend_skin_provider
   - frontend_skins_learn_more
+  - frontend_skin_urls
 
 # Variables that must exist in every schema
 required_variables:
@@ -44,24 +44,24 @@ required_variables:
   - corrino_admin_username
   - corrino_admin_password
   - corrino_admin_email
-  - frontend_skin
 
 # Per-category: required outputs/variables, absent checks, property assertions
 # absent_* = names that must NOT exist (different from visible:false, which hides but keeps in schema)
 category_specific:
   cuopt:
-    required_outputs: [starter_pack_frontend_url]
-    required_variables: [cuopt_frontend_enabled, genai_region]
+    required_outputs: []
+    required_variables: [genai_region]
     absent_outputs: []
     absent_variables: []
     variable_properties:
       db_password:
         visible: false
-      cuopt_frontend_enabled:
-        visible: true
+      skin_cuopt_core:
         type: boolean
-      frontend_skin:
-        type: enum
+        default: true
+      skin_cuopt_partner:
+        type: boolean
+        default: false
     output_properties:
       starter_pack_url:
         type: string
@@ -74,9 +74,9 @@ category_specific:
       db_password:
         visible: true
         type: password
-      frontend_skin:
-        type: enum
-        visible: true
+      skin_paas_rag_core:
+        type: boolean
+        default: true
     output_properties:
       starter_pack_url:
         type: string
@@ -90,9 +90,9 @@ category_specific:
         visible: false
       db_username:
         visible: false
-      frontend_skin:
-        type: enum
-        visible: true
+      skin_vss_core:
+        type: boolean
+        default: true
     output_properties:
       starter_pack_url:
         type: string
@@ -115,19 +115,13 @@ category_specific:
       db_password:
         type: password
         required: true
-      frontend_skin:
-        type: enum
-        visible: true
     output_properties:
       starter_pack_url:
         type: string
         visible: true
 
   enterprise_rag_aiq:
-    variable_properties:
-      frontend_skin:
-        type: enum
-        visible: true
+    variable_properties: {}
   warehouse_pick_path:
     required_outputs: [autonomous_database_id, autonomous_database_name, db_username]
     required_variables: [db_password]
@@ -135,9 +129,6 @@ category_specific:
       db_password:
         visible: true
         type: password
-      frontend_skin:
-        type: enum
-        visible: true
     output_properties:
       starter_pack_url:
         type: string
