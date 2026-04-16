@@ -108,42 +108,61 @@ def represent_str(dumper, data):
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
-def inject_frontend_skin(merged_schema, skins_data, category, learn_more_url):
-    """Inject frontend_skin enum variable into the merged schema."""
-    if category not in skins_data:
-        return  # No skins defined for this category
+def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more_url):
+    """Inject per-skin boolean toggle variables into the merged schema.
 
-    category_skins = skins_data[category]
-    skin_keys = [skin["key"] for skin in category_skins["skins"]]
-    default_skin = category_skins["default"]
-
-    # Build the variable definition
-    skin_var = {
-        "type": "enum",
-        "title": "Frontend Skin",
-        "description": (
-            "Select a frontend UI for this deployment. "
-            f"<a href='{learn_more_url}'>Learn more about available skins</a>"
-        ),
-        "enum": skin_keys,
-        "default": default_skin,
-        "required": True,
-        "visible": True,
-    }
-
-    # cuopt: only show skin selector when frontend is enabled
-    if category == "cuopt":
-        skin_var["visible"] = {"and": ["cuopt_frontend_enabled"]}
-
-    # Inject into variables section
-    merged_schema.setdefault("variables", {})["frontend_skin"] = skin_var
-
-    # Append to "Deployment Configuration" variable group
+    Skin variables are inserted right after 'starter_pack_size' in the
+    'Deployment Configuration' group, preserving catalog order.
+    """
+    if skins_data is None or category not in skins_data:
+        return
+    skins = skins_data[category].get("skins", [])
+    target_group = None
     for group in merged_schema.get("variableGroups", []):
         if group.get("title") == "Deployment Configuration":
-            if "frontend_skin" not in group["variables"]:
-                group["variables"].append("frontend_skin")
+            target_group = group
             break
+    try:
+        base_pos = (target_group["variables"].index("starter_pack_size") + 1) if target_group else 0
+    except ValueError:
+        base_pos = 0
+    offset = 0
+    for skin in skins:
+        var_name = skin.get("variable_name")
+        if not var_name:
+            continue
+        merged_schema.setdefault("variables", {})[var_name] = {
+            "type": "boolean",
+            "title": skin["key"],
+            "description": f"Enable this frontend skin. <a href='{learn_more_url}'>Learn more</a>",
+            "default": skin.get("default_enabled", False),
+            "required": True,
+            "visible": True,
+        }
+        if target_group and var_name not in target_group["variables"]:
+            target_group["variables"].insert(base_pos + offset, var_name)
+            offset += 1
+
+
+def inject_frontend_skin_url_map_output(merged_schema, skins_data):
+    """Declare frontend_skin_urls as a map output and add to the Frontend group."""
+    if skins_data is None:
+        return
+    merged_schema.setdefault("outputs", {})["frontend_skin_urls"] = {
+        "type": "map",
+        "title": "Frontend URLs",
+        "visible": True,
+    }
+    target_group = None
+    for group in merged_schema.get("outputGroups", []):
+        if group.get("title") in ("Frontend", "Frontend Skin"):
+            target_group = group
+            break
+    if target_group is not None:
+        target_group["title"] = "Frontend"
+        if "frontend_skin_urls" not in target_group["outputs"]:
+            target_group["outputs"].insert(0, "frontend_skin_urls")
+        target_group["outputs"] = [o for o in target_group["outputs"] if o != "frontend_skin_image_uri"]
 
 
 CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"]
@@ -168,10 +187,11 @@ def generate_schema_for_category(common: dict, category: str, schemas_dir: Path,
     else:
         final = deepcopy(common)
 
-    # Inject frontend skin enum after merge (overwrites hidden fallback from common)
+    # Inject per-skin boolean toggles and frontend_skin_urls map output after merge
     if skins_data:
         learn_more_url = skins_data.get("learn_more_url", "")
-        inject_frontend_skin(final, skins_data, category, learn_more_url)
+        inject_frontend_skin_toggles(final, skins_data, category, learn_more_url)
+        inject_frontend_skin_url_map_output(final, skins_data)
 
     with open(output_path, 'w') as f:
         f.write("# AUTO-GENERATED - Do not edit directly!\n")
