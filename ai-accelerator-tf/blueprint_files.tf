@@ -43,138 +43,130 @@ locals {
 # Individual Blueprint Definitions
 # -----------------------------------
 locals {
+  _cuopt_frontend_deployments = [
+    for skin in local.enabled_frontend_skins : {
+      name       = skin.variable_name
+      exports    = ["service_name"]
+      depends_on = ["cuopt", "llamastack"]
+      recipe = merge(
+        {
+          recipe_id                            = replace(skin.variable_name, "_", "-")
+          deployment_name                      = replace(skin.variable_name, "_", "-")
+          recipe_mode                          = "service"
+          recipe_image_uri                     = skin.image_uri
+          recipe_replica_count                 = 1
+          recipe_flex_shape_ocpu_count         = 1
+          recipe_flex_shape_memory_size_in_gbs = 8
+          recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+          recipe_use_shared_node_pool          = true
+          recipe_container_port                = skin.container_port
+          service_endpoint_subdomain           = skin.subdomain
+          recipe_container_env = [
+            { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
+            { key = "LLAMASTACK_ENDPOINT", value = "http://$${llamastack.service_name}:80" },
+            { key = "LLAMASTACK_MODEL", value = "" },
+            { key = "GOOGLE_MAPS_API_KEY", value = var.google_maps_api_key },
+            { key = "ADMIN_USERNAME", value = var.cuopt_frontend_admin_username },
+            { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
+            { key = "NODE_ENV", value = "production" },
+            { key = "PORT", value = skin.container_port },
+          ]
+          recipe_additional_ingress_ports = [
+            { port_name = "cuopt", service_name = "$${cuopt.service_name}", port = 5000, path = "/cuopt", path_type = "Prefix" },
+            { port_name = "llamastack", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
+          ]
+        },
+        var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+      )
+    }
+  ]
+
   _cuopt_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
-        {
-          name    = "llamastack",
-          exports = ["service_name"],
-          recipe = {
-            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
-            recipe_id                             = "llamastack",
-            deployment_name                       = "llamastack",
-            recipe_mode                           = "service",
-            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
-            recipe_replica_count                  = 1,
-            recipe_flex_shape_ocpu_count          = 1,
-            recipe_flex_shape_memory_size_in_gbs  = 8,
-            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-            recipe_use_shared_node_pool           = true,
-            recipe_container_port                 = "8321",
-            recipe_container_command_args         = ["/config/config.yaml"],
-            recipe_container_env = [
-              { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
-              { key = "OCI_REGION", value = var.genai_region },
-              { key = "OCI_AUTH_TYPE", value = "instance_principal" },
-            ]
-            recipe_secret_mounts = [
-              { "name" = "llamastack-inference-config", "mount_location" = "/config" }
-            ]
-          }
-        },
-        {
-          name    = "cuopt"
-          exports = ["service_name"]
-          recipe = {
-            recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
-            recipe_id                                    = "cuopt"
-            recipe_mode                                  = "service"
-            deployment_name                              = "DEPLOY_NAME-2"
-            recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
-            recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
-            recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count                         = 1
-            recipe_container_port                        = "5000"
-            recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
-            recipe_use_shared_node_pool                  = true
-            recipe_ephemeral_storage_size                = 200
-            recipe_shared_memory_volume_size_limit_in_mb = 16384
-            recipe_environment_secrets = [
-              {
-                envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
-                secret_name = local.ngc_secrets.nvidia_api_key_secret_name
-                secret_key  = local.ngc_secrets.nvidia_api_key_secret_key
-              }
-            ]
-            recipe_container_command_args = [
-              "python",
-              "-m",
-              "cuopt_server.cuopt_service",
-              "-p",
-              "5000",
-              "-g",
-              var.starter_pack_size == "poc" ? "2" : "8"
-            ]
-            recipe_liveness_probe_params = {
-              port                  = 5000
-              scheme                = "HTTP"
-              endpoint_path         = "/v2/health/live"
-              period_seconds        = 60
-              timeout_seconds       = 10
-              failure_threshold     = 3
-              success_threshold     = 1
-              initial_delay_seconds = 1200
-            }
-            recipe_readiness_probe_params = {
-              port                  = 5000
-              scheme                = "HTTP"
-              endpoint_path         = "/v2/health/ready"
-              period_seconds        = 30
-              timeout_seconds       = 10
-              success_threshold     = 1
-              initial_delay_seconds = 20
-            }
-          }
-        },
-        {
-          name       = "demo",
-          exports    = ["service_name"],
-          depends_on = ["cuopt", "llamastack"],
-          recipe = merge(
-            {
-              recipe_id                            = "demo",
-              deployment_name                      = "demo",
+      deployments = concat(
+        [
+          {
+            name    = "llamastack",
+            exports = ["service_name"],
+            recipe = {
+              recipe_id                            = "llamastack",
+              deployment_name                      = "llamastack",
               recipe_mode                          = "service",
-              recipe_image_uri                     = local.frontend_skin_image_uri,
+              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
               recipe_replica_count                 = 1,
               recipe_flex_shape_ocpu_count         = 1,
               recipe_flex_shape_memory_size_in_gbs = 8,
               recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
               recipe_use_shared_node_pool          = true,
-              recipe_container_port                = local.frontend_skin_container_port,
-              service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+              recipe_container_port                = "8321",
+              recipe_container_command_args        = ["/config/config.yaml"],
               recipe_container_env = [
-                { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
-                { key = "LLAMASTACK_ENDPOINT", value = "http://$${llamastack.service_name}:80" },
-                { key = "LLAMASTACK_MODEL", value = "" },
-                { key = "GOOGLE_MAPS_API_KEY", value = var.google_maps_api_key },
-                { key = "ADMIN_USERNAME", value = var.cuopt_frontend_admin_username },
-                { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
-                { key = "NODE_ENV", value = "production" },
-                { key = "PORT", value = "3001" },
+                { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
+                { key = "OCI_REGION", value = var.genai_region },
+                { key = "OCI_AUTH_TYPE", value = "instance_principal" },
               ]
-              recipe_additional_ingress_ports = [
+              recipe_secret_mounts = [
+                { "name" = "llamastack-inference-config", "mount_location" = "/config" }
+              ]
+            }
+          },
+          {
+            name    = "cuopt"
+            exports = ["service_name"]
+            recipe = {
+              recipe_id                                    = "cuopt"
+              recipe_mode                                  = "service"
+              deployment_name                              = "DEPLOY_NAME-2"
+              recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
+              recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
+              recipe_node_shape                            = local.starter_pack_config.worker_node_shape
+              recipe_replica_count                         = 1
+              recipe_container_port                        = "5000"
+              recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
+              recipe_use_shared_node_pool                  = true
+              recipe_ephemeral_storage_size                = 200
+              recipe_shared_memory_volume_size_limit_in_mb = 16384
+              recipe_environment_secrets = [
                 {
-                  port_name    = "cuopt"
-                  service_name = "$${cuopt.service_name}"
-                  port         = 5000
-                  path         = "/cuopt"
-                  path_type    = "Prefix"
-                },
-                {
-                  port_name    = "llamastack"
-                  service_name = "$${llamastack.service_name}"
-                  port         = 8321
-                  path         = "/v1"
-                  path_type    = "Prefix"
+                  envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
+                  secret_name = local.ngc_secrets.nvidia_api_key_secret_name
+                  secret_key  = local.ngc_secrets.nvidia_api_key_secret_key
                 }
               ]
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-          )
-        }
-      ]
+              recipe_container_command_args = [
+                "python",
+                "-m",
+                "cuopt_server.cuopt_service",
+                "-p",
+                "5000",
+                "-g",
+                var.starter_pack_size == "poc" ? "2" : "8"
+              ]
+              recipe_liveness_probe_params = {
+                port                  = 5000
+                scheme                = "HTTP"
+                endpoint_path         = "/v2/health/live"
+                period_seconds        = 60
+                timeout_seconds       = 10
+                failure_threshold     = 3
+                success_threshold     = 1
+                initial_delay_seconds = 1200
+              }
+              recipe_readiness_probe_params = {
+                port                  = 5000
+                scheme                = "HTTP"
+                endpoint_path         = "/v2/health/ready"
+                period_seconds        = 30
+                timeout_seconds       = 10
+                success_threshold     = 1
+                initial_delay_seconds = 20
+              }
+            }
+          },
+        ],
+        local._cuopt_frontend_deployments
+      )
     }
   })
 
