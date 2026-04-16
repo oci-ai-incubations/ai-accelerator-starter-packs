@@ -42,10 +42,10 @@ outputGroups:
         - add_api_key_to_ingress
         - "true"
 
-  - title: "Frontend Skin"
+  - title: "Frontend"
     outputs:
+      - frontend_skin_urls
       - frontend_skin_name
-      - frontend_skin_image_uri
       - frontend_skin_provider
       - frontend_skins_learn_more
 
@@ -143,10 +143,6 @@ variables:
 
   # Category is set via starter_pack_category.auto.tfvars
   starter_pack_category:
-    type: string
-    visible: false
-
-  frontend_skin:
     type: string
     visible: false
 
@@ -475,16 +471,7 @@ variables:
         - use_custom_dns
         - "true"
 
-  cuopt_frontend_enabled:
-    type: boolean
-    visible: false
   cuopt_frontend_admin_username:
-    type: string
-    visible: false
-  cuopt_frontend_admin_password:
-    type: string
-    visible: false
-  google_maps_api_key:
     type: string
     visible: false
 
@@ -492,14 +479,6 @@ variables:
     type: password
     visible: false
 
-  cuopt_frontend_admin_username:
-    type: string
-    visible: false
-
-  cuopt_frontend_enabled:
-    type: boolean
-    visible: false
-  
   google_maps_api_key:
     type: string
     visible: false
@@ -657,14 +636,14 @@ outputs:
     title: "Database OCID"
     visible: true
 
+  frontend_skin_urls:
+    type: map
+    title: "Frontend URLs"
+    visible: true
+
   frontend_skin_name:
     type: string
     title: "Frontend Skin"
-    visible: true
-
-  frontend_skin_image_uri:
-    type: copyableString
-    title: "Frontend Image"
     visible: true
 
   frontend_skin_provider:
