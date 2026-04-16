@@ -247,25 +247,113 @@ class TestVariableTypesComplete:
 
 
 class TestFrontendSkinCatalogSync:
-    """frontend_skin enum values match the catalog YAML."""
+    """Multi-skin catalog synchronization tests."""
 
-    @pytest.mark.parametrize("category", CATEGORIES)
-    def test_frontend_skin_enum_matches_catalog(self, generated_schemas, category):
-        """frontend_skin enum values must match keys in frontend_skins.yaml."""
+    BLUEPRINT_PACKS = ["cuopt", "vss", "paas_rag"]
+    HELM_PACKS = ["enterprise_rag", "enterprise_rag_aiq"]
+
+    @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
+    def test_frontend_skin_booleans_match_catalog(self, generated_schemas, category):
+        """Every blueprint-pack catalog entry must have a boolean variable in the schema
+        whose default matches the catalog's default_enabled."""
         schema = generated_schemas[category]
-        skin_var = schema["variables"]["frontend_skin"]
-
-        # Load the skin catalog
         catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
         with open(catalog_path) as f:
             catalog = yaml.safe_load(f)
+        for skin in catalog[category]["skins"]:
+            var_name = skin["variable_name"]
+            assert var_name in schema["variables"], (
+                f"{category}: schema missing boolean variable {var_name}"
+            )
+            var_def = schema["variables"][var_name]
+            assert var_def["type"] == "boolean", f"{category}: {var_name} not boolean"
+            assert var_def["default"] == skin["default_enabled"], (
+                f"{category}: {var_name} default {var_def['default']!r} != "
+                f"catalog default_enabled {skin['default_enabled']!r}"
+            )
 
-        expected_keys = [s["key"] for s in catalog[category]["skins"]]
-        assert skin_var["enum"] == expected_keys, (
-            f"{category}: frontend_skin enum {skin_var['enum']} "
-            f"does not match catalog keys {expected_keys}"
+    @pytest.mark.parametrize("category", HELM_PACKS)
+    def test_helm_packs_have_no_per_skin_variables(self, generated_schemas, category):
+        """Helm packs must not have any skin_* variables injected."""
+        schema = generated_schemas[category]
+        skin_vars = [v for v in schema.get("variables", {}) if v.startswith("skin_")]
+        assert skin_vars == [], (
+            f"{category}: unexpected skin_* variables {skin_vars} injected"
         )
-        assert skin_var["default"] == catalog[category]["default"], (
-            f"{category}: frontend_skin default '{skin_var['default']}' "
-            f"does not match catalog default '{catalog[category]['default']}'"
+
+    def test_skin_catalog_matches_terraform(self):
+        """Bidirectional drift check:
+           - Every catalog variable_name has a `variable "<name>"` in vars.tf.
+           - Every catalog variable_name has an entry in skin_enabled_map.
+           - Every skin_* variable in vars.tf corresponds to a catalog entry.
+           - Every skin_enabled_map entry corresponds to a catalog entry.
+        """
+        import re
+        repo_root = Path(__file__).parent.parent.parent
+        vars_tf = (repo_root / "vars.tf").read_text()
+        frontend_skins_tf = (repo_root / "frontend-skins.tf").read_text()
+        catalog_path = repo_root / "schemas" / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+
+        # All catalog variable_names across blueprint packs.
+        catalog_vars = set()
+        for cat in ("cuopt", "vss", "paas_rag"):
+            for skin in catalog[cat]["skins"]:
+                if "variable_name" in skin:
+                    catalog_vars.add(skin["variable_name"])
+
+        # Variables in vars.tf matching skin_*. Anchor to start-of-line + variable keyword.
+        tf_vars = set(re.findall(r'^variable\s+"(skin_\w+)"\s*\{', vars_tf, re.MULTILINE))
+
+        # skin_enabled_map entries — extract the block first, then match inside it.
+        map_block_match = re.search(
+            r'skin_enabled_map\s*=\s*\{([^}]*)\}',
+            frontend_skins_tf,
+            re.DOTALL,
         )
+        assert map_block_match is not None, "skin_enabled_map block not found in frontend-skins.tf"
+        map_body = map_block_match.group(1)
+        map_entries = set(
+            re.findall(r'"(skin_\w+)"\s*=\s*var\.\1\b', map_body)
+        )
+
+        assert catalog_vars == tf_vars, (
+            f"Catalog vars {sorted(catalog_vars)} != vars.tf skin_* {sorted(tf_vars)}"
+        )
+        assert catalog_vars == map_entries, (
+            f"Catalog vars {sorted(catalog_vars)} != skin_enabled_map entries {sorted(map_entries)}"
+        )
+
+    @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
+    def test_default_enabled_matches_top_level_default(self, category):
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+        defaults = [s for s in catalog[category]["skins"] if s.get("default_enabled")]
+        assert len(defaults) == 1, (
+            f"{category}: expected exactly 1 default_enabled=true, got {len(defaults)}"
+        )
+        assert defaults[0]["key"] == catalog[category]["default"], (
+            f"{category}: default_enabled skin {defaults[0]['key']!r} != "
+            f"top-level default {catalog[category]['default']!r}"
+        )
+
+    def test_k8s_resource_name_length_limit(self):
+        """VSS K8s resource names stay within RFC 1123's 63-character limit.
+
+        Today VSS has one skin (the default) which uses the unsuffixed base name
+        'vss-oracle-ux' (14 chars). Non-default skins would append their
+        hyphenated variable_name as a suffix. This test guards future skin
+        additions.
+        """
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+        for skin in catalog["vss"]["skins"]:
+            safe_name = skin["variable_name"].replace("_", "-")
+            candidate = f"vss-oracle-ux-{safe_name}"
+            assert len(candidate) <= 63, (
+                f"vss skin {skin['variable_name']}: computed K8s name "
+                f"{candidate!r} exceeds 63 chars ({len(candidate)})"
+            )
