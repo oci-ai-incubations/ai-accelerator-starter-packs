@@ -326,3 +326,24 @@ resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
 
   depends_on = [helm_release.ingress_nginx, kubernetes_service_v1.vss_oracle_ux_service]
 }
+
+# State migration: count-gated → for_each-keyed. Only needed the first time a
+# stack is upgraded from single-skin to multi-skin. The default skin keeps
+# the original metadata.name, so the underlying K8s resources are not
+# renamed or recreated — this is a pure Terraform-state address change.
+moved {
+  from = kubernetes_deployment_v1.vss_oracle_ux_deployment[0]
+  to   = kubernetes_deployment_v1.vss_oracle_ux_deployment["skin_vss_core"]
+}
+moved {
+  from = kubernetes_service_v1.vss_oracle_ux_service[0]
+  to   = kubernetes_service_v1.vss_oracle_ux_service["skin_vss_core"]
+}
+moved {
+  from = kubernetes_ingress_v1.vss_oracle_ux_ingress[0]
+  to   = kubernetes_ingress_v1.vss_oracle_ux_ingress["skin_vss_core"]
+}
+moved {
+  from = kubernetes_config_map_v1.vss_oracle_ux_config[0]
+  to   = kubernetes_config_map_v1.vss_oracle_ux_config["skin_vss_core"]
+}
