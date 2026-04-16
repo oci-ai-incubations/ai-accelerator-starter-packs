@@ -455,7 +455,8 @@ Then restart from Phase 4 with fresh stacks. Report the failure and fresh-start 
 ### 5c. Extract app outputs
 
 After app succeeds, extract output URLs from "Application Information" tab:
-- `starter_pack_url` / `starter_pack_frontend_url`
+- `starter_pack_url` — base URL for the deployed pack
+- `frontend_skin_urls` — map output of `skin_name -> URL` for every deployed skin. Use this as the source of per-skin frontend URLs (a pack may deploy multiple skins). For single-skin packs the map still contains a single entry; iterate the map rather than hardcoding a skin name.
 - Cluster OCID (for kubectl connection)
 
 ---
