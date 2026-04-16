@@ -8,10 +8,16 @@ cuopt:
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2"
       provider: "Oracle"
       container_port: "3001"
+      subdomain: "demo-cuopt"
+      variable_name: "skin_cuopt_core"
+      default_enabled: true
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.3"
       provider: "Oracle"
       container_port: "80"
+      subdomain: "demo-cuopt-partner"
+      variable_name: "skin_cuopt_partner"
+      default_enabled: false
 
 vss:
   default: "Oracle Custom - Enhanced search (Core App)"
@@ -20,6 +26,9 @@ vss:
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-dev-0.0.4"
       provider: "Oracle"
       container_port: "3000"
+      subdomain: "vss-frontend"
+      variable_name: "skin_vss_core"
+      default_enabled: true
 
 paas_rag:
   default: "Oracle Net - Chat interface (Core App)"
@@ -28,6 +37,9 @@ paas_rag:
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3"
       provider: "Oracle"
       container_port: "3000"
+      subdomain: "frontend-paas"
+      variable_name: "skin_paas_rag_core"
+      default_enabled: true
 
 enterprise_rag:
   default: "Oracle RAG - Document chat (Core App)"
