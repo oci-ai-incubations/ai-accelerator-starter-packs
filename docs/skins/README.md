@@ -1,22 +1,40 @@
 # Frontend Skins
 
-Frontend skins let you choose which UI is deployed for each AI Accelerator Pack. During stack creation in OCI Resource Manager, the **Frontend Skin** dropdown in the Deployment Configuration section lets you select from available options for your chosen pack. Each skin is a container image that provides a different frontend experience.
+Each starter pack category has a catalog of "skins" — alternative frontend UIs for the same backend. Skins are defined in `ai-accelerator-tf/schemas/frontend_skins.yaml`.
 
-Only one skin is active per deployment. To switch skins, update the selection and re-apply the stack.
+## Blueprint packs (`cuopt`, `vss`, `paas_rag`)
+
+These packs support **multi-skin**: enable one or more skins simultaneously from ORM. Each enabled skin deploys its own frontend container on its own ingress subdomain. You can compare UIs side-by-side without redeploying the backend.
+
+- **At least one skin is required** per blueprint pack (enforced by a Terraform precondition). Unchecking every skin produces a plan-time error.
+- The ORM wizard shows per-skin checkboxes in the Deployment Configuration group.
+- The `frontend_skin_urls` output maps each enabled skin's display name to its HTTPS URL.
+
+## Helm packs (`enterprise_rag`, `enterprise_rag_aiq`)
+
+These packs remain **single-skin** — each catalog entry has one skin. Multi-skin is out of scope for the Helm-driven deployments because their ingresses are managed by their Helm charts.
+
+## Adding a new skin (3-file checklist)
+
+1. `ai-accelerator-tf/schemas/frontend_skins.yaml` — add the catalog entry (key, image_uri, provider, container_port, subdomain, variable_name, default_enabled).
+2. `ai-accelerator-tf/vars.tf` — declare the matching boolean variable.
+3. `ai-accelerator-tf/frontend-skins.tf` — add the variable to `local.skin_enabled_map`.
+
+Regenerate schemas (`python create_final_schema.py -c <category>`) and run tests (`terraform test` + `pytest ai-accelerator-tf/schemas/tests/`). The bidirectional drift test `test_skin_catalog_matches_terraform` catches any forgotten step.
 
 ## Core App vs Partner Contributed
 
-Each skin is labeled as either **Core App** or **Partner Contributed** in the ORM dropdown to help you make an informed choice.
+Each skin is labeled as either **Core App** or **Partner Contributed** in the ORM UI to help you make an informed choice.
 
 **Core App** skins are built and maintained by Oracle. These frontends are fully tested against the underlying AI infrastructure, receive regular updates, and are supported as part of the AI Accelerator Pack. Oracle stands behind the quality and reliability of Core App skins.
 
 **Partner Contributed** skins are built by third-party partners and the open-source community around the same core AI infrastructure that Oracle deploys. These frontends may offer additional functionality, features, or alternative workflows not found in the Core App. However, they have not been tested to the same degree as Core App skins, and Oracle does not take responsibility for their behavior, reliability, or security. Use Partner Contributed skins at your own discretion — they are provided as-is.
 
-When in doubt, select the Core App skin for a fully supported experience.
+When in doubt, enable the Core App skin for a fully supported experience.
 
 ## Vehicle Delivery Route Optimizer (`cuopt`)
 
-| Skin Name | Type | Provider | Default |
+| Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Vehicle Route Optimizer Frontend (Core App) | Core App | Oracle | Yes |
 | Oracle Interactive - Route visualization (Partner Contributed) | Partner Contributed | Oracle | No |
@@ -49,7 +67,7 @@ Partner-contributed interactive route visualization UI for fleet delivery optimi
 
 ## Video Search and Summarization (`vss`)
 
-| Skin Name | Type | Provider | Default |
+| Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Oracle Custom - Enhanced search (Core App) | Core App | Oracle | Yes |
 
@@ -68,7 +86,7 @@ Oracle-built frontend for video search and summarization. Upload videos, search 
 
 ## Enterprise Knowledge Chat Agent - Self-Hosted AI Models (`enterprise_rag`)
 
-| Skin Name | Type | Provider | Default |
+| Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Oracle RAG - Document chat (Core App) | Core App | Oracle | Yes |
 
@@ -87,7 +105,7 @@ Chat-based document Q&A interface for the self-hosted enterprise RAG pipeline. U
 
 ## Enterprise Knowledge Chat Agent - Managed AI Models (`paas_rag`)
 
-| Skin Name | Type | Provider | Default |
+| Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Oracle Net - Chat interface (Core App) | Core App | Oracle | Yes |
 
@@ -106,7 +124,7 @@ Oracle Net chat interface for the managed enterprise RAG pipeline. Provides docu
 
 ## Enterprise Agentic AI Starter Kit (`enterprise_rag_aiq`)
 
-| Skin Name | Type | Provider | Default |
+| Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | NVIDIA AIRA - Agentic workflows (Core App) | Core App | NVIDIA | Yes |
 
