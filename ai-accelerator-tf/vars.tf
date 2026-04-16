@@ -666,82 +666,79 @@ locals {
   starter_pack_configs = {
     "cuopt" = {
       "poc" = {
-        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "VM.GPU.A10.2"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
-          memory        = var.cuopt_frontend_enabled ? 32 : 0
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : "cuopt"
       }
       "small" = {
-        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
-          memory        = var.cuopt_frontend_enabled ? 32 : 0
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
-        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
-          memory        = var.cuopt_frontend_enabled ? 32 : 0
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented
     }
@@ -771,7 +768,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = "vss-frontend"
       }
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
@@ -797,7 +793,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = "vss-frontend"
       }
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
@@ -823,7 +818,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = "vss-frontend"
       }
       # Add "large" here when implemented
     }
@@ -853,7 +847,6 @@ locals {
         }
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
-        frontend_url                 = "frontend-paas"
       }
 
       "medium" = {
@@ -880,7 +873,6 @@ locals {
         }
         database_storage_size_in_tbs = 8
         database_compute_count       = 16
-        frontend_url                 = "frontend-paas"
       }
       # Add "large" here when implemented
     }
