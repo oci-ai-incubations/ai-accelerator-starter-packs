@@ -35,7 +35,7 @@ Before starting, verify:
 5. **Apply**: Create apply job with `AUTO_APPROVED`, poll in background until completion, check logs
 6. **Configure kubectl**: Extract cluster OCID from apply logs, run `oci ce cluster create-kubeconfig`
 7. **Verify pods**: `kubectl get pods -n default` — all core pods should be Running
-8. **Verify outputs**: Check `starter_pack_url` and `starter_pack_frontend_url` from apply logs
+8. **Verify outputs**: Check `starter_pack_url` and `frontend_skin_urls` from apply logs. `frontend_skin_urls` is a map output (`skin_name => url`) that provides one URL per enabled frontend skin.
 9. **Prompt user** for any additional verification steps
 10. **Destroy**: On user confirmation, run destroy job and poll until complete
 
