@@ -209,8 +209,13 @@ locals {
     mlflow           = join(".", ["mlflow", local.fqdn.name])
     prometheus       = join(".", ["prometheus", local.fqdn.name])
     grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_config.frontend_url, local.fqdn.name])
-    aiq_frontend     = join(".", ["aiq", local.fqdn.name])
+    starter_pack = join(".", [
+      local.primary_skin != null
+      ? local.primary_skin.subdomain
+      : try(local.starter_pack_config.frontend_url, ""),
+      local.fqdn.name
+    ])
+    aiq_frontend = join(".", ["aiq", local.fqdn.name])
   }
 
   third_party_namespaces = {
