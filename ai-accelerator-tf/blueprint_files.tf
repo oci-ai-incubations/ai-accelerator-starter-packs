@@ -43,61 +43,7 @@ locals {
 # Individual Blueprint Definitions
 # -----------------------------------
 locals {
-  _cuopt_small_blueprint = jsonencode(merge(
-    {
-      recipe_id                                    = "cuopt"
-      recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
-      recipe_mode                                  = "service"
-      deployment_name                              = "DEPLOY_NAME"
-      recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
-      recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
-      recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-      recipe_replica_count                         = 1
-      recipe_container_port                        = "5000"
-      recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
-      recipe_use_shared_node_pool                  = true
-      recipe_ephemeral_storage_size                = 200
-      recipe_shared_memory_volume_size_limit_in_mb = 16384
-      service_endpoint_subdomain                   = local.starter_pack_config.frontend_url
-      recipe_environment_secrets = [
-        {
-          envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
-          secret_name = local.ngc_secrets.nvidia_api_key_secret_name
-          secret_key  = local.ngc_secrets.nvidia_api_key_secret_key
-        }
-      ]
-      recipe_container_command_args = [
-        "python",
-        "-m",
-        "cuopt_server.cuopt_service",
-        "-p",
-        "5000",
-        "-g",
-        var.starter_pack_size == "poc" ? "2" : "8"
-      ]
-      recipe_liveness_probe_params = {
-        port                  = 5000
-        scheme                = "HTTP"
-        endpoint_path         = "/v2/health/live"
-        period_seconds        = 60
-        timeout_seconds       = 10
-        failure_threshold     = 3
-        success_threshold     = 1
-        initial_delay_seconds = 1200
-      }
-      recipe_readiness_probe_params = {
-        port                  = 5000
-        scheme                = "HTTP"
-        endpoint_path         = "/v2/health/ready"
-        period_seconds        = 30
-        timeout_seconds       = 10
-        success_threshold     = 1
-        initial_delay_seconds = 20
-      }
-    },
-    var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-  ))
-  _cuopt_with_frontend_blueprint = jsonencode({
+  _cuopt_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
       deployments = [
