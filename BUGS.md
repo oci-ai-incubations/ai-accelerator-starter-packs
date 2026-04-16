@@ -20,6 +20,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-014 | ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion | Medium | 2026-04-09 |
 | Open | BUG-015 | enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds" | Medium | 2026-04-09 |
 | Open | BUG-016 | existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI | Medium | 2026-04-09 |
+| Fixed | BUG-017 | common_schema.yaml duplicate entries for cuopt frontend variables | Low | 2026-04-16 |
 
 ---
 
@@ -568,3 +569,41 @@ Pending. Options:
 1. Make `existing_node_subnet_id` conditionally required when `existing_cluster_id` is set (ORM schema `required` + `visible` conditions)
 2. Add a validation block in `vars.tf` that errors if `existing_cluster_id` is set but `existing_node_subnet_id` is empty
 3. Auto-derive the node subnet from the cluster OCID via a data source (eliminates the manual copy step entirely)
+
+### BUG-017: common_schema.yaml duplicate entries for cuopt frontend variables
+
+**Status:** Fixed
+**Date found:** 2026-04-16
+**Date fixed:** 2026-04-16
+**Found by:** Grant during multi-skin refactor (branch `multiple_skins_per_pack`)
+**Severity:** Low
+
+**Symptoms:**
+`schemas/common_schema.yaml` contained duplicate hidden-variable entries for the cuOpt frontend variables. `cuopt_frontend_enabled` appeared twice, and `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password`, and `google_maps_api_key` were each defined more than once. YAML parsers tolerate duplicate keys by silently keeping the last occurrence, so the generated schema happened to be correct, but the source file was noisy, confusing to read, and easy to break during future edits (e.g., updating one copy but not the other).
+
+**Root cause:**
+The entries were added incrementally across multiple PRs:
+- The original BUG-001 fix added `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password`, and `google_maps_api_key` with `visible: false`.
+- A later PR that introduced `cuopt_frontend_enabled` added another block for the same three variables plus `cuopt_frontend_enabled` itself, instead of editing the existing block.
+- A still-later change added a second `cuopt_frontend_enabled` entry (this time as a hidden fallback for the multi-skin transition) without noticing the earlier copy.
+
+No schema-lint check flagged duplicate YAML keys in `common_schema.yaml`, and the generated per-category `schema.yaml` files looked correct because YAML "last key wins" semantics masked the duplication.
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml` — duplicate entries for `cuopt_frontend_enabled` (x2), `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password`, `google_maps_api_key`
+
+**Workaround:**
+None needed — the generated schemas were functionally correct due to YAML last-key-wins semantics. Purely a source-file cleanliness issue.
+
+**Resolution:**
+Consolidated the duplicate entries in `common_schema.yaml` so each variable appears exactly once with `visible: false`. Removed the stale `frontend_skin` hidden fallback at the same time. Fixed on branch `multiple_skins_per_pack` in commit `fe1bfcc` as part of the multi-skin refactor (spec 2026-04-16).
+
+**Verification:**
+- `grep -c "^  cuopt_frontend_enabled:" ai-accelerator-tf/schemas/common_schema.yaml` should return `1`.
+- `grep -c "^  cuopt_frontend_admin_username:" ai-accelerator-tf/schemas/common_schema.yaml` should return `1`.
+- `python3 ai-accelerator-tf/schemas/create_final_schema.py --all` succeeds and `pytest ai-accelerator-tf/schemas/tests/ -v` passes.
+
+**Prevention:**
+Extend `/schema-lint` to detect duplicate top-level variable keys in `common_schema.yaml` (and per-category schemas). Since PyYAML's default loader silently drops duplicates, the check needs a custom loader or a pre-parse pass that scans raw lines under `variables:` for repeated keys.
+
+**Reference:** Discovered during the `multiple_skins_per_pack` refactor (spec 2026-04-16) when auditing `common_schema.yaml` as part of replacing `cuopt_frontend_enabled` with per-skin boolean variables.
