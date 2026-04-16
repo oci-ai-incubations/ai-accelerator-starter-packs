@@ -33,6 +33,18 @@ locals {
     # vss_backend_service is dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
     vss_backend_deployment = "recipe-vss-deployment"
   }
+
+  _enabled_vss_skins = local.deploy_app_vss ? {
+    for skin in local.enabled_frontend_skins : skin.variable_name => skin
+  } : {}
+
+  # Name suffix: empty for the catalog default skin, hyphenated for non-default.
+  _vss_k8s_name_suffix = {
+    for key, skin in local._enabled_vss_skins :
+    key => key == local.default_skin_variable_name
+    ? ""
+    : "-${replace(key, "_", "-")}"
+  }
 }
 
 # ConfigMap for VSS Oracle UX specific configuration
