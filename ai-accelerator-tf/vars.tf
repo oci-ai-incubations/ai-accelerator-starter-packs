@@ -509,12 +509,6 @@ variable "starter_pack_size" {
   }
 }
 
-variable "frontend_skin" {
-  type        = string
-  description = "Frontend skin selection — set via ORM schema enum. Leave empty to use the default skin for the selected category."
-  default     = ""
-}
-
 variable "skip_capacity_check" {
   description = "Skip the compute capacity pre-validation. Enable this only if you are certain capacity exists or want to bypass the pre-check. Note: Deployment may still fail later if capacity is unavailable."
   type        = bool
@@ -636,12 +630,6 @@ variable "genai_region" {
   description = "Region for the GenAI service"
   type        = string
   default     = "us-chicago-1"
-}
-
-variable "cuopt_frontend_enabled" {
-  description = "Enable cuopt frontend"
-  type        = bool
-  default     = true
 }
 
 variable "google_maps_api_key" {
@@ -1076,4 +1064,32 @@ locals {
 locals {
   # 26ai database needed for paas_rag, enterprise_rag, and enterprise_rag_aiq categories
   needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"], var.starter_pack_category)
+}
+
+# ---------------------------------------------------------------------------
+# Frontend Skin Toggles (one per blueprint-pack skin)
+# ---------------------------------------------------------------------------
+
+variable "skin_cuopt_core" {
+  type        = bool
+  description = "Enable the 'Vehicle Route Optimizer Frontend (Core App)' skin"
+  default     = true
+}
+
+variable "skin_cuopt_partner" {
+  type        = bool
+  description = "Enable the 'Oracle Interactive - Route visualization (Partner Contributed)' skin"
+  default     = false
+}
+
+variable "skin_vss_core" {
+  type        = bool
+  description = "Enable the 'Oracle Custom - Enhanced search (Core App)' skin"
+  default     = true
+}
+
+variable "skin_paas_rag_core" {
+  type        = bool
+  description = "Enable the 'Oracle Net - Chat interface (Core App)' skin"
+  default     = true
 }
