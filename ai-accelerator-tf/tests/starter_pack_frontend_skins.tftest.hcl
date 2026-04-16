@@ -176,12 +176,8 @@ run "enterprise_rag_helm_pack_unaffected" {
     error_message = "Helm pack frontend_skin_urls must be {}"
   }
   assert {
-    condition     = output.starter_pack_url != null
-    error_message = "Helm pack starter_pack_url must be set"
-  }
-  assert {
-    condition     = can(regex("^frontend-erag\\.", output.starter_pack_url))
-    error_message = "enterprise_rag starter_pack_url should begin with frontend-erag."
+    condition     = local.starter_pack_config.frontend_url == "frontend-erag"
+    error_message = "enterprise_rag starter_pack_config.frontend_url must be 'frontend-erag' (drives helm-pack ingress host)"
   }
 }
 
@@ -209,8 +205,8 @@ run "enterprise_rag_aiq_helm_pack_unaffected" {
     error_message = "aiq frontend_skin_urls must be {}"
   }
   assert {
-    condition     = can(regex("^aiq\\.", output.starter_pack_url))
-    error_message = "aiq starter_pack_url should begin with aiq."
+    condition     = local.starter_pack_config.frontend_url == "aiq"
+    error_message = "enterprise_rag_aiq starter_pack_config.frontend_url must be 'aiq'"
   }
 }
 

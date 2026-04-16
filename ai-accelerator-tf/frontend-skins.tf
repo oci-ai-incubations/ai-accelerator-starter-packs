@@ -19,7 +19,7 @@ locals {
   enabled_frontend_skins = [
     for skin in local.category_skins : skin
     if try(skin.variable_name, "") != ""
-    && lookup(local.skin_enabled_map, skin.variable_name, false)
+    && lookup(local.skin_enabled_map, try(skin.variable_name, ""), false)
   ]
 
   # Primary skin for blueprint packs. null for Helm packs (no multi-skin concept).
