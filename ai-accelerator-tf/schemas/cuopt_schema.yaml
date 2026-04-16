@@ -50,11 +50,6 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
-      - cuopt_frontend_enabled
-      - genai_region
-      - google_maps_api_key
-      - cuopt_frontend_admin_username
-      - cuopt_frontend_admin_password
       - worker_node_availability_domain
 
   - title: "Administrator Account"
@@ -62,6 +57,17 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
+
+  - title: "cuOpt Frontend Credentials"
+    visible:
+      or:
+        - skin_cuopt_core
+        - skin_cuopt_partner
+    variables:
+      - cuopt_frontend_admin_username
+      - cuopt_frontend_admin_password
+      - google_maps_api_key
+      - genai_region
 
 # =============================================================================
 # Variables - cuOpt specific
@@ -78,22 +84,11 @@ variables:
     default: small
     required: true
 
-  cuopt_frontend_enabled:
-    type: boolean
-    title: "Enable cuOpt Frontend"
-    description: "Enable cuOpt frontend"
-    default: true
-    visible: true
-    required: true
-
   google_maps_api_key:
     type: string
     title: "Google Maps API Key"
     description: "API key for Google Maps visualization in the cuOpt frontend. Leave empty to use the default Leaflet map."
     default: ""
-    visible:
-      and:
-        - cuopt_frontend_enabled
 
   cuopt_frontend_admin_username:
     type: string
@@ -102,9 +97,6 @@ variables:
     default: ""
     required: true
     minLength: 1
-    visible:
-      and:
-        - cuopt_frontend_enabled
 
   cuopt_frontend_admin_password:
     type: password
@@ -114,9 +106,6 @@ variables:
     required: true
     minLength: 8
     pattern: ".*[0-9].*"
-    visible:
-      and:
-        - cuopt_frontend_enabled
 
   genai_region:
     title: "OCI GenAI Services Region"
@@ -135,9 +124,6 @@ variables:
       - ap-osaka-1
       - ap-hyderbad-1
       - sa-saopaulo-1
-    visible:
-      and:
-        - cuopt_frontend_enabled
 
   # Hide database variables
   db_username:
@@ -160,10 +146,6 @@ outputs:
   starter_pack_url:
     type: string
     title: "cuOpt API URL"
-  
-  starter_pack_frontend_url:
-    type: string
-    title: "cuOpt Frontend Service URL"
 
   db_username:
     visible: false
