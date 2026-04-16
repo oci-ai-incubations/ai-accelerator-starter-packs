@@ -6,9 +6,9 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
-      "poc"    = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
-      "small"  = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
-      "medium" = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
+      "poc"    = local._cuopt_blueprint
+      "small"  = local._cuopt_blueprint
+      "medium" = local._cuopt_blueprint
       # Add "large" here when implemented
     }
     "vss" = {
