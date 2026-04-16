@@ -49,10 +49,10 @@ comm -23 /tmp/tf_vars.txt /tmp/schema_vars.txt
 For variables that should only appear in certain categories, verify the visibility pattern:
 
 ```bash
-# For each category-specific variable (e.g., cuopt_frontend_enabled):
+# For each category-specific variable (e.g., skin_cuopt_core):
 for category in cuopt vss paas_rag enterprise_rag enterprise_rag_aiq; do
   echo "=== $category ==="
-  grep -A2 "cuopt_frontend_enabled" schemas/generated/${category}_schema.yaml 2>/dev/null || echo "NOT FOUND"
+  grep -A2 "skin_cuopt_core" schemas/generated/${category}_schema.yaml 2>/dev/null || echo "NOT FOUND"
 done
 ```
 
