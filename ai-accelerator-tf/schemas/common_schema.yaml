@@ -483,6 +483,25 @@ variables:
     type: string
     visible: false
 
+  # Per-skin boolean fallbacks. create_final_schema.py's inject_frontend_skin_toggles
+  # overrides the entry for the current category's skins with visible=true and full
+  # metadata; skins for OTHER categories stay hidden via these defaults.
+  skin_cuopt_core:
+    type: boolean
+    visible: false
+
+  skin_cuopt_partner:
+    type: boolean
+    visible: false
+
+  skin_vss_core:
+    type: boolean
+    visible: false
+
+  skin_paas_rag_core:
+    type: boolean
+    visible: false
+
   nip_io_domain:
     type: string
     visible: false
