@@ -142,6 +142,15 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
 
     variable_groups = merged_schema.setdefault("variableGroups", [])
 
+    # Description explains that multiple skins can be selected simultaneously
+    # and links to the catalog/README for more info. The learn_more_url comes
+    # from the top of frontend_skins.yaml.
+    group_description = (
+        "Select one or more frontend UIs to deploy. You can enable multiple "
+        "skins simultaneously — each runs as its own container with its own "
+        f"URL. <a href='{learn_more_url}'>Learn more about available skins</a>."
+    )
+
     # Find or create the "Frontend Skins" group.
     skin_group = None
     for group in variable_groups:
@@ -149,7 +158,11 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
             skin_group = group
             break
     if skin_group is None:
-        skin_group = {"title": "Frontend Skins", "variables": []}
+        skin_group = {
+            "title": "Frontend Skins",
+            "description": group_description,
+            "variables": [],
+        }
         # Insert right after "Deployment Configuration" if present, else append.
         insert_at = len(variable_groups)
         for idx, group in enumerate(variable_groups):
@@ -157,6 +170,9 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
                 insert_at = idx + 1
                 break
         variable_groups.insert(insert_at, skin_group)
+    else:
+        # Keep the description fresh if the group already exists.
+        skin_group["description"] = group_description
 
     # Populate in catalog order.
     for var_name in skin_var_names:
