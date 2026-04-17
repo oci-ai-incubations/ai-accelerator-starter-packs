@@ -3,25 +3,16 @@
 # ingresses. Returns 200 when the request carries `Authorization: Bearer <key>`,
 # 401 otherwise. Only deployed when add_api_key_to_ingress is true.
 
-locals {
-  # Single source of truth for which ingresses require API key auth when
-  # add_api_key_to_ingress is true. kind=frontend ingresses stay open; kind=backend
-  # ingresses (blueprint-injected cuopt/llamastack/vss, plus future TF-managed backend
-  # ingresses) get the auth-url annotation merged in.
-  ingress_classification = {
-    # Terraform-managed (ingress.tf)
-    grafana                     = { kind = "frontend" }
-    prometheus                  = { kind = "frontend" }
-    corrino_cp                  = { kind = "frontend" }
-    oci_ai_blueprints_portal    = { kind = "frontend" }
-    enterprise_rag_frontend     = { kind = "frontend" }
-    enterprise_rag_aiq_frontend = { kind = "frontend" }
-    # Blueprint-injected (blueprint_files.tf via recipe_additional_ingress_annotations)
-    cuopt      = { kind = "backend" }
-    llamastack = { kind = "backend" }
-    vss        = { kind = "backend" }
-  }
+# Ingress classification when add_api_key_to_ingress is true:
+#   frontends (stay open):  grafana, prometheus, corrino_cp, oci_ai_blueprints_portal,
+#                           enterprise_rag_frontend, enterprise_rag_aiq_frontend,
+#                           plus the `demo` and `frontend` recipes in _cuopt_with_frontend
+#                           and _paas_rag_small blueprints.
+#   backends (protected):   every other blueprint recipe (llamastack, cuopt, elasticsearch,
+#                           neo4j, embedding, rerank, riva, vss, nim-llm). Annotations are
+#                           threaded per-recipe in blueprint_files.tf.
 
+locals {
   # Effective API key: user-provided if non-empty, otherwise auto-generated.
   # Empty string when the feature is disabled.
   ingress_api_key_effective = var.add_api_key_to_ingress ? (
