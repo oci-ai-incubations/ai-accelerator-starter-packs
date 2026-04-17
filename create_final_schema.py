@@ -111,22 +111,18 @@ def represent_str(dumper, data):
 def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more_url):
     """Inject per-skin boolean toggle variables into the merged schema.
 
-    Skin variables are inserted right after 'starter_pack_size' in the
-    'Deployment Configuration' group, preserving catalog order.
+    Skin variables are placed in a dedicated 'Frontend Skins' variableGroup
+    (not in 'Deployment Configuration') so the skin selection is a clearly
+    discoverable section in the ORM UI. The new group is inserted immediately
+    after 'Deployment Configuration'. Only blueprint packs with per-skin
+    variable_names in the catalog get the group; Helm packs (enterprise_rag,
+    enterprise_rag_aiq) do not.
     """
     if skins_data is None or category not in skins_data:
         return
     skins = skins_data[category].get("skins", [])
-    target_group = None
-    for group in merged_schema.get("variableGroups", []):
-        if group.get("title") == "Deployment Configuration":
-            target_group = group
-            break
-    try:
-        base_pos = (target_group["variables"].index("starter_pack_size") + 1) if target_group else 0
-    except ValueError:
-        base_pos = 0
-    offset = 0
+    # Collect the list of skin variable_names in catalog order (Helm packs have none).
+    skin_var_names = []
     for skin in skins:
         var_name = skin.get("variable_name")
         if not var_name:
@@ -139,9 +135,38 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
             "required": True,
             "visible": True,
         }
-        if target_group and var_name not in target_group["variables"]:
-            target_group["variables"].insert(base_pos + offset, var_name)
-            offset += 1
+        skin_var_names.append(var_name)
+
+    if not skin_var_names:
+        return  # Helm-pack category — no dedicated group needed
+
+    variable_groups = merged_schema.setdefault("variableGroups", [])
+
+    # Find or create the "Frontend Skins" group.
+    skin_group = None
+    for group in variable_groups:
+        if group.get("title") == "Frontend Skins":
+            skin_group = group
+            break
+    if skin_group is None:
+        skin_group = {"title": "Frontend Skins", "variables": []}
+        # Insert right after "Deployment Configuration" if present, else append.
+        insert_at = len(variable_groups)
+        for idx, group in enumerate(variable_groups):
+            if group.get("title") == "Deployment Configuration":
+                insert_at = idx + 1
+                break
+        variable_groups.insert(insert_at, skin_group)
+
+    # Populate in catalog order.
+    for var_name in skin_var_names:
+        if var_name not in skin_group["variables"]:
+            skin_group["variables"].append(var_name)
+        # Also make sure the variable is NOT in Deployment Configuration (older
+        # generations may have placed it there).
+        for group in variable_groups:
+            if group.get("title") == "Deployment Configuration" and var_name in group.get("variables", []):
+                group["variables"].remove(var_name)
 
 
 def inject_frontend_skin_url_map_output(merged_schema, skins_data):

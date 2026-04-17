@@ -274,11 +274,27 @@ class TestFrontendSkinCatalogSync:
 
     @pytest.mark.parametrize("category", HELM_PACKS)
     def test_helm_packs_have_no_per_skin_variables(self, generated_schemas, category):
-        """Helm packs must not have any skin_* variables injected."""
+        """Helm packs must not surface per-skin toggles to the user.
+
+        common_schema.yaml declares skin_* booleans with visible=false as hidden
+        fallbacks (commit 22c642e — without them, ORM auto-renders undeclared
+        TF vars as raw checkboxes). Those hidden declarations ARE allowed in
+        Helm-pack schemas. What's forbidden is a user-visible skin checkbox or
+        a 'Frontend Skins' variableGroup in a Helm-pack wizard.
+        """
         schema = generated_schemas[category]
-        skin_vars = [v for v in schema.get("variables", {}) if v.startswith("skin_")]
-        assert skin_vars == [], (
-            f"{category}: unexpected skin_* variables {skin_vars} injected"
+        variables = schema.get("variables", {})
+        visible_skin_vars = [
+            v for v, spec in variables.items()
+            if v.startswith("skin_") and spec.get("visible") is True
+        ]
+        assert visible_skin_vars == [], (
+            f"{category}: unexpected VISIBLE skin_* variables {visible_skin_vars}"
+        )
+        groups = schema.get("variableGroups", [])
+        has_frontend_skins_group = any(g.get("title") == "Frontend Skins" for g in groups)
+        assert not has_frontend_skins_group, (
+            f"{category}: unexpected 'Frontend Skins' variableGroup"
         )
 
     def test_skin_catalog_matches_terraform(self):
