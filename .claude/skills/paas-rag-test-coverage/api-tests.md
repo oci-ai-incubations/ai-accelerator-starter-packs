@@ -117,7 +117,7 @@
 - **Endpoint:** `POST /v1/files`
 - **Request:** `multipart/form-data` with:
   - `file`: a test text file
-  - `purpose`: `"file_search"` (or omit — depends on backend)
+  - `purpose`: `"assistants"` — the backend rejects `file_search` with a validation error; accepted values are `assistants` or `batch`.
 - **Verification:**
   - HTTP 200
   - Response has `id` field (file ID)
@@ -130,7 +130,7 @@
 
   curl -sk -X POST \
     -F "file=@${DAT_SANDBOX}/api-results/test-doc.txt" \
-    -F "purpose=file_search" \
+    -F "purpose=assistants" \
     -o "${DAT_SANDBOX}/api-results/PA-5.json" -w '%{http_code}' \
     "${STARTER_PACK_URL}/v1/files"
   ```
