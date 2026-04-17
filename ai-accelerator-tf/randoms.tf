@@ -121,3 +121,9 @@ resource "random_password" "minio_secret_key" {
   length  = 40
   special = false
 }
+
+resource "random_password" "ingress_api_key" {
+  count   = var.add_api_key_to_ingress && var.ingress_api_key == "" ? 1 : 0
+  length  = 48
+  special = false
+}
