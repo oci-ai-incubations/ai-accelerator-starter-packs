@@ -43,6 +43,7 @@ locals {
   _cuopt_small_blueprint = jsonencode(merge(
     {
       recipe_id                                    = "cuopt"
+      recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
       recipe_mode                                  = "service"
       deployment_name                              = "DEPLOY_NAME"
       recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
@@ -101,17 +102,18 @@ locals {
           name    = "llamastack",
           exports = ["service_name"],
           recipe = {
-            recipe_id                            = "llamastack",
-            deployment_name                      = "llamastack",
-            recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
-            recipe_replica_count                 = 1,
-            recipe_flex_shape_ocpu_count         = 1,
-            recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-            recipe_use_shared_node_pool          = true,
-            recipe_container_port                = "8321",
-            recipe_container_command_args        = ["/config/config.yaml"],
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "llamastack",
+            deployment_name                       = "llamastack",
+            recipe_mode                           = "service",
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
+            recipe_replica_count                  = 1,
+            recipe_flex_shape_ocpu_count          = 1,
+            recipe_flex_shape_memory_size_in_gbs  = 8,
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool           = true,
+            recipe_container_port                 = "8321",
+            recipe_container_command_args         = ["/config/config.yaml"],
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
@@ -126,6 +128,7 @@ locals {
           name    = "cuopt"
           exports = ["service_name"]
           recipe = {
+            recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
             recipe_id                                    = "cuopt"
             recipe_mode                                  = "service"
             deployment_name                              = "DEPLOY_NAME-2"
@@ -235,19 +238,20 @@ locals {
           exports    = ["service_name"]
           depends_on = []
           recipe = {
-            recipe_id                            = "llamastack"
-            deployment_name                      = "llamastack"
-            recipe_mode                          = "service"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
-            recipe_node_pool_size                = 1
-            recipe_replica_count                 = 1
-            recipe_flex_shape_ocpu_count         = 1
-            recipe_flex_shape_memory_size_in_gbs = 8
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_container_port                = "8321"
-            recipe_container_command_args        = ["/config/config.yaml"]
-            recipe_use_shared_node_pool          = true
-            service_endpoint_subdomain           = "llamastack"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "llamastack"
+            deployment_name                       = "llamastack"
+            recipe_mode                           = "service"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
+            recipe_node_pool_size                 = 1
+            recipe_replica_count                  = 1
+            recipe_flex_shape_ocpu_count          = 1
+            recipe_flex_shape_memory_size_in_gbs  = 8
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_container_port                 = "8321"
+            recipe_container_command_args         = ["/config/config.yaml"]
+            recipe_use_shared_node_pool           = true
+            service_endpoint_subdomain            = "llamastack"
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
@@ -263,15 +267,16 @@ locals {
           exports    = ["internal_dns_name"]
           depends_on = []
           recipe = {
-            recipe_id                            = "elasticsearch-standalone"
-            recipe_mode                          = "service"
-            deployment_name                      = "elasticsearch-deployment-group"
-            recipe_host_port                     = "9200"
-            recipe_image_uri                     = "docker.io/elasticsearch:9.1.2"
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_node_pool_size                = 1
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 64
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "elasticsearch-standalone"
+            recipe_mode                           = "service"
+            deployment_name                       = "elasticsearch-deployment-group"
+            recipe_host_port                      = "9200"
+            recipe_image_uri                      = "docker.io/elasticsearch:9.1.2"
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size                 = 1
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 64
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -290,13 +295,14 @@ locals {
           exports    = ["internal_dns_name"]
           depends_on = ["elasticsearch"]
           recipe = {
-            recipe_mode                          = "service"
-            deployment_name                      = "neo4j-deployment-group"
-            recipe_host_port                     = "7687"
-            recipe_image_uri                     = "docker.io/neo4j:5.26.4"
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 64
-            recipe_node_pool_size                = 1
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_mode                           = "service"
+            deployment_name                       = "neo4j-deployment-group"
+            recipe_host_port                      = "7687"
+            recipe_image_uri                      = "docker.io/neo4j:5.26.4"
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 64
+            recipe_node_pool_size                 = 1
             recipe_configmaps = [
               {
                 data = {
@@ -363,6 +369,7 @@ locals {
           exports    = ["internal_dns_name"]
           depends_on = ["neo4j"]
           recipe = {
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
               volumes = [
                 { name = "nemo-embed-cache", mount_location = "/mnt/nim-cache", volume_size_in_gbs = 50 }
@@ -404,6 +411,7 @@ locals {
           exports    = ["internal_dns_name"]
           depends_on = ["embedding"]
           recipe = {
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
               volumes = [
                 { name = "nemo-rerank-cache", mount_location = "/mnt/nim-cache", volume_size_in_gbs = 50 }
@@ -444,6 +452,7 @@ locals {
           exports    = ["internal_dns_name"]
           depends_on = ["rerank"]
           recipe = {
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
               volumes = [
                 { name = "riva-cache", mount_location = "/mnt/nim-cache", volume_size_in_gbs = 100 }
@@ -491,6 +500,7 @@ locals {
           depends_on = ["llamastack", "embedding", "rerank", "riva", "elasticsearch", "neo4j"]
           recipe = merge(
             {
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
               pvcs = {
                 volumes = [
                   { name = "vss-ngc-model-cache", mount_location = "/tmp/via-ngc-model-cache", volume_size_in_gbs = 1000 }
@@ -631,14 +641,15 @@ locals {
         {
           name = "elasticsearch"
           recipe = {
-            recipe_id                   = "elasticsearch-standalone"
-            deployment_name             = "elasticsearch-deployment-group"
-            recipe_mode                 = "service"
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_node_pool_size       = 1
-            recipe_use_shared_node_pool = true
-            recipe_replica_count        = 1
-            recipe_image_uri            = "docker.io/elasticsearch:9.1.2"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "elasticsearch-standalone"
+            deployment_name                       = "elasticsearch-deployment-group"
+            recipe_mode                           = "service"
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size                 = 1
+            recipe_use_shared_node_pool           = true
+            recipe_replica_count                  = 1
+            recipe_image_uri                      = "docker.io/elasticsearch:9.1.2"
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -655,14 +666,15 @@ locals {
         {
           name = "neo4j"
           recipe = {
-            deployment_name             = "neo4j-deployment-group"
-            recipe_mode                 = "service"
-            recipe_image_uri            = "docker.io/neo4j:5.26.4"
-            recipe_replica_count        = 1
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool = true
-            recipe_container_port       = "7687"
-            recipe_host_port            = "7687"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            deployment_name                       = "neo4j-deployment-group"
+            recipe_mode                           = "service"
+            recipe_image_uri                      = "docker.io/neo4j:5.26.4"
+            recipe_replica_count                  = 1
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "7687"
+            recipe_host_port                      = "7687"
             recipe_additional_ingress_ports = [
               { port_name = "http", port = 7474, path = "/" }
             ]
@@ -727,18 +739,19 @@ locals {
         {
           name = "embedding"
           recipe = {
-            recipe_id                    = "nemo-embedding-nim"
-            deployment_name              = "nemo-embedding-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-embedding-nim"
+            deployment_name                       = "nemo-embedding-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_TRT_ENGINE_HOST_CODE_ALLOWED", value = "1" },
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
@@ -768,18 +781,19 @@ locals {
         {
           name = "rerank"
           recipe = {
-            recipe_id                    = "nemo-rerank-nim"
-            deployment_name              = "nemo-rerank-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-rerank-nim"
+            deployment_name                       = "nemo-rerank-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
             ]
@@ -808,15 +822,16 @@ locals {
         {
           name = "nim-llm"
           recipe = {
-            recipe_id                   = "nim-llm-llama3-8b"
-            deployment_name             = "nim-llm-deployment-group"
-            recipe_mode                 = "service"
-            recipe_use_shared_node_pool = true
-            recipe_node_shape           = local.starter_pack_config.worker_node_shape
-            recipe_node_pool_size       = 1
-            recipe_replica_count        = 1
-            recipe_nvidia_gpu_count     = 4
-            recipe_image_uri            = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nim-llm-llama3-8b"
+            deployment_name                       = "nim-llm-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_node_pool_size                 = 1
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 4
+            recipe_image_uri                      = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/model-store" },
               { key = "OUTLINES_CACHE_DIR", value = "/tmp/outlines" },
@@ -875,17 +890,18 @@ locals {
           name = "vss"
           recipe = merge(
             {
-              deployment_name              = "vss-deployment-group"
-              recipe_mode                  = "service"
-              recipe_image_uri             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
-              recipe_container_secret_name = "ngc-secret"
-              recipe_replica_count         = 1
-              recipe_node_shape            = local.starter_pack_config.worker_node_shape
-              recipe_use_shared_node_pool  = true
-              recipe_nvidia_gpu_count      = 2
-              recipe_storage_group_id      = 1000
-              recipe_container_port        = "9000"
-              recipe_host_port             = "9000"
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              deployment_name                       = "vss-deployment-group"
+              recipe_mode                           = "service"
+              recipe_image_uri                      = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
+              recipe_container_secret_name          = "ngc-secret"
+              recipe_replica_count                  = 1
+              recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool           = true
+              recipe_nvidia_gpu_count               = 2
+              recipe_storage_group_id               = 1000
+              recipe_container_port                 = "9000"
+              recipe_host_port                      = "9000"
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -1026,14 +1042,15 @@ locals {
         {
           name = "elasticsearch"
           recipe = {
-            recipe_id                   = "elasticsearch-standalone"
-            deployment_name             = "elasticsearch-deployment-group"
-            recipe_mode                 = "service"
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_node_pool_size       = 1
-            recipe_use_shared_node_pool = true
-            recipe_replica_count        = 1
-            recipe_image_uri            = "docker.io/elasticsearch:9.1.2"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "elasticsearch-standalone"
+            deployment_name                       = "elasticsearch-deployment-group"
+            recipe_mode                           = "service"
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size                 = 1
+            recipe_use_shared_node_pool           = true
+            recipe_replica_count                  = 1
+            recipe_image_uri                      = "docker.io/elasticsearch:9.1.2"
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -1050,14 +1067,15 @@ locals {
         {
           name = "neo4j"
           recipe = {
-            deployment_name             = "neo4j-deployment-group"
-            recipe_mode                 = "service"
-            recipe_image_uri            = "docker.io/neo4j:5.26.4"
-            recipe_replica_count        = 1
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool = true
-            recipe_container_port       = "7687"
-            recipe_host_port            = "7687"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            deployment_name                       = "neo4j-deployment-group"
+            recipe_mode                           = "service"
+            recipe_image_uri                      = "docker.io/neo4j:5.26.4"
+            recipe_replica_count                  = 1
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "7687"
+            recipe_host_port                      = "7687"
             recipe_additional_ingress_ports = [
               { port_name = "http", port = 7474, path = "/" }
             ]
@@ -1122,18 +1140,19 @@ locals {
         {
           name = "embedding"
           recipe = {
-            recipe_id                    = "nemo-embedding-nim"
-            deployment_name              = "nemo-embedding-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-embedding-nim"
+            deployment_name                       = "nemo-embedding-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_TRT_ENGINE_HOST_CODE_ALLOWED", value = "1" },
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
@@ -1163,18 +1182,19 @@ locals {
         {
           name = "rerank"
           recipe = {
-            recipe_id                    = "nemo-rerank-nim"
-            deployment_name              = "nemo-rerank-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-rerank-nim"
+            deployment_name                       = "nemo-rerank-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
             ]
@@ -1203,18 +1223,19 @@ locals {
         {
           name = "riva"
           recipe = {
-            recipe_id                    = "riva-nim"
-            deployment_name              = "riva-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us:2.0.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "9000"
-            recipe_host_port             = "9000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "riva-nim"
+            deployment_name                       = "riva-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us:2.0.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "9000"
+            recipe_host_port                      = "9000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_HTTP_API_PORT", value = "9000" },
               { key = "NIM_GRPC_API_PORT", value = "50051" },
@@ -1249,15 +1270,16 @@ locals {
         {
           name = "nim-llm"
           recipe = {
-            recipe_id                   = "nim-llm-llama3-8b"
-            deployment_name             = "nim-llm-deployment-group"
-            recipe_mode                 = "service"
-            recipe_use_shared_node_pool = true
-            recipe_node_shape           = local.starter_pack_config.worker_node_shape
-            recipe_node_pool_size       = 1
-            recipe_replica_count        = 1
-            recipe_nvidia_gpu_count     = 3
-            recipe_image_uri            = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nim-llm-llama3-8b"
+            deployment_name                       = "nim-llm-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_node_pool_size                 = 1
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 3
+            recipe_image_uri                      = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/model-store" },
               { key = "OUTLINES_CACHE_DIR", value = "/tmp/outlines" },
@@ -1316,16 +1338,17 @@ locals {
           name = "vss"
           recipe = merge(
             {
-              deployment_name             = "vss-deployment-group"
-              recipe_mode                 = "service"
-              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
-              recipe_replica_count        = 1
-              recipe_node_shape           = local.starter_pack_config.worker_node_shape
-              recipe_use_shared_node_pool = true
-              recipe_nvidia_gpu_count     = 2
-              recipe_storage_group_id     = 1000
-              recipe_container_port       = "9000"
-              recipe_host_port            = "9000"
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              deployment_name                       = "vss-deployment-group"
+              recipe_mode                           = "service"
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
+              recipe_replica_count                  = 1
+              recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool           = true
+              recipe_nvidia_gpu_count               = 2
+              recipe_storage_group_id               = 1000
+              recipe_container_port                 = "9000"
+              recipe_host_port                      = "9000"
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -1472,15 +1495,16 @@ locals {
           exports = ["service_name"]
           recipe = merge(
             {
-              recipe_id                     = "llamastack"
-              recipe_mode                   = "service"
-              deployment_name               = "llamastack"
-              recipe_node_shape             = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-              recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
-              recipe_use_shared_node_pool   = true
-              recipe_replica_count          = 1
-              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
-              recipe_container_command_args = ["/config/config.yaml"]
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              recipe_id                             = "llamastack"
+              recipe_mode                           = "service"
+              deployment_name                       = "llamastack"
+              recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+              recipe_node_pool_size                 = local.starter_pack_config.cpu_worker_node_pool_size
+              recipe_use_shared_node_pool           = true
+              recipe_replica_count                  = 1
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
+              recipe_container_command_args         = ["/config/config.yaml"]
               recipe_container_env = [
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },

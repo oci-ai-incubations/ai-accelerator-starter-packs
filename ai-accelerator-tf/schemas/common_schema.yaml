@@ -33,6 +33,15 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
+  - title: "Ingress API Key"
+    outputs:
+      - ingress_api_key
+      - ingress_api_key_curl_example
+    visible:
+      eq:
+        - add_api_key_to_ingress
+        - "true"
+
   - title: "Frontend Skin"
     outputs:
       - frontend_skin_name
@@ -99,6 +108,11 @@ variableGroups:
       - corrino_admin_password
       - corrino_admin_email
 
+  - title: "Ingress Security"
+    variables:
+      - add_api_key_to_ingress
+      - ingress_api_key
+
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
@@ -135,6 +149,24 @@ variables:
   frontend_skin:
     type: string
     visible: false
+
+  # Ingress API Key Authentication
+  add_api_key_to_ingress:
+    type: boolean
+    title: "Protect Backend Ingresses With API Key"
+    description: "When enabled, requests to backend nginx ingresses (blueprint-injected cuopt, llamastack, vss paths) require an <code>Authorization: Bearer &lt;key&gt;</code> header. Frontend UIs and in-cluster traffic are unaffected. Toggling this flag requires redeploying affected blueprints."
+    default: false
+    required: false
+
+  ingress_api_key:
+    type: password
+    title: "Ingress API Key (leave blank to auto-generate)"
+    description: "Optional bearer token. Leave blank to auto-generate a 48-character key surfaced via the sensitive Terraform output. Must be at least 32 characters when provided."
+    required: false
+    visible:
+      eq:
+        - add_api_key_to_ingress
+        - "true"
 
   # Capacity Check Option
   skip_capacity_check:
@@ -644,6 +676,18 @@ outputs:
     type: link
     title: "Frontend Skin Details"
     displayText: "Learn More"
+    visible: true
+
+  ingress_api_key:
+    type: string
+    title: "Ingress API Key"
+    description: "Copy this token and pass it as 'Authorization: Bearer <token>' when calling protected backend endpoints."
+    sensitive: true
+    visible: true
+
+  ingress_api_key_curl_example:
+    type: copyableString
+    title: "Backend Curl Example"
     visible: true
 
   # Hidden outputs

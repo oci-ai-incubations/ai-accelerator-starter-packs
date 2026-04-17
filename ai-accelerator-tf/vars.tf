@@ -376,6 +376,24 @@ variable "ingress_nginx_enabled" {
   default     = true
   description = "Enable ingress-nginx controller deployment"
 }
+
+# Ingress API Key Authentication
+variable "add_api_key_to_ingress" {
+  type        = bool
+  default     = false
+  description = "When true, require Bearer token auth on backend nginx ingresses (blueprint-injected cuopt, llamastack, vss paths). Frontend UIs and in-cluster ClusterIP traffic are unaffected. Toggling this flag requires redeploying affected blueprints."
+}
+
+variable "ingress_api_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Optional user-provided API key for backend ingress auth. Leave empty to auto-generate. Ignored when add_api_key_to_ingress is false."
+  validation {
+    condition     = var.ingress_api_key == "" || length(var.ingress_api_key) >= 32
+    error_message = "ingress_api_key must be empty (auto-generate) or at least 32 characters."
+  }
+}
 # tflint-ignore: terraform_unused_declarations
 variable "cluster_load_balancer_visibility" {
   type        = string

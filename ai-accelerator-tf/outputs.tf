@@ -321,3 +321,18 @@ output "frontend_skins_learn_more" {
   description = "URL for frontend skin documentation"
   value       = local.frontend_skins_catalog.learn_more_url
 }
+
+# Ingress API Key Auth
+output "ingress_api_key" {
+  description = "Bearer token required by protected backend ingresses. Empty when add_api_key_to_ingress is false."
+  value       = local.ingress_api_key_effective
+  sensitive   = true
+}
+
+output "ingress_api_key_curl_example" {
+  description = "Ready-to-paste curl invocation for a protected backend endpoint. Substitute the api_key output and adjust the path for your starter pack."
+  value = var.add_api_key_to_ingress && local.deploy_application ? format(
+    "curl -H 'Authorization: Bearer <ingress_api_key>' https://%s/",
+    local.public_endpoint.starter_pack
+  ) : "Ingress API key auth is disabled."
+}
