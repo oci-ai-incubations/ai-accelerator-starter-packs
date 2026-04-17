@@ -24,6 +24,9 @@
 | 8 | PA-8 | RAG chat (streaming) | POST | `/v1/responses` | P0 | e2e | 2min | PA-7 indexing complete |
 | 9 | PA-9 | Delete file from vector store | DELETE | `/v1/vector_stores/{id}/files/{fileId}` | P1 | regression | 30s | PA-6 file exists |
 | 10 | PA-10 | Delete vector store | DELETE | `/v1/vector_stores/{id}` | P1 | regression | 30s | PA-4 vector store exists |
+| 11 | PA-11 | Delete uploaded file + bucket objects (cleanup hook) | DELETE | `/v1/files/{fileId}` + OCI CLI | P0 | cleanup | 60s | PA-5 file ID available |
+
+> **Cleanup discipline:** PA-11 MUST run at the end of the test suite. The `POST /v1/files` call in PA-5 uploads the file into the paas_rag Object Storage bucket (`<deployment-name>-bucket`). Without cleanup, orphaned objects will block `terraform destroy` with a `409-BucketNotEmpty` error, forcing manual cleanup later. Even if earlier tests fail, run PA-11 unconditionally as a teardown step.
 
 ---
 
@@ -266,3 +269,68 @@
     -o "${DAT_SANDBOX}/api-results/PA-10.json" -w '%{http_code}' \
     "${STARTER_PACK_URL}/v1/vector_stores/${VS_ID}"
   ```
+
+### PA-11: Cleanup — Delete Uploaded File and Purge Bucket Objects (P0 cleanup)
+
+**Run this ALWAYS — even if PA-5..PA-10 failed.** The `POST /v1/files` call in PA-5 wrote a real object into the paas_rag Object Storage bucket. If this cleanup is skipped, `terraform destroy` on the app stack will fail with `409-BucketNotEmpty` because OCI won't delete a bucket that still has objects (or object versions) in it.
+
+- **Endpoints:**
+  - `DELETE /v1/files/{file_id}` — LlamaStack Files API
+  - `oci os bucket list-objects`, `oci os object delete` — raw Object Storage sweep for anything left behind
+- **Preconditions:** PA-5 saved `${DAT_SANDBOX}/api-results/PA-5.json` with the file `id`. Bucket name discoverable via `terraform output -raw paas_rag_bucket_name` on the app stack (or via the ORM stack's Application Information tab).
+- **Verification:**
+  - `DELETE /v1/files/{id}` returns HTTP 200 (or 404 if already gone — treat as success).
+  - `oci os object list --bucket-name <bucket>` returns an empty array.
+  - `oci os object list-object-versions --bucket-name <bucket>` returns an empty array (versioned buckets retain delete-markers; purge those too).
+- **Bash (run unconditionally as teardown):**
+  ```bash
+  set +e   # Cleanup must NOT abort on earlier non-zero status; keep going.
+
+  # 1) Delete via LlamaStack Files API (best-effort — idempotent).
+  if [ -f "${DAT_SANDBOX}/api-results/PA-5.json" ]; then
+    FILE_ID=$(python3 -c "import json; print(json.load(open('${DAT_SANDBOX}/api-results/PA-5.json'))['id'])" 2>/dev/null)
+    if [ -n "${FILE_ID}" ]; then
+      curl -sk -X DELETE \
+        -o "${DAT_SANDBOX}/api-results/PA-11-llamastack.json" -w '%{http_code}\n' \
+        "${STARTER_PACK_URL}/v1/files/${FILE_ID}"
+    fi
+  fi
+
+  # 2) Resolve bucket name from the app stack's TF outputs (skip if not available).
+  APP_STACK_ID="${APP_STACK_ID:?set APP_STACK_ID to the paas_rag app stack OCID}"
+  BUCKET=$(oci resource-manager stack get --stack-id "${APP_STACK_ID}" \
+             --query 'data."variables"."starter_pack_deployment_name"' --raw-output 2>/dev/null)-bucket
+  # Or read bucket directly from Application Information tab output 'paas_rag_bucket_name'.
+  echo "Bucket: ${BUCKET}"
+
+  NAMESPACE=$(oci os ns get --query 'data' --raw-output)
+
+  # 3) Force-delete every current object.
+  oci os object bulk-delete --bucket-name "${BUCKET}" --namespace "${NAMESPACE}" \
+    --force --include '*' 2>&1 | tail -3
+
+  # 4) Purge object versions + delete-markers (versioned buckets).
+  oci os object list-object-versions --bucket-name "${BUCKET}" --namespace "${NAMESPACE}" --all \
+    --query 'data.items[*].{name:name, versionId:"version-id"}' --output json 2>/dev/null \
+    | python3 -c "
+import json, sys, subprocess, os
+bucket = os.environ['BUCKET']; ns = os.environ['NAMESPACE']
+rows = json.load(sys.stdin) or []
+for r in rows:
+    subprocess.run(['oci','os','object','delete',
+                    '--bucket-name',bucket,'--namespace',ns,
+                    '--name',r['name'],'--version-id',r['versionId'],'--force'],
+                   check=False, capture_output=True)
+print(f'purged {len(rows)} versioned entries')
+"
+
+  # 5) Confirm bucket is empty.
+  REMAINING=$(oci os object list --bucket-name "${BUCKET}" --namespace "${NAMESPACE}" \
+                --query 'length(data.objects)' 2>/dev/null)
+  echo "Remaining objects in bucket: ${REMAINING:-unknown}"
+  set -e
+  ```
+
+**Why the belt-and-suspenders (LlamaStack DELETE + raw OCI object sweep):** `DELETE /v1/files/{id}` removes the file row in LlamaStack's metadata, but the underlying Object Storage blob may not be cleaned up immediately (or may be retained if versioning is enabled). The raw OCI sweep guarantees the bucket is empty regardless of LlamaStack's internal state.
+
+Return the bucket-empty status in your Phase 6c-2 results table. If `PA-11` leaves any object in the bucket, flag it as a teardown failure so the controller can manually clean before `/destroy-stack`.
