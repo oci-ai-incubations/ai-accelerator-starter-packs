@@ -260,6 +260,24 @@ EOF
 
 If any pack failed, also update the PR body checklist to reflect the current state.
 
+### 4f. Upload collected screenshots to the PR
+
+Each `/testing-pack` teammate saves milestone screenshots locally (Phase 3 schema, Phase 4 infra success, Phase 5 app success, frontend loaded, Phase 6 UI evidence). In Phase 7 of each teammate's testing-pack run, screenshots are uploaded to a side branch `screenshots/pr-${PR_NUMBER}` and embedded into the per-track PR comments.
+
+Verify after all tracks complete:
+```bash
+# Branch should exist with all tracks' screenshots
+git ls-remote origin "refs/heads/screenshots/pr-${PR_NUMBER}" | head -1
+
+# Sample URL should return 200
+BASE="https://raw.githubusercontent.com/oci-ai-incubations/ai-accelerator-starter-packs/screenshots/pr-${PR_NUMBER}/pr-${PR_NUMBER}"
+curl -sI "${BASE}/<track>/<phase>.png" | head -3
+```
+
+If a teammate did not complete its screenshot upload (e.g., crashed mid-run), manually stage its `/tmp/` screenshots into the side branch using the flow in `.claude/skills/testing-pack/references/pr-screenshot-upload.md`.
+
+The `screenshots/pr-<number>` branch lives separate from the release branch; it does NOT appear in the PR diff and can be deleted after merge.
+
 ---
 
 ## Phase 5: Fix & Rebuild (if bugs found)

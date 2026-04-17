@@ -147,25 +147,50 @@ Pack-specific credentials:
 
 If category is `paas_rag`, `enterprise_rag`, or `enterprise_rag_aiq`, note that it requires `autonomous_db_subnet`. Confirm the schema includes ADB-specific fields.
 
-### 0h. PR number (optional)
+### 0h. PR number (auto-detect, or ask)
 
-If provided by the caller (e.g., from `/releasing`), record `PR_NUMBER` for posting test progress and results to the GitHub PR. The caller passes this as `PR_NUMBER=<number>` in the message body.
+Auto-detect if an open PR exists for the current branch:
 
-If not provided, skip PR posting — testing-pack works fine standalone without it.
+```bash
+CURRENT_BRANCH=$(git -C /Users/grantneuman/workspace/ai-accelerator-starter-packs rev-parse --abbrev-ref HEAD)
+PR_NUMBER=$(gh pr view "${CURRENT_BRANCH}" --repo oci-ai-incubations/ai-accelerator-starter-packs --json number,state --jq 'select(.state=="OPEN") | .number' 2>/dev/null)
+echo "Current branch: ${CURRENT_BRANCH}"
+echo "Open PR:       ${PR_NUMBER:-<none>}"
+```
 
-When `PR_NUMBER` is set, post a PR comment at each major milestone using:
+**Decision tree:**
+
+1. **If `PR_NUMBER` is populated:** proceed — post evidence (text + screenshots) to the PR at each milestone. Record `PR_NUMBER` for later phases.
+2. **If no open PR but the current branch is NOT `main`:** ask the user via `AskUserQuestion`:
+   > "No open PR found for branch `${CURRENT_BRANCH}`. Would you like me to create one now so testing evidence (text + screenshots) can be posted as PR comments?"
+   - **"Yes, create PR now"** — run `gh pr create --title "..." --body "..."` with a stock body ("WIP — testing in progress via /testing-pack"). Record the returned PR number. Proceed.
+   - **"Skip PR posting"** — proceed without posting; save all screenshots to `/tmp/` only.
+3. **If the current branch IS `main`:** skip PR posting silently (PRs don't target the main branch).
+4. **If the caller passed `PR_NUMBER=<number>` explicitly in the invocation message (e.g., from `/releasing`):** use that number directly; skip the auto-detect.
+
+**When `PR_NUMBER` is set, post a comment at each major milestone.** Save screenshots locally to `/tmp/` during the run — they will be uploaded in bulk at end-of-run via the side-branch flow in [`references/pr-screenshot-upload.md`](references/pr-screenshot-upload.md).
+
+Basic comment template:
 ```bash
 gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
-<comment content>
+## <milestone name>
+
+<context and text evidence>
+
+Screenshots will be attached in the bulk upload at end-of-run.
+- `/tmp/<path>.png` — <what it shows>
 EOF
 )"
 ```
 
-Milestones to post at:
-- Phase 4 start: testing started, region, track info
-- Phase 5 complete: deploy done, pods running, starting tests
+**Milestones to post at:**
+- Phase 3 complete: schema validation results (any bug findings captured here)
+- Phase 4 complete: infra apply succeeded (OCID outputs)
+- Phase 5 complete: app apply succeeded (frontend_skin_urls, starter_pack_url, pod counts)
 - After each test phase (6c-1, 6c-2, 6c-3): test results table
 - Phase 7: final summary with all results combined
+
+Each comment should describe the evidence in text form (accessibility-tree snippets, test tables, kubectl output) so the PR is meaningful even before screenshots are attached. Screenshots add visual confirmation.
 
 ---
 
@@ -550,7 +575,30 @@ If no test coverage directory exists for the category, fall back to basic smoke 
 
 ## Phase 7: Cleanup and Report
 
-### 7a. Cleanup worktree
+### 7a. Upload screenshots to PR (if PR_NUMBER set)
+
+If `PR_NUMBER` was set in Phase 0h, upload all screenshots collected during the run to a side branch and embed them into the per-milestone PR comments. Follow the 3-step flow in [`references/pr-screenshot-upload.md`](references/pr-screenshot-upload.md):
+
+1. Stage screenshots in `$SHOT_DIR` with `<track>/<phase>/*.png` hierarchy.
+2. Push to `screenshots/pr-${PR_NUMBER}` via a **side clone** (do NOT touch the primary working tree).
+3. PATCH each PR comment's body to append `![caption](<raw URL>)` for its screenshots.
+
+Expected file layout in the screenshots branch:
+```
+pr-<PR_NUMBER>/
+  <track or phase>/
+    phase3-schema.png
+    phase4-infra-success.png
+    phase5-app-success.png
+    frontend-loaded.png
+    ui-evidence/
+      PU-01-*.png
+      ...
+```
+
+Skip this step if no PR number was set.
+
+### 7b. Cleanup worktree
 
 ```bash
 cd /tmp
@@ -558,7 +606,7 @@ git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
 agent-browser --session $SESSION_NAME close 2>/dev/null
 ```
 
-### 7b. Report
+### 7c. Report
 
 Present a structured summary:
 
