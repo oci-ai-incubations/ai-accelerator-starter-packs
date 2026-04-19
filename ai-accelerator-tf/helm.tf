@@ -40,9 +40,11 @@ resource "helm_release" "ingress_nginx" {
   depends_on = [oci_containerengine_node_pool.oke_node_pool]
 }
 
-## NVIDIA DCGM Exporter - Commented out temporarily due to chart not found
+## NVIDIA GPU Operator — owned by the infra stack so its lifecycle is decoupled
+## from per-pack app redeploys. App-stack destroy+reapply previously left GPU
+## nodes in a bad state (capacity=0, nvidia.com/gpu.present=false); see BUG-018.
 resource "helm_release" "nvidia-gpu-operator" {
-  count            = local.deploy_application ? 1 : 0
+  count            = local.deploy_infrastructure && local.uses_gpu ? 1 : 0
   name             = "gpu-operator"
   repository       = "https://helm.ngc.nvidia.com/nvidia"
   chart            = "gpu-operator"

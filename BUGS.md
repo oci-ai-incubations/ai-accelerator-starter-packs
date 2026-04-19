@@ -21,6 +21,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-015 | enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds" | Medium | 2026-04-09 |
 | Open | BUG-016 | existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI | Medium | 2026-04-09 |
 | Fixed | BUG-017 | common_schema.yaml duplicate entries for cuopt frontend variables | Low | 2026-04-16 |
+| Open | BUG-018 | BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch | High | 2026-04-19 |
 
 ---
 
@@ -607,3 +608,66 @@ Consolidated the duplicate entries in `common_schema.yaml` so each variable appe
 Extend `/schema-lint` to detect duplicate top-level variable keys in `common_schema.yaml` (and per-category schemas). Since PyYAML's default loader silently drops duplicates, the check needs a custom loader or a pre-parse pass that scans raw lines under `variables:` for repeated keys.
 
 **Reference:** Discovered during the `multiple_skins_per_pack` refactor (spec 2026-04-16) when auditing `common_schema.yaml` as part of replacing `cuopt_frontend_enabled` with per-skin boolean variables.
+
+### BUG-018: BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch
+
+**Status:** Open
+**Date found:** 2026-04-19
+**Found by:** `track1-bm` teammate during multi-skin feature validation (Track 1, enterprise_rag → enterprise_rag_aiq back-to-back in us-sanjose-1)
+**Severity:** High
+
+**How this was discovered:**
+Track 1 was testing the multi-skin feature on two Helm packs sequentially on 2× BM.GPU4.8 in us-sanjose-1 AD-1. After enterprise_rag completed successfully (all pods Running, tests PASS), the teammate destroyed the app stack only (preserving infra + GPU nodes per the BM shape reuse strategy in `feedback_gpu_destroy_vs_reapply.md`). The enterprise_rag_aiq app apply then ran 43+ min and got stuck because 8 of its pods failed to schedule with `Insufficient nvidia.com/gpu`. Diagnosis with `kubectl describe node` showed that one of the two GPU nodes (10.0.101.47) reported 0 capacity and 0 allocatable for `nvidia.com/gpu`, and had label `nvidia.com/gpu.present=false`. The other GPU node (10.0.97.85) correctly reported 8/8 GPUs but those were all consumed by the new rag-nim-llm-0 pod.
+
+**Symptoms:**
+After destroying an app stack and redeploying a different app stack on the same preserved BM.GPU4.8 infra:
+- One GPU worker node's kubelet reports `capacity: nvidia.com/gpu = 0` and `allocatable: nvidia.com/gpu = 0` (should be 8/8).
+- Node label `nvidia.com/gpu.present` is `false` (should be `true`).
+- GPU device plugin daemonset may report DESIRED=0 on the affected node, or may be missing entirely.
+- Pods requesting GPUs get `0/N nodes are available: Insufficient nvidia.com/gpu` and stay Pending.
+- Other BM.GPU4.8 nodes in the same pool report GPUs correctly — the failure is per-node.
+
+**Root cause (suspected):**
+When the app stack is destroyed, the GPU operator (Helm release owned by the app stack) is uninstalled. On BM.GPU4.8, the nvidia-container-runtime / device-plugin state on the node is tightly coupled to the operator's lifecycle. The uninstall sequence evicts pods and cleans up Kubernetes objects, but some nodes end up in a state where the GPU device plugin is gone AND the node labels that NFD uses to re-enable it (`nvidia.com/gpu.present`) are cleared. When the next app stack is applied, the new GPU operator install doesn't fully re-enumerate GPUs on that node — it assumes `gpu.present=false` means no GPUs exist.
+
+This is related to but distinct from BUG-009 (stale `nim-llm` taint after two-stack pack switch):
+- BUG-009 symptom: taint `workload=nim-llm:NoSchedule` persists → pods blocked by taint.
+- BUG-018 symptom: GPU capacity reports 0 → pods blocked by insufficient resources.
+
+Both are triggered by the same workflow (destroy app, redeploy different app on preserved infra) and share the same underlying class of problem: Helm lifecycle on the app stack leaves GPU-node state corrupted for the next round.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf` — GPU operator Helm release gated by `local.deploy_app_rag` / similar; destroy doesn't ensure node GPU state is restored.
+- Likely interacts with `nvidia-device-plugin` / `node-feature-discovery` daemonsets managed by the GPU operator chart.
+
+**Workaround:**
+Two options, try in order from least-invasive to most:
+
+1. Restart the nvidia device plugin pod on the affected node:
+   ```bash
+   kubectl delete pod -n gpu-operator -l app=nvidia-device-plugin-daemonset --field-selector spec.nodeName=<affected-node>
+   # Wait ~1 min; then re-check:
+   kubectl describe node <affected-node> | grep 'nvidia.com/gpu'
+   ```
+
+2. Cordon, drain, uncordon to force re-enumeration:
+   ```bash
+   kubectl cordon <affected-node>
+   kubectl drain <affected-node> --ignore-daemonsets --delete-emptydir-data
+   kubectl uncordon <affected-node>
+   ```
+
+3. Reboot the BM node via OCI console (last resort — BM reboots take 15-30 min):
+   - Go to Compute → Instances → select the affected BM.GPU4.8 → Reboot.
+
+**Resolution:**
+Pending. Likely fixes to investigate:
+
+1. Add a destroy-time provisioner to the GPU operator Helm release that explicitly restarts the device plugin daemonset on all GPU nodes before uninstalling (ensures clean state).
+2. Add a create-time provisioner to the next app stack's GPU operator that verifies `nvidia.com/gpu.present=true` on all worker nodes, and if not, triggers a device plugin restart.
+3. Move the GPU operator out of the app stack and into the infra stack so its lifecycle is decoupled from per-pack app redeploys (similar to the BUG-014 recommendation for ingress-nginx).
+
+**Prevention:**
+Any Helm release that manages node-level device drivers or daemonsets must either (1) live in the infra stack to avoid redeploy churn, or (2) have destroy/create provisioners that explicitly restore node state. The two-stack model + BM shape reuse strategy assumes node state is durable across app-stack lifecycle events, but GPU operator state clearly is not.
+
+**Reference:** Discovered during Track 1 of the `multiple_skins_per_pack` branch testing (2026-04-19) when validating the Helm-pack path of the multi-skin feature. The bug does not affect the multi-skin feature itself — the schema assertions (no Frontend Skins group for Helm packs) were already validated before the apply stalled. It is a pre-existing two-stack infrastructure issue that happens to surface during sequential Helm-pack testing.
