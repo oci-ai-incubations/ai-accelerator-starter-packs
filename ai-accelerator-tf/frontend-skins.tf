@@ -61,18 +61,17 @@ locals {
     null
   )
 
-  # Fail-fast assertion: every known category must have a resolvable catalog default.
-  # If the catalog's top-level default: key fails to match any skin.key, _catalog_default_skin
-  # is null — which would silently break the VSS K8s naming rule (every skin becomes non-default
-  # and takes a suffix, breaking the upgrade-without-rename promise). Catch this early.
-  _assert_catalog_default_resolves = local._catalog_default_skin != null ? true : tobool("catalog default for ${var.starter_pack_category} did not match any skin key")
+  # Catalog-default correctness (the top-level `default:` key must match some skin.key)
+  # is enforced by pytest: test_default_enabled_matches_top_level_default covers blueprint
+  # packs, test_helm_packs_expose_single_skin_enum covers Helm packs. We intentionally
+  # don't carry a plan-time `tobool(...)` assertion here because tflint (rightly) flags
+  # it as an unused local, and the pytest coverage fires earlier in CI.
 
   default_skin_variable_name = try(local._catalog_default_skin.variable_name, null)
 
   # Back-compat locals used by helm.tf split(":", image_uri), VSS locals, and outputs.
   # Blueprint packs: return primary_skin's values.
-  # Helm packs: fall back to the catalog's default skin entry (always has image_uri/
-  # provider/key/container_port, though not subdomain/variable_name).
+  # Helm packs: fall back to the catalog's default skin entry.
   frontend_skin_image_uri = (
     local.primary_skin != null
     ? local.primary_skin.image_uri
@@ -87,10 +86,5 @@ locals {
     local.primary_skin != null
     ? local.primary_skin.key
     : try(local._catalog_default_skin.key, null)
-  )
-  frontend_skin_container_port = (
-    local.primary_skin != null
-    ? local.primary_skin.container_port
-    : try(local._catalog_default_skin.container_port, null)
   )
 }
