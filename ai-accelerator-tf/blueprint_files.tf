@@ -94,17 +94,18 @@ locals {
             name    = "llamastack",
             exports = ["service_name"],
             recipe = {
-              recipe_id                            = "llamastack",
-              deployment_name                      = "llamastack",
-              recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
-              recipe_replica_count                 = 1,
-              recipe_flex_shape_ocpu_count         = 1,
-              recipe_flex_shape_memory_size_in_gbs = 8,
-              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-              recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "8321",
-              recipe_container_command_args        = ["/config/config.yaml"],
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              recipe_id                             = "llamastack",
+              deployment_name                       = "llamastack",
+              recipe_mode                           = "service",
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
+              recipe_replica_count                  = 1,
+              recipe_flex_shape_ocpu_count          = 1,
+              recipe_flex_shape_memory_size_in_gbs  = 8,
+              recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+              recipe_use_shared_node_pool           = true,
+              recipe_container_port                 = "8321",
+              recipe_container_command_args         = ["/config/config.yaml"],
               recipe_container_env = [
                 { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
                 { key = "OCI_REGION", value = var.genai_region },
@@ -119,6 +120,7 @@ locals {
             name    = "cuopt"
             exports = ["service_name"]
             recipe = {
+              recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
               recipe_id                                    = "cuopt"
               recipe_mode                                  = "service"
               deployment_name                              = "DEPLOY_NAME-2"
@@ -1546,15 +1548,16 @@ locals {
             exports = ["service_name"]
             recipe = merge(
               {
-                recipe_id                     = "llamastack"
-                recipe_mode                   = "service"
-                deployment_name               = "llamastack"
-                recipe_node_shape             = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-                recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
-                recipe_use_shared_node_pool   = true
-                recipe_replica_count          = 1
-                recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
-                recipe_container_command_args = ["/config/config.yaml"]
+                recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+                recipe_id                             = "llamastack"
+                recipe_mode                           = "service"
+                deployment_name                       = "llamastack"
+                recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+                recipe_node_pool_size                 = local.starter_pack_config.cpu_worker_node_pool_size
+                recipe_use_shared_node_pool           = true
+                recipe_replica_count                  = 1
+                recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
+                recipe_container_command_args         = ["/config/config.yaml"]
                 recipe_container_env = [
                   { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                   { "key" = "OCI26AI_USER", value = var.db_username },
