@@ -187,6 +187,31 @@ run "enterprise_rag_aiq_default_skin_resolves" {
   }
 }
 
+# Test: warehouse_pick_path default skin resolves to Core App
+run "warehouse_pick_path_default_skin_resolves" {
+  command = plan
+
+  variables {
+    starter_pack_category = "warehouse_pick_path"
+    db_password           = "TestDBP@ssw0rd123!"
+  }
+
+  assert {
+    condition     = local.frontend_skin_name == "Warehouse Pick Path Optimizer Frontend (Core App)"
+    error_message = "warehouse_pick_path default skin name should be 'Warehouse Pick Path Optimizer Frontend (Core App)'"
+  }
+
+  assert {
+    condition     = local.frontend_skin_image_uri != ""
+    error_message = "warehouse_pick_path default skin image_uri should not be empty"
+  }
+
+  assert {
+    condition     = local.frontend_skin_provider == "Oracle"
+    error_message = "warehouse_pick_path default skin provider should be 'Oracle'"
+  }
+}
+
 # Test: skin outputs are populated when deploy_application is true (default)
 run "skin_outputs_populated" {
   command = plan

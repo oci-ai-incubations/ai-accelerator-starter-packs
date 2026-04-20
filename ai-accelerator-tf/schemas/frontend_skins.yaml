@@ -44,3 +44,11 @@ enterprise_rag_aiq:
       image_uri: "nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0"
       provider: "NVIDIA"
       container_port: "3000"
+
+warehouse_pick_path:
+  default: "Warehouse Pick Path Optimizer Frontend (Core App)"
+  skins:
+    - key: "Warehouse Pick Path Optimizer Frontend (Core App)"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:569c2ec"
+      provider: "Oracle"
+      container_port: "3000"

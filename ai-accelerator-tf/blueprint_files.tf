@@ -1497,25 +1497,20 @@ locals {
           name    = "backend"
           exports = ["service_name"]
           recipe = {
-            recipe_id                   = "wpp-backend"
-            recipe_mode                 = "service"
-            deployment_name             = "wpp-backend"
-            recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be:569c2ec"
-            recipe_replica_count        = 1
-            recipe_node_shape           = local.starter_pack_config.worker_node_shape
-            recipe_nvidia_gpu_count     = 1
-            recipe_use_shared_node_pool = true
-            recipe_container_port       = "8000"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "wpp-backend"
+            recipe_mode                           = "service"
+            deployment_name                       = "wpp-backend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be:569c2ec"
+            recipe_replica_count                  = 1
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_nvidia_gpu_count               = 1
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "8000"
             recipe_container_env = [
               { key = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
               { key = "OCI26AI_USER", value = var.db_username },
               { key = "OCI26AI_PASSWORD", value = var.db_password },
-              { key = "OCI26AI_EWALLET_PWD", value = var.db_password },
-              { key = "OCI26AI_TNSNAMES_LOC", value = "/wallet" },
-              { key = "OCI26AI_EWALLET_PEM_LOC", value = "/wallet" },
-            ]
-            recipe_secret_mounts = [
-              { name = "oadb-wallet", mount_location = "/wallet" }
             ]
             recipe_liveness_probe_params = {
               port                  = 8000
