@@ -299,6 +299,22 @@ class TestFrontendSkinCatalogSync:
             f"{category}: {expected_enum_var} must declare a non-empty enum list"
         )
 
+        # Enum contents and default must match the catalog — otherwise a stale generator
+        # or drifting catalog could silently expose the wrong choices to the user.
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+        expected_keys = [s["key"] for s in catalog[category]["skins"]]
+        expected_default = catalog[category]["default"]
+        assert set(spec["enum"]) == set(expected_keys), (
+            f"{category}: enum values {sorted(spec['enum'])!r} do not match catalog keys "
+            f"{sorted(expected_keys)!r}"
+        )
+        assert spec.get("default") == expected_default, (
+            f"{category}: enum default {spec.get('default')!r} does not match catalog default "
+            f"{expected_default!r}"
+        )
+
         # No OTHER skin_* variable should be user-visible in a Helm-pack wizard.
         stray_visible = [
             v for v, vs in variables.items()
@@ -350,6 +366,8 @@ class TestFrontendSkinCatalogSync:
         helm_cat_vars = {f"skin_{cat}" for cat in ("enterprise_rag", "enterprise_rag_aiq")}
 
         # Parse vars.tf — collect ALL skin_* variables and their types.
+        # NOTE: the body capture uses [^}]* which fails if any skin variable later adds
+        # a nested block (e.g. validation {}). Guarded by the count assertion below.
         var_decls = re.findall(
             r'^variable\s+"(skin_\w+)"\s*\{([^}]*)\}',
             vars_tf,
@@ -357,6 +375,21 @@ class TestFrontendSkinCatalogSync:
         )
         bool_vars = {name for name, body in var_decls if re.search(r'type\s*=\s*bool\b', body)}
         string_vars = {name for name, body in var_decls if re.search(r'type\s*=\s*string\b', body)}
+
+        # Independent count of skin_* variable declarations — a regression in the
+        # body-capture regex above will drop variables from bool_vars/string_vars
+        # silently, which would let drift through. Trip it loudly instead.
+        declared_count = len(re.findall(r'^variable\s+"skin_\w+"\s*\{', vars_tf, re.MULTILINE))
+        assert declared_count == len(var_decls), (
+            f"vars.tf has {declared_count} skin_* variable declarations but the body-capture "
+            f"regex matched {len(var_decls)} — likely a nested {{}} block broke the pattern. "
+            f"Update the regex (brace-counting or python-hcl2) before this test can pass."
+        )
+        assert declared_count == len(bool_vars) + len(string_vars), (
+            f"vars.tf has {declared_count} skin_* variables but only "
+            f"{len(bool_vars) + len(string_vars)} have a recognized type (bool/string). "
+            f"All skin_* variables must declare type = bool or type = string."
+        )
 
         assert blueprint_cat_vars == bool_vars, (
             f"Blueprint catalog vars {sorted(blueprint_cat_vars)} != "

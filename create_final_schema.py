@@ -142,6 +142,14 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
         # Single enum var for Helm packs.
         enum_var_name = f"skin_{category}"
         default_key = skins_data[category].get("default", skins[0]["key"])
+        # Catch catalog typos where `default:` doesn't match any `key:`. Without this
+        # the ORM wizard renders an out-of-range default that users can't select.
+        available_keys = [s["key"] for s in skins]
+        if default_key not in available_keys:
+            raise ValueError(
+                f"Catalog default {default_key!r} for {category} is not in the skin keys "
+                f"{available_keys!r}. Fix schemas/frontend_skins.yaml."
+            )
         merged_schema.setdefault("variables", {})[enum_var_name] = {
             "type": "enum",
             "title": "Frontend Skin",

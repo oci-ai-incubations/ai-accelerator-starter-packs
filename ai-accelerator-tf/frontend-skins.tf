@@ -44,9 +44,10 @@ locals {
     ]
   )
 
-  # First enabled skin. For blueprint packs, non-null when deploy_application=true
-  # (precondition guarantees ≥1). For Helm packs, always the user-selected entry
-  # (defaulting to catalog default when unset).
+  # First enabled skin. For blueprint packs: non-null when deploy_application=true
+  # (the precondition guarantees ≥1 enabled skin). For Helm packs: always non-null,
+  # resolved from the user's enum choice or the catalog default when the choice is
+  # empty or unrecognized.
   primary_skin = length(local.enabled_frontend_skins) > 0 ? local.enabled_frontend_skins[0] : null
 
   # Catalog's default skin entry, derived from the top-level default: key.
