@@ -10,6 +10,7 @@ skip-check:
   - CKV_K8S_11  # CPU Limits - not set on app/background/blueprint-portal/postgres deployments
   - CKV_K8S_12  # Memory Limits - not set on app/background/blueprint-portal/postgres deployments
   - CKV_K8S_13  # Memory requests - not set on app/background/blueprint-portal/postgres deployments
+  - CKV_K8S_14  # Image tag must be fixed (not :latest/blank) - VSS per-skin deployment sources image via each.value.image_uri from schemas/frontend_skins.yaml; the catalog entries always declare explicit tags (e.g., vss-oracle-ux-dev-0.0.4), but Checkov static analysis cannot follow the reference across the TF/YAML boundary.
   - CKV_K8S_15  # Image Pull Policy Always - postgres deployment uses different policy
   - CKV_K8S_28  # NET_RAW capability - containers may have default capabilities
   - CKV_K8S_29  # Security context on pods/deployments/daemon_sets
