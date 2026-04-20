@@ -23,6 +23,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-017 | common_schema.yaml duplicate entries for cuopt frontend variables | Low | 2026-04-16 |
 | Open | BUG-018 | BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch | High | 2026-04-19 |
 | Open | BUG-019 | paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files | Medium | 2026-04-17 |
+| Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
 
 ---
 
@@ -757,3 +758,53 @@ Pending. Recommended fixes in order of preference:
 Every Object Storage bucket that accepts user uploads (via the app itself or tests) must either (1) be emptied on destroy via a provisioner, or (2) have versioning disabled and rely on Terraform's empty-bucket check at destroy time. The testing-pack skill's Phase 7 should add a pre-destroy bucket-empty step for paas_rag (and enterprise_rag if it also uploads files).
 
 **Reference:** Discovered during Track 3 of the `multiple_skins_per_pack` branch testing (2026-04-17). Destroy job that failed: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaliugbktvutq3n7pep43vmppumfnzrmdgs65ojg5vabva`. Retry job after manual bucket-empty: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaapa2rxnd2gsx5hlfe2zjsdfngwrtkwuvkxtnqvxxdro7a`. The bug does not affect the multi-skin feature itself — paas_rag Phase 6 test results (5 infra + 10 API + 6 UI PASS) are valid; this only affects cleanup.
+
+### BUG-020: enterprise_rag_aiq skin dropdown override lands on wrong Helm release
+
+**Status:** Fixed
+**Date found:** 2026-04-20
+**Date fixed:** 2026-04-20
+**Found by:** Opus 4.7 review agent during spec review of `docs/skins/BACKEND_API_CONTRACT.md`
+**Severity:** Medium (latent — zero user impact today)
+
+**How this was discovered:**
+Post-merge review of the design spec for a new skin API contract doc. The reviewer cross-checked every factual claim against the Terraform source files and flagged that for `enterprise_rag_aiq`, the `frontend.image.{repository,tag}` override emitted by the `skin_enterprise_rag_aiq` enum dropdown was attached to the `rag` Helm release's `set` block, but the user-facing URL `aiq.<fqdn>` routes to a different release entirely.
+
+**Symptoms:**
+For `enterprise_rag_aiq`, selecting a different skin via the ORM `Frontend Skin` dropdown has no effect on what the user sees. The deployed aira-frontend pod's image always matches the value hardcoded in `aiq-aira-values.yaml` (`aira-frontend:v1.2.0`), regardless of the dropdown selection.
+
+**Today's user-visible impact:** ZERO. The catalog has exactly one `enterprise_rag_aiq` skin entry and its `image_uri` already equals the hardcoded default, so the bug is latent.
+
+**Future impact:** The instant a second skin is added to the `enterprise_rag_aiq` catalog in `frontend_skins.yaml`, users who select it get AIRA anyway and see the unexpected behavior.
+
+**Root cause:**
+`enterprise_rag_aiq` deploys TWO Helm releases: the `rag` release (from `nvidia-blueprint-rag-v2.3.0.tgz`) as a dependency, and the `aiq` release (from `aiq-aira-v1.2.1.tgz`) for the AIQ-specific stack. The ingress at `ingress.tf:223` routes `aiq.<fqdn>` → `aiq-aira-aira-frontend` service, which belongs to the `aiq` release.
+
+Before the fix, `helm.tf:647-654` set `frontend.image.repository` and `frontend.image.tag` only on the `rag` helm_release. The `aiq` helm_release's `set` block (lines 771-784) did not override these values, so `aiq-aira-values.yaml`'s hardcoded `frontend.image.tag: v1.2.0` always won.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:771-797` — the `aiq` release's `set` block was missing the frontend image override.
+- `ai-accelerator-tf/ingress.tf:~210-235` — confirms the user URL routes to `aiq-aira-aira-frontend`.
+- `ai-accelerator-tf/helm-values/aiq-aira-values.yaml:frontend.image` — the hardcoded default that persists without an override.
+
+**Workaround:** None needed today (catalog has only one `enterprise_rag_aiq` skin).
+
+**Resolution:**
+Added two new `set` entries to the `aiq` helm_release's `set = [...]` block:
+
+```hcl
+{ name = "frontend.image.repository", value = split(":", local.frontend_skin_image_uri)[0] },
+{ name = "frontend.image.tag",        value = split(":", local.frontend_skin_image_uri)[1] }
+```
+
+Now the enum selection reaches the correct Helm release. The parallel override on the `rag` release is retained — it's a harmless no-op for `enterprise_rag_aiq` (the rag release's frontend isn't exposed via ingress for this pack) and the primary fix for `enterprise_rag` (where the `rag` release IS the user-facing one).
+
+**Verification:**
+- `terraform validate` clean.
+- New structural test `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py` asserts both `rag` and `aiq` Helm releases carry the `frontend.image.{repository,tag}` set entries with values derived from `local.frontend_skin_image_uri`. Drift-verified: test fails if either release's override is removed.
+- Pending: live verification on preserved Track 1 infra — redeploy AIQ with the fix, then `helm get values aiq-aira -n aiq` should show `frontend.image.tag: v1.2.0` in the USER-SUPPLIED VALUES section (not just chart default). `kubectl describe pod -l app=aira-frontend` should show image `aira-frontend:v1.2.0` (same as hardcoded today, but the override is now applied at the `aiq` release level).
+
+**Prevention:**
+The new `test_helm_skin_override.py` locks the invariant: any future helm_release that serves a user-facing frontend under the skin system must carry the `frontend.image.{repository,tag}` set entries wired to `local.frontend_skin_image_uri`. If a new Helm-pack category is added, its release must be appended to `RELEASES_REQUIRING_SKIN_OVERRIDE` at the top of the test file.
+
+**Reference:** Discovered during the `multiple_skins_per_pack` branch post-merge work. Fix committed in branch multiple_skins_per_pack; final verification pending on Track 1 infra redeploy.

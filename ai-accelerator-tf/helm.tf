@@ -780,6 +780,20 @@ resource "helm_release" "aiq" {
     {
       name  = "backendEnvVars.NEMOTRON_BASE_URL"
       value = "http://nim-llm.${local.starter_pack_config.app_namespace}.svc.cluster.local:8000"
+    },
+    # BUG-020 fix: enterprise_rag_aiq's user-facing frontend is aiq-aira-aira-frontend
+    # (from this `aiq-aira` Helm release), NOT the rag release's frontend. The
+    # skin_enterprise_rag_aiq enum dropdown must override THIS release's frontend
+    # image, or the selection has no visible effect. The corresponding override on
+    # the `rag` release above remains for the rag sub-frontend deployed alongside
+    # (not user-facing for this pack), but only this override reaches the user.
+    {
+      name  = "frontend.image.repository"
+      value = split(":", local.frontend_skin_image_uri)[0]
+    },
+    {
+      name  = "frontend.image.tag"
+      value = split(":", local.frontend_skin_image_uri)[1]
     }
   ]
 
