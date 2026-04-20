@@ -135,6 +135,9 @@ category_specific:
       db_password:
         visible: true
         type: password
+      frontend_skin:
+        type: enum
+        visible: true
     output_properties:
       starter_pack_url:
         type: string

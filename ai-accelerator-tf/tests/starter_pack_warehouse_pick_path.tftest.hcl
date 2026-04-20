@@ -59,10 +59,11 @@ variables {
 run "plan_warehouse_pick_path_small" {
   command = plan
 
-  # Deployment name should start with the short form of the starter pack category (suffixed with random_id hex)
+  # Deployment name base should be "wpp" (runtime value is "wpp-<random_id hex>", which is
+  # only known after apply — assert the static config prefix rather than the full output).
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "wpp-")
-    error_message = "warehouse_pick_path deployment name should start with 'wpp-'"
+    condition     = local.starter_pack_config.deployment_name == "wpp"
+    error_message = "warehouse_pick_path base deployment name should be 'wpp'"
   }
 
   # Database username should default to ADMIN when not explicitly set
@@ -73,13 +74,13 @@ run "plan_warehouse_pick_path_small" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "warehouse_pick_path"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "warehouse_pick_path"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   # Postflight registration trigger should record the deployment region
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 }
