@@ -22,6 +22,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-016 | existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI | Medium | 2026-04-09 |
 | Fixed | BUG-017 | common_schema.yaml duplicate entries for cuopt frontend variables | Low | 2026-04-16 |
 | Open | BUG-018 | BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch | High | 2026-04-19 |
+| Open | BUG-019 | paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files | Medium | 2026-04-17 |
 
 ---
 
@@ -671,3 +672,88 @@ Pending. Likely fixes to investigate:
 Any Helm release that manages node-level device drivers or daemonsets must either (1) live in the infra stack to avoid redeploy churn, or (2) have destroy/create provisioners that explicitly restore node state. The two-stack model + BM shape reuse strategy assumes node state is durable across app-stack lifecycle events, but GPU operator state clearly is not.
 
 **Reference:** Discovered during Track 1 of the `multiple_skins_per_pack` branch testing (2026-04-19) when validating the Helm-pack path of the multi-skin feature. The bug does not affect the multi-skin feature itself — the schema assertions (no Frontend Skins group for Helm packs) were already validated before the apply stalled. It is a pre-existing two-stack infrastructure issue that happens to surface during sequential Helm-pack testing.
+
+### BUG-019: paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files
+
+**Status:** Open
+**Date found:** 2026-04-17
+**Found by:** `track3-cpu` teammate during multi-skin feature validation (Track 3, paas_rag/small in us-sanjose-1)
+**Severity:** Medium
+
+**How this was discovered:**
+Track 3 ran the paas_rag Phase 6 API test suite end-to-end. PA-5 uploaded a small test document (`test-doc.txt`) via `POST /v1/files`, which LlamaStack stored in the stack's Object Storage bucket `paas-rag-<suffix>-bucket`. PA-9 and PA-10 deleted the file attachment and vector store via the LlamaStack API, but those deletes only purge the vector-store index — they do NOT remove the underlying object from Object Storage. The object remained in the bucket. When the app stack destroy ran afterwards, Terraform attempted to `DeleteBucket` and the API returned `409-BucketNotEmpty`.
+
+**Symptoms:**
+After running API tests that upload files (PA-5 or equivalent) and then attempting to destroy the paas_rag app stack, the destroy job fails at the `oci_objectstorage_bucket.paas_rag_bucket` deletion step with:
+```
+Error: 409-BucketNotEmpty, Bucket named 'paas-rag-<suffix>-bucket' is not empty. Delete all object versions first.
+Request Target: DELETE https://objectstorage.<region>.oraclecloud.com/n/<ns>/b/paas-rag-<suffix>-bucket
+```
+The ORM job ends in state `FAILED` with `failure-details.code = TERRAFORM_EXECUTION_ERROR`. The ADB has already been destroyed by this point; all Helm releases and most compute resources are gone — only the bucket (and whatever depends on it) blocks completion.
+
+**Root cause:**
+Two factors combine:
+
+1. **LlamaStack file lifecycle:** Files uploaded via `POST /v1/files` are stored in OCI Object Storage. The Corrino/LlamaStack API for deleting vector store attachments (`DELETE /v1/vector_stores/{id}/files/{fileId}`) removes the vector store index entry but does not call `DeleteObject` on the underlying storage. Even `DELETE /v1/vector_stores/{id}` (full vector store delete) only removes the index, not the files. There is no documented API to remove a file from storage.
+
+2. **Versioned bucket semantics:** The `oci_objectstorage_bucket` resource in Terraform (`ai-accelerator-tf/*.tf` — location TBD) likely enables versioning. A plain `oci os object delete` on a versioned bucket only creates a delete-marker; the prior version (and the marker itself) still count as objects in the bucket. `DeleteBucket` requires zero objects AND zero versions.
+
+**Affected files:**
+- The Terraform bucket resource for paas_rag (grep for `oci_objectstorage_bucket` in `ai-accelerator-tf/` — likely in a paas_rag- or blueprint-specific .tf file). The resource does not set `force_destroy = true` or use a provisioner to empty the bucket before destroy.
+- `.claude/skills/paas-rag-test-coverage/api-tests.md` — test PA-5 uploads a file that is never cleaned up. PA-9/PA-10 only delete the vector store membership, not the underlying Object Storage object.
+
+**Workaround:**
+
+Before retrying destroy, manually empty the bucket:
+
+```bash
+export OCI_CLI_PROFILE=<profile>
+NS=$(oci os ns get --query 'data' --raw-output)
+BUCKET=paas-rag-<suffix>-bucket  # from the ORM destroy error message
+REGION=<stack-region>
+
+# 1. List all versions (current + delete markers)
+oci os object list-object-versions --namespace-name "$NS" --bucket-name "$BUCKET" --region "$REGION" --all \
+  --query 'data[].{name:name, version:"version-id"}' --output json > /tmp/versions.json
+
+# 2. Delete every version
+python3 -c "
+import json, subprocess
+for v in json.load(open('/tmp/versions.json')):
+    subprocess.run(['oci','os','object','delete',
+        '--namespace-name','$NS','--bucket-name','$BUCKET','--region','$REGION',
+        '--name',v['name'],'--version-id',v['version'],'--force'])
+"
+
+# 3. Verify empty
+oci os object list-object-versions --namespace-name "$NS" --bucket-name "$BUCKET" --region "$REGION" --query 'length(data)'
+# Should return null or 0. Then retry the ORM destroy job.
+```
+
+Track 3's bucket had exactly 2 versions to remove (1 current data object + 1 delete-marker created when a prior CLI delete was attempted).
+
+**Resolution:**
+Pending. Recommended fixes in order of preference:
+
+1. **Add `force_destroy = true` / empty-on-destroy provisioner to the paas_rag bucket resource.** `oci_objectstorage_bucket` supports neither `force_destroy` nor `lifecycle.destroy_before_create` for emptying, so this likely requires a `local-exec` destroy provisioner that shells out to `oci os object bulk-delete --force` (and handles versioned objects). Example:
+   ```hcl
+   resource "null_resource" "bucket_empty_on_destroy" {
+     triggers = { bucket = oci_objectstorage_bucket.paas_rag.name, ns = oci_objectstorage_bucket.paas_rag.namespace, region = var.region }
+     provisioner "local-exec" {
+       when    = destroy
+       command = "oci os object bulk-delete --namespace-name '${self.triggers.ns}' --bucket-name '${self.triggers.bucket}' --region '${self.triggers.region}' --force --include '*' || true"
+     }
+   }
+   ```
+   (Caveat: `bulk-delete` does not handle object versions — may need a custom script.)
+
+2. **Disable versioning on the paas_rag bucket** if retention isn't required. `versioning = "Disabled"` on `oci_objectstorage_bucket` removes the version-deletion complexity. Trade-off: no object history for user uploads.
+
+3. **Add file-storage cleanup to the LlamaStack API path** in Corrino so that `DELETE /v1/vector_stores/{id}/files/{fileId}` also removes the Object Storage object. This is the "cleanest" fix but requires changes to the upstream LlamaStack layer, not just this Terraform module.
+
+4. **Document the manual workaround** in `paas-rag-test-coverage/api-tests.md` and/or `testing-pack` skill so operators know to empty the bucket before destroy.
+
+**Prevention:**
+Every Object Storage bucket that accepts user uploads (via the app itself or tests) must either (1) be emptied on destroy via a provisioner, or (2) have versioning disabled and rely on Terraform's empty-bucket check at destroy time. The testing-pack skill's Phase 7 should add a pre-destroy bucket-empty step for paas_rag (and enterprise_rag if it also uploads files).
+
+**Reference:** Discovered during Track 3 of the `multiple_skins_per_pack` branch testing (2026-04-17). Destroy job that failed: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaliugbktvutq3n7pep43vmppumfnzrmdgs65ojg5vabva`. Retry job after manual bucket-empty: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaapa2rxnd2gsx5hlfe2zjsdfngwrtkwuvkxtnqvxxdro7a`. The bug does not affect the multi-skin feature itself — paas_rag Phase 6 test results (5 infra + 10 API + 6 UI PASS) are valid; this only affects cleanup.
