@@ -567,7 +567,7 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character. Only required for paas_rag starter pack."
+  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character. Required for starter pack categories that provision the 26ai database: paas_rag, enterprise_rag, enterprise_rag_aiq."
   type        = string
   sensitive   = true
   default     = null

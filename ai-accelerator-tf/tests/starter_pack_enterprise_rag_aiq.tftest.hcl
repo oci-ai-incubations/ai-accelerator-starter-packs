@@ -52,6 +52,9 @@ variables {
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
   tavily_api_key                  = ""
+  # enterprise_rag_aiq provisions the 26ai database (same as paas_rag + enterprise_rag),
+  # so the db_password precondition in 26ai.tf applies here.
+  db_password = "TestDBP@ssw0rd123!"
 }
 
 # Test: enterprise_rag_aiq starter pack plans successfully with correct deployment name and registration triggers
