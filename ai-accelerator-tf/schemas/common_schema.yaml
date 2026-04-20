@@ -502,6 +502,14 @@ variables:
     type: boolean
     visible: false
 
+  skin_enterprise_rag:
+    type: enum
+    visible: false
+
+  skin_enterprise_rag_aiq:
+    type: enum
+    visible: false
+
   nip_io_domain:
     type: string
     visible: false

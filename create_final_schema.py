@@ -109,47 +109,87 @@ def represent_str(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
 def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more_url):
-    """Inject per-skin boolean toggle variables into the merged schema.
+    """Inject per-skin selection variables into the merged schema.
 
-    Skin variables are placed in a dedicated 'Frontend Skins' variableGroup
-    (not in 'Deployment Configuration') so the skin selection is a clearly
-    discoverable section in the ORM UI. The new group is inserted immediately
-    after 'Deployment Configuration'. Only blueprint packs with per-skin
-    variable_names in the catalog get the group; Helm packs (enterprise_rag,
-    enterprise_rag_aiq) do not.
+    Two shapes, chosen by the catalog:
+      - Blueprint packs (cuopt/vss/paas_rag): catalog entries declare a
+        `variable_name` and `default_enabled`. We inject one boolean variable
+        per skin; users can enable any combination (multi-select).
+      - Helm packs (enterprise_rag/enterprise_rag_aiq): catalog entries have
+        no `variable_name`. We inject a single enum variable named
+        `skin_<category>` whose enum list is every skin key in the catalog and
+        whose default is the catalog's top-level `default:`. Users pick one
+        (single-select).
+
+    Both shapes land in a dedicated 'Frontend Skins' variableGroup inserted
+    after 'Deployment Configuration' so the skin selection is a discoverable
+    section in the ORM UI.
     """
     if skins_data is None or category not in skins_data:
         return
     skins = skins_data[category].get("skins", [])
-    # Collect the list of skin variable_names in catalog order (Helm packs have none).
-    skin_var_names = []
-    for skin in skins:
-        var_name = skin.get("variable_name")
-        if not var_name:
-            continue
-        merged_schema.setdefault("variables", {})[var_name] = {
-            "type": "boolean",
-            "title": skin["key"],
-            "description": f"Enable this frontend skin. <a href='{learn_more_url}'>Learn more</a>",
-            "default": skin.get("default_enabled", False),
+    if not skins:
+        return
+
+    per_skin_variable_names = [s.get("variable_name") for s in skins if s.get("variable_name")]
+    # Helm pack indicator: no per-skin variable_names in the catalog.
+    is_helm_pack = len(per_skin_variable_names) == 0
+
+    # Variable names to place in the group (in catalog order).
+    group_var_names = []
+
+    if is_helm_pack:
+        # Single enum var for Helm packs.
+        enum_var_name = f"skin_{category}"
+        default_key = skins_data[category].get("default", skins[0]["key"])
+        merged_schema.setdefault("variables", {})[enum_var_name] = {
+            "type": "enum",
+            "title": "Frontend Skin",
+            "description": (
+                "Choose which frontend UI to deploy for this Helm-based pack. "
+                f"Only one skin can be active at a time. <a href='{learn_more_url}'>Learn more</a>"
+            ),
+            "enum": [skin["key"] for skin in skins],
+            "default": default_key,
             "required": True,
             "visible": True,
         }
-        skin_var_names.append(var_name)
+        group_var_names.append(enum_var_name)
+    else:
+        # Blueprint packs: one boolean per skin.
+        for skin in skins:
+            var_name = skin.get("variable_name")
+            if not var_name:
+                continue
+            merged_schema.setdefault("variables", {})[var_name] = {
+                "type": "boolean",
+                "title": skin["key"],
+                "description": f"Enable this frontend skin. <a href='{learn_more_url}'>Learn more</a>",
+                "default": skin.get("default_enabled", False),
+                "required": True,
+                "visible": True,
+            }
+            group_var_names.append(var_name)
 
-    if not skin_var_names:
-        return  # Helm-pack category — no dedicated group needed
+    if not group_var_names:
+        return  # Nothing to inject (shouldn't happen given the guards above).
 
     variable_groups = merged_schema.setdefault("variableGroups", [])
 
-    # Description explains that multiple skins can be selected simultaneously
-    # and links to the catalog/README for more info. The learn_more_url comes
-    # from the top of frontend_skins.yaml.
-    group_description = (
-        "Select one or more frontend UIs to deploy. You can enable multiple "
-        "skins simultaneously — each runs as its own container with its own "
-        f"URL. <a href='{learn_more_url}'>Learn more about available skins</a>."
-    )
+    # Group description explains the selection semantics for the current pack type.
+    # ORM Redwood UI does not render variableGroup descriptions today, but we keep
+    # the field populated for parity with the schema spec.
+    if is_helm_pack:
+        group_description = (
+            "Choose which frontend UI to deploy. Helm-based packs support a single "
+            f"skin at a time. <a href='{learn_more_url}'>Learn more about available skins</a>."
+        )
+    else:
+        group_description = (
+            "Select one or more frontend UIs to deploy. You can enable multiple "
+            "skins simultaneously — each runs as its own container with its own "
+            f"URL. <a href='{learn_more_url}'>Learn more about available skins</a>."
+        )
 
     # Find or create the "Frontend Skins" group.
     skin_group = None
@@ -175,7 +215,7 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
         skin_group["description"] = group_description
 
     # Populate in catalog order.
-    for var_name in skin_var_names:
+    for var_name in group_var_names:
         if var_name not in skin_group["variables"]:
             skin_group["variables"].append(var_name)
         # Also make sure the variable is NOT in Deployment Configuration (older

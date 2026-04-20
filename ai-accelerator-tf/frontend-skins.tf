@@ -14,17 +14,39 @@ locals {
     "skin_paas_rag_core" = var.skin_paas_rag_core
   }
 
-  # Skins the user has enabled for the current category, in catalog order.
-  # Empty for Helm packs (their catalog entries have no variable_name).
-  enabled_frontend_skins = [
-    for skin in local.category_skins : skin
-    if try(skin.variable_name, "") != ""
-    && lookup(local.skin_enabled_map, try(skin.variable_name, ""), false)
-  ]
+  # Helm-pack single-select enum: category → user's skin key choice (empty = catalog default).
+  helm_skin_enum_map = {
+    "enterprise_rag"     = var.skin_enterprise_rag
+    "enterprise_rag_aiq" = var.skin_enterprise_rag_aiq
+  }
 
-  # Primary skin for blueprint packs. null for Helm packs (no multi-skin concept).
-  # The precondition ensures blueprint packs always have ≥1 skin when deploy_application=true,
-  # so primary_skin is non-null in that case.
+  # For Helm packs, resolve the user's enum choice to a catalog entry.
+  # Empty selection OR selection not matching any catalog key → catalog default.
+  # Non-Helm packs → null.
+  helm_pack_selected_skin = (
+    contains(keys(local.helm_skin_enum_map), var.starter_pack_category)
+    ? try(
+      [for s in local.category_skins : s if s.key == local.helm_skin_enum_map[var.starter_pack_category]][0],
+      local._catalog_default_skin
+    )
+    : null
+  )
+
+  # Skins the user has enabled/selected for the current category, in catalog order.
+  # Blueprint packs: filter by boolean var. Helm packs: singleton with user's enum choice.
+  enabled_frontend_skins = (
+    local.helm_pack_selected_skin != null
+    ? [local.helm_pack_selected_skin]
+    : [
+      for skin in local.category_skins : skin
+      if try(skin.variable_name, "") != ""
+      && lookup(local.skin_enabled_map, try(skin.variable_name, ""), false)
+    ]
+  )
+
+  # First enabled skin. For blueprint packs, non-null when deploy_application=true
+  # (precondition guarantees ≥1). For Helm packs, always the user-selected entry
+  # (defaulting to catalog default when unset).
   primary_skin = length(local.enabled_frontend_skins) > 0 ? local.enabled_frontend_skins[0] : null
 
   # Catalog's default skin entry, derived from the top-level default: key.

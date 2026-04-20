@@ -152,36 +152,62 @@ run "paas_rag_zero_skins_fails" {
 
 # ===================== Helm packs =====================================
 
-run "enterprise_rag_helm_pack_unaffected" {
+run "enterprise_rag_helm_pack_default_selection" {
   command = plan
   variables {
     starter_pack_category = "enterprise_rag"
     db_password           = "TestDBP@ssw0rd123!"
   }
-  # primary_skin is null for Helm packs; back-compat locals fall back to catalog default
+  # primary_skin now resolves to the Helm-pack single-select default (catalog default)
   assert {
-    condition     = local.primary_skin == null
-    error_message = "Helm pack primary_skin must be null"
+    condition     = local.primary_skin != null
+    error_message = "Helm pack primary_skin must resolve to catalog default when enum var is empty"
   }
   assert {
-    condition     = local.frontend_skin_image_uri != null
-    error_message = "back-compat image_uri must be set via catalog default"
+    condition     = local.primary_skin.key == "Oracle RAG - Document chat (Core App)"
+    error_message = "enterprise_rag default selection = Oracle RAG"
   }
   assert {
     condition     = local.frontend_skin_name == "Oracle RAG - Document chat (Core App)"
-    error_message = "back-compat frontend_skin_name must resolve from catalog default"
+    error_message = "frontend_skin_name must match selected skin key"
   }
   assert {
     condition     = length(output.frontend_skin_urls) == 0
-    error_message = "Helm pack frontend_skin_urls must be {}"
+    error_message = "Helm pack frontend_skin_urls must be {} (uses starter_pack_url instead)"
   }
   assert {
     condition     = local.starter_pack_config.frontend_url == "frontend-erag"
-    error_message = "enterprise_rag starter_pack_config.frontend_url must be 'frontend-erag' (drives helm-pack ingress host)"
+    error_message = "enterprise_rag starter_pack_config.frontend_url must be 'frontend-erag'"
   }
 }
 
-run "enterprise_rag_aiq_helm_pack_unaffected" {
+run "enterprise_rag_explicit_skin_selection" {
+  command = plan
+  variables {
+    starter_pack_category = "enterprise_rag"
+    skin_enterprise_rag   = "Oracle RAG - Document chat (Core App)"
+    db_password           = "TestDBP@ssw0rd123!"
+  }
+  assert {
+    condition     = local.primary_skin.key == "Oracle RAG - Document chat (Core App)"
+    error_message = "explicit selection must resolve to the named catalog entry"
+  }
+}
+
+run "enterprise_rag_invalid_selection_falls_back_to_default" {
+  command = plan
+  variables {
+    starter_pack_category = "enterprise_rag"
+    skin_enterprise_rag   = "Does Not Exist - typo"
+    db_password           = "TestDBP@ssw0rd123!"
+  }
+  assert {
+    condition     = local.primary_skin.key == "Oracle RAG - Document chat (Core App)"
+    error_message = "unrecognized skin selection must fall back to catalog default, not crash"
+  }
+}
+
+run "enterprise_rag_aiq_helm_pack_default_selection" {
   command = plan
   variables {
     starter_pack_category = "enterprise_rag_aiq"
@@ -189,16 +215,16 @@ run "enterprise_rag_aiq_helm_pack_unaffected" {
     db_password           = "TestDBP@ssw0rd123!"
   }
   assert {
-    condition     = local.primary_skin == null
-    error_message = "Helm pack primary_skin must be null"
+    condition     = local.primary_skin != null
+    error_message = "aiq primary_skin must resolve to catalog default"
   }
   assert {
-    condition     = local.frontend_skin_image_uri != null
-    error_message = "back-compat image_uri must be set"
+    condition     = local.primary_skin.key == "NVIDIA AIRA - Agentic workflows (Core App)"
+    error_message = "aiq default selection = NVIDIA AIRA"
   }
   assert {
     condition     = local.frontend_skin_name == "NVIDIA AIRA - Agentic workflows (Core App)"
-    error_message = "back-compat frontend_skin_name must resolve from catalog default"
+    error_message = "frontend_skin_name must match selected skin key"
   }
   assert {
     condition     = length(output.frontend_skin_urls) == 0

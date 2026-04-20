@@ -1085,3 +1085,16 @@ variable "skin_paas_rag_core" {
   description = "Enable the 'Oracle Net - Chat interface (Core App)' skin"
   default     = true
 }
+
+# Helm-pack skin selectors (single-select enum). Empty string resolves to catalog default.
+variable "skin_enterprise_rag" {
+  type        = string
+  description = "Frontend skin for enterprise_rag (single-select). Empty = catalog default."
+  default     = ""
+}
+
+variable "skin_enterprise_rag_aiq" {
+  type        = string
+  description = "Frontend skin for enterprise_rag_aiq (single-select). Empty = catalog default."
+  default     = ""
+}

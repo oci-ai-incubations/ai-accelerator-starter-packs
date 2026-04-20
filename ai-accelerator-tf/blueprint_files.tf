@@ -43,6 +43,9 @@ locals {
 # Individual Blueprint Definitions
 # -----------------------------------
 locals {
+  # Filter out Helm-pack entries (no variable_name). These locals are always
+  # evaluated; without the filter, switching to a Helm pack would crash on
+  # skin.variable_name access even though nothing reads the result for that pack.
   _cuopt_frontend_deployments = [
     for skin in local.enabled_frontend_skins : {
       name       = skin.variable_name
@@ -79,6 +82,7 @@ locals {
         var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
       )
     }
+    if try(skin.variable_name, "") != ""
   ]
 
   _cuopt_blueprint = jsonencode({
@@ -1529,6 +1533,7 @@ locals {
         ]
       }
     }
+    if try(skin.variable_name, "") != ""
   ]
 
   _paas_rag_small_blueprint = jsonencode({

@@ -333,8 +333,8 @@ output "ingress_api_key_curl_example" {
 }
 
 output "frontend_skin_urls" {
-  description = "Map of enabled frontend skin keys to their URLs. For blueprint packs, one entry per enabled skin. Empty for Helm packs and for deploy_application=false. ORM renders map keys alphabetically."
-  value = local.deploy_application ? {
+  description = "Map of enabled frontend skin keys to their URLs. For blueprint packs, one entry per enabled skin. Empty for Helm packs (which use starter_pack_url for their single skin) and for deploy_application=false. ORM renders map keys alphabetically."
+  value = local.deploy_application && local.helm_pack_selected_skin == null ? {
     for skin in local.enabled_frontend_skins :
     skin.key => "https://${skin.subdomain}.${local.fqdn.name}"
   } : {}

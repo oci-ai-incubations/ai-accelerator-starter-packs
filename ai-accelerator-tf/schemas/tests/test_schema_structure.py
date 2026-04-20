@@ -273,36 +273,63 @@ class TestFrontendSkinCatalogSync:
             )
 
     @pytest.mark.parametrize("category", HELM_PACKS)
-    def test_helm_packs_have_no_per_skin_variables(self, generated_schemas, category):
-        """Helm packs must not surface per-skin toggles to the user.
+    def test_helm_packs_expose_single_skin_enum(self, generated_schemas, category):
+        """Helm packs surface ONE pack-level enum (skin_<category>) for single-select.
 
-        common_schema.yaml declares skin_* booleans with visible=false as hidden
-        fallbacks (commit 22c642e — without them, ORM auto-renders undeclared
-        TF vars as raw checkboxes). Those hidden declarations ARE allowed in
-        Helm-pack schemas. What's forbidden is a user-visible skin checkbox or
-        a 'Frontend Skins' variableGroup in a Helm-pack wizard.
+        The enum's values come from the catalog's skin keys; its default comes
+        from the catalog's top-level `default:` key. Blueprint-pack per-skin
+        booleans (skin_cuopt_core, skin_vss_core, etc.) stay visible=false in
+        Helm-pack schemas via the common_schema fallbacks — they must NOT
+        render as user-visible vars in a Helm-pack wizard.
         """
         schema = generated_schemas[category]
         variables = schema.get("variables", {})
-        visible_skin_vars = [
-            v for v, spec in variables.items()
-            if v.startswith("skin_") and spec.get("visible") is True
-        ]
-        assert visible_skin_vars == [], (
-            f"{category}: unexpected VISIBLE skin_* variables {visible_skin_vars}"
+        expected_enum_var = f"skin_{category}"
+
+        # The category's own enum must exist, be visible, type enum, with enum list from catalog.
+        assert expected_enum_var in variables, (
+            f"{category}: missing {expected_enum_var} enum variable"
         )
+        spec = variables[expected_enum_var]
+        assert spec.get("visible") is True, f"{category}: {expected_enum_var} must be visible"
+        assert spec.get("type") == "enum", (
+            f"{category}: {expected_enum_var} must be type=enum, got {spec.get('type')!r}"
+        )
+        assert "enum" in spec and isinstance(spec["enum"], list) and len(spec["enum"]) >= 1, (
+            f"{category}: {expected_enum_var} must declare a non-empty enum list"
+        )
+
+        # No OTHER skin_* variable should be user-visible in a Helm-pack wizard.
+        stray_visible = [
+            v for v, vs in variables.items()
+            if v.startswith("skin_") and v != expected_enum_var and vs.get("visible") is True
+        ]
+        assert stray_visible == [], (
+            f"{category}: unexpected VISIBLE foreign skin_* variables {stray_visible}"
+        )
+
+        # The Frontend Skins group must exist and contain exactly the enum variable.
         groups = schema.get("variableGroups", [])
-        has_frontend_skins_group = any(g.get("title") == "Frontend Skins" for g in groups)
-        assert not has_frontend_skins_group, (
-            f"{category}: unexpected 'Frontend Skins' variableGroup"
+        fs_group = next((g for g in groups if g.get("title") == "Frontend Skins"), None)
+        assert fs_group is not None, f"{category}: missing 'Frontend Skins' variableGroup"
+        assert fs_group.get("variables") == [expected_enum_var], (
+            f"{category}: 'Frontend Skins' group must contain exactly [{expected_enum_var!r}], "
+            f"got {fs_group.get('variables')!r}"
         )
 
     def test_skin_catalog_matches_terraform(self):
-        """Bidirectional drift check:
-           - Every catalog variable_name has a `variable "<name>"` in vars.tf.
-           - Every catalog variable_name has an entry in skin_enabled_map.
-           - Every skin_* variable in vars.tf corresponds to a catalog entry.
-           - Every skin_enabled_map entry corresponds to a catalog entry.
+        """Bidirectional drift check across the two skin-variable shapes:
+
+        Blueprint packs (cuopt/vss/paas_rag):
+          - Every catalog entry's variable_name has a `variable "<name>"` in vars.tf.
+          - Every catalog entry's variable_name has an entry in skin_enabled_map.
+          - Every bool `skin_*` variable in vars.tf corresponds to a catalog entry.
+          - Every skin_enabled_map entry corresponds to a catalog entry.
+
+        Helm packs (enterprise_rag/enterprise_rag_aiq):
+          - Every Helm-pack category has a `variable "skin_<category>"` in vars.tf.
+          - Every Helm-pack category has an entry in helm_skin_enum_map.
+          - No spurious skin_<helm_category> entry in skin_enabled_map.
         """
         import re
         repo_root = Path(__file__).parent.parent.parent
@@ -312,17 +339,35 @@ class TestFrontendSkinCatalogSync:
         with open(catalog_path) as f:
             catalog = yaml.safe_load(f)
 
-        # All catalog variable_names across blueprint packs.
-        catalog_vars = set()
+        # Blueprint-pack variable_names from the catalog.
+        blueprint_cat_vars = set()
         for cat in ("cuopt", "vss", "paas_rag"):
             for skin in catalog[cat]["skins"]:
                 if "variable_name" in skin:
-                    catalog_vars.add(skin["variable_name"])
+                    blueprint_cat_vars.add(skin["variable_name"])
 
-        # Variables in vars.tf matching skin_*. Anchor to start-of-line + variable keyword.
-        tf_vars = set(re.findall(r'^variable\s+"(skin_\w+)"\s*\{', vars_tf, re.MULTILINE))
+        # Expected Helm-pack enum variable names.
+        helm_cat_vars = {f"skin_{cat}" for cat in ("enterprise_rag", "enterprise_rag_aiq")}
 
-        # skin_enabled_map entries — extract the block first, then match inside it.
+        # Parse vars.tf — collect ALL skin_* variables and their types.
+        var_decls = re.findall(
+            r'^variable\s+"(skin_\w+)"\s*\{([^}]*)\}',
+            vars_tf,
+            re.MULTILINE | re.DOTALL,
+        )
+        bool_vars = {name for name, body in var_decls if re.search(r'type\s*=\s*bool\b', body)}
+        string_vars = {name for name, body in var_decls if re.search(r'type\s*=\s*string\b', body)}
+
+        assert blueprint_cat_vars == bool_vars, (
+            f"Blueprint catalog vars {sorted(blueprint_cat_vars)} != "
+            f"vars.tf bool skin_* {sorted(bool_vars)}"
+        )
+        assert helm_cat_vars == string_vars, (
+            f"Helm-pack expected enums {sorted(helm_cat_vars)} != "
+            f"vars.tf string skin_* {sorted(string_vars)}"
+        )
+
+        # skin_enabled_map should ONLY contain blueprint-pack boolean entries.
         map_block_match = re.search(
             r'skin_enabled_map\s*=\s*\{([^}]*)\}',
             frontend_skins_tf,
@@ -333,12 +378,25 @@ class TestFrontendSkinCatalogSync:
         map_entries = set(
             re.findall(r'"(skin_\w+)"\s*=\s*var\.\1\b', map_body)
         )
-
-        assert catalog_vars == tf_vars, (
-            f"Catalog vars {sorted(catalog_vars)} != vars.tf skin_* {sorted(tf_vars)}"
+        assert blueprint_cat_vars == map_entries, (
+            f"Blueprint catalog vars {sorted(blueprint_cat_vars)} != "
+            f"skin_enabled_map entries {sorted(map_entries)}"
         )
-        assert catalog_vars == map_entries, (
-            f"Catalog vars {sorted(catalog_vars)} != skin_enabled_map entries {sorted(map_entries)}"
+
+        # helm_skin_enum_map must cover exactly the Helm pack categories.
+        helm_map_match = re.search(
+            r'helm_skin_enum_map\s*=\s*\{([^}]*)\}',
+            frontend_skins_tf,
+            re.DOTALL,
+        )
+        assert helm_map_match is not None, "helm_skin_enum_map block not found in frontend-skins.tf"
+        helm_map_body = helm_map_match.group(1)
+        helm_map_entries = set(
+            re.findall(r'"(\w+)"\s*=\s*var\.skin_\1\b', helm_map_body)
+        )
+        assert helm_map_entries == {"enterprise_rag", "enterprise_rag_aiq"}, (
+            f"helm_skin_enum_map must cover exactly {{'enterprise_rag','enterprise_rag_aiq'}}, "
+            f"got {sorted(helm_map_entries)}"
         )
 
     @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
