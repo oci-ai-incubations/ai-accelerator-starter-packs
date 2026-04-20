@@ -1,6 +1,9 @@
 # Frontend Skins — Architecture
 
-This document describes how the frontend skins system works end-to-end, from the YAML catalog to the deployed container image(s). The system supports **multiple skins enabled simultaneously** per blueprint-pack deployment — users can turn on any combination of skins and each gets its own K8s deployment, service, ingress host, and URL.
+This document describes how the frontend skins system works end-to-end, from the YAML catalog to the deployed container image(s). The system supports two rendering shapes:
+
+- **Blueprint packs** (`cuopt`, `vss`, `paas_rag`): multi-select booleans. Users enable any combination of skins; each enabled skin gets its own K8s deployment, service, ingress host, and URL.
+- **Helm packs** (`enterprise_rag`, `enterprise_rag_aiq`): single-select enum. Users pick exactly one skin from the catalog; the choice is injected into the Helm chart's `frontend.image.{repository,tag}` values.
 
 ## Problem
 
@@ -10,10 +13,10 @@ Frontend container images were hardcoded across multiple Terraform files (`bluep
 
 One YAML file defines all available skins. Two consumers read it:
 
-1. **`create_final_schema.py`** (Python) — reads it at schema generation time to build one boolean toggle per skin
-2. **`frontend-skins.tf`** (Terraform) — reads it at plan/apply time to resolve the user's enabled toggles to image URIs and K8s resources
+1. **`create_final_schema.py`** (Python) — reads it at schema generation time. For blueprint packs, injects one boolean toggle per skin. For Helm packs, injects a single `skin_<category>` enum variable whose options are the catalog's skin keys.
+2. **`frontend-skins.tf`** (Terraform) — reads it at plan/apply time to resolve the user's choices (booleans for blueprint packs, enum for Helm packs) to image URIs and K8s resources.
 
-Adding a new skin is a single-file change to the catalog plus one new `variable "skin_<name>"` entry in `vars.tf`. No other schema YAML, Python, or consumer-file changes needed.
+Adding a new blueprint skin: add a catalog entry with `variable_name` + declare `variable "skin_<name>"` in `vars.tf` + extend `local.skin_enabled_map`. Adding a new Helm skin: add a catalog entry (no `variable_name` needed) — the enum list auto-updates at schema-gen time.
 
 ## Data Flow
 
@@ -64,7 +67,9 @@ Adding a new skin is a single-file change to the catalog plus one new `variable 
 
 ### `ai-accelerator-tf/schemas/frontend_skins.yaml`
 
-The catalog. Each starter pack category has a `default` skin key and a list of `skins`. For **blueprint packs** (cuopt, vss, paas_rag), each skin entry has:
+The catalog. Each starter pack category has a `default` skin key and a list of `skins`.
+
+**Blueprint packs** (cuopt, vss, paas_rag) — each skin entry has:
 
 - `key` — the checkbox label, suffixed with `(Core App)` or `(Partner Contributed)`
 - `image_uri` — full container image URI including tag
@@ -74,7 +79,7 @@ The catalog. Each starter pack category has a `default` skin key and a list of `
 - `variable_name` — the matching `skin_*` boolean variable name declared in `vars.tf`
 - `default_enabled` — whether the toggle starts ticked in ORM
 
-For **Helm packs** (enterprise_rag, enterprise_rag_aiq), skin entries have only `key`, `image_uri`, `provider`, and `container_port` — no `variable_name` / `subdomain` / `default_enabled` because these packs are single-skin in v1 and resolve via the catalog default rather than a toggle.
+**Helm packs** (enterprise_rag, enterprise_rag_aiq) — each skin entry has `key`, `image_uri`, `provider`, `container_port`, and `subdomain`. It does **not** have `variable_name` or `default_enabled` because the pack uses a pack-level enum variable rather than per-skin booleans. The catalog's presence/absence of `variable_name` is what tells `create_final_schema.py` which shape to inject (booleans vs enum).
 
 ```yaml
 cuopt:
@@ -119,19 +124,26 @@ Terraform-side resolution. Key locals:
 
 - **`frontend_skins_catalog`** — `yamldecode(file(...))` reads the YAML.
 - **`category_skins`** — the catalog's `skins` list for the current `starter_pack_category`.
-- **`skin_enabled_map`** — `{ "skin_cuopt_core" = var.skin_cuopt_core, ... }`. Must stay in sync with the `variable "skin_*"` declarations in `vars.tf`; referencing an undeclared var is a plan-time error, which catches mismatches.
-- **`enabled_frontend_skins`** — the catalog-ordered list of skins whose `variable_name` toggle is `true`. Empty for Helm packs (their catalog entries have no `variable_name`). Catalog order is preserved, which makes the primary-skin selection deterministic.
-- **`primary_skin`** — the first element of `enabled_frontend_skins`, or `null` for Helm packs. The blueprint-pack precondition requires at least one skin enabled when `deploy_application=true`, so `primary_skin` is non-null in that case. Used by consumers that historically expected a single skin (Helm `set` blocks, back-compat scalar outputs).
+- **`skin_enabled_map`** — `{ "skin_cuopt_core" = var.skin_cuopt_core, ... }`. Blueprint-pack booleans only. Must stay in sync with the bool `variable "skin_*"` declarations in `vars.tf`; referencing an undeclared var is a plan-time error, which catches mismatches.
+- **`helm_skin_enum_map`** — `{ "enterprise_rag" = var.skin_enterprise_rag, "enterprise_rag_aiq" = var.skin_enterprise_rag_aiq }`. Helm-pack enum variables. Each maps the category name to the user's selected skin key (empty string when unset).
+- **`helm_pack_selected_skin`** — for Helm packs, resolves the enum choice to a catalog entry. Empty selection OR unrecognized key → catalog default (via `try(...)` wrapping). For blueprint pack categories, this is `null`.
+- **`enabled_frontend_skins`** — the user's effective skin list. Branches on pack type:
+  - Helm packs: `[helm_pack_selected_skin]` (always singleton).
+  - Blueprint packs: catalog-ordered list of skins whose `variable_name` boolean is `true`.
+  Catalog order is preserved, which makes the primary-skin selection deterministic.
+- **`primary_skin`** — the first element of `enabled_frontend_skins`. For Helm packs: always non-null (enum defaults to catalog default). For blueprint packs: non-null when `deploy_application=true` (the `skin_validation` precondition requires ≥1 enabled skin).
 - **`_catalog_default_skin`** — the catalog entry whose `key` matches the pack's top-level `default:` key. Used in two places:
-  1. **Helm-pack back-compat fallback.** For enterprise_rag / enterprise_rag_aiq there are no `skin_*` toggles, so `primary_skin` is null; the scalar back-compat locals (`frontend_skin_image_uri`, `frontend_skin_provider`, `frontend_skin_name`, `frontend_skin_container_port`) fall back to this entry's fields so `helm.tf` and the scalar outputs keep working.
+  1. **Helm-pack enum fallback.** When the user's enum var is empty OR points at a key that doesn't exist, `helm_pack_selected_skin` falls back to this entry.
   2. **VSS K8s naming rule.** The default skin keeps the base resource name (`vss-oracle-ux`) while non-default skins get a suffix (`vss-oracle-ux-skin-vss-foo`).
-- **`_assert_catalog_default_resolves`** — fail-fast assertion. If the catalog's top-level `default:` key fails to match any `skin.key`, `_catalog_default_skin` becomes `null` — which would silently break the VSS K8s naming rule (every skin becomes non-default and takes a suffix, breaking the upgrade-without-rename promise). The `tobool(...)` trick raises a plan error with a clear message.
+  Correctness of the top-level `default:` matching is enforced by pytest tests (`test_default_enabled_matches_top_level_default`, `test_helm_packs_expose_single_skin_enum`) — no plan-time assertion is needed.
 - **`default_skin_variable_name`** — the `variable_name` of `_catalog_default_skin`, used by `app-vss-oracle-ux.tf` for the naming rule.
-- **`frontend_skin_image_uri` / `_provider` / `_name` / `_container_port`** — scalar back-compat locals used by `helm.tf` (split into image repo+tag), VSS locals, and scalar outputs. Return `primary_skin`'s fields for blueprint packs; fall back to `_catalog_default_skin` for Helm packs.
+- **`frontend_skin_image_uri` / `_provider` / `_name`** — scalar back-compat locals used by `helm.tf` (split into image repo+tag) and scalar outputs. Return `primary_skin`'s fields; fall back to `_catalog_default_skin` only when `primary_skin` is null (never happens for Helm packs post-enum; can only happen for blueprint packs in infra-only mode).
 
 ### `ai-accelerator-tf/vars.tf`
 
-One boolean variable per blueprint-pack skin. The naming convention is `skin_<category>_<identifier>`:
+Two variable shapes:
+
+**Blueprint packs — one boolean per skin.** Naming: `skin_<category>_<identifier>`:
 
 ```hcl
 variable "skin_cuopt_core"    { type = bool, default = true }
@@ -142,13 +154,22 @@ variable "skin_paas_rag_core" { type = bool, default = true }
 
 Defaults follow the `default_enabled` field in the catalog so local Terraform runs without ORM produce a sensible deployment.
 
-There is **no single `frontend_skin` enum variable anymore** and **no `cuopt_frontend_enabled` flag** — both have been removed. A pack is "frontend-enabled" iff at least one of its `skin_*` booleans is true.
+**Helm packs — one string enum per pack.** Naming: `skin_<category>`:
+
+```hcl
+variable "skin_enterprise_rag"     { type = string, default = "" }
+variable "skin_enterprise_rag_aiq" { type = string, default = "" }
+```
+
+Empty default means "use the catalog's top-level `default:` key" at plan time. The ORM wizard sets the actual default when rendering.
+
+There is **no single `frontend_skin` enum variable anymore** and **no `cuopt_frontend_enabled` flag** — both have been removed. A blueprint pack is "frontend-enabled" iff at least one of its `skin_*` booleans is true; a Helm pack is always frontend-enabled and uses whichever skin the user (or catalog default) picked.
 
 ### Consumer Files
 
-**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — iterate over `local.enabled_frontend_skins` (for_each) and produce one deployment/service/ingress/blueprint job per enabled skin. The container image and port come from the skin entry (`each.value.image_uri`, `each.value.container_port`). Each skin's resources get a unique name derived from `variable_name`, except for the default skin on VSS which keeps the base name (see below).
+**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — iterate over `local.enabled_frontend_skins` (for_each) and produce one deployment/service/ingress/blueprint job per enabled skin. The container image and port come from the skin entry (`each.value.image_uri`, `each.value.container_port`). Each skin's resources get a unique name derived from `variable_name`, except for the default skin on VSS which keeps the base name (see below). The `_cuopt_frontend_deployments` and `_paas_rag_frontend_deployments` list comprehensions filter with `if try(skin.variable_name, "") != ""` so Helm-pack entries (no `variable_name`) don't crash plan evaluation.
 
-**Helm packs** (`helm.tf`) — split `local.frontend_skin_image_uri` into `frontend.image.repository` and `frontend.image.tag` via `split(":", ...)`. Because Helm packs have no `skin_*` toggles in v1, this always resolves to the catalog default skin.
+**Helm packs** (`helm.tf`) — split `local.frontend_skin_image_uri` into `frontend.image.repository` and `frontend.image.tag` via `split(":", ...)`. The image URI resolves from the user's enum selection via `primary_skin → helm_pack_selected_skin`, with catalog default as the fallback when the enum var is unset.
 
 ### Default-skin-keeps-base-name rule (VSS)
 
@@ -167,14 +188,16 @@ The **default skin gets an empty suffix** so its K8s resource name stays `vss-or
 ### Schema Files
 
 **`common_schema.yaml`** defines:
-- Four scalar output definitions (`frontend_skin_name`, `frontend_skin_image_uri`, `frontend_skin_provider`, `frontend_skins_learn_more`) for back-compat with the Helm packs and the scalar primary-skin outputs.
+- Four scalar output definitions (`frontend_skin_name`, `frontend_skin_image_uri`, `frontend_skin_provider`, `frontend_skins_learn_more`) for back-compat with the scalar primary-skin outputs.
 - A "Frontend" output group.
-
-No hidden `frontend_skin` string variable exists — the per-skin boolean variables are declared in `vars.tf` directly, and `create_final_schema.py` injects matching boolean schema entries plus the `frontend_skin_urls` map output at schema-generation time.
+- Hidden (`visible: false`) entries for every `skin_*` variable so no undeclared ORM TF var auto-renders as a raw form field in the wrong category. Blueprint skin vars are `type: boolean`; Helm enum vars are `type: enum`. Category-specific schemas override the relevant entries to become visible.
 
 **`create_final_schema.py`** runs two injection functions after the common+category deep merge:
 
-1. `inject_frontend_skin_toggles` — for each skin in the category's catalog with a `variable_name`, injects a `type: boolean` variable into the schema with title = `skin.key`, default = `skin.default_enabled`, and a "Learn more" link in the description. The toggle is inserted into the "Deployment Configuration" variable group right after `starter_pack_size`, in catalog order.
+1. `inject_frontend_skin_toggles` — branches on catalog shape:
+   - Blueprint packs (entries have `variable_name`): injects one `type: boolean` variable per skin with title = `skin.key`, default = `skin.default_enabled`, and a "Learn more" link in the description.
+   - Helm packs (no entries have `variable_name`): injects a single `type: enum` variable named `skin_<category>`, with the catalog's skin keys as the `enum` list and the catalog's top-level `default:` as the default. Validates that `default:` is in the `enum` list — raises `ValueError` at generation time if not.
+   Both shapes land in a dedicated **"Frontend Skins" variableGroup** inserted right after "Deployment Configuration", in catalog order.
 2. `inject_frontend_skin_url_map_output` — declares `frontend_skin_urls` as a `type: map` output and places it first in the "Frontend" output group, removing the now-redundant `frontend_skin_image_uri` from the group's visible outputs.
 
 ### Group-level visibility for cuOpt credentials
@@ -215,33 +238,58 @@ The scalar outputs are retained for back-compat; new consumers should read `fron
 
 `tests/starter_pack_frontend_skins.tftest.hcl` covers:
 
-- Default-skin resolution per category (`primary_skin` matches the catalog default when only the default toggle is on).
+- Default-skin resolution per blueprint pack (`primary_skin` matches the catalog default when only the default toggle is on).
 - Explicit non-default selection (e.g., cuopt with only `skin_cuopt_partner` enabled).
 - Scalar output population.
 - Multi-skin: both cuopt toggles enabled produces two entries in `frontend_skin_urls` and `enabled_frontend_skins`.
+- Helm-pack default selection (`primary_skin` resolves to catalog default when `skin_<category>` is empty).
+- Helm-pack explicit skin selection (setting the enum var to a valid key resolves to that skin).
+- Helm-pack invalid-selection fallback (setting the enum var to a non-matching key falls back to catalog default instead of crashing).
 
 Existing per-pack tests (`starter_pack_cuopt.tftest.hcl`, etc.) also exercise skin resolution implicitly via the default toggles.
 
 ### Schema Tests
 
-- `schema_expectations.yaml` — per-category `variable_properties` asserting each `skin_*` variable has `type: boolean`, plus the `frontend_skin_urls` map output in `required_outputs`.
-- `test_schema_structure.py` — parametrized assertions that each generated schema's injected skin toggles match the catalog (names, defaults, titles).
+- `schema_expectations.yaml` — per-category `variable_properties` asserting each `skin_*` variable has the expected type.
+- `test_schema_structure.py::test_frontend_skin_booleans_match_catalog` — blueprint packs: booleans match catalog defaults.
+- `test_schema_structure.py::test_helm_packs_expose_single_skin_enum` — Helm packs: single enum variable with enum list + default matching the catalog.
+- `test_schema_structure.py::test_skin_catalog_matches_terraform` — bidirectional drift check across both shapes.
+- `test_blueprint_structure.py::test_every_backend_recipe_has_annotation` — every backend recipe carries `recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino` (PR #102 feature). Allowlists the frontend list comprehensions.
 
 ## Adding a New Skin
 
+### Blueprint pack (multi-select)
+
 1. Add a skin entry to `schemas/frontend_skins.yaml` under the category, with `variable_name` set to the matching `skin_<name>` boolean.
-2. Declare `variable "skin_<name>"` in `vars.tf` with the matching default.
-3. If the new skin belongs to a pack that gates credentials by group visibility (e.g., cuopt), add the new `variable_name` to the `visibleGroup.or` list in the category schema YAML.
+2. Declare `variable "skin_<name>"` (type `bool`) in `vars.tf` with the matching default.
+3. Add `"skin_<name>" = var.skin_<name>` to `local.skin_enabled_map` in `frontend-skins.tf`.
+4. If the new skin belongs to a pack that gates credentials by group visibility (e.g., cuopt), add the new `variable_name` to the `visibleGroup.or` list in the category schema YAML.
+5. Regenerate schemas:
+   ```bash
+   python create_final_schema.py --all
+   ```
+6. Update `docs/skins/README.md` with the new skin's details (provider, image, version, repo link, description).
+
+No `blueprint_files.tf`, `app-vss-oracle-ux.tf`, or `frontend-skins.tf` downstream-consumer changes are needed — they iterate over `enabled_frontend_skins` generically.
+
+### Helm pack (single-select enum)
+
+1. Add a skin entry to `schemas/frontend_skins.yaml` under the Helm category. **Omit** `variable_name` and `default_enabled` — the enum list is auto-populated from all entries' `key` fields.
+2. If the new skin changes the pack's `default:` key, update the catalog's top-level `default:` accordingly. Changing defaults has the same rename-caution as blueprint packs for VSS-style K8s naming, but Helm packs don't use that rule so it's safe.
+3. No `vars.tf` or `frontend-skins.tf` changes needed if the pack's `skin_<category>` enum variable already exists (it does for `enterprise_rag` and `enterprise_rag_aiq`).
 4. Regenerate schemas:
    ```bash
    python create_final_schema.py --all
    ```
-5. Update `docs/skins/README.md` with the new skin's details (provider, image, version, repo link, description).
+5. Update `docs/skins/README.md`.
 
-No `blueprint_files.tf`, `app-vss-oracle-ux.tf`, or `frontend-skins.tf` changes are needed — they iterate over `enabled_frontend_skins` generically.
+If you're adding a brand-new Helm pack, also:
+- Declare `variable "skin_<category>" { type = string, default = "" }` in `vars.tf`.
+- Add `"<category>" = var.skin_<category>` to `local.helm_skin_enum_map` in `frontend-skins.tf`.
+- Add a `visible: false` fallback entry in `common_schema.yaml`.
 
 ## Limitations
 
-- **Helm packs are single-skin in v1.** `enterprise_rag` and `enterprise_rag_aiq` resolve via `_catalog_default_skin` only; there are no `skin_*` toggles. Multi-skin support requires per-skin ingress routing in their Helm charts.
-- **Default skin rename requires care.** Changing which catalog entry is the `default:` will flip K8s resource names on VSS (the old default loses the base name; the new default takes it), causing a destroy+recreate of both deployments. Treat default changes as breaking.
-- **One-to-one toggle-to-variable mapping.** Each skin needs its own variable in `vars.tf`. A catalog-only skin (no variable) is invisible to the enabled-skins filter and will not deploy.
+- **Helm packs are single-skin at a time.** Users can pick one skin from the catalog via the dropdown, but only one runs. Running multiple skins simultaneously on a Helm pack would require the Helm chart's frontend sub-chart to accept a list of images, which it doesn't.
+- **Default skin rename requires care.** Changing which catalog entry is the `default:` will flip K8s resource names on VSS (the old default loses the base name; the new default takes it), causing a destroy+recreate of both deployments. Treat default changes as breaking. Helm packs don't use this naming rule so the caveat doesn't apply there.
+- **One-to-one toggle-to-variable mapping for blueprint packs.** Each blueprint skin needs its own boolean in `vars.tf`. A catalog-only skin (no `variable_name`) is treated as a Helm-pack entry by the injection logic and would not deploy as a blueprint.

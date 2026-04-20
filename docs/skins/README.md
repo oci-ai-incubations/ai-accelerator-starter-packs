@@ -2,25 +2,45 @@
 
 Each starter pack category has a catalog of "skins" — alternative frontend UIs for the same backend. Skins are defined in `ai-accelerator-tf/schemas/frontend_skins.yaml`.
 
-## Blueprint packs (`cuopt`, `vss`, `paas_rag`)
+## Blueprint packs (`cuopt`, `vss`, `paas_rag`) — multi-select
 
 These packs support **multi-skin**: enable one or more skins simultaneously from ORM. Each enabled skin deploys its own frontend container on its own ingress subdomain. You can compare UIs side-by-side without redeploying the backend.
 
 - **At least one skin is required** per blueprint pack (enforced by a Terraform precondition). Unchecking every skin produces a plan-time error.
-- The ORM wizard shows per-skin checkboxes in the Deployment Configuration group.
+- The ORM wizard shows per-skin checkboxes in a dedicated **"Frontend Skins"** variableGroup (inserted right after Deployment Configuration).
 - The `frontend_skin_urls` output maps each enabled skin's display name to its HTTPS URL.
 
-## Helm packs (`enterprise_rag`, `enterprise_rag_aiq`)
+## Helm packs (`enterprise_rag`, `enterprise_rag_aiq`) — single-select dropdown
 
-These packs remain **single-skin** — each catalog entry has one skin. Multi-skin is out of scope for the Helm-driven deployments because their ingresses are managed by their Helm charts.
+These packs deploy a single frontend at a time via Helm (`nvidia-blueprint-rag`) and expose a **single-select dropdown** in the same "Frontend Skins" variableGroup. Users pick one skin from the pack's catalog; multi-skin isn't supported here because the Helm chart's frontend sub-chart only deploys one frontend image.
 
-## Adding a new skin (3-file checklist)
+- The ORM wizard shows a `Frontend Skin` enum variable (named `skin_enterprise_rag` / `skin_enterprise_rag_aiq`) with the catalog's skin keys as choices.
+- Default is the catalog's top-level `default:` key.
+- `frontend_skin_urls` is intentionally empty for Helm packs; the user-facing URL is `starter_pack_url`.
 
-1. `ai-accelerator-tf/schemas/frontend_skins.yaml` — add the catalog entry (key, image_uri, provider, container_port, subdomain, variable_name, default_enabled).
-2. `ai-accelerator-tf/vars.tf` — declare the matching boolean variable.
+## Adding a new skin
+
+The checklist depends on which pack type you're adding to.
+
+### Blueprint pack skin (multi-select)
+
+1. `ai-accelerator-tf/schemas/frontend_skins.yaml` — add the catalog entry (key, image_uri, provider, container_port, subdomain, `variable_name`, `default_enabled`).
+2. `ai-accelerator-tf/vars.tf` — declare `variable "skin_<name>" { type = bool, default = <bool> }`.
 3. `ai-accelerator-tf/frontend-skins.tf` — add the variable to `local.skin_enabled_map`.
 
-Regenerate schemas (`python create_final_schema.py -c <category>`) and run tests (`terraform test` + `pytest ai-accelerator-tf/schemas/tests/`). The bidirectional drift test `test_skin_catalog_matches_terraform` catches any forgotten step.
+### Helm pack skin (single-select enum)
+
+1. `ai-accelerator-tf/schemas/frontend_skins.yaml` — add the catalog entry (key, image_uri, provider, container_port, subdomain). **Omit** `variable_name` and `default_enabled` — the dropdown is one pack-level variable, not per-skin.
+2. If the pack already has a `skin_<category>` enum variable in `vars.tf` (it does, for `enterprise_rag` and `enterprise_rag_aiq`), no vars.tf change needed — the enum list is auto-populated from the catalog at schema-generation time.
+3. If this is the first skin for a new Helm pack, declare `variable "skin_<category>" { type = string, default = "" }` in `vars.tf` AND add `"<category>" = var.skin_<category>` to `local.helm_skin_enum_map` in `frontend-skins.tf`.
+
+### In both cases
+
+Regenerate schemas (`python create_final_schema.py --all`) and run tests (`terraform test` + `pytest ai-accelerator-tf/schemas/tests/`). The structural tests catch forgotten steps:
+
+- `test_skin_catalog_matches_terraform` — blueprint pack drift
+- `test_helm_packs_expose_single_skin_enum` — Helm pack drift
+- `test_blueprint_structure.py::test_every_backend_recipe_has_annotation` — ensures new backend recipes carry the bearer-token annotation
 
 ## Core App vs Partner Contributed
 
