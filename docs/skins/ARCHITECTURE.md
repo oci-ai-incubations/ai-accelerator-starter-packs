@@ -114,9 +114,16 @@ The `container_port` field in the catalog maps to `recipe_container_port`. Witho
 
 ### Environment variables
 
-All skins within a pack share the same interface — they receive the same set of environment variables defined in `blueprint_files.tf` / `app-vss-oracle-ux.tf`. Each enabled skin gets the full base env var set (`CUOPT_ENDPOINT`, `LLAMASTACK_ENDPOINT`, `ADMIN_USERNAME`, `PORT`, etc.) regardless of whether that particular image uses them. Unused env vars in a container are harmless.
+All skins within a pack receive the same set of environment variables
+defined in pack-specific Terraform (not the catalog). Env vars are NOT
+part of `frontend_skins.yaml` — this keeps the catalog simple and lets
+different packs expose different contracts.
 
-Environment variables are NOT part of the skin catalog. They live in the pack-specific Terraform and apply identically to all skins of that pack. This keeps the skin catalog simple.
+For the **per-pack list** of env vars a skin receives, including worked
+examples and the ingress-path routing used by some packs, see
+[BACKEND_API_CONTRACT.md](BACKEND_API_CONTRACT.md). This architecture
+document only notes where env vars are SET in the Terraform; the user
+contract for skin authors lives in the sibling doc.
 
 ### `ai-accelerator-tf/frontend-skins.tf`
 
