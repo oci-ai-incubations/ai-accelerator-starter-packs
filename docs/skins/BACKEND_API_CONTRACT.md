@@ -50,7 +50,59 @@ what the pack provides.
 
 ## 2. Common Patterns
 
-(to be written)
+### Pattern 1 — Same-host ingress path routing
+
+Your skin calls its own origin with a path prefix that the pack routes to a
+backend service.
+
+```js
+// Browser-side fetch — works in any skin that has matching ingress paths.
+const r = await fetch('/v1/models');
+const models = await r.json();
+```
+
+The URL is **relative** (no protocol, no host). Works because the pack
+stitched `/v1/models` onto the skin's own ingress subdomain (same origin,
+so CORS and auth cookies are free). Example skin: paas_rag. See §3 for
+the full path set each pack publishes.
+
+### Pattern 2 — In-cluster service endpoints via env vars
+
+Your skin reads an env var set by the pack at container start, whose value
+is an internal service URL.
+
+```js
+// Server-side (Node API route, SSR handler) — NOT reachable from the browser.
+const r = await fetch(`${process.env.LLAMASTACK_ENDPOINT}/v1/models`);
+const models = await r.json();
+```
+
+The URL is **absolute** (`http://<service>:<port>`), has no TLS, and
+resolves only inside the cluster. Env vars in Pattern 2 never point at
+`https://...` external endpoints. Example skin: cuopt. See §3 for the
+full env var set each pack injects.
+
+### Which mechanism does each pack use?
+
+| Pack               | Ingress paths | Env vars              |
+|--------------------|---------------|-----------------------|
+| cuopt              | ✓             | ✓                     |
+| vss                | —             | ✓                     |
+| paas_rag           | ✓             | —                     |
+| enterprise_rag     | — (Helm)      | ✓ (Helm chart values) |
+| enterprise_rag_aiq | — (Helm)      | — (chart-internal)    |
+
+"(Helm)" means the mechanism is wired by a Helm chart, not by
+Terraform-declared `recipe_additional_ingress_ports` or
+`recipe_container_env`. Helm packs do not stitch API paths onto the
+frontend subdomain; the frontend reaches backends only via in-cluster
+service DNS names.
+
+- For **enterprise_rag**, those DNS names are in `frontend.envVars` in
+  `helm-values/enterprise-rag-values.yaml` (Pattern 2, documented in §3.4).
+- For **enterprise_rag_aiq**, the user-facing frontend is shipped by the
+  `aiq-aira` chart with no `frontend.envVars` list in the values file —
+  endpoints are chart-internal. See §3.5.
 
 ## 3. Per-Pack Contract
 
