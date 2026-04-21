@@ -122,3 +122,22 @@ Oracle Net chat interface for the managed enterprise RAG pipeline. Provides docu
 | Repository | [NVIDIA AIQ Frontends](https://github.com/NVIDIA-AI-Blueprints/aiq/tree/develop/frontends/ui) |
 
 NVIDIA AIRA (AI Research Assistant) frontend for the agentic AI starter kit. Provides a chat-based interface for interacting with AI agents that can reason over documents, execute multi-step workflows, and use tools. Includes observability integration with Phoenix for tracing agent execution, viewing tool call chains, and debugging agentic reasoning paths.
+
+## Warehouse Pick Path Optimizer (`warehouse_pick_path`)
+
+| Skin Name | Type | Provider | Default |
+|---|---|---|---|
+| Warehouse Pick Path Optimizer Frontend (Core App) | Core App | Oracle | Yes |
+
+### Warehouse Pick Path Optimizer Frontend (Core App)
+
+| Field | Value |
+|---|---|
+| Type | Core App |
+| Provider | Oracle |
+| Image | `iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe` |
+| Version | Tracks the same short-SHA tag as the backend; see `SOFTWARE_VERSIONS.md` |
+| Container Port | 3000 |
+| Repository | [oci-warehouse-pick-path-optimizer](https://github.com/oci-ai-incubations/oci-warehouse-pick-path-optimizer) |
+
+Oracle's core frontend for the Warehouse Pick Path Optimizer. Provides CSV uploads for warehouse layout / SKU master / inventory snapshot / order batch, a form for configuring picker count, solver time, wave mode, and direction (inbound vs outbound), and an interactive results view with a 2D route map, per-picker tables, and CSV export of the solution. This is the fully tested, Oracle-supported frontend for this pack.

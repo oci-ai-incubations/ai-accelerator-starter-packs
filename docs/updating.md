@@ -13,6 +13,7 @@ Go to: https://github.com/oracle-quickstart/oci-ai-blueprints/releases/tag/start
 - videoSearchSummarization.zip - Video Search and Summarization
 - aiQGenAIPowered.zip - Enterprise Knowledge Chat Agent - Managed AI Models
 - enterpriseAgenticAIStarterKit.zip - Enterprise Agentic AI Starter Kit
+- warehousePickPathOptimizer.zip - Warehouse Pick Path Optimizer
 
 Click on the zip you want to download to download it.
 

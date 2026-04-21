@@ -11,6 +11,7 @@ This document is the single source of truth for starter pack naming. Use it to m
 | `enterprise_rag` | `aiQEnterpriseSearch.zip` | Enterprise Knowledge Chat Agent - Self-Hosted AI Models | Self-Hosted Enterprise Chat Agent | Yes |
 | `paas_rag` | `aiQGenAIPowered.zip` | Enterprise Knowledge Chat Agent - Managed AI Models | Managed Enterprise Chat Agent | No |
 | `enterprise_rag_aiq` | `enterpriseAgenticAIStarterKit.zip` | Enterprise Agentic AI Starter Kit | Agentic AI Starter Kit | Yes |
+| `warehouse_pick_path` | `warehousePickPathOptimizer.zip` | Warehouse Pick Path Optimizer | Warehouse Pick Path Optimizer | Yes |
 
 ## Descriptions
 
@@ -21,6 +22,7 @@ This document is the single source of truth for starter pack naming. Use it to m
 | `enterprise_rag` | Enterprise RAG chat: auto-crawls web + internal data, builds a vector index, answers business questions with citations — all on OCI NVIDIA GPUs. |
 | `paas_rag` | Fully managed, no GPU infrastructure required. Enterprise RAG chat with document upload, vector search, and cited answers — powered by OCI GenAI PaaS + Oracle 26ai. |
 | `enterprise_rag_aiq` | Full-stack agentic AI environment on OCI powered by NVIDIA AIQ. Deploys reasoning models, vector DB, observability, application layer, and more in minutes. Customize and extend to build your own agentic workflows. |
+| `warehouse_pick_path` | Capacity-aware pick-path planner for Oracle WMS batches. Ingests warehouse layout + order batch CSVs, runs NVIDIA cuOpt on GPU to balance work across multiple pickers, and returns optimised inbound (putaway) or outbound (shipping) routes through a web UI with CSV export. |
 
 ## When to Use Which Name
 
