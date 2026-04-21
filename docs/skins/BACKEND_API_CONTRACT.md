@@ -108,7 +108,69 @@ service DNS names.
 
 ### 3.1 cuopt (Vehicle Delivery Route Optimizer)
 
-(to be written)
+#### Catalog summary
+
+cuopt ships two skins; either or both may be enabled simultaneously. Each
+enabled skin runs as its own container with its own subdomain.
+
+| Skin                | `variable_name`       | `container_port` | `subdomain`             |
+|---------------------|-----------------------|------------------|-------------------------|
+| Core App            | `skin_cuopt_core`     | 3001             | `demo-cuopt`            |
+| Partner Contributed | `skin_cuopt_partner`  | 80               | `demo-cuopt-partner`    |
+
+Ingress host: `https://<subdomain>.<fqdn>`. Catalog source:
+`ai-accelerator-tf/schemas/frontend_skins.yaml`.
+
+#### Outbound — ingress paths (Pattern 1)
+
+Every enabled skin's ingress has these additional path prefixes. All
+`path_type: Prefix`.
+
+| Path prefix | Backend service   | Port | Notes                                         |
+|-------------|-------------------|------|-----------------------------------------------|
+| `/cuopt`    | cuopt solver      | 5000 | NVIDIA cuOpt Vehicle Routing API.             |
+| `/v1`       | llamastack        | 8321 | LlamaStack base URL — `/v1/models`, etc.     |
+
+#### Outbound — env vars (Pattern 2)
+
+| Env var                 | Value format                  | Points to                                  |
+|-------------------------|-------------------------------|--------------------------------------------|
+| `CUOPT_ENDPOINT`        | `http://<cuopt-svc>:80`       | cuopt solver, inside-cluster.              |
+| `LLAMASTACK_ENDPOINT`   | `http://<llamastack-svc>:80`  | llamastack, inside-cluster.                |
+| `LLAMASTACK_MODEL`      | empty string (`""`)           | Model name override; left empty by default.|
+| `GOOGLE_MAPS_API_KEY`   | user-supplied                 | Map rendering; pass-through from ORM.      |
+| `ADMIN_USERNAME`        | user-supplied                 | UI admin user.                             |
+| `ADMIN_PASSWORD`        | user-supplied                 | UI admin password.                         |
+| `NODE_ENV`              | `production`                  | Standard Node env flag.                    |
+| `PORT`                  | matches `container_port`      | For Node apps that read `process.env.PORT`.|
+
+The `<cuopt-svc>` and `<llamastack-svc>` placeholders resolve to the
+Corrino-generated in-cluster K8s service names at container start.
+
+#### Worked example
+
+```js
+// Browser — list LLM models via the pack's llamastack (Pattern 1).
+const models = await fetch('/v1/models').then(r => r.json());
+
+// Browser — submit a routing problem to cuopt (Pattern 1).
+const resp = await fetch('/cuopt', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload),
+});
+
+// Server-side (Next.js API route) — same call via env var (Pattern 2).
+const resp = await fetch(`${process.env.CUOPT_ENDPOINT}/v1/solve`, {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});
+```
+
+#### Source of truth
+
+`ai-accelerator-tf/blueprint_files.tf` — `local._cuopt_frontend_deployments`
+list comprehension defines both the env vars and the ingress path set.
 
 ### 3.2 vss (Video Search and Summarization)
 
