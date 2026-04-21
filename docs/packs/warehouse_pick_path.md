@@ -94,7 +94,20 @@ The Warehouse Pick Path Optimizer closes the loop:
 
 ## Deployment and Access
 
-You can deploy the Warehouse Pick Path Optimizer from the **OCI Console**. In the navigation menu (hamburger or three lines in top left) -> Analytics & AI -> Warehouse Pick Path Optimizer. Choose a deployment size, add the portal credentials and database password, and click Create. The console uses the pack's sizing to provision the right GPU compute, OKE cluster, networking, Oracle Autonomous DB, and the Pick Path Optimizer software stack.
+You can deploy the Warehouse Pick Path Optimizer from terraform directly, or by following the steps below from the base level of this repository:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip3 install -r requirements.txt
+
+python3 create_final_schema.py -c warehouse_pick_path
+
+zip -r warehouse_pick_path.zip ai-accelerator-tf
+```
+
+Then, go to "stacks" in the console and upload the generated zip. Fill out the fields, click next, and select to run the apply job.
+
 
 After deployment you get:
 
