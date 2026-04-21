@@ -174,7 +174,82 @@ list comprehension defines both the env vars and the ingress path set.
 
 ### 3.2 vss (Video Search and Summarization)
 
-(to be written)
+#### Catalog summary
+
+vss ships one skin.
+
+| Skin     | `variable_name`  | `container_port` | `subdomain`     |
+|----------|------------------|------------------|-----------------|
+| Core App | `skin_vss_core`  | 3000             | `vss-frontend`  |
+
+Ingress host: `https://vss-frontend.<fqdn>`. Catalog source:
+`ai-accelerator-tf/schemas/frontend_skins.yaml`.
+
+#### Outbound — ingress paths (Pattern 1)
+
+**This pack uses only Pattern 2; see below.** VSS is the one blueprint
+pack whose frontend runs as a vanilla `kubernetes_deployment_v1` (not a
+Corrino blueprint), with a single ingress rule at `/` only — no
+`recipe_additional_ingress_ports`.
+
+#### Outbound — env vars (Pattern 2)
+
+Grouped by where the value comes from:
+
+**From the per-skin `vss-oracle-ux-config` ConfigMap:**
+
+| Env var                 | Value                                                           |
+|-------------------------|-----------------------------------------------------------------|
+| `VSS_API_BASE_URL`      | `http://<vss-backend-svc>:8000/` (dynamically resolved)         |
+| `FILE_STORAGE_PATH`     | `/mnt/fss/cache` (FSS mount inside the pod)                     |
+| `DOWNLOAD_SERVICE_URL`  | `http://vss-download-service:8080`                              |
+| `VSS_BACKEND_DEPLOYMENT`| The Corrino deployment name of the VSS backend.                 |
+
+**From the shared `corrino-configmap`** (present on every pack):
+
+| Env var            | Notes                                                          |
+|--------------------|----------------------------------------------------------------|
+| `REGION_NAME`      | OCI region for this deployment.                                |
+| `COMPARTMENT_ID`   | OCI compartment OCID.                                          |
+| `TENANCY_ID`       | OCI tenancy OCID.                                              |
+| `TENANCY_NAMESPACE`| OCI object-storage tenancy namespace.                          |
+
+**Literal values** on the deployment:
+
+| Env var             | Value                                                          |
+|---------------------|----------------------------------------------------------------|
+| `LOCAL`             | `false`                                                        |
+| `NEXT_DEPLOYMENT_ID`| sha256 of the blueprint content (Next.js cache-buster).       |
+
+**From the `vss-db-url` K8s Secret** (not a ConfigMap):
+
+| Env var        | Value                                                                |
+|----------------|----------------------------------------------------------------------|
+| `DATABASE_URL` | Prisma connection string to the VSS Postgres database.               |
+
+#### Worked example
+
+```js
+// Server-side — query the VSS backend for uploaded videos.
+const videos = await fetch(
+  `${process.env.VSS_API_BASE_URL}videos`
+).then(r => r.json());
+
+// Server-side — read a cached file off the FSS mount.
+import { readFile } from 'node:fs/promises';
+const bytes = await readFile(
+  `${process.env.FILE_STORAGE_PATH}/my-video.mp4`
+);
+
+// Server-side — write via the Prisma client using DATABASE_URL.
+// (Your ORM client reads process.env.DATABASE_URL on init.)
+```
+
+#### Source of truth
+
+`ai-accelerator-tf/app-vss-oracle-ux.tf` — `env { ... }` blocks on the
+`kubernetes_deployment_v1` resource, plus the per-skin `vss-oracle-ux-config`
+ConfigMap and the `vss_db_url` K8s Secret declared in the same file.
 
 ### 3.3 paas_rag (Managed Enterprise Chat Agent)
 
