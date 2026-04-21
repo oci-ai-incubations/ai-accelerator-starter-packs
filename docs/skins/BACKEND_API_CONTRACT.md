@@ -253,7 +253,66 @@ ConfigMap and the `vss_db_url` K8s Secret declared in the same file.
 
 ### 3.3 paas_rag (Managed Enterprise Chat Agent)
 
-(to be written)
+#### Catalog summary
+
+paas_rag ships one skin.
+
+| Skin     | `variable_name`         | `container_port` | `subdomain`        |
+|----------|-------------------------|------------------|--------------------|
+| Core App | `skin_paas_rag_core`    | 3000             | `frontend-paas`    |
+
+Ingress host: `https://frontend-paas.<fqdn>`. Catalog source:
+`ai-accelerator-tf/schemas/frontend_skins.yaml`.
+
+#### Outbound — ingress paths (Pattern 1)
+
+All paths `path_type: Prefix`, all routed to the llamastack service at
+port 8321. The more-specific paths are listed before `/v1` in the
+Terraform source; with `Prefix` matching, the most-specific match wins, so
+requests like `/v1/models` go to the `models` entry and other `/v1/*`
+calls fall through to the catch-all `/v1` entry.
+
+| Path prefix         | Backend service | Port | Notes                                |
+|---------------------|-----------------|------|--------------------------------------|
+| `/v1/models`        | llamastack      | 8321 | List models.                         |
+| `/v1/health`        | llamastack      | 8321 | Health check endpoint.               |
+| `/v1/responses`     | llamastack      | 8321 | OpenAI-compatible responses API.     |
+| `/v1/vector_stores` | llamastack      | 8321 | Vector store CRUD.                   |
+| `/v1/files`         | llamastack      | 8321 | File upload / list / delete.         |
+| `/v1`               | llamastack      | 8321 | Catch-all for any other `/v1/*` path.|
+
+#### Outbound — env vars (Pattern 2)
+
+**This pack uses only Pattern 1; no env vars are injected into the frontend
+container.** The `_paas_rag_frontend_deployments` list comprehension in the
+Terraform source declares no `recipe_container_env`.
+
+#### Worked example
+
+```js
+// Browser — health check.
+const health = await fetch('/v1/health').then(r => r.json());
+
+// Browser — list available models.
+const models = await fetch('/v1/models').then(r => r.json());
+
+// Browser — upload a file to the vector store pipeline.
+const body = new FormData();
+body.append('file', file);
+await fetch('/v1/files', { method: 'POST', body });
+
+// Browser — send a chat completion.
+const reply = await fetch('/v1/responses', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ model, input: prompt }),
+}).then(r => r.json());
+```
+
+#### Source of truth
+
+`ai-accelerator-tf/blueprint_files.tf` —
+`local._paas_rag_frontend_deployments` list comprehension.
 
 ### 3.4 enterprise_rag (Self-Hosted Enterprise Chat Agent)
 
