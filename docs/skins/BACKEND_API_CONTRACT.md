@@ -478,4 +478,59 @@ const resp = await fetch('/api/chat', { method: 'POST', body: ... });
 
 ## 4. Updating This Doc
 
-(to be written)
+This document is **manually maintained**. There is no drift-check test
+against the Terraform; keeping the contract accurate is part of the PR
+that changes the source.
+
+### When to edit
+
+Update this doc whenever you change any of these files:
+
+- `ai-accelerator-tf/blueprint_files.tf` — any edit to
+  `local._cuopt_frontend_deployments` or `local._paas_rag_frontend_deployments`
+  (env vars, ingress paths, container port).
+- `ai-accelerator-tf/app-vss-oracle-ux.tf` — any `env { ... }` block
+  change on the VSS frontend deployment, any addition/removal in the
+  `vss-oracle-ux-config` ConfigMap, or any new Secret reference the
+  deployment consumes.
+- `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` and
+  `enterprise-rag-aiq-values.yaml` — changes to the `frontend:` block
+  (envVars, port, image defaults).
+- `ai-accelerator-tf/helm-values/aiq-aira-values.yaml` — changes to the
+  `frontend:` block that drives the AIQ user-facing frontend.
+- `ai-accelerator-tf/schemas/frontend_skins.yaml` — changes to
+  `container_port`, `subdomain`, or any new skin entries.
+- `ai-accelerator-tf/ingress.tf` — changes to Helm-pack ingress rules
+  (enterprise_rag / enterprise_rag_aiq).
+- `ai-accelerator-tf/helm.tf` — changes to the `rag` or `aiq-aira`
+  helm_release `set` blocks, especially the
+  `frontend.image.{repository,tag}` overrides wired to
+  `local.frontend_skin_image_uri` (BUG-020 invariant).
+
+### Where the source of truth lives
+
+- Pattern 1 tables come from `recipe_additional_ingress_ports` arrays in
+  `blueprint_files.tf`.
+- Pattern 2 tables come from `recipe_container_env` arrays (blueprint
+  packs), `env { ... }` blocks and ConfigMap data (VSS), or Helm chart
+  values (Helm packs).
+- Catalog summary tables come from `schemas/frontend_skins.yaml`.
+
+### Known correctness tests
+
+Two pytest structural checks lock claims that this doc depends on:
+
+- `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py` — asserts
+  both the `rag` and `aiq-aira` Helm releases carry the
+  `frontend.image.{repository,tag}` set entries wired via
+  `split(":", local.frontend_skin_image_uri)` (BUG-020 invariant). If a
+  future Helm pack is added, append its release name to
+  `RELEASES_REQUIRING_SKIN_OVERRIDE` at the top of the test file.
+- `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation`
+  — keeps every backend recipe carrying the bearer-token annotation
+  (see `docs/API_TOKENS.md`).
+
+### "When in doubt" rule
+
+> Would a skin author need to read it to wire their frontend? If yes,
+> document it.
