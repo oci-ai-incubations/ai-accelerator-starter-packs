@@ -20,6 +20,10 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-014 | ingress-nginx in app stack creates OCI LB that blocks infra subnet deletion | Medium | 2026-04-09 |
 | Open | BUG-015 | enterprise_rag document ingestion API fails with "single positional indexer is out-of-bounds" | Medium | 2026-04-09 |
 | Open | BUG-016 | existing_node_subnet_id nil pointer crash in app stack — field easy to miss in ORM UI | Medium | 2026-04-09 |
+| Fixed | BUG-017 | common_schema.yaml duplicate entries for cuopt frontend variables | Low | 2026-04-16 |
+| Open | BUG-018 | BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch | High | 2026-04-19 |
+| Open | BUG-019 | paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files | Medium | 2026-04-17 |
+| Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
 
 ---
 
@@ -568,3 +572,239 @@ Pending. Options:
 1. Make `existing_node_subnet_id` conditionally required when `existing_cluster_id` is set (ORM schema `required` + `visible` conditions)
 2. Add a validation block in `vars.tf` that errors if `existing_cluster_id` is set but `existing_node_subnet_id` is empty
 3. Auto-derive the node subnet from the cluster OCID via a data source (eliminates the manual copy step entirely)
+
+### BUG-017: common_schema.yaml duplicate entries for cuopt frontend variables
+
+**Status:** Fixed
+**Date found:** 2026-04-16
+**Date fixed:** 2026-04-16
+**Found by:** Grant during multi-skin refactor (branch `multiple_skins_per_pack`)
+**Severity:** Low
+
+**Symptoms:**
+`schemas/common_schema.yaml` contained duplicate hidden-variable entries for the cuOpt frontend variables. `cuopt_frontend_enabled` appeared twice, and `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password`, and `google_maps_api_key` were each defined more than once. YAML parsers tolerate duplicate keys by silently keeping the last occurrence, so the generated schema happened to be correct, but the source file was noisy, confusing to read, and easy to break during future edits (e.g., updating one copy but not the other).
+
+**Root cause:**
+The entries were added incrementally across multiple PRs:
+- The original BUG-001 fix added `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password`, and `google_maps_api_key` with `visible: false`.
+- A later PR that introduced `cuopt_frontend_enabled` added another block for the same three variables plus `cuopt_frontend_enabled` itself, instead of editing the existing block.
+- A still-later change added a second `cuopt_frontend_enabled` entry (this time as a hidden fallback for the multi-skin transition) without noticing the earlier copy.
+
+No schema-lint check flagged duplicate YAML keys in `common_schema.yaml`, and the generated per-category `schema.yaml` files looked correct because YAML "last key wins" semantics masked the duplication.
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml` — duplicate entries for `cuopt_frontend_enabled` (x2), `cuopt_frontend_admin_username`, `cuopt_frontend_admin_password`, `google_maps_api_key`
+
+**Workaround:**
+None needed — the generated schemas were functionally correct due to YAML last-key-wins semantics. Purely a source-file cleanliness issue.
+
+**Resolution:**
+Consolidated the duplicate entries in `common_schema.yaml` so each variable appears exactly once with `visible: false`. Removed the stale `frontend_skin` hidden fallback at the same time. Fixed on branch `multiple_skins_per_pack` in commit `fe1bfcc` as part of the multi-skin refactor (spec 2026-04-16).
+
+**Verification:**
+- `grep -c "^  cuopt_frontend_enabled:" ai-accelerator-tf/schemas/common_schema.yaml` should return `1`.
+- `grep -c "^  cuopt_frontend_admin_username:" ai-accelerator-tf/schemas/common_schema.yaml` should return `1`.
+- `python3 ai-accelerator-tf/schemas/create_final_schema.py --all` succeeds and `pytest ai-accelerator-tf/schemas/tests/ -v` passes.
+
+**Prevention:**
+Extend `/schema-lint` to detect duplicate top-level variable keys in `common_schema.yaml` (and per-category schemas). Since PyYAML's default loader silently drops duplicates, the check needs a custom loader or a pre-parse pass that scans raw lines under `variables:` for repeated keys.
+
+**Reference:** Discovered during the `multiple_skins_per_pack` refactor (spec 2026-04-16) when auditing `common_schema.yaml` as part of replacing `cuopt_frontend_enabled` with per-skin boolean variables.
+
+### BUG-018: BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch
+
+**Status:** Open
+**Date found:** 2026-04-19
+**Found by:** `track1-bm` teammate during multi-skin feature validation (Track 1, enterprise_rag → enterprise_rag_aiq back-to-back in us-sanjose-1)
+**Severity:** High
+
+**How this was discovered:**
+Track 1 was testing the multi-skin feature on two Helm packs sequentially on 2× BM.GPU4.8 in us-sanjose-1 AD-1. After enterprise_rag completed successfully (all pods Running, tests PASS), the teammate destroyed the app stack only (preserving infra + GPU nodes per the BM shape reuse strategy in `feedback_gpu_destroy_vs_reapply.md`). The enterprise_rag_aiq app apply then ran 43+ min and got stuck because 8 of its pods failed to schedule with `Insufficient nvidia.com/gpu`. Diagnosis with `kubectl describe node` showed that one of the two GPU nodes (10.0.101.47) reported 0 capacity and 0 allocatable for `nvidia.com/gpu`, and had label `nvidia.com/gpu.present=false`. The other GPU node (10.0.97.85) correctly reported 8/8 GPUs but those were all consumed by the new rag-nim-llm-0 pod.
+
+**Symptoms:**
+After destroying an app stack and redeploying a different app stack on the same preserved BM.GPU4.8 infra:
+- One GPU worker node's kubelet reports `capacity: nvidia.com/gpu = 0` and `allocatable: nvidia.com/gpu = 0` (should be 8/8).
+- Node label `nvidia.com/gpu.present` is `false` (should be `true`).
+- GPU device plugin daemonset may report DESIRED=0 on the affected node, or may be missing entirely.
+- Pods requesting GPUs get `0/N nodes are available: Insufficient nvidia.com/gpu` and stay Pending.
+- Other BM.GPU4.8 nodes in the same pool report GPUs correctly — the failure is per-node.
+
+**Root cause (suspected):**
+When the app stack is destroyed, the GPU operator (Helm release owned by the app stack) is uninstalled. On BM.GPU4.8, the nvidia-container-runtime / device-plugin state on the node is tightly coupled to the operator's lifecycle. The uninstall sequence evicts pods and cleans up Kubernetes objects, but some nodes end up in a state where the GPU device plugin is gone AND the node labels that NFD uses to re-enable it (`nvidia.com/gpu.present`) are cleared. When the next app stack is applied, the new GPU operator install doesn't fully re-enumerate GPUs on that node — it assumes `gpu.present=false` means no GPUs exist.
+
+This is related to but distinct from BUG-009 (stale `nim-llm` taint after two-stack pack switch):
+- BUG-009 symptom: taint `workload=nim-llm:NoSchedule` persists → pods blocked by taint.
+- BUG-018 symptom: GPU capacity reports 0 → pods blocked by insufficient resources.
+
+Both are triggered by the same workflow (destroy app, redeploy different app on preserved infra) and share the same underlying class of problem: Helm lifecycle on the app stack leaves GPU-node state corrupted for the next round.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf` — GPU operator Helm release gated by `local.deploy_app_rag` / similar; destroy doesn't ensure node GPU state is restored.
+- Likely interacts with `nvidia-device-plugin` / `node-feature-discovery` daemonsets managed by the GPU operator chart.
+
+**Workaround:**
+Two options, try in order from least-invasive to most:
+
+1. Restart the nvidia device plugin pod on the affected node:
+   ```bash
+   kubectl delete pod -n gpu-operator -l app=nvidia-device-plugin-daemonset --field-selector spec.nodeName=<affected-node>
+   # Wait ~1 min; then re-check:
+   kubectl describe node <affected-node> | grep 'nvidia.com/gpu'
+   ```
+
+2. Cordon, drain, uncordon to force re-enumeration:
+   ```bash
+   kubectl cordon <affected-node>
+   kubectl drain <affected-node> --ignore-daemonsets --delete-emptydir-data
+   kubectl uncordon <affected-node>
+   ```
+
+3. Reboot the BM node via OCI console (last resort — BM reboots take 15-30 min):
+   - Go to Compute → Instances → select the affected BM.GPU4.8 → Reboot.
+
+**Resolution:**
+Pending. Likely fixes to investigate:
+
+1. Add a destroy-time provisioner to the GPU operator Helm release that explicitly restarts the device plugin daemonset on all GPU nodes before uninstalling (ensures clean state).
+2. Add a create-time provisioner to the next app stack's GPU operator that verifies `nvidia.com/gpu.present=true` on all worker nodes, and if not, triggers a device plugin restart.
+3. Move the GPU operator out of the app stack and into the infra stack so its lifecycle is decoupled from per-pack app redeploys (similar to the BUG-014 recommendation for ingress-nginx).
+
+**Prevention:**
+Any Helm release that manages node-level device drivers or daemonsets must either (1) live in the infra stack to avoid redeploy churn, or (2) have destroy/create provisioners that explicitly restore node state. The two-stack model + BM shape reuse strategy assumes node state is durable across app-stack lifecycle events, but GPU operator state clearly is not.
+
+**Reference:** Discovered during Track 1 of the `multiple_skins_per_pack` branch testing (2026-04-19) when validating the Helm-pack path of the multi-skin feature. The bug does not affect the multi-skin feature itself — the schema assertions (no Frontend Skins group for Helm packs) were already validated before the apply stalled. It is a pre-existing two-stack infrastructure issue that happens to surface during sequential Helm-pack testing.
+
+### BUG-019: paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files
+
+**Status:** Open
+**Date found:** 2026-04-17
+**Found by:** `track3-cpu` teammate during multi-skin feature validation (Track 3, paas_rag/small in us-sanjose-1)
+**Severity:** Medium
+
+**How this was discovered:**
+Track 3 ran the paas_rag Phase 6 API test suite end-to-end. PA-5 uploaded a small test document (`test-doc.txt`) via `POST /v1/files`, which LlamaStack stored in the stack's Object Storage bucket `paas-rag-<suffix>-bucket`. PA-9 and PA-10 deleted the file attachment and vector store via the LlamaStack API, but those deletes only purge the vector-store index — they do NOT remove the underlying object from Object Storage. The object remained in the bucket. When the app stack destroy ran afterwards, Terraform attempted to `DeleteBucket` and the API returned `409-BucketNotEmpty`.
+
+**Symptoms:**
+After running API tests that upload files (PA-5 or equivalent) and then attempting to destroy the paas_rag app stack, the destroy job fails at the `oci_objectstorage_bucket.paas_rag_bucket` deletion step with:
+```
+Error: 409-BucketNotEmpty, Bucket named 'paas-rag-<suffix>-bucket' is not empty. Delete all object versions first.
+Request Target: DELETE https://objectstorage.<region>.oraclecloud.com/n/<ns>/b/paas-rag-<suffix>-bucket
+```
+The ORM job ends in state `FAILED` with `failure-details.code = TERRAFORM_EXECUTION_ERROR`. The ADB has already been destroyed by this point; all Helm releases and most compute resources are gone — only the bucket (and whatever depends on it) blocks completion.
+
+**Root cause:**
+Two factors combine:
+
+1. **LlamaStack file lifecycle:** Files uploaded via `POST /v1/files` are stored in OCI Object Storage. The Corrino/LlamaStack API for deleting vector store attachments (`DELETE /v1/vector_stores/{id}/files/{fileId}`) removes the vector store index entry but does not call `DeleteObject` on the underlying storage. Even `DELETE /v1/vector_stores/{id}` (full vector store delete) only removes the index, not the files. There is no documented API to remove a file from storage.
+
+2. **Versioned bucket semantics:** The `oci_objectstorage_bucket` resource in Terraform (`ai-accelerator-tf/*.tf` — location TBD) likely enables versioning. A plain `oci os object delete` on a versioned bucket only creates a delete-marker; the prior version (and the marker itself) still count as objects in the bucket. `DeleteBucket` requires zero objects AND zero versions.
+
+**Affected files:**
+- The Terraform bucket resource for paas_rag (grep for `oci_objectstorage_bucket` in `ai-accelerator-tf/` — likely in a paas_rag- or blueprint-specific .tf file). The resource does not set `force_destroy = true` or use a provisioner to empty the bucket before destroy.
+- `.claude/skills/paas-rag-test-coverage/api-tests.md` — test PA-5 uploads a file that is never cleaned up. PA-9/PA-10 only delete the vector store membership, not the underlying Object Storage object.
+
+**Workaround:**
+
+Before retrying destroy, manually empty the bucket:
+
+```bash
+export OCI_CLI_PROFILE=<profile>
+NS=$(oci os ns get --query 'data' --raw-output)
+BUCKET=paas-rag-<suffix>-bucket  # from the ORM destroy error message
+REGION=<stack-region>
+
+# 1. List all versions (current + delete markers)
+oci os object list-object-versions --namespace-name "$NS" --bucket-name "$BUCKET" --region "$REGION" --all \
+  --query 'data[].{name:name, version:"version-id"}' --output json > /tmp/versions.json
+
+# 2. Delete every version
+python3 -c "
+import json, subprocess
+for v in json.load(open('/tmp/versions.json')):
+    subprocess.run(['oci','os','object','delete',
+        '--namespace-name','$NS','--bucket-name','$BUCKET','--region','$REGION',
+        '--name',v['name'],'--version-id',v['version'],'--force'])
+"
+
+# 3. Verify empty
+oci os object list-object-versions --namespace-name "$NS" --bucket-name "$BUCKET" --region "$REGION" --query 'length(data)'
+# Should return null or 0. Then retry the ORM destroy job.
+```
+
+Track 3's bucket had exactly 2 versions to remove (1 current data object + 1 delete-marker created when a prior CLI delete was attempted).
+
+**Resolution:**
+Pending. Recommended fixes in order of preference:
+
+1. **Add `force_destroy = true` / empty-on-destroy provisioner to the paas_rag bucket resource.** `oci_objectstorage_bucket` supports neither `force_destroy` nor `lifecycle.destroy_before_create` for emptying, so this likely requires a `local-exec` destroy provisioner that shells out to `oci os object bulk-delete --force` (and handles versioned objects). Example:
+   ```hcl
+   resource "null_resource" "bucket_empty_on_destroy" {
+     triggers = { bucket = oci_objectstorage_bucket.paas_rag.name, ns = oci_objectstorage_bucket.paas_rag.namespace, region = var.region }
+     provisioner "local-exec" {
+       when    = destroy
+       command = "oci os object bulk-delete --namespace-name '${self.triggers.ns}' --bucket-name '${self.triggers.bucket}' --region '${self.triggers.region}' --force --include '*' || true"
+     }
+   }
+   ```
+   (Caveat: `bulk-delete` does not handle object versions — may need a custom script.)
+
+2. **Disable versioning on the paas_rag bucket** if retention isn't required. `versioning = "Disabled"` on `oci_objectstorage_bucket` removes the version-deletion complexity. Trade-off: no object history for user uploads.
+
+3. **Add file-storage cleanup to the LlamaStack API path** in Corrino so that `DELETE /v1/vector_stores/{id}/files/{fileId}` also removes the Object Storage object. This is the "cleanest" fix but requires changes to the upstream LlamaStack layer, not just this Terraform module.
+
+4. **Document the manual workaround** in `paas-rag-test-coverage/api-tests.md` and/or `testing-pack` skill so operators know to empty the bucket before destroy.
+
+**Prevention:**
+Every Object Storage bucket that accepts user uploads (via the app itself or tests) must either (1) be emptied on destroy via a provisioner, or (2) have versioning disabled and rely on Terraform's empty-bucket check at destroy time. The testing-pack skill's Phase 7 should add a pre-destroy bucket-empty step for paas_rag (and enterprise_rag if it also uploads files).
+
+**Reference:** Discovered during Track 3 of the `multiple_skins_per_pack` branch testing (2026-04-17). Destroy job that failed: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaliugbktvutq3n7pep43vmppumfnzrmdgs65ojg5vabva`. Retry job after manual bucket-empty: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaapa2rxnd2gsx5hlfe2zjsdfngwrtkwuvkxtnqvxxdro7a`. The bug does not affect the multi-skin feature itself — paas_rag Phase 6 test results (5 infra + 10 API + 6 UI PASS) are valid; this only affects cleanup.
+
+### BUG-020: enterprise_rag_aiq skin dropdown override lands on wrong Helm release
+
+**Status:** Fixed
+**Date found:** 2026-04-20
+**Date fixed:** 2026-04-20
+**Found by:** Opus 4.7 review agent during spec review of `docs/skins/BACKEND_API_CONTRACT.md`
+**Severity:** Medium (latent — zero user impact today)
+
+**How this was discovered:**
+Post-merge review of the design spec for a new skin API contract doc. The reviewer cross-checked every factual claim against the Terraform source files and flagged that for `enterprise_rag_aiq`, the `frontend.image.{repository,tag}` override emitted by the `skin_enterprise_rag_aiq` enum dropdown was attached to the `rag` Helm release's `set` block, but the user-facing URL `aiq.<fqdn>` routes to a different release entirely.
+
+**Symptoms:**
+For `enterprise_rag_aiq`, selecting a different skin via the ORM `Frontend Skin` dropdown has no effect on what the user sees. The deployed aira-frontend pod's image always matches the value hardcoded in `aiq-aira-values.yaml` (`aira-frontend:v1.2.0`), regardless of the dropdown selection.
+
+**Today's user-visible impact:** ZERO. The catalog has exactly one `enterprise_rag_aiq` skin entry and its `image_uri` already equals the hardcoded default, so the bug is latent.
+
+**Future impact:** The instant a second skin is added to the `enterprise_rag_aiq` catalog in `frontend_skins.yaml`, users who select it get AIRA anyway and see the unexpected behavior.
+
+**Root cause:**
+`enterprise_rag_aiq` deploys TWO Helm releases: the `rag` release (from `nvidia-blueprint-rag-v2.3.0.tgz`) as a dependency, and the `aiq` release (from `aiq-aira-v1.2.1.tgz`) for the AIQ-specific stack. The ingress at `ingress.tf:223` routes `aiq.<fqdn>` → `aiq-aira-aira-frontend` service, which belongs to the `aiq` release.
+
+Before the fix, `helm.tf:647-654` set `frontend.image.repository` and `frontend.image.tag` only on the `rag` helm_release. The `aiq` helm_release's `set` block (lines 771-784) did not override these values, so `aiq-aira-values.yaml`'s hardcoded `frontend.image.tag: v1.2.0` always won.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:771-797` — the `aiq` release's `set` block was missing the frontend image override.
+- `ai-accelerator-tf/ingress.tf:~210-235` — confirms the user URL routes to `aiq-aira-aira-frontend`.
+- `ai-accelerator-tf/helm-values/aiq-aira-values.yaml:frontend.image` — the hardcoded default that persists without an override.
+
+**Workaround:** None needed today (catalog has only one `enterprise_rag_aiq` skin).
+
+**Resolution:**
+Added two new `set` entries to the `aiq` helm_release's `set = [...]` block:
+
+```hcl
+{ name = "frontend.image.repository", value = split(":", local.frontend_skin_image_uri)[0] },
+{ name = "frontend.image.tag",        value = split(":", local.frontend_skin_image_uri)[1] }
+```
+
+Now the enum selection reaches the correct Helm release. The parallel override on the `rag` release is retained — it's a harmless no-op for `enterprise_rag_aiq` (the rag release's frontend isn't exposed via ingress for this pack) and the primary fix for `enterprise_rag` (where the `rag` release IS the user-facing one).
+
+**Verification:**
+- `terraform validate` clean.
+- New structural test `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py` asserts both `rag` and `aiq` Helm releases carry the `frontend.image.{repository,tag}` set entries with values derived from `local.frontend_skin_image_uri`. Drift-verified: test fails if either release's override is removed.
+- Pending: live verification on preserved Track 1 infra — redeploy AIQ with the fix, then `helm get values aiq-aira -n aiq` should show `frontend.image.tag: v1.2.0` in the USER-SUPPLIED VALUES section (not just chart default). `kubectl describe pod -l app=aira-frontend` should show image `aira-frontend:v1.2.0` (same as hardcoded today, but the override is now applied at the `aiq` release level).
+
+**Prevention:**
+The new `test_helm_skin_override.py` locks the invariant: any future helm_release that serves a user-facing frontend under the skin system must carry the `frontend.image.{repository,tag}` set entries wired to `local.frontend_skin_image_uri`. If a new Helm-pack category is added, its release must be appended to `RELEASES_REQUIRING_SKIN_OVERRIDE` at the top of the test file.
+
+**Reference:** Discovered during the `multiple_skins_per_pack` branch post-merge work. Fix committed in branch multiple_skins_per_pack; final verification pending on Track 1 infra redeploy.

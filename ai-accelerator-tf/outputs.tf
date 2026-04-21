@@ -307,11 +307,6 @@ output "frontend_skin_name" {
   value       = local.deploy_application ? local.frontend_skin_name : null
 }
 
-output "frontend_skin_image_uri" {
-  description = "Container image URI for the selected frontend skin"
-  value       = local.deploy_application ? local.frontend_skin_image_uri : null
-}
-
 output "frontend_skin_provider" {
   description = "Provider of the selected frontend skin"
   value       = local.deploy_application ? local.frontend_skin_provider : null
@@ -335,4 +330,17 @@ output "ingress_api_key_curl_example" {
     "curl -H 'Authorization: Bearer <ingress_api_key>' https://%s/",
     local.public_endpoint.starter_pack
   ) : "Ingress API key auth is disabled."
+}
+
+output "frontend_skin_urls" {
+  description = "Map of enabled frontend skin keys to their URLs. For blueprint packs, one entry per enabled skin. Empty for Helm packs (which use starter_pack_url for their single skin) and for deploy_application=false. ORM renders map keys alphabetically."
+  # The `helm_pack_selected_skin == null` guard is an intentional product choice, NOT
+  # a logic necessity — Helm-pack catalog entries now have subdomains, so the for-
+  # expression would produce a valid 1-entry map without this guard. We keep it empty
+  # because Helm packs expose a single frontend via starter_pack_url; there's no
+  # additional signal to the user from a 1-entry map here. Don't remove.
+  value = local.deploy_application && local.helm_pack_selected_skin == null ? {
+    for skin in local.enabled_frontend_skins :
+    skin.key => "https://${skin.subdomain}.${local.fqdn.name}"
+  } : {}
 }

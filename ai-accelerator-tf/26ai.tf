@@ -32,7 +32,7 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   lifecycle {
     precondition {
       condition     = var.db_password != null
-      error_message = "db_password is required when using the paas_rag starter pack category."
+      error_message = "db_password is required for pack categories that provision the 26ai database (paas_rag, enterprise_rag, enterprise_rag_aiq)."
     }
   }
 

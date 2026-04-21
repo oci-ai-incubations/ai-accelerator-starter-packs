@@ -247,25 +247,267 @@ class TestVariableTypesComplete:
 
 
 class TestFrontendSkinCatalogSync:
-    """frontend_skin enum values match the catalog YAML."""
+    """Multi-skin catalog synchronization tests."""
 
-    @pytest.mark.parametrize("category", CATEGORIES)
-    def test_frontend_skin_enum_matches_catalog(self, generated_schemas, category):
-        """frontend_skin enum values must match keys in frontend_skins.yaml."""
+    BLUEPRINT_PACKS = ["cuopt", "vss", "paas_rag", "warehouse_pick_path"]
+    HELM_PACKS = ["enterprise_rag", "enterprise_rag_aiq"]
+
+    @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
+    def test_frontend_skin_booleans_match_catalog(self, generated_schemas, category):
+        """Every blueprint-pack catalog entry must have a boolean variable in the schema
+        whose default matches the catalog's default_enabled."""
         schema = generated_schemas[category]
-        skin_var = schema["variables"]["frontend_skin"]
-
-        # Load the skin catalog
         catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
         with open(catalog_path) as f:
             catalog = yaml.safe_load(f)
+        for skin in catalog[category]["skins"]:
+            var_name = skin["variable_name"]
+            assert var_name in schema["variables"], (
+                f"{category}: schema missing boolean variable {var_name}"
+            )
+            var_def = schema["variables"][var_name]
+            assert var_def["type"] == "boolean", f"{category}: {var_name} not boolean"
+            assert var_def["default"] == skin["default_enabled"], (
+                f"{category}: {var_name} default {var_def['default']!r} != "
+                f"catalog default_enabled {skin['default_enabled']!r}"
+            )
 
-        expected_keys = [s["key"] for s in catalog[category]["skins"]]
-        assert skin_var["enum"] == expected_keys, (
-            f"{category}: frontend_skin enum {skin_var['enum']} "
-            f"does not match catalog keys {expected_keys}"
+    @pytest.mark.parametrize("category", HELM_PACKS)
+    def test_helm_packs_expose_single_skin_enum(self, generated_schemas, category):
+        """Helm packs surface ONE pack-level enum (skin_<category>) for single-select.
+
+        The enum's values come from the catalog's skin keys; its default comes
+        from the catalog's top-level `default:` key. Blueprint-pack per-skin
+        booleans (skin_cuopt_core, skin_vss_core, etc.) stay visible=false in
+        Helm-pack schemas via the common_schema fallbacks — they must NOT
+        render as user-visible vars in a Helm-pack wizard.
+        """
+        schema = generated_schemas[category]
+        variables = schema.get("variables", {})
+        expected_enum_var = f"skin_{category}"
+
+        # The category's own enum must exist, be visible, type enum, with enum list from catalog.
+        assert expected_enum_var in variables, (
+            f"{category}: missing {expected_enum_var} enum variable"
         )
-        assert skin_var["default"] == catalog[category]["default"], (
-            f"{category}: frontend_skin default '{skin_var['default']}' "
-            f"does not match catalog default '{catalog[category]['default']}'"
+        spec = variables[expected_enum_var]
+        assert spec.get("visible") is True, f"{category}: {expected_enum_var} must be visible"
+        assert spec.get("type") == "enum", (
+            f"{category}: {expected_enum_var} must be type=enum, got {spec.get('type')!r}"
+        )
+        assert "enum" in spec and isinstance(spec["enum"], list) and len(spec["enum"]) >= 1, (
+            f"{category}: {expected_enum_var} must declare a non-empty enum list"
+        )
+
+        # Enum contents and default must match the catalog — otherwise a stale generator
+        # or drifting catalog could silently expose the wrong choices to the user.
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+        expected_keys = [s["key"] for s in catalog[category]["skins"]]
+        expected_default = catalog[category]["default"]
+        assert set(spec["enum"]) == set(expected_keys), (
+            f"{category}: enum values {sorted(spec['enum'])!r} do not match catalog keys "
+            f"{sorted(expected_keys)!r}"
+        )
+        assert spec.get("default") == expected_default, (
+            f"{category}: enum default {spec.get('default')!r} does not match catalog default "
+            f"{expected_default!r}"
+        )
+
+        # No OTHER skin_* variable should be user-visible in a Helm-pack wizard.
+        stray_visible = [
+            v for v, vs in variables.items()
+            if v.startswith("skin_") and v != expected_enum_var and vs.get("visible") is True
+        ]
+        assert stray_visible == [], (
+            f"{category}: unexpected VISIBLE foreign skin_* variables {stray_visible}"
+        )
+
+        # The Frontend Skins group must exist and contain exactly the enum variable.
+        groups = schema.get("variableGroups", [])
+        fs_group = next((g for g in groups if g.get("title") == "Frontend Skins"), None)
+        assert fs_group is not None, f"{category}: missing 'Frontend Skins' variableGroup"
+        assert fs_group.get("variables") == [expected_enum_var], (
+            f"{category}: 'Frontend Skins' group must contain exactly [{expected_enum_var!r}], "
+            f"got {fs_group.get('variables')!r}"
+        )
+
+    def test_skin_catalog_matches_terraform(self):
+        """Bidirectional drift check across the two skin-variable shapes:
+
+        Blueprint packs (cuopt/vss/paas_rag):
+          - Every catalog entry's variable_name has a `variable "<name>"` in vars.tf.
+          - Every catalog entry's variable_name has an entry in skin_enabled_map.
+          - Every bool `skin_*` variable in vars.tf corresponds to a catalog entry.
+          - Every skin_enabled_map entry corresponds to a catalog entry.
+
+        Helm packs (enterprise_rag/enterprise_rag_aiq):
+          - Every Helm-pack category has a `variable "skin_<category>"` in vars.tf.
+          - Every Helm-pack category has an entry in helm_skin_enum_map.
+          - No spurious skin_<helm_category> entry in skin_enabled_map.
+        """
+        import re
+        repo_root = Path(__file__).parent.parent.parent
+        vars_tf = (repo_root / "vars.tf").read_text()
+        frontend_skins_tf = (repo_root / "frontend-skins.tf").read_text()
+        catalog_path = repo_root / "schemas" / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+
+        # Blueprint-pack variable_names from the catalog.
+        blueprint_cat_vars = set()
+        for cat in ("cuopt", "vss", "paas_rag", "warehouse_pick_path"):
+            for skin in catalog[cat]["skins"]:
+                if "variable_name" in skin:
+                    blueprint_cat_vars.add(skin["variable_name"])
+
+        # Expected Helm-pack enum variable names.
+        helm_cat_vars = {f"skin_{cat}" for cat in ("enterprise_rag", "enterprise_rag_aiq")}
+
+        # Parse vars.tf — collect ALL skin_* variables and their types.
+        # NOTE: the body capture uses [^}]* which fails if any skin variable later adds
+        # a nested block (e.g. validation {}). Guarded by the count assertion below.
+        var_decls = re.findall(
+            r'^variable\s+"(skin_\w+)"\s*\{([^}]*)\}',
+            vars_tf,
+            re.MULTILINE | re.DOTALL,
+        )
+        bool_vars = {name for name, body in var_decls if re.search(r'type\s*=\s*bool\b', body)}
+        string_vars = {name for name, body in var_decls if re.search(r'type\s*=\s*string\b', body)}
+
+        # Independent count of skin_* variable declarations — a regression in the
+        # body-capture regex above will drop variables from bool_vars/string_vars
+        # silently, which would let drift through. Trip it loudly instead.
+        declared_count = len(re.findall(r'^variable\s+"skin_\w+"\s*\{', vars_tf, re.MULTILINE))
+        assert declared_count == len(var_decls), (
+            f"vars.tf has {declared_count} skin_* variable declarations but the body-capture "
+            f"regex matched {len(var_decls)} — likely a nested {{}} block broke the pattern. "
+            f"Update the regex (brace-counting or python-hcl2) before this test can pass."
+        )
+        assert declared_count == len(bool_vars) + len(string_vars), (
+            f"vars.tf has {declared_count} skin_* variables but only "
+            f"{len(bool_vars) + len(string_vars)} have a recognized type (bool/string). "
+            f"All skin_* variables must declare type = bool or type = string."
+        )
+
+        assert blueprint_cat_vars == bool_vars, (
+            f"Blueprint catalog vars {sorted(blueprint_cat_vars)} != "
+            f"vars.tf bool skin_* {sorted(bool_vars)}"
+        )
+        assert helm_cat_vars == string_vars, (
+            f"Helm-pack expected enums {sorted(helm_cat_vars)} != "
+            f"vars.tf string skin_* {sorted(string_vars)}"
+        )
+
+        # skin_enabled_map should ONLY contain blueprint-pack boolean entries.
+        map_block_match = re.search(
+            r'skin_enabled_map\s*=\s*\{([^}]*)\}',
+            frontend_skins_tf,
+            re.DOTALL,
+        )
+        assert map_block_match is not None, "skin_enabled_map block not found in frontend-skins.tf"
+        map_body = map_block_match.group(1)
+        map_entries = set(
+            re.findall(r'"(skin_\w+)"\s*=\s*var\.\1\b', map_body)
+        )
+        assert blueprint_cat_vars == map_entries, (
+            f"Blueprint catalog vars {sorted(blueprint_cat_vars)} != "
+            f"skin_enabled_map entries {sorted(map_entries)}"
+        )
+
+        # helm_skin_enum_map must cover exactly the Helm pack categories.
+        helm_map_match = re.search(
+            r'helm_skin_enum_map\s*=\s*\{([^}]*)\}',
+            frontend_skins_tf,
+            re.DOTALL,
+        )
+        assert helm_map_match is not None, "helm_skin_enum_map block not found in frontend-skins.tf"
+        helm_map_body = helm_map_match.group(1)
+        helm_map_entries = set(
+            re.findall(r'"(\w+)"\s*=\s*var\.skin_\1\b', helm_map_body)
+        )
+        assert helm_map_entries == {"enterprise_rag", "enterprise_rag_aiq"}, (
+            f"helm_skin_enum_map must cover exactly {{'enterprise_rag','enterprise_rag_aiq'}}, "
+            f"got {sorted(helm_map_entries)}"
+        )
+
+    @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
+    def test_default_enabled_matches_top_level_default(self, category):
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+        defaults = [s for s in catalog[category]["skins"] if s.get("default_enabled")]
+        assert len(defaults) == 1, (
+            f"{category}: expected exactly 1 default_enabled=true, got {len(defaults)}"
+        )
+        assert defaults[0]["key"] == catalog[category]["default"], (
+            f"{category}: default_enabled skin {defaults[0]['key']!r} != "
+            f"top-level default {catalog[category]['default']!r}"
+        )
+
+    def test_k8s_resource_name_length_limit(self):
+        """VSS K8s resource names stay within RFC 1123's 63-character limit.
+
+        Today VSS has one skin (the default) which uses the unsuffixed base name
+        'vss-oracle-ux' (14 chars). Non-default skins would append their
+        hyphenated variable_name as a suffix. This test guards future skin
+        additions.
+        """
+        catalog_path = Path(__file__).parent.parent / "frontend_skins.yaml"
+        with open(catalog_path) as f:
+            catalog = yaml.safe_load(f)
+        for skin in catalog["vss"]["skins"]:
+            safe_name = skin["variable_name"].replace("_", "-")
+            candidate = f"vss-oracle-ux-{safe_name}"
+            assert len(candidate) <= 63, (
+                f"vss skin {skin['variable_name']}: computed K8s name "
+                f"{candidate!r} exceeds 63 chars ({len(candidate)})"
+            )
+
+
+class TestDocsCoverage:
+    """Every starter pack category must have a backend API contract doc."""
+
+    @staticmethod
+    def _parse_categories_from_vars_tf():
+        """Extract the category list from the validation block in vars.tf.
+
+        Parses the ``contains([...], var.starter_pack_category)`` expression
+        so the test breaks when a new category is added to vars.tf without a
+        matching contract doc — no test-file update required.
+        """
+        vars_tf = (Path(__file__).parent.parent.parent / "vars.tf").read_text()
+        m = re.search(
+            r'variable\s+"starter_pack_category".*?'
+            r'contains\(\[([^\]]+)\]',
+            vars_tf,
+            re.DOTALL,
+        )
+        assert m, "Could not find starter_pack_category validation in vars.tf"
+        return [s.strip().strip('"') for s in m.group(1).split(",")]
+
+    def test_every_category_has_contract_doc(self):
+        """Each category in vars.tf must have a UPPER_CASE.md in docs/skins/contracts/."""
+        categories = self._parse_categories_from_vars_tf()
+        contracts_dir = Path(__file__).parent.parent.parent.parent / "docs" / "skins" / "contracts"
+        missing = []
+        for cat in categories:
+            expected = contracts_dir / f"{cat.upper()}.md"
+            if not expected.exists():
+                missing.append(f"{cat} -> {expected.name}")
+        assert missing == [], (
+            f"Missing backend API contract docs for: {missing}. "
+            f"Add a contract doc in docs/skins/contracts/<CATEGORY>.md "
+            f"(see existing files for the format)."
+        )
+
+    def test_every_category_in_naming_md(self):
+        """Each category in vars.tf must have a row in NAMING.md's name mapping table."""
+        categories = self._parse_categories_from_vars_tf()
+        naming_md = (Path(__file__).parent.parent.parent.parent / "NAMING.md").read_text()
+        missing = [cat for cat in categories if f"`{cat}`" not in naming_md]
+        assert missing == [], (
+            f"Categories missing from NAMING.md: {missing}. "
+            f"Add a row to the Name Mapping table in NAMING.md for each new category."
         )

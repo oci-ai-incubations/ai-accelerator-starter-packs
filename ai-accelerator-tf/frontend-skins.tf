@@ -1,29 +1,91 @@
-# Frontend Skins — resolves user's skin selection to an image URI.
-# Reads from schemas/frontend_skins.yaml (same file used by create_final_schema.py).
+# Frontend Skins — resolves enabled skins and exposes helper locals.
+# Reads the shared catalog at schemas/frontend_skins.yaml.
 
 locals {
-  # Read the shared skin catalog
   frontend_skins_catalog = yamldecode(file("${path.module}/schemas/frontend_skins.yaml"))
+  category_skins         = local.frontend_skins_catalog[var.starter_pack_category]["skins"]
 
-  # Get skins for the current category
-  category_skins = local.frontend_skins_catalog[var.starter_pack_category]["skins"]
+  # Map of skin variable_name → var value. Must stay in sync with vars.tf.
+  # Referencing an undeclared var is a plan-time error, which catches mismatches.
+  skin_enabled_map = {
+    "skin_cuopt_core"    = var.skin_cuopt_core
+    "skin_cuopt_partner" = var.skin_cuopt_partner
+    "skin_vss_core"      = var.skin_vss_core
+    "skin_paas_rag_core" = var.skin_paas_rag_core
+    "skin_wpp_core"      = var.skin_wpp_core
+  }
 
-  # Resolve effective skin: use the user's selection, or fall back to the
-  # catalog default when running locally without ORM (var.frontend_skin == "")
-  effective_frontend_skin = coalesce(
-    var.frontend_skin,
-    local.frontend_skins_catalog[var.starter_pack_category]["default"]
+  # Helm-pack single-select enum: category → user's skin key choice (empty = catalog default).
+  helm_skin_enum_map = {
+    "enterprise_rag"     = var.skin_enterprise_rag
+    "enterprise_rag_aiq" = var.skin_enterprise_rag_aiq
+  }
+
+  # For Helm packs, resolve the user's enum choice to a catalog entry.
+  # Empty selection OR selection not matching any catalog key → catalog default.
+  # Non-Helm packs → null.
+  helm_pack_selected_skin = (
+    contains(keys(local.helm_skin_enum_map), var.starter_pack_category)
+    ? try(
+      [for s in local.category_skins : s if s.key == local.helm_skin_enum_map[var.starter_pack_category]][0],
+      local._catalog_default_skin
+    )
+    : null
   )
 
-  # Resolve the effective skin to the matching catalog entry
-  selected_skin = [
-    for skin in local.category_skins : skin
-    if skin.key == local.effective_frontend_skin
-  ][0]
+  # Skins the user has enabled/selected for the current category, in catalog order.
+  # Blueprint packs: filter by boolean var. Helm packs: singleton with user's enum choice.
+  enabled_frontend_skins = (
+    local.helm_pack_selected_skin != null
+    ? [local.helm_pack_selected_skin]
+    : [
+      for skin in local.category_skins : skin
+      if try(skin.variable_name, "") != ""
+      && lookup(local.skin_enabled_map, try(skin.variable_name, ""), false)
+    ]
+  )
 
-  # The values consumers need
-  frontend_skin_image_uri      = local.selected_skin.image_uri
-  frontend_skin_provider       = local.selected_skin.provider
-  frontend_skin_name           = local.selected_skin.key
-  frontend_skin_container_port = local.selected_skin.container_port
+  # First enabled skin. For blueprint packs: non-null when deploy_application=true
+  # (the precondition guarantees ≥1 enabled skin). For Helm packs: always non-null,
+  # resolved from the user's enum choice or the catalog default when the choice is
+  # empty or unrecognized.
+  primary_skin = length(local.enabled_frontend_skins) > 0 ? local.enabled_frontend_skins[0] : null
+
+  # Catalog's default skin entry, derived from the top-level default: key.
+  # Used by (a) the VSS K8s naming rule (default keeps base name) and
+  # (b) back-compat locals below (Helm-pack fallback).
+  _catalog_default_skin = try(
+    [
+      for skin in local.category_skins : skin
+      if skin.key == local.frontend_skins_catalog[var.starter_pack_category].default
+    ][0],
+    null
+  )
+
+  # Catalog-default correctness (the top-level `default:` key must match some skin.key)
+  # is enforced by pytest: test_default_enabled_matches_top_level_default covers blueprint
+  # packs, test_helm_packs_expose_single_skin_enum covers Helm packs. We intentionally
+  # don't carry a plan-time `tobool(...)` assertion here because tflint (rightly) flags
+  # it as an unused local, and the pytest coverage fires earlier in CI.
+
+  default_skin_variable_name = try(local._catalog_default_skin.variable_name, null)
+
+  # Back-compat locals used by helm.tf split(":", image_uri), VSS locals, and outputs.
+  # Blueprint packs: return primary_skin's values.
+  # Helm packs: fall back to the catalog's default skin entry.
+  frontend_skin_image_uri = (
+    local.primary_skin != null
+    ? local.primary_skin.image_uri
+    : try(local._catalog_default_skin.image_uri, null)
+  )
+  frontend_skin_provider = (
+    local.primary_skin != null
+    ? local.primary_skin.provider
+    : try(local._catalog_default_skin.provider, null)
+  )
+  frontend_skin_name = (
+    local.primary_skin != null
+    ? local.primary_skin.key
+    : try(local._catalog_default_skin.key, null)
+  )
 }

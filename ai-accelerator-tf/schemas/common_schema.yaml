@@ -42,10 +42,10 @@ outputGroups:
         - add_api_key_to_ingress
         - "true"
 
-  - title: "Frontend Skin"
+  - title: "Frontend"
     outputs:
+      - frontend_skin_urls
       - frontend_skin_name
-      - frontend_skin_image_uri
       - frontend_skin_provider
       - frontend_skins_learn_more
 
@@ -143,10 +143,6 @@ variables:
 
   # Category is set via starter_pack_category.auto.tfvars
   starter_pack_category:
-    type: string
-    visible: false
-
-  frontend_skin:
     type: string
     visible: false
 
@@ -475,16 +471,7 @@ variables:
         - use_custom_dns
         - "true"
 
-  cuopt_frontend_enabled:
-    type: boolean
-    visible: false
   cuopt_frontend_admin_username:
-    type: string
-    visible: false
-  cuopt_frontend_admin_password:
-    type: string
-    visible: false
-  google_maps_api_key:
     type: string
     visible: false
 
@@ -492,16 +479,39 @@ variables:
     type: password
     visible: false
 
-  cuopt_frontend_admin_username:
+  google_maps_api_key:
     type: string
     visible: false
 
-  cuopt_frontend_enabled:
+  # Per-skin boolean fallbacks. create_final_schema.py's inject_frontend_skin_toggles
+  # overrides the entry for the current category's skins with visible=true and full
+  # metadata; skins for OTHER categories stay hidden via these defaults.
+  skin_cuopt_core:
     type: boolean
     visible: false
-  
-  google_maps_api_key:
-    type: string
+
+  skin_cuopt_partner:
+    type: boolean
+    visible: false
+
+  skin_vss_core:
+    type: boolean
+    visible: false
+
+  skin_paas_rag_core:
+    type: boolean
+    visible: false
+
+  skin_wpp_core:
+    type: boolean
+    visible: false
+
+  skin_enterprise_rag:
+    type: enum
+    visible: false
+
+  skin_enterprise_rag_aiq:
+    type: enum
     visible: false
 
   nip_io_domain:
@@ -657,14 +667,14 @@ outputs:
     title: "Database OCID"
     visible: true
 
+  frontend_skin_urls:
+    type: map
+    title: "Frontend URLs"
+    visible: true
+
   frontend_skin_name:
     type: string
     title: "Frontend Skin"
-    visible: true
-
-  frontend_skin_image_uri:
-    type: copyableString
-    title: "Frontend Image"
     visible: true
 
   frontend_skin_provider:

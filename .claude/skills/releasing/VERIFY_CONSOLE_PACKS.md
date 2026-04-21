@@ -72,22 +72,23 @@ agent-browser --session verify-packs screenshot /tmp/pack-verification/<ZIPNAME>
 | `enterpriseAgenticAIStarterKit.zip` | enterprise_rag_aiq | `enterpriseAgenticAIStarterKit.zip` |
 | `vehicleRouteOptimizer.zip` | cuopt | `vehicleRouteOptimizer.zip` |
 | `videoSearchSummarization.zip` | vss | `videoSearchSummarization.zip` |
+| `warehousePickPathOptimizer.zip` | warehouse_pick_path | `warehousePickPathOptimizer.zip` |
 
 ## Category Fingerprint Matrix
 
 The most reliable identifier is the **deployment size dropdown label** on Step 2:
 
-| Field/Element | enterprise_rag | paas_rag | enterprise_rag_aiq | cuopt | vss |
-|---|---|---|---|---|---|
-| Deployment Size label | "Enterprise RAG" | "RAG" | "Enterprise RAG + AIQ" | "cuOpt" | "VSS" |
-| Worker Node AD field | Yes | **No** | Yes | Yes | Yes |
-| OCI GenAI Services Region | No | **Yes** | No | **Yes** | No |
-| Tavily API Key | No | No | **Yes** | No | No |
-| Google Maps API Key | No | No | No | **Yes** | No |
-| Enable cuOpt Frontend | No | No | No | **Yes** | No |
-| cuOpt Frontend creds | No | No | No | **Yes** | No |
-| Oracle 26ai Database section | **Yes** | **Yes** | No | No | No |
-| Use Custom DNS | No | **Yes** | No | **Yes** | **Yes** |
+| Field/Element | enterprise_rag | paas_rag | enterprise_rag_aiq | cuopt | vss | warehouse_pick_path |
+|---|---|---|---|---|---|---|
+| Deployment Size label | "Enterprise RAG" | "RAG" | "Enterprise RAG + AIQ" | "cuOpt" | "VSS" | "Optimizer" |
+| Worker Node AD field | Yes | **No** | Yes | Yes | Yes | Yes |
+| OCI GenAI Services Region | No | **Yes** | No | **Yes** | No | No |
+| Tavily API Key | No | No | **Yes** | No | No | No |
+| Google Maps API Key | No | No | No | **Yes** | No | No |
+| Enable cuOpt Frontend | No | No | No | **Yes** | No | No |
+| cuOpt Frontend creds | No | No | No | **Yes** | No | No |
+| Oracle 26ai Database section | **Yes** | **Yes** | No | No | No | **Yes** |
+| Use Custom DNS | No | **Yes** | No | **Yes** | **Yes** | No |
 
 ## Quirks and Gotchas
 

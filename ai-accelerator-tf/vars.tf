@@ -509,12 +509,6 @@ variable "starter_pack_size" {
   }
 }
 
-variable "frontend_skin" {
-  type        = string
-  description = "Frontend skin selection — set via ORM schema enum. Leave empty to use the default skin for the selected category."
-  default     = ""
-}
-
 variable "skip_capacity_check" {
   description = "Skip the compute capacity pre-validation. Enable this only if you are certain capacity exists or want to bypass the pre-check. Note: Deployment may still fail later if capacity is unavailable."
   type        = bool
@@ -573,7 +567,7 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character. Only required for paas_rag starter pack."
+  description = "Admin password for the Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character. Required for starter pack categories that provision the 26ai database: paas_rag, enterprise_rag, enterprise_rag_aiq."
   type        = string
   sensitive   = true
   default     = null
@@ -638,12 +632,6 @@ variable "genai_region" {
   default     = "us-chicago-1"
 }
 
-variable "cuopt_frontend_enabled" {
-  description = "Enable cuopt frontend"
-  type        = bool
-  default     = true
-}
-
 variable "google_maps_api_key" {
   description = "Google Maps API key for the cuOpt frontend map visualization"
   type        = string
@@ -678,82 +666,79 @@ locals {
   starter_pack_configs = {
     "cuopt" = {
       "poc" = {
-        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "VM.GPU.A10.2"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
-          memory        = var.cuopt_frontend_enabled ? 32 : 0
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : "cuopt"
       }
       "small" = {
-        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU4.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
-          memory        = var.cuopt_frontend_enabled ? 32 : 0
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       "medium" = {
-        blueprint_file                               = var.cuopt_frontend_enabled ? "cuopt-with-marketing-blueprint.json" : "cuopt-blueprint.json"
+        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
         deployment_name                              = "cuopt"
         app_namespace                                = "default"
         nvaie_enabled                                = true
         create_ngc_secrets_in_cluster                = true
         worker_node_shape                            = "BM.GPU.A100-v2.8"
         worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = var.cuopt_frontend_enabled ? 1 : 0
+        cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2
         node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = var.cuopt_frontend_enabled ? "150" : "0"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
         control_plane_node_pool_instance_shape = {
           instanceShape = "VM.Standard.E5.Flex"
           ocpus         = 3
           memory        = 64
         }
         cpu_worker_node_pool_instance_shape = {
-          instanceShape = var.cuopt_frontend_enabled ? "VM.Standard.E5.Flex" : "none"
-          ocpus         = var.cuopt_frontend_enabled ? 4 : 0
-          memory        = var.cuopt_frontend_enabled ? 32 : 0
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = var.cuopt_frontend_enabled ? "demo-cuopt" : ""
       }
       # Add "large" here when implemented
     }
@@ -783,7 +768,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = "vss-frontend"
       }
       "small" = {
         blueprint_file                               = "vss-blueprint.json"
@@ -809,7 +793,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = "vss-frontend"
       }
       "medium" = {
         blueprint_file                               = "vss-blueprint.json"
@@ -835,7 +818,6 @@ locals {
         }
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
-        frontend_url                 = "vss-frontend"
       }
       # Add "large" here when implemented
     }
@@ -865,7 +847,6 @@ locals {
         }
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
-        frontend_url                 = "frontend-paas"
       }
 
       "medium" = {
@@ -892,7 +873,6 @@ locals {
         }
         database_storage_size_in_tbs = 8
         database_compute_count       = 16
-        frontend_url                 = "frontend-paas"
       }
       # Add "large" here when implemented
     }
@@ -1076,4 +1056,51 @@ locals {
 locals {
   # 26ai database needed for paas_rag, enterprise_rag, and enterprise_rag_aiq categories
   needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"], var.starter_pack_category)
+}
+
+# ---------------------------------------------------------------------------
+# Frontend Skin Toggles (one per blueprint-pack skin)
+# ---------------------------------------------------------------------------
+
+variable "skin_cuopt_core" {
+  type        = bool
+  description = "Enable the 'Vehicle Route Optimizer Frontend (Core App)' skin"
+  default     = true
+}
+
+variable "skin_cuopt_partner" {
+  type        = bool
+  description = "Enable the 'Oracle Interactive - Route visualization (Partner Contributed)' skin"
+  default     = false
+}
+
+variable "skin_vss_core" {
+  type        = bool
+  description = "Enable the 'Oracle Custom - Enhanced search (Core App)' skin"
+  default     = true
+}
+
+variable "skin_paas_rag_core" {
+  type        = bool
+  description = "Enable the 'Oracle Net - Chat interface (Core App)' skin"
+  default     = true
+}
+
+variable "skin_wpp_core" {
+  type        = bool
+  description = "Enable the 'Warehouse Pick Path Optimizer Frontend (Core App)' skin"
+  default     = true
+}
+
+# Helm-pack skin selectors (single-select enum). Empty string resolves to catalog default.
+variable "skin_enterprise_rag" {
+  type        = string
+  description = "Frontend skin for enterprise_rag (single-select). Empty = catalog default."
+  default     = ""
+}
+
+variable "skin_enterprise_rag_aiq" {
+  type        = string
+  description = "Frontend skin for enterprise_rag_aiq (single-select). Empty = catalog default."
+  default     = ""
 }

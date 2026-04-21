@@ -27,21 +27,29 @@ locals {
 
   # VSS Oracle UX configuration (only used when starter_pack_category = "vss")
   vss_oracle_ux = {
-    # image_uri                  = "${local.ocir.base_uri}:vss-oracle-ux-prod-0.0.4"
-    image_uri                  = local.frontend_skin_image_uri
     download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-prod-0.0.4"
     # vss_backend_service is dynamically fetched from Corrino workspace API in app-vss-oracle-ux.tf
     vss_backend_deployment = "recipe-vss-deployment"
+  }
+
+  _enabled_vss_skins = local.deploy_app_vss ? {
+    for skin in local.enabled_frontend_skins : skin.variable_name => skin
+  } : {}
+
+  # Name suffix: empty for the catalog default skin, hyphenated for non-default.
+  _vss_k8s_name_suffix = {
+    for key, skin in local._enabled_vss_skins :
+    key => key == local.default_skin_variable_name
+    ? ""
+    : "-${replace(key, "_", "-")}"
   }
 }
 
 # ConfigMap for VSS Oracle UX specific configuration
 resource "kubernetes_config_map_v1" "vss_oracle_ux_config" {
-  count = local.deploy_app_vss ? 1 : 0
+  for_each = local._enabled_vss_skins
 
-  metadata {
-    name = "vss-oracle-ux-config"
-  }
+  metadata { name = "vss-oracle-ux-config${local._vss_k8s_name_suffix[each.key]}" }
 
   data = {
     VSS_API_BASE_URL       = "http://${local.vss_backend_service_name}:8000/"
@@ -55,24 +63,18 @@ resource "kubernetes_config_map_v1" "vss_oracle_ux_config" {
 
 # Service for VSS Oracle UX
 resource "kubernetes_service_v1" "vss_oracle_ux_service" {
-  count = local.deploy_app_vss ? 1 : 0
+  for_each = local._enabled_vss_skins
 
-  metadata {
-    name = "vss-oracle-ux"
-  }
+  metadata { name = "vss-oracle-ux${local._vss_k8s_name_suffix[each.key]}" }
 
   spec {
-    selector = {
-      app = "vss-oracle-ux"
-    }
-
+    selector = { app = "vss-oracle-ux${local._vss_k8s_name_suffix[each.key]}" }
     port {
       port        = 80
-      target_port = 3000
+      target_port = tonumber(each.value.container_port)
       protocol    = "TCP"
       name        = "http"
     }
-
     type = "ClusterIP"
   }
 
@@ -81,43 +83,32 @@ resource "kubernetes_service_v1" "vss_oracle_ux_service" {
 
 # Deployment for VSS Oracle UX
 resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
-  count = local.deploy_app_vss ? 1 : 0
+  for_each = local._enabled_vss_skins
 
   metadata {
-    name = "vss-oracle-ux"
-    labels = {
-      app = "vss-oracle-ux"
-    }
+    name   = "vss-oracle-ux${local._vss_k8s_name_suffix[each.key]}"
+    labels = { app = "vss-oracle-ux${local._vss_k8s_name_suffix[each.key]}" }
   }
 
   spec {
     replicas = 1
 
     selector {
-      match_labels = {
-        app = "vss-oracle-ux"
-      }
+      match_labels = { app = "vss-oracle-ux${local._vss_k8s_name_suffix[each.key]}" }
     }
 
     template {
       metadata {
-        labels = {
-          app = "vss-oracle-ux"
-        }
-        # Force pod restart when ConfigMap data changes (e.g. after blueprint
-        # redeployment updates the VSS backend service URL). Without this,
-        # the pod keeps stale env vars because K8s doesn't restart pods on
-        # ConfigMap changes.
+        labels = { app = "vss-oracle-ux${local._vss_k8s_name_suffix[each.key]}" }
         annotations = {
           "checksum/config" = sha256(jsonencode({
-            config    = kubernetes_config_map_v1.vss_oracle_ux_config[0].data
+            config    = kubernetes_config_map_v1.vss_oracle_ux_config[each.key].data
             blueprint = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
           }))
         }
       }
 
       spec {
-        # FSS volume for shared cache with VSS backend
         volume {
           name = "fss-cache"
           persistent_volume_claim {
@@ -127,11 +118,11 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
 
         container {
           name              = "vss-oracle-ux"
-          image             = local.vss_oracle_ux.image_uri
+          image             = each.value.image_uri
           image_pull_policy = "Always"
 
           port {
-            container_port = tonumber(local.frontend_skin_container_port)
+            container_port = tonumber(each.value.container_port)
             name           = "http"
           }
 
@@ -146,7 +137,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             value = sha256(local.canonical_blueprint_content)
           }
 
-          # OCI Configuration from corrino-configmap
+          # OCI Configuration from corrino-configmap (unchanged — corrino-configmap is shared)
           env {
             name = "REGION_NAME"
             value_from {
@@ -189,12 +180,12 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             }
           }
 
-          # VSS Configuration from vss-oracle-ux-config
+          # VSS Configuration from the per-skin configmap (name is now dynamic)
           env {
             name = "VSS_API_BASE_URL"
             value_from {
               config_map_key_ref {
-                name = "vss-oracle-ux-config"
+                name = kubernetes_config_map_v1.vss_oracle_ux_config[each.key].metadata[0].name
                 key  = "VSS_API_BASE_URL"
               }
             }
@@ -204,7 +195,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             name = "FILE_STORAGE_PATH"
             value_from {
               config_map_key_ref {
-                name = "vss-oracle-ux-config"
+                name = kubernetes_config_map_v1.vss_oracle_ux_config[each.key].metadata[0].name
                 key  = "FILE_STORAGE_PATH"
               }
             }
@@ -214,7 +205,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             name = "DOWNLOAD_SERVICE_URL"
             value_from {
               config_map_key_ref {
-                name = "vss-oracle-ux-config"
+                name = kubernetes_config_map_v1.vss_oracle_ux_config[each.key].metadata[0].name
                 key  = "DOWNLOAD_SERVICE_URL"
               }
             }
@@ -224,13 +215,13 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             name = "VSS_BACKEND_DEPLOYMENT"
             value_from {
               config_map_key_ref {
-                name = "vss-oracle-ux-config"
+                name = kubernetes_config_map_v1.vss_oracle_ux_config[each.key].metadata[0].name
                 key  = "VSS_BACKEND_DEPLOYMENT"
               }
             }
           }
 
-          # Database URL for Prisma (VSS review/summary persistence)
+          # Database URL for Prisma (unchanged — secret, not configmap-backed)
           env {
             name = "DATABASE_URL"
             value_from {
@@ -241,7 +232,6 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
             }
           }
 
-          # Volume mount for FSS cache
           volume_mount {
             name       = "fss-cache"
             mount_path = "/mnt/fss"
@@ -261,7 +251,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
           liveness_probe {
             http_get {
               path = "/"
-              port = 3000
+              port = tonumber(each.value.container_port)
             }
             initial_delay_seconds = 30
             period_seconds        = 10
@@ -272,7 +262,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
           readiness_probe {
             http_get {
               path = "/"
-              port = 3000
+              port = tonumber(each.value.container_port)
             }
             initial_delay_seconds = 10
             period_seconds        = 5
@@ -288,7 +278,7 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
     kubernetes_config_map_v1.vss_oracle_ux_config,
     kubernetes_deployment_v1.vss_download_service_deployment,
     kubernetes_persistent_volume_claim_v1.vss_fss_pvc,
-    kubernetes_secret_v1.vss_db_url
+    kubernetes_secret_v1.vss_db_url,
   ]
 }
 
@@ -296,12 +286,11 @@ resource "kubernetes_deployment_v1" "vss_oracle_ux_deployment" {
 # Ingress for VSS Oracle UX - Exposes the frontend at starter_pack_url
 # =============================================================================
 resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
-  count = local.deploy_app_vss ? 1 : 0
-
+  for_each               = local._enabled_vss_skins
   wait_for_load_balancer = true
 
   metadata {
-    name = "vss-oracle-ux-ingress"
+    name = "vss-oracle-ux-ingress${local._vss_k8s_name_suffix[each.key]}"
     annotations = {
       "cert-manager.io/cluster-issuer"                 = "letsencrypt-prod"
       "nginx.ingress.kubernetes.io/rewrite-target"     = "/"
@@ -314,22 +303,20 @@ resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
     ingress_class_name = "nginx"
 
     tls {
-      hosts       = [local.public_endpoint.starter_pack]
-      secret_name = "vss-oracle-ux-tls"
+      hosts       = ["${each.value.subdomain}.${local.fqdn.name}"]
+      secret_name = "vss-oracle-ux-tls${local._vss_k8s_name_suffix[each.key]}"
     }
 
     rule {
-      host = local.public_endpoint.starter_pack
+      host = "${each.value.subdomain}.${local.fqdn.name}"
       http {
         path {
           path      = "/"
           path_type = "Prefix"
           backend {
             service {
-              name = kubernetes_service_v1.vss_oracle_ux_service[0].metadata[0].name
-              port {
-                number = 80
-              }
+              name = kubernetes_service_v1.vss_oracle_ux_service[each.key].metadata[0].name
+              port { number = 80 }
             }
           }
         }
@@ -337,8 +324,26 @@ resource "kubernetes_ingress_v1" "vss_oracle_ux_ingress" {
     }
   }
 
-  depends_on = [
-    helm_release.ingress_nginx,
-    kubernetes_service_v1.vss_oracle_ux_service
-  ]
+  depends_on = [helm_release.ingress_nginx, kubernetes_service_v1.vss_oracle_ux_service]
+}
+
+# State migration: count-gated → for_each-keyed. Only needed the first time a
+# stack is upgraded from single-skin to multi-skin. The default skin keeps
+# the original metadata.name, so the underlying K8s resources are not
+# renamed or recreated — this is a pure Terraform-state address change.
+moved {
+  from = kubernetes_deployment_v1.vss_oracle_ux_deployment[0]
+  to   = kubernetes_deployment_v1.vss_oracle_ux_deployment["skin_vss_core"]
+}
+moved {
+  from = kubernetes_service_v1.vss_oracle_ux_service[0]
+  to   = kubernetes_service_v1.vss_oracle_ux_service["skin_vss_core"]
+}
+moved {
+  from = kubernetes_ingress_v1.vss_oracle_ux_ingress[0]
+  to   = kubernetes_ingress_v1.vss_oracle_ux_ingress["skin_vss_core"]
+}
+moved {
+  from = kubernetes_config_map_v1.vss_oracle_ux_config[0]
+  to   = kubernetes_config_map_v1.vss_oracle_ux_config["skin_vss_core"]
 }

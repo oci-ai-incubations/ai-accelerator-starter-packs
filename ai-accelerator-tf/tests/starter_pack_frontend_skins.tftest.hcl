@@ -1,34 +1,17 @@
-# Frontend skins resolution tests
-# Validates that each starter pack category resolves to the correct default skin,
-# and that explicit skin overrides work correctly.
+# Multi-skin frontend resolution tests.
 
 mock_provider "oci" {
   override_data {
     target = data.oci_identity_regions.home_region
-    values = {
-      regions = [{
-        name = "us-ashburn-1"
-        key  = "IAD"
-      }]
-    }
+    values = { regions = [{ name = "us-ashburn-1", key = "IAD" }] }
   }
-
   override_data {
     target = data.oci_identity_availability_domains.ads
-    values = {
-      availability_domains = [{
-        name = "US-ASHBURN-AD-1"
-      }]
-    }
+    values = { availability_domains = [{ name = "US-ASHBURN-AD-1" }] }
   }
-
   override_data {
     target = data.oci_core_images.oracle_linux
-    values = {
-      images = [{
-        id = "ocid1.image.oc1..test"
-      }]
-    }
+    values = { images = [{ id = "ocid1.image.oc1..test" }] }
   }
 }
 
@@ -54,140 +37,206 @@ variables {
   skip_capacity_check             = true
 }
 
-# Test: cuopt default skin resolves to Core App
+# ===================== cuopt ==========================================
+
 run "cuopt_default_skin_resolves" {
   command = plan
-
   assert {
-    condition     = local.frontend_skin_name == "Vehicle Route Optimizer Frontend (Core App)"
-    error_message = "cuopt default skin name should be 'Vehicle Route Optimizer Frontend (Core App)'"
+    condition     = local.primary_skin.key == "Vehicle Route Optimizer Frontend (Core App)"
+    error_message = "cuopt primary should be Core App"
   }
-
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "cuopt default skin image_uri should not be empty"
+    condition     = length(local.enabled_frontend_skins) == 1
+    error_message = "cuopt default should have 1 enabled skin"
   }
-
   assert {
-    condition     = local.frontend_skin_provider == "Oracle"
-    error_message = "cuopt default skin provider should be 'Oracle'"
+    condition     = length(output.frontend_skin_urls) == 1
+    error_message = "frontend_skin_urls should have 1 entry"
   }
 }
 
-# Test: cuopt explicit Partner Contributed skin override resolves correctly
-run "cuopt_explicit_partner_skin" {
+run "cuopt_multi_skin" {
   command = plan
-
   variables {
-    frontend_skin = "Oracle Interactive - Route visualization (Partner Contributed)"
+    skin_cuopt_core    = true
+    skin_cuopt_partner = true
   }
-
   assert {
-    condition     = local.frontend_skin_name == "Oracle Interactive - Route visualization (Partner Contributed)"
-    error_message = "cuopt partner skin name should match selection"
+    condition     = length(local.enabled_frontend_skins) == 2
+    error_message = "cuopt multi should have 2 skins"
   }
-
   assert {
-    condition     = local.frontend_skin_provider == "Oracle"
-    error_message = "cuopt partner skin provider should be 'Oracle'"
+    condition     = local.primary_skin.key == "Vehicle Route Optimizer Frontend (Core App)"
+    error_message = "primary = first enabled = Core"
   }
-
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "cuopt partner skin image_uri should not be empty"
+    condition     = length(output.frontend_skin_urls) == 2
+    error_message = "frontend_skin_urls should have 2 entries"
   }
 }
 
-# Test: vss default skin resolves to Oracle Custom
+run "cuopt_partner_only" {
+  command = plan
+  variables {
+    skin_cuopt_core    = false
+    skin_cuopt_partner = true
+  }
+  assert {
+    condition     = length(local.enabled_frontend_skins) == 1
+    error_message = "1 skin enabled"
+  }
+  assert {
+    condition     = local.primary_skin.variable_name == "skin_cuopt_partner"
+    error_message = "primary = partner"
+  }
+}
+
+run "cuopt_zero_skins_fails" {
+  command = plan
+  variables {
+    skin_cuopt_core    = false
+    skin_cuopt_partner = false
+  }
+  expect_failures = [resource.terraform_data.skin_validation]
+}
+
+# ===================== vss ============================================
+
 run "vss_default_skin_resolves" {
   command = plan
-
   variables {
     starter_pack_category = "vss"
   }
-
   assert {
-    condition     = local.frontend_skin_name == "Oracle Custom - Enhanced search (Core App)"
-    error_message = "vss default skin name should be 'Oracle Custom - Enhanced search (Core App)'"
+    condition     = local.primary_skin.variable_name == "skin_vss_core"
+    error_message = "vss primary = Core"
   }
-
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "vss default skin image_uri should not be empty"
-  }
-
-  assert {
-    condition     = local.frontend_skin_provider == "Oracle"
-    error_message = "vss default skin provider should be 'Oracle'"
+    condition     = length(local.enabled_frontend_skins) == 1
+    error_message = "vss has 1 enabled skin"
   }
 }
 
-# Test: paas_rag default skin resolves to Oracle Net
+run "vss_zero_skins_fails" {
+  command = plan
+  variables {
+    starter_pack_category = "vss"
+    skin_vss_core         = false
+  }
+  expect_failures = [resource.terraform_data.skin_validation]
+}
+
+# ===================== paas_rag =======================================
+
 run "paas_rag_default_skin_resolves" {
   command = plan
-
   variables {
     starter_pack_category = "paas_rag"
     db_password           = "TestDBP@ssw0rd123!"
   }
-
   assert {
-    condition     = local.frontend_skin_name == "Oracle Net - Chat interface (Core App)"
-    error_message = "paas_rag default skin name should be 'Oracle Net - Chat interface (Core App)'"
-  }
-
-  assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "paas_rag default skin image_uri should not be empty"
+    condition     = local.primary_skin.variable_name == "skin_paas_rag_core"
+    error_message = "paas_rag primary = Core"
   }
 }
 
-# Test: enterprise_rag default skin resolves to Oracle RAG
-run "enterprise_rag_default_skin_resolves" {
+run "paas_rag_zero_skins_fails" {
   command = plan
+  variables {
+    starter_pack_category = "paas_rag"
+    skin_paas_rag_core    = false
+    db_password           = "TestDBP@ssw0rd123!"
+  }
+  expect_failures = [resource.terraform_data.skin_validation]
+}
 
+# ===================== Helm packs =====================================
+
+run "enterprise_rag_helm_pack_default_selection" {
+  command = plan
   variables {
     starter_pack_category = "enterprise_rag"
     db_password           = "TestDBP@ssw0rd123!"
   }
-
+  # primary_skin now resolves to the Helm-pack single-select default (catalog default)
+  assert {
+    condition     = local.primary_skin != null
+    error_message = "Helm pack primary_skin must resolve to catalog default when enum var is empty"
+  }
+  assert {
+    condition     = local.primary_skin.key == "Oracle RAG - Document chat (Core App)"
+    error_message = "enterprise_rag default selection = Oracle RAG"
+  }
   assert {
     condition     = local.frontend_skin_name == "Oracle RAG - Document chat (Core App)"
-    error_message = "enterprise_rag default skin name should be 'Oracle RAG - Document chat (Core App)'"
+    error_message = "frontend_skin_name must match selected skin key"
   }
-
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "enterprise_rag default skin image_uri should not be empty"
+    condition     = length(output.frontend_skin_urls) == 0
+    error_message = "Helm pack frontend_skin_urls must be {} (uses starter_pack_url instead)"
+  }
+  assert {
+    condition     = local.starter_pack_config.frontend_url == "frontend-erag"
+    error_message = "enterprise_rag starter_pack_config.frontend_url must be 'frontend-erag'"
   }
 }
 
-# Test: enterprise_rag_aiq default skin resolves to NVIDIA AIRA
-run "enterprise_rag_aiq_default_skin_resolves" {
+run "enterprise_rag_explicit_skin_selection" {
   command = plan
+  variables {
+    starter_pack_category = "enterprise_rag"
+    skin_enterprise_rag   = "Oracle RAG - Document chat (Core App)"
+    db_password           = "TestDBP@ssw0rd123!"
+  }
+  assert {
+    condition     = local.primary_skin.key == "Oracle RAG - Document chat (Core App)"
+    error_message = "explicit selection must resolve to the named catalog entry"
+  }
+}
 
+run "enterprise_rag_invalid_selection_falls_back_to_default" {
+  command = plan
+  variables {
+    starter_pack_category = "enterprise_rag"
+    skin_enterprise_rag   = "Does Not Exist - typo"
+    db_password           = "TestDBP@ssw0rd123!"
+  }
+  assert {
+    condition     = local.primary_skin.key == "Oracle RAG - Document chat (Core App)"
+    error_message = "unrecognized skin selection must fall back to catalog default, not crash"
+  }
+}
+
+run "enterprise_rag_aiq_helm_pack_default_selection" {
+  command = plan
   variables {
     starter_pack_category = "enterprise_rag_aiq"
     tavily_api_key        = ""
+    db_password           = "TestDBP@ssw0rd123!"
   }
-
+  assert {
+    condition     = local.primary_skin != null
+    error_message = "aiq primary_skin must resolve to catalog default"
+  }
+  assert {
+    condition     = local.primary_skin.key == "NVIDIA AIRA - Agentic workflows (Core App)"
+    error_message = "aiq default selection = NVIDIA AIRA"
+  }
   assert {
     condition     = local.frontend_skin_name == "NVIDIA AIRA - Agentic workflows (Core App)"
-    error_message = "enterprise_rag_aiq default skin name should be 'NVIDIA AIRA - Agentic workflows (Core App)'"
+    error_message = "frontend_skin_name must match selected skin key"
   }
-
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "enterprise_rag_aiq default skin image_uri should not be empty"
+    condition     = length(output.frontend_skin_urls) == 0
+    error_message = "aiq frontend_skin_urls must be {}"
   }
-
   assert {
-    condition     = local.frontend_skin_provider == "NVIDIA"
-    error_message = "enterprise_rag_aiq default skin provider should be 'NVIDIA'"
+    condition     = local.starter_pack_config.frontend_url == "aiq"
+    error_message = "enterprise_rag_aiq starter_pack_config.frontend_url must be 'aiq'"
   }
 }
 
-# Test: warehouse_pick_path default skin resolves to Core App
+# Test: warehouse_pick_path default skin resolves via multi-skin
 run "warehouse_pick_path_default_skin_resolves" {
   command = plan
 
@@ -197,42 +246,58 @@ run "warehouse_pick_path_default_skin_resolves" {
   }
 
   assert {
+    condition     = length(local.enabled_frontend_skins) == 1
+    error_message = "warehouse_pick_path should have exactly 1 enabled skin by default"
+  }
+
+  assert {
+    condition     = local.primary_skin.key == "Warehouse Pick Path Optimizer Frontend (Core App)"
+    error_message = "warehouse_pick_path primary_skin key should be 'Warehouse Pick Path Optimizer Frontend (Core App)'"
+  }
+
+  assert {
     condition     = local.frontend_skin_name == "Warehouse Pick Path Optimizer Frontend (Core App)"
-    error_message = "warehouse_pick_path default skin name should be 'Warehouse Pick Path Optimizer Frontend (Core App)'"
+    error_message = "warehouse_pick_path frontend_skin_name should match primary_skin key"
   }
 
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "warehouse_pick_path default skin image_uri should not be empty"
-  }
-
-  assert {
-    condition     = local.frontend_skin_provider == "Oracle"
-    error_message = "warehouse_pick_path default skin provider should be 'Oracle'"
+    condition     = length(output.frontend_skin_urls) == 1
+    error_message = "warehouse_pick_path should have 1 entry in frontend_skin_urls"
   }
 }
 
-# Test: skin outputs are populated when deploy_application is true (default)
-run "skin_outputs_populated" {
+run "warehouse_pick_path_skin_disabled" {
   command = plan
 
-  assert {
-    condition     = output.frontend_skin_name != null
-    error_message = "frontend_skin_name output should not be null"
+  variables {
+    starter_pack_category = "warehouse_pick_path"
+    db_password           = "TestDBP@ssw0rd123!"
+    skin_wpp_core         = false
+    deploy_application    = false
   }
 
   assert {
-    condition     = output.frontend_skin_image_uri != null
-    error_message = "frontend_skin_image_uri output should not be null"
+    condition     = length(local.enabled_frontend_skins) == 0
+    error_message = "disabling skin_wpp_core should yield 0 enabled skins"
   }
+}
 
-  assert {
-    condition     = output.frontend_skin_provider != null
-    error_message = "frontend_skin_provider output should not be null"
+# ===================== deploy_application=false =======================
+
+run "infra_only_skips_precondition" {
+  command = plan
+  variables {
+    deploy_application = false
+    skin_cuopt_core    = false
+    skin_cuopt_partner = false
   }
-
+  # Precondition resource has count = 0; no failure even with zero skins.
   assert {
-    condition     = output.frontend_skins_learn_more != ""
-    error_message = "frontend_skins_learn_more output should not be empty"
+    condition     = length(output.frontend_skin_urls) == 0
+    error_message = "infra-only frontend_skin_urls must be {}"
+  }
+  assert {
+    condition     = output.starter_pack_url == null
+    error_message = "infra-only starter_pack_url must be null (matches existing starter_pack_infra_only behavior)"
   }
 }

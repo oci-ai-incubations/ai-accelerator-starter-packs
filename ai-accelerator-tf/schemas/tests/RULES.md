@@ -19,7 +19,7 @@ Add the variable name to `required_variables` for that category in `schema_expec
 ```yaml
 category_specific:
   cuopt:
-    required_variables: [cuopt_frontend_enabled, genai_region, my_new_variable]
+    required_variables: [skin_cuopt_core, genai_region, my_new_variable]
 ```
 
 To also check its properties (type, visibility, etc.):

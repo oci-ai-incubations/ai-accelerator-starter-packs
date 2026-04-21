@@ -45,7 +45,7 @@ One teammate per track. Name them descriptively:
 | Teammate | Track | Purpose |
 |---|---|---|
 | `track1-gpu4` | BM.GPU4.8 packs | enterprise_rag + enterprise_rag_aiq |
-| `track2-a10` | VM.GPU.A10.2 packs | vss + cuopt |
+| `track2-a10` | VM.GPU.A10 packs | vss + cuopt + warehouse_pick_path |
 | `track3-cpu` | CPU-only packs | paas_rag |
 
 ### 3. Send initial instructions
