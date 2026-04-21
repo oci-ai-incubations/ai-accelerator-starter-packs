@@ -18,6 +18,12 @@ These packs deploy a single frontend at a time via Helm (`nvidia-blueprint-rag`)
 - Default is the catalog's top-level `default:` key.
 - `frontend_skin_urls` is intentionally empty for Helm packs; the user-facing URL is `starter_pack_url`.
 
+---
+
+> **Writing a skin?** For the outbound API contract — what backends a skin
+> can call, what ports/paths are routed via ingress, and what env vars the
+> container receives — see [BACKEND_API_CONTRACT.md](BACKEND_API_CONTRACT.md).
+
 ## Adding a new skin
 
 The checklist depends on which pack type you're adding to.
