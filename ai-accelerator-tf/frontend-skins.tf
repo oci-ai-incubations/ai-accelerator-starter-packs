@@ -12,6 +12,7 @@ locals {
     "skin_cuopt_partner" = var.skin_cuopt_partner
     "skin_vss_core"      = var.skin_vss_core
     "skin_paas_rag_core" = var.skin_paas_rag_core
+    "skin_wpp_core"      = var.skin_wpp_core
   }
 
   # Helm-pack single-select enum: category → user's skin key choice (empty = catalog default).

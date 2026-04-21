@@ -249,7 +249,7 @@ class TestVariableTypesComplete:
 class TestFrontendSkinCatalogSync:
     """Multi-skin catalog synchronization tests."""
 
-    BLUEPRINT_PACKS = ["cuopt", "vss", "paas_rag"]
+    BLUEPRINT_PACKS = ["cuopt", "vss", "paas_rag", "warehouse_pick_path"]
     HELM_PACKS = ["enterprise_rag", "enterprise_rag_aiq"]
 
     @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
@@ -357,7 +357,7 @@ class TestFrontendSkinCatalogSync:
 
         # Blueprint-pack variable_names from the catalog.
         blueprint_cat_vars = set()
-        for cat in ("cuopt", "vss", "paas_rag"):
+        for cat in ("cuopt", "vss", "paas_rag", "warehouse_pick_path"):
             for skin in catalog[cat]["skins"]:
                 if "variable_name" in skin:
                     blueprint_cat_vars.add(skin["variable_name"])
@@ -464,3 +464,40 @@ class TestFrontendSkinCatalogSync:
                 f"vss skin {skin['variable_name']}: computed K8s name "
                 f"{candidate!r} exceeds 63 chars ({len(candidate)})"
             )
+
+
+class TestDocsCoverage:
+    """Every starter pack category must have a backend API contract doc."""
+
+    @staticmethod
+    def _parse_categories_from_vars_tf():
+        """Extract the category list from the validation block in vars.tf.
+
+        Parses the ``contains([...], var.starter_pack_category)`` expression
+        so the test breaks when a new category is added to vars.tf without a
+        matching contract doc — no test-file update required.
+        """
+        vars_tf = (Path(__file__).parent.parent.parent / "vars.tf").read_text()
+        m = re.search(
+            r'variable\s+"starter_pack_category".*?'
+            r'contains\(\[([^\]]+)\]',
+            vars_tf,
+            re.DOTALL,
+        )
+        assert m, "Could not find starter_pack_category validation in vars.tf"
+        return [s.strip().strip('"') for s in m.group(1).split(",")]
+
+    def test_every_category_has_contract_doc(self):
+        """Each category in vars.tf must have a UPPER_CASE.md in docs/skins/contracts/."""
+        categories = self._parse_categories_from_vars_tf()
+        contracts_dir = Path(__file__).parent.parent.parent.parent / "docs" / "skins" / "contracts"
+        missing = []
+        for cat in categories:
+            expected = contracts_dir / f"{cat.upper()}.md"
+            if not expected.exists():
+                missing.append(f"{cat} -> {expected.name}")
+        assert missing == [], (
+            f"Missing backend API contract docs for: {missing}. "
+            f"Add a contract doc in docs/skins/contracts/<CATEGORY>.md "
+            f"(see existing files for the format)."
+        )

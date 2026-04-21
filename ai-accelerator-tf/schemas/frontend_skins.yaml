@@ -63,7 +63,9 @@ warehouse_pick_path:
   default: "Warehouse Pick Path Optimizer Frontend (Core App)"
   skins:
     - key: "Warehouse Pick Path Optimizer Frontend (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:569c2ec"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:2d2a008"
       provider: "Oracle"
       container_port: "3000"
       subdomain: "wpp"
+      variable_name: "skin_wpp_core"
+      default_enabled: true

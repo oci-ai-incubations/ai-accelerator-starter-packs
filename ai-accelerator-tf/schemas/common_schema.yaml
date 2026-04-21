@@ -502,6 +502,10 @@ variables:
     type: boolean
     visible: false
 
+  skin_wpp_core:
+    type: boolean
+    visible: false
+
   skin_enterprise_rag:
     type: enum
     visible: false

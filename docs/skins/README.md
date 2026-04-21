@@ -2,7 +2,7 @@
 
 Each starter pack category has a catalog of "skins" — alternative frontend UIs for the same backend. Skins are defined in `ai-accelerator-tf/schemas/frontend_skins.yaml`.
 
-## Blueprint packs (`cuopt`, `vss`, `paas_rag`) — multi-select
+## Blueprint packs (`cuopt`, `vss`, `paas_rag`, `warehouse_pick_path`) — multi-select
 
 These packs support **multi-skin**: enable one or more skins simultaneously from ORM. Each enabled skin deploys its own frontend container on its own ingress subdomain. You can compare UIs side-by-side without redeploying the backend.
 
@@ -178,6 +178,8 @@ Oracle Net chat interface for the managed enterprise RAG pipeline. Provides docu
 NVIDIA AIRA (AI Research Assistant) frontend for the agentic AI starter kit. Provides a chat-based interface for interacting with AI agents that can reason over documents, execute multi-step workflows, and use tools. Includes observability integration with Phoenix for tracing agent execution, viewing tool call chains, and debugging agentic reasoning paths.
 
 ## Warehouse Pick Path Optimizer (`warehouse_pick_path`)
+
+**Backend repository:** [oci-ai-incubations/oci-warehouse-pick-path-optimizer](https://github.com/oci-ai-incubations/oci-warehouse-pick-path-optimizer) — FastAPI backend with NVIDIA cuOpt GPU solver for warehouse pick path optimization, backed by Oracle 26ai for data persistence.
 
 | Skin Name | Type | Provider | Default |
 |---|---|---|---|

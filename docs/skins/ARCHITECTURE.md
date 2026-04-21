@@ -2,7 +2,7 @@
 
 This document describes how the frontend skins system works end-to-end, from the YAML catalog to the deployed container image(s). The system supports two rendering shapes:
 
-- **Blueprint packs** (`cuopt`, `vss`, `paas_rag`): multi-select booleans. Users enable any combination of skins; each enabled skin gets its own K8s deployment, service, ingress host, and URL.
+- **Blueprint packs** (`cuopt`, `vss`, `paas_rag`, `warehouse_pick_path`): multi-select booleans. Users enable any combination of skins; each enabled skin gets its own K8s deployment, service, ingress host, and URL.
 - **Helm packs** (`enterprise_rag`, `enterprise_rag_aiq`): single-select enum. Users pick exactly one skin from the catalog; the choice is injected into the Helm chart's `frontend.image.{repository,tag}` values.
 
 ## Problem
@@ -69,7 +69,7 @@ Adding a new blueprint skin: add a catalog entry with `variable_name` + declare 
 
 The catalog. Each starter pack category has a `default` skin key and a list of `skins`.
 
-**Blueprint packs** (cuopt, vss, paas_rag) — each skin entry has:
+**Blueprint packs** (cuopt, vss, paas_rag, warehouse_pick_path) — each skin entry has:
 
 - `key` — the checkbox label, suffixed with `(Core App)` or `(Partner Contributed)`
 - `image_uri` — full container image URI including tag
@@ -157,6 +157,7 @@ variable "skin_cuopt_core"    { type = bool, default = true }
 variable "skin_cuopt_partner" { type = bool, default = false }
 variable "skin_vss_core"      { type = bool, default = true }
 variable "skin_paas_rag_core" { type = bool, default = true }
+variable "skin_wpp_core"      { type = bool, default = true }
 ```
 
 Defaults follow the `default_enabled` field in the catalog so local Terraform runs without ORM produce a sensible deployment.
@@ -174,7 +175,7 @@ There is **no single `frontend_skin` enum variable anymore** and **no `cuopt_fro
 
 ### Consumer Files
 
-**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — iterate over `local.enabled_frontend_skins` (for_each) and produce one deployment/service/ingress/blueprint job per enabled skin. The container image and port come from the skin entry (`each.value.image_uri`, `each.value.container_port`). Each skin's resources get a unique name derived from `variable_name`, except for the default skin on VSS which keeps the base name (see below). The `_cuopt_frontend_deployments` and `_paas_rag_frontend_deployments` list comprehensions filter with `if try(skin.variable_name, "") != ""` so Helm-pack entries (no `variable_name`) don't crash plan evaluation.
+**Blueprint packs** (`blueprint_files.tf`, `app-vss-oracle-ux.tf`) — iterate over `local.enabled_frontend_skins` (for_each) and produce one deployment/service/ingress/blueprint job per enabled skin. The container image and port come from the skin entry (`each.value.image_uri`, `each.value.container_port`). Each skin's resources get a unique name derived from `variable_name`, except for the default skin on VSS which keeps the base name (see below). The `_cuopt_frontend_deployments`, `_paas_rag_frontend_deployments`, and `_wpp_frontend_deployments` list comprehensions filter with `if try(skin.variable_name, "") != ""` so Helm-pack entries (no `variable_name`) don't crash plan evaluation.
 
 **Helm packs** (`helm.tf`) — split `local.frontend_skin_image_uri` into `frontend.image.repository` and `frontend.image.tag` via `split(":", ...)`. The image URI resolves from the user's enum selection via `primary_skin → helm_pack_selected_skin`, with catalog default as the fallback when the enum var is unset.
 

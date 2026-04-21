@@ -236,7 +236,7 @@ run "enterprise_rag_aiq_helm_pack_default_selection" {
   }
 }
 
-# Test: warehouse_pick_path default skin resolves to Core App
+# Test: warehouse_pick_path default skin resolves via multi-skin
 run "warehouse_pick_path_default_skin_resolves" {
   command = plan
 
@@ -246,18 +246,39 @@ run "warehouse_pick_path_default_skin_resolves" {
   }
 
   assert {
+    condition     = length(local.enabled_frontend_skins) == 1
+    error_message = "warehouse_pick_path should have exactly 1 enabled skin by default"
+  }
+
+  assert {
+    condition     = local.primary_skin.key == "Warehouse Pick Path Optimizer Frontend (Core App)"
+    error_message = "warehouse_pick_path primary_skin key should be 'Warehouse Pick Path Optimizer Frontend (Core App)'"
+  }
+
+  assert {
     condition     = local.frontend_skin_name == "Warehouse Pick Path Optimizer Frontend (Core App)"
-    error_message = "warehouse_pick_path default skin name should be 'Warehouse Pick Path Optimizer Frontend (Core App)'"
+    error_message = "warehouse_pick_path frontend_skin_name should match primary_skin key"
   }
 
   assert {
-    condition     = local.frontend_skin_image_uri != ""
-    error_message = "warehouse_pick_path default skin image_uri should not be empty"
+    condition     = length(output.frontend_skin_urls) == 1
+    error_message = "warehouse_pick_path should have 1 entry in frontend_skin_urls"
+  }
+}
+
+run "warehouse_pick_path_skin_disabled" {
+  command = plan
+
+  variables {
+    starter_pack_category = "warehouse_pick_path"
+    db_password           = "TestDBP@ssw0rd123!"
+    skin_wpp_core         = false
+    deploy_application    = false
   }
 
   assert {
-    condition     = local.frontend_skin_provider == "Oracle"
-    error_message = "warehouse_pick_path default skin provider should be 'Oracle'"
+    condition     = length(local.enabled_frontend_skins) == 0
+    error_message = "disabling skin_wpp_core should yield 0 enabled skins"
   }
 }
 

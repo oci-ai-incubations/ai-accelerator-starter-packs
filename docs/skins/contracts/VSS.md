@@ -9,7 +9,8 @@ call.
 Scope: `starter_pack_category = "vss"`. For other packs, see
 [`CUOPT.md`](CUOPT.md), [`PAAS_RAG.md`](PAAS_RAG.md),
 [`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md),
-[`ENTERPRISE_RAG_AIQ.md`](ENTERPRISE_RAG_AIQ.md).
+[`ENTERPRISE_RAG_AIQ.md`](ENTERPRISE_RAG_AIQ.md),
+[`WAREHOUSE_PICK_PATH.md`](WAREHOUSE_PICK_PATH.md).
 
 ---
 

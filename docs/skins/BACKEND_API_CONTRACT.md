@@ -20,7 +20,7 @@ this document when you are writing frontend code.
 
 ### How your skin reaches the backend
 
-Two mechanisms are in play across the five packs. A given pack uses one of
+Two mechanisms are in play across the six packs. A given pack uses one of
 them per backend; you pick the call style your frontend code uses based on
 what the pack provides.
 
@@ -82,13 +82,14 @@ full env var set each pack injects.
 
 ### Which mechanism does each pack use?
 
-| Pack               | Ingress paths | Env vars              |
-|--------------------|---------------|-----------------------|
-| cuopt              | ✓             | ✓                     |
-| vss                | —             | ✓                     |
-| paas_rag           | ✓             | —                     |
-| enterprise_rag     | — (Helm)      | ✓ (Helm chart values) |
-| enterprise_rag_aiq | — (Helm)      | — (chart-internal)    |
+| Pack                | Ingress paths | Env vars              |
+|---------------------|---------------|-----------------------|
+| cuopt               | ✓             | ✓                     |
+| vss                 | —             | ✓                     |
+| paas_rag            | ✓             | —                     |
+| enterprise_rag      | — (Helm)      | ✓ (Helm chart values) |
+| enterprise_rag_aiq  | — (Helm)      | — (chart-internal)    |
+| warehouse_pick_path | ✓             | —                     |
 
 "(Helm)" means the mechanism is wired by a Helm chart, not by
 Terraform-declared `recipe_additional_ingress_ports` or
@@ -113,6 +114,7 @@ Each pack has its own detailed contract document in [`contracts/`](contracts/):
 | paas_rag | [`PAAS_RAG.md`](contracts/PAAS_RAG.md) | 1 only | Ingress paths `/v1/models`, `/v1/responses`, `/v1/files`, etc.; no env vars. |
 | enterprise_rag | [`ENTERPRISE_RAG.md`](contracts/ENTERPRISE_RAG.md) | 2 (Helm) | Helm chart `frontend.envVars`: `VITE_API_CHAT_URL`, `VITE_API_VDB_URL`, `VITE_MILVUS_URL`. |
 | enterprise_rag_aiq | [`ENTERPRISE_RAG_AIQ.md`](contracts/ENTERPRISE_RAG_AIQ.md) | chart-internal | Two Helm releases; frontend endpoints are chart-internal, no skin-accessible env vars. |
+| warehouse_pick_path | [`WAREHOUSE_PICK_PATH.md`](contracts/WAREHOUSE_PICK_PATH.md) | 1 only | Ingress path `/api`; backend has own JWT auth (httpOnly cookies). |
 
 Each per-pack doc covers: deployment group composition, full endpoint surface per backend service, catalog summary, worked code examples, and the Terraform source of truth.
 
@@ -127,8 +129,8 @@ that changes the source.
 Update this doc or the relevant per-pack contract in `contracts/` whenever you change any of these files:
 
 - `ai-accelerator-tf/blueprint_files.tf` — any edit to
-  `local._cuopt_frontend_deployments` or `local._paas_rag_frontend_deployments`
-  (env vars, ingress paths, container port).
+  `local._cuopt_frontend_deployments`, `local._paas_rag_frontend_deployments`,
+  or `local._wpp_frontend_deployments` (env vars, ingress paths, container port).
 - `ai-accelerator-tf/app-vss-oracle-ux.tf` — any `env { ... }` block
   change on the VSS frontend deployment, any addition/removal in the
   `vss-oracle-ux-config` ConfigMap, or any new Secret reference the

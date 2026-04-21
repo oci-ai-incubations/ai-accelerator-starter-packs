@@ -18,6 +18,7 @@ import pytest
 FRONTEND_LIST_COMPREHENSION_LOCALS = [
     "_cuopt_frontend_deployments",
     "_paas_rag_frontend_deployments",
+    "_wpp_frontend_deployments",
 ]
 
 # Regex for the attribute every backend recipe must carry. Uses `\s+` instead

@@ -1086,6 +1086,12 @@ variable "skin_paas_rag_core" {
   default     = true
 }
 
+variable "skin_wpp_core" {
+  type        = bool
+  description = "Enable the 'Warehouse Pick Path Optimizer Frontend (Core App)' skin"
+  default     = true
+}
+
 # Helm-pack skin selectors (single-select enum). Empty string resolves to catalog default.
 variable "skin_enterprise_rag" {
   type        = string
