@@ -1501,7 +1501,7 @@ locals {
             recipe_id                             = "wpp-backend"
             recipe_mode                           = "service"
             deployment_name                       = "wpp-backend"
-            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be:35d03b6"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be:8d04e75"
             recipe_replica_count                  = 1
             recipe_node_shape                     = local.starter_pack_config.worker_node_shape
             recipe_nvidia_gpu_count               = 1
@@ -1541,7 +1541,7 @@ locals {
               recipe_id                            = "wpp-frontend"
               recipe_mode                          = "service"
               deployment_name                      = "wpp-frontend"
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:35d03b6"
+              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:8d04e75"
               recipe_replica_count                 = 1
               recipe_flex_shape_ocpu_count         = 2
               recipe_flex_shape_memory_size_in_gbs = 16
