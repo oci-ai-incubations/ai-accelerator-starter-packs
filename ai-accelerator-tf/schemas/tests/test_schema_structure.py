@@ -501,3 +501,13 @@ class TestDocsCoverage:
             f"Add a contract doc in docs/skins/contracts/<CATEGORY>.md "
             f"(see existing files for the format)."
         )
+
+    def test_every_category_in_naming_md(self):
+        """Each category in vars.tf must have a row in NAMING.md's name mapping table."""
+        categories = self._parse_categories_from_vars_tf()
+        naming_md = (Path(__file__).parent.parent.parent.parent / "NAMING.md").read_text()
+        missing = [cat for cat in categories if f"`{cat}`" not in naming_md]
+        assert missing == [], (
+            f"Categories missing from NAMING.md: {missing}. "
+            f"Add a row to the Name Mapping table in NAMING.md for each new category."
+        )

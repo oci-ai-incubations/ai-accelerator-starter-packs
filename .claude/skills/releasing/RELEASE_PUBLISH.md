@@ -44,6 +44,7 @@ For each zip in `release_test_matrix/`:
 | `paas_rag`           | `<version>_paas_rag.zip`           | `aiQGenAIPowered.zip`               |
 | `cuopt`              | `<version>_cuopt.zip`              | `vehicleRouteOptimizer.zip`         |
 | `vss`                | `<version>_vss.zip`                | `videoSearchSummarization.zip`      |
+| `warehouse_pick_path`| `<version>_warehouse_pick_path.zip`| `warehousePickPathOptimizer.zip`    |
 
 4. Verify all expected zips are present and non-empty in the release directory
 5. List the final contents with file sizes for the user to confirm
@@ -104,6 +105,7 @@ Questions or feedback? Ask away, we want to know how to improve these for your u
 | `enterprise_rag_aiq` | Enterprise Agentic AI Starter Kit                       |
 | `cuopt`              | Vehicle Delivery Route Optimizer                        |
 | `vss`                | Video Search and Summarization                          |
+| `warehouse_pick_path`| Warehouse Pick Path Optimizer                           |
 
 ### Review
 

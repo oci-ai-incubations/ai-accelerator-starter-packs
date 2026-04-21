@@ -37,7 +37,8 @@ branch creation, version bump, validation, schema gen/tests, commit, push, and p
 ```bash
 ls -la release_test_matrix/
 # Expect: <version>_enterprise_rag.zip, <version>_enterprise_rag_aiq.zip,
-#         <version>_paas_rag.zip, <version>_cuopt.zip, <version>_vss.zip
+#         <version>_paas_rag.zip, <version>_cuopt.zip, <version>_vss.zip,
+#         <version>_warehouse_pick_path.zip
 ```
 
 If any zip is missing, stop and investigate.
@@ -85,6 +86,7 @@ gh release create $VERSION \
   release_test_matrix/${VERSION}_paas_rag.zip \
   release_test_matrix/${VERSION}_cuopt.zip \
   release_test_matrix/${VERSION}_vss.zip \
+  release_test_matrix/${VERSION}_warehouse_pick_path.zip \
   --target release_v${VERSION} \
   --title "$VERSION" \
   --prerelease \
@@ -98,7 +100,7 @@ gh release view $VERSION --json assets,isPrerelease \
   --jq '{prerelease: .isPrerelease, assets: [.assets[].name]}'
 ```
 
-Confirm: 5 zip assets attached, `isPrerelease: true`.
+Confirm: 6 zip assets attached, `isPrerelease: true`.
 
 ### 2c. After all testing passes (Phase 4-5)
 
@@ -122,7 +124,7 @@ EOF
 
 Read `ai-accelerator-tf/vars.tf` → `local.starter_pack_configs` to get the `worker_node_shape` and `worker_node_count` for each pack/size being tested.
 
-Ask the user which packs and sizes to test. Default: all 5 packs at their standard test sizes:
+Ask the user which packs and sizes to test. Default: all 6 packs at their standard test sizes:
 
 | Pack | Size | GPU Shape | GPU Workers |
 |---|---|---|---|
@@ -130,6 +132,7 @@ Ask the user which packs and sizes to test. Default: all 5 packs at their standa
 | enterprise_rag_aiq | small | BM.GPU4.8 | 2 |
 | cuopt | poc | VM.GPU.A10.2 | 1 |
 | vss | poc | VM.GPU.A10.2 | 2 |
+| warehouse_pick_path | small | VM.GPU.A10.1 | 1 |
 | paas_rag | small | none (CPU) | 0 |
 
 ### 3b. Design parallel tracks
@@ -144,7 +147,7 @@ Check `worker_node_shape` in `vars.tf` → `local.starter_pack_configs` for each
 For the default test matrix (poc/small sizes):
 
 - **Track 1 (BM.GPU4.8):** enterprise_rag/small then enterprise_rag_aiq/small — back-to-back (destroy app, re-apply infra, new app)
-- **Track 2 (VM.GPU.A10.2):** vss/poc then cuopt/poc — sequential with full destroy between rounds
+- **Track 2 (VM.GPU.A10):** vss/poc, cuopt/poc, warehouse_pick_path/small — sequential with full destroy between rounds (all use VM.GPU.A10.x shapes)
 - **Track 3 (CPU only):** paas_rag/small (independent)
 
 Present the track plan to the user and confirm. Adjust if they want different groupings.
@@ -233,11 +236,12 @@ Build a combined results table:
 ```
 | Pack              | Size  | Region         | Track   | Result | Bugs Found |
 |-------------------|-------|----------------|---------|--------|------------|
-| paas_rag          | small | us-sanjose-1   | Track 3 | PASS   | —          |
-| enterprise_rag    | small | ap-melbourne-1 | Track 1 | PASS   | BUG-XXX    |
-| enterprise_rag_aiq| small | ap-melbourne-1 | Track 1 | FAIL   | BUG-YYY    |
-| vss               | poc   | uk-london-1    | Track 2 | PASS   | —          |
-| cuopt             | poc   | uk-london-1    | Track 2 | PASS   | —          |
+| paas_rag            | small | us-sanjose-1   | Track 3 | PASS   | —          |
+| enterprise_rag      | small | ap-melbourne-1 | Track 1 | PASS   | BUG-XXX    |
+| enterprise_rag_aiq  | small | ap-melbourne-1 | Track 1 | FAIL   | BUG-YYY    |
+| vss                 | poc   | uk-london-1    | Track 2 | PASS   | —          |
+| cuopt               | poc   | uk-london-1    | Track 2 | PASS   | —          |
+| warehouse_pick_path | small | uk-london-1    | Track 2 | PASS   | —          |
 ```
 
 ### 4e. Post combined results to PR
@@ -298,7 +302,7 @@ For each bug:
 cd ai-accelerator-tf && terraform init -backend=false && terraform test
 ```
 
-### 5c. Rebuild all 5 zips
+### 5c. Rebuild all 6 zips
 
 After all fixes are committed:
 
@@ -306,7 +310,7 @@ After all fixes are committed:
 rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
 ```
 
-For each category in `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`:
+For each category in `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`, `warehouse_pick_path`:
 
 1. Set category: `echo 'starter_pack_category = "<category>"' > ai-accelerator-tf/starter_pack_category.auto.tfvars`
 2. Regenerate schema: `source venv/bin/activate && python3 create_final_schema.py -c <category>`
@@ -317,7 +321,7 @@ For each category in `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`
 
 ```bash
 # Delete old assets
-for asset in enterprise_rag enterprise_rag_aiq paas_rag cuopt vss; do
+for asset in enterprise_rag enterprise_rag_aiq paas_rag cuopt vss warehouse_pick_path; do
   gh release delete-asset $VERSION ${VERSION}_${asset}.zip --yes 2>/dev/null
 done
 
@@ -404,6 +408,7 @@ Accept Terms of Use, click through to Step 2 (Configure Variables), and verify t
 | `enterpriseAgenticAIStarterKit.zip` | "Enterprise RAG + AIQ Deployment Size" |
 | `vehicleRouteOptimizer.zip` | "cuOpt Deployment Size" |
 | `videoSearchSummarization.zip` | "VSS Deployment Size" |
+| `warehousePickPathOptimizer.zip` | "Optimizer Deployment Size" |
 
 ### 8c. Screenshot each pack
 
