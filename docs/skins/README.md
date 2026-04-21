@@ -60,6 +60,8 @@ When in doubt, enable the Core App skin for a fully supported experience.
 
 ## Vehicle Delivery Route Optimizer (`cuopt`)
 
+**Backend repository:** [NVIDIA/cuopt](https://github.com/NVIDIA/cuopt) — the GPU-accelerated vehicle routing solver that all cuopt skins connect to.
+
 | Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Vehicle Route Optimizer Frontend (Core App) | Core App | Oracle | Yes |
@@ -93,6 +95,8 @@ Partner-contributed interactive route visualization UI for fleet delivery optimi
 
 ## Video Search and Summarization (`vss`)
 
+**Backend repository:** [NVIDIA-AI-Blueprints/video-search-and-summarization](https://github.com/NVIDIA-AI-Blueprints/video-search-and-summarization/releases/tag/v2.4.1) (v2.4.1) — the NVIDIA blueprint for video ingestion, scene detection, and semantic search that all vss skins connect to. **Note:** We pin to v2.4.1. The 3.0.0 release introduces significant breaking changes to the repo structure and APIs.
+
 | Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Oracle Custom - Enhanced search (Core App) | Core App | Oracle | Yes |
@@ -111,6 +115,8 @@ Partner-contributed interactive route visualization UI for fleet delivery optimi
 Oracle-built frontend for video search and summarization. Upload videos, search across ingested content using natural language queries, view AI-generated scene summaries with timestamps, and play back flagged segments directly in the browser. Includes a video timeline with scene markers and a document-style download service for exporting analysis results.
 
 ## Enterprise Knowledge Chat Agent - Self-Hosted AI Models (`enterprise_rag`)
+
+**Backend repository:** [oci-ai-incubations/nvidia-rag-oci](https://github.com/oci-ai-incubations/nvidia-rag-oci) — the OCI-adapted NVIDIA RAG pipeline (ingestor server, rag server, NIM microservices) that the enterprise_rag skin connects to.
 
 | Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
@@ -131,6 +137,8 @@ Chat-based document Q&A interface for the self-hosted enterprise RAG pipeline. U
 
 ## Enterprise Knowledge Chat Agent - Managed AI Models (`paas_rag`)
 
+**Backend repository:** [oci-ai-incubations/oraclenet-llama-stack](https://github.com/oci-ai-incubations/oraclenet-llama-stack) — the Llama Stack-based RAG backend using OCI GenAI PaaS and Oracle 26ai that the paas_rag skin connects to.
+
 | Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
 | Oracle Net - Chat interface (Core App) | Core App | Oracle | Yes |
@@ -149,6 +157,8 @@ Chat-based document Q&A interface for the self-hosted enterprise RAG pipeline. U
 Oracle Net chat interface for the managed enterprise RAG pipeline. Provides document upload, vector-search-powered Q&A with cited answers, and multi-turn conversation support. Powered by OCI GenAI PaaS for LLM inference and Oracle 26ai for vector storage, requiring no GPU infrastructure. Includes model selection for choosing between available OCI GenAI models.
 
 ## Enterprise Agentic AI Starter Kit (`enterprise_rag_aiq`)
+
+**Backend repository:** [NVIDIA-AI-Blueprints/aiq](https://github.com/NVIDIA-AI-Blueprints/aiq) — the NVIDIA AIQ toolkit for agentic AI workflows that the enterprise_rag_aiq skin connects to.
 
 | Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
