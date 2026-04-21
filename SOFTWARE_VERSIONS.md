@@ -75,6 +75,17 @@ This document contains container image versions for each accelerator pack config
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
 | Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | v0.0.3 |
 
+## Warehouse Pick Path Optimizer
+
+### Warehouse Pick Path Optimizer Small
+
+| Container | Image | Version |
+|-----------|-------|---------|
+| Pick-path Solver Backend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be | 2d2a008 |
+| Pick-path Optimizer Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe | 2d2a008 |
+
+The backend image extends `nvcr.io/nvidia/cuopt:26.6.0a-cuda13.0-py3.13` (GPU solver + Python 3.13). The backend and frontend are built from the same commit and share a short-SHA tag, pinned by `ai-accelerator-tf/blueprint_files.tf` on every release.
+
 ## Self-Hosted Enterprise Chat Agent
 
 ### Self-Hosted Enterprise Chat Agent Small

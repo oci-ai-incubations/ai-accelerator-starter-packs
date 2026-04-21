@@ -82,10 +82,11 @@ All files live flat in `ai-accelerator-tf/tests/` (Terraform does not recurse in
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `core_plan.tftest.hcl`                   | Default plan with `enterprise_rag`, asserts shared outputs (VCN CIDR, endpoint visibility, admin credentials, db username)                      |
 | `core_validations.tftest.hcl`            | 11 `expect_failures` runs testing variable validation blocks (network mode, visibility settings, starter pack category/size, db password rules) |
-| `starter_pack_cuopt.tftest.hcl`          | cuOpt small plan -- deployment name, postflight triggers                                                                                        |
-| `starter_pack_enterprise_rag.tftest.hcl` | Enterprise RAG small plan -- deployment name, postflight triggers                                                                               |
-| `starter_pack_paas_rag.tftest.hcl`       | PaaS RAG small plan -- deployment name, postflight triggers, db username                                                                        |
-| `starter_pack_vss.tftest.hcl`            | VSS small plan -- deployment name, postflight triggers                                                                                          |
+| `starter_pack_cuopt.tftest.hcl`               | cuOpt small plan -- deployment name, postflight triggers                                                                                       |
+| `starter_pack_enterprise_rag.tftest.hcl`      | Enterprise RAG small plan -- deployment name, postflight triggers                                                                              |
+| `starter_pack_paas_rag.tftest.hcl`            | PaaS RAG small plan -- deployment name, postflight triggers, db username                                                                       |
+| `starter_pack_vss.tftest.hcl`                 | VSS small plan -- deployment name, postflight triggers                                                                                         |
+| `starter_pack_warehouse_pick_path.tftest.hcl` | Warehouse Pick Path small plan -- deployment name, postflight triggers, db username                                                            |
 
 For details on what can and cannot be tested at plan time, how to add or modify tests, and boilerplate to copy -- see **[ai-accelerator-tf/tests/RULES.md](../ai-accelerator-tf/tests/RULES.md)**.
 
@@ -95,7 +96,7 @@ For details on what can and cannot be tested at plan time, how to add or modify 
 
 ### What They Test
 
-Schema tests validate the OCI Resource Manager YAML schemas generated for each starter pack category (cuopt, vss, paas_rag, enterprise_rag). They check:
+Schema tests validate the OCI Resource Manager YAML schemas generated for each starter pack category (cuopt, vss, paas_rag, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path). They check:
 
 - **Structure** -- required top-level keys exist (`title`, `variables`, `outputGroups`, etc.)
 - **Meta-schema conformance** -- each schema validates against the OCI meta schema (JSON Schema Draft 7)

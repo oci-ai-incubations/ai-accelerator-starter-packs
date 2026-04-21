@@ -17,6 +17,7 @@ Each starter pack is a pre-configured AI workload that deploys onto the OKE clus
 | **Managed Enterprise Chat Agent** | `paas_rag` | Enterprise RAG chat with document upload, vector search, and cited answers — powered by OCI GenAI PaaS + Oracle 26ai | No |
 | **Self-Hosted Enterprise Chat Agent** | `enterprise_rag` | Enterprise RAG chat — auto-crawls web + internal data, builds a vector index, answers business questions with citations on OCI NVIDIA GPUs | Yes |
 | **Agentic AI Starter Kit** | `enterprise_rag_aiq` | Full-stack agentic AI environment powered by NVIDIA AIQ — reasoning models, vector DB, observability, and application layer | Yes |
+| **Warehouse Pick Path Optimizer** | `warehouse_pick_path` | Capacity-aware pick-path planner for Oracle WMS batches using NVIDIA cuOpt on GPU, with a web UI for uploads, optimise runs, and CSV export of solutions | Yes |
 
 Each pack comes in **small** and **medium** sizes. See [`SOFTWARE_VERSIONS.md`](SOFTWARE_VERSIONS.md) for the complete list of container images and versions deployed by each pack.
 
@@ -71,6 +72,7 @@ pip3 install -r requirements.txt
 - paas_rag == Enterprise Knowledge Chat Agent - Managed AI Models
 - enterprise_rag == Enterprise Knowledge Chat Agent - Self-Hosted AI Models
 - enterprise_rag_aiq == Enterprise Agentic AI Starter Kit
+- warehouse_pick_path == Warehouse Pick Path Optimizer
 
 ```bash
 python3 create_final_schema.py -c cuopt
@@ -187,7 +189,7 @@ terraform destroy
 | `corrino_admin_username` | Admin username for the OCI AI Blueprints portal |
 | `corrino_admin_password` | Admin password (min 8 chars, 1 uppercase, 1 special char) |
 | `corrino_admin_email` | Admin email address |
-| `starter_pack_category` | One of: `cuopt`, `vss`, `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq` |
+| `starter_pack_category` | One of: `cuopt`, `vss`, `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `warehouse_pick_path` |
 
 ### Key Optional Variables
 

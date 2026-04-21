@@ -107,6 +107,23 @@ Table with a list of sizes and supported packs.
 
 Other necessary VNET , public IP, load balancers and subnets are required.
 
+## Warehouse Pick Path Optimizer
+
+### Deployment Sizes & Services Required
+
+| Deployment Size | Component                               | Requirements                        | SKU                                | Specs                | Quantity |
+| --------------- | --------------------------------------- | ----------------------------------- | ---------------------------------- | -------------------- | -------- |
+| **SMALL**       | OCI Core Compute                        | Nvidia A10 24 GB GPU                | VM.GPU.A10.1                       | 1 GPU                | 1        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64   | 2        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=8, memory=64   | 1        |
+|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 150 GB               | 1        |
+|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                   | 1        |
+|                 | OCI Services                            | Oracle 26 AI Autonomous Database    | NA                                 | 4 ECPU, 2 TB storage | 1        |
+|                 | NVIDIA AI Enterprise License & Software | cuOpt Libraries                     | OCI Billed (attached to # of GPUs) | NA                   | 1        |
+|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                    | NA       |
+
+Other necessary VCN, public IP, load balancers, and subnets are required.
+
 ## Enterprise Agentic AI Starter Kit
 
 ### Deployment Sizes & Services Required
