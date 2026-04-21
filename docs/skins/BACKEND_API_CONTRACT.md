@@ -392,7 +392,89 @@ await fetch(`${import.meta.env.VITE_API_VDB_URL}/documents`, {
 
 ### 3.5 enterprise_rag_aiq (Enterprise Agentic AI Starter Kit)
 
-(to be written)
+#### Catalog summary
+
+enterprise_rag_aiq is a Helm-based pack. It ships one skin; the
+`skin_enterprise_rag_aiq` ORM variable is an enum dropdown whose sole
+option is the NVIDIA AIRA skin today.
+
+| Skin     | Enum variable                | `container_port` | `subdomain` |
+|----------|------------------------------|------------------|-------------|
+| Core App | `skin_enterprise_rag_aiq`    | 3000             | `aiq`       |
+
+Ingress host: `https://aiq.<fqdn>`. Catalog source:
+`ai-accelerator-tf/schemas/frontend_skins.yaml`.
+
+#### Two Helm releases, not one
+
+Terraform deploys **both** the main `rag` Helm release (using
+`helm-values/enterprise-rag-aiq-values.yaml`) AND a separate `aiq-aira`
+Helm release (chart `aiq-aira-v1.2.1.tgz`, values in
+`helm-values/aiq-aira-values.yaml`). The user-facing URL `https://aiq.<fqdn>`
+routes to the `aiq-aira-aira-frontend` service from the `aiq-aira`
+release (see `ai-accelerator-tf/ingress.tf` lines 193–234). The main
+`rag` release's `rag-frontend` is also deployed but is **not** the
+user-facing UI for this pack — skin authors who want to customize the
+AIQ frontend must modify the `aiq-aira` chart values, not the `rag`
+chart values.
+
+Terraform emits the catalog's `frontend.image.{repository,tag}` override
+on **both** releases — on `rag` (`helm.tf` lines 647–654) for symmetry
+with enterprise_rag, and on `aiq-aira` (`helm.tf` lines 771–797) to
+actually reach the user-facing frontend for this pack. The `aiq-aira`
+override is the one that matters for AIQ users; the `rag` override is a
+harmless no-op here. This invariant is locked by
+`ai-accelerator-tf/schemas/tests/test_helm_skin_override.py`.
+
+#### Outbound — ingress paths (Pattern 1)
+
+**This pack does not stitch API paths onto the frontend subdomain.** The
+only ingress rule is `/` → `aiq-aira-aira-frontend:3000`.
+
+#### Outbound — env vars (Pattern 2)
+
+The `aiq-aira` chart's `frontend:` block in
+`helm-values/aiq-aira-values.yaml` does **not** define an `envVars` list
+(unlike the rag chart). The AIQ backend's `backendEnvVars` block
+(`RAG_SERVER_URL`, `RAG_INGEST_URL`, `NEMOTRON_BASE_URL`) reaches the
+backend pod, **not** the frontend container — do not document them as
+frontend-reachable.
+
+**In practice, the frontend's backend endpoints are chart-internal.** A
+drop-in AIQ skin must replicate the upstream `aira-frontend`'s
+assumptions about the backend surface; modifying the backend surface
+requires Helm chart changes, not catalog changes.
+
+#### Worked example
+
+```js
+// The upstream aira-frontend already does its own backend wiring,
+// driven by chart-internal defaults. A drop-in skin has two choices:
+//
+// 1. Ship a frontend that speaks the same internal API as the upstream
+//    aira-frontend (same relative paths the chart already routes).
+// 2. Propose a chart fork / PR upstream that exposes frontend env vars
+//    like enterprise_rag does.
+//
+// Option 1 looks like:
+const resp = await fetch('/api/chat', { method: 'POST', body: ... });
+// where /api/chat is whatever path the aiq-aira chart's internal
+// networking already routes to the AIQ backend.
+```
+
+#### Source of truth
+
+- `ai-accelerator-tf/helm-values/enterprise-rag-aiq-values.yaml` — the
+  main `rag` release's values (backend-side components for the AIQ stack).
+- `ai-accelerator-tf/helm-values/aiq-aira-values.yaml` — the user-facing
+  frontend's values.
+- `ai-accelerator-tf/helm.tf` — both `rag` and `aiq-aira` helm_release
+  blocks with the skin image override (BUG-020 fix).
+- `ai-accelerator-tf/ingress.tf` — the `enterprise_rag_aiq_frontend_ingress`
+  rule that routes `aiq.<fqdn>` to `aiq-aira-aira-frontend:3000`.
+- Upstream charts for advanced config:
+  - `https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz`
+  - `https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq-aira-v1.2.1.tgz`
 
 ## 4. Updating This Doc
 
