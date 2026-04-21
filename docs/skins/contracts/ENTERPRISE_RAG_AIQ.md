@@ -1,15 +1,15 @@
 # enterprise_rag_aiq Pack — Backend API Contract
 
-Companion document to `BACKEND_API_CONTRACT.md`. That file is the multi-pack
+Companion document to [`BACKEND_API_CONTRACT.md`](../BACKEND_API_CONTRACT.md). That file is the multi-pack
 reference organized around skin-access *mechanisms* (ingress paths vs env
 vars). This file is the enterprise_rag_aiq-pack-specific deep dive
 organized around *backend services and their API surface* — what a skin
 author can actually call.
 
-Scope: `starter_pack_category = "enterprise_rag_aiq"`. For cuopt see
-`BACKEND_API_CONTRACT_CUOPT.md`; for enterprise_rag see
-`BACKEND_API_CONTRACT_ENTERPRISE_RAG.md`; for vss / paas_rag see
-`BACKEND_API_CONTRACT.md` §3.2–§3.3.
+Scope: `starter_pack_category = "enterprise_rag_aiq"`. For other packs, see
+[`CUOPT.md`](CUOPT.md), [`VSS.md`](VSS.md),
+[`PAAS_RAG.md`](PAAS_RAG.md),
+[`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md).
 
 ---
 
@@ -79,7 +79,7 @@ Helm pack in the future, extend that constant.
 The pack creates **two groups of services**. Services in the app
 namespace belong to the `rag` release and are identical to what
 `enterprise_rag` deploys — see
-`BACKEND_API_CONTRACT_ENTERPRISE_RAG.md` §2 for the full table. Services
+[`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md) §2 for the full table. Services
 in the AIQ namespace belong to the `aiq-aira` release and are listed
 below.
 
@@ -95,7 +95,7 @@ below.
 ### 2.2 App-namespace services (`helm_release.rag`)
 
 Same chart as the `enterprise_rag` pack — see
-`BACKEND_API_CONTRACT_ENTERPRISE_RAG.md` §2 for the full service list
+[`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md) §2 for the full service list
 — but configured differently by
 `ai-accelerator-tf/helm-values/enterprise-rag-aiq-values.yaml`. The
 AIQ-specific differences that matter for this contract:
@@ -145,7 +145,7 @@ AIQ-specific differences that matter for this contract:
 - **`instruct-llm` requires one additional GPU** beyond the rag stack
   (`aiq-aira-values.yaml:64-68`, `nvidia.com/gpu: 1`). Sizing of the
   full rag stack's GPU requirements is documented in
-  `BACKEND_API_CONTRACT_ENTERPRISE_RAG.md` §2.
+  [`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md) §2.
 - **Tavily search key.** The `aiq-aira` chart mounts
   `tavilyApiSecret.password` (`helm.tf:764-769`) from
   `var.tavily_api_key`; when that var changes, Terraform rolls all
@@ -319,7 +319,7 @@ surface:
   `/v1/summary`, `/v1/configuration`, `/v1/health`, `/v1/metrics`) and
   `ingestor-server` (`/v1/documents`, `/v1/status`, `/v1/collections`,
   `/v1/collection`, `/v1/health`) lives in
-  `BACKEND_API_CONTRACT_ENTERPRISE_RAG.md` §3–§4 and applies unchanged
+  [`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md) §3–§4 and applies unchanged
   here.
 
 If a replacement skin needs direct access to `rag-server` or
@@ -699,7 +699,7 @@ not to call the internal service directly.
 | `aira-backend` NAT-provided routes (`/chat`, `/v1/chat/completions`, `/generate/*`, `/websocket`) | NAT's `FastApiFrontEndPlugin`; entry-point confirmed via `aiq` repo `frontends/ui/server.js:146-197` and `frontends/ui/src/app/api/{chat,generate}/route.ts` |
 | `aira-backend` external path allowlist                         | `aiq` repo — `frontends/aiq_api/src/aiq_api/auth/middleware.py:108-120` (`EXTERNAL_ALLOWED_PATHS`, `AUTH_EXEMPT_PATHS`) |
 | `aira-backend` deploy docs                                     | `aiq` repo — `docs/source/deployment/kubernetes.md`, `docs/source/deployment/docker-compose.md`                  |
-| `rag-server` / `ingestor-server` route reference               | `BACKEND_API_CONTRACT_ENTERPRISE_RAG.md` §3–§4                                                                   |
+| `rag-server` / `ingestor-server` route reference               | [`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md) §3–§4                                                                   |
 | Bearer-token auth story across the pack                        | `docs/API_TOKENS.md`                                                                                              |
 | Swagger UIs (reachable only via port-forward into the cluster) | `aira-backend` `/docs`, `/openapi.json`; `rag-server` `/v1/docs`, `/v2/docs`; `ingestor-server` `/v1/docs`       |
 

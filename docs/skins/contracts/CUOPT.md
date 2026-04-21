@@ -1,6 +1,6 @@
 # cuopt Pack — Backend API Contract
 
-Pack-specific companion to `BACKEND_API_CONTRACT.md`. Scope: every backend
+Pack-specific companion to [`BACKEND_API_CONTRACT.md`](../BACKEND_API_CONTRACT.md). Scope: every backend
 the cuopt pack exposes, the endpoints each backend serves, and how a skin
 (or an external integrator) reaches them.
 
@@ -166,7 +166,7 @@ providers:
 
 Llama Stack exposes both its native API and an OpenAI-compatible layer
 under `/v1`. The table below is the set documented for the same container
-in `BACKEND_API_CONTRACT.md` §3.3 (`paas_rag`) plus the core
+in [`PAAS_RAG.md`](PAAS_RAG.md) plus the core
 OpenAI-compat routes that are standard across Llama Stack releases. All
 are reachable through the cuopt skin's `/v1` catch-all.
 

@@ -1,14 +1,15 @@
 # enterprise_rag Pack — Backend API Contract
 
-Companion document to `BACKEND_API_CONTRACT.md`. That file is the multi-pack
+Companion document to [`BACKEND_API_CONTRACT.md`](../BACKEND_API_CONTRACT.md). That file is the multi-pack
 reference organized around skin-access *mechanisms* (ingress paths vs env
 vars). This file is the enterprise_rag-pack-specific deep dive organized
 around *backend services and their API surface* — what a skin author can
 actually call.
 
-Scope: `starter_pack_category = "enterprise_rag"`. For cuopt see
-`BACKEND_API_CONTRACT_CUOPT.md`; for vss / paas_rag / enterprise_rag_aiq
-see `BACKEND_API_CONTRACT.md` §3.2, §3.3, §3.5.
+Scope: `starter_pack_category = "enterprise_rag"`. For other packs, see
+[`CUOPT.md`](CUOPT.md), [`VSS.md`](VSS.md),
+[`PAAS_RAG.md`](PAAS_RAG.md),
+[`ENTERPRISE_RAG_AIQ.md`](ENTERPRISE_RAG_AIQ.md).
 
 ---
 
