@@ -316,7 +316,79 @@ const reply = await fetch('/v1/responses', {
 
 ### 3.4 enterprise_rag (Self-Hosted Enterprise Chat Agent)
 
-(to be written)
+#### Catalog summary
+
+enterprise_rag is a Helm-based pack. It ships one skin; the
+`skin_enterprise_rag` ORM variable is an enum dropdown whose sole option
+is the Core App skin today.
+
+| Skin     | Enum variable          | `container_port` | `subdomain`         |
+|----------|------------------------|------------------|---------------------|
+| Core App | `skin_enterprise_rag`  | 3000             | `frontend-erag`     |
+
+Ingress host: `https://frontend-erag.<fqdn>`. Catalog source:
+`ai-accelerator-tf/schemas/frontend_skins.yaml`.
+
+The catalog's `image_uri` is split into `frontend.image.{repository,tag}`
+overrides applied to the `rag` Helm release by Terraform
+(`ai-accelerator-tf/helm.tf` lines 647–654). For enterprise_rag, the
+`rag` release's `rag-frontend` service IS the user-facing frontend —
+ingress routes `https://<starter_pack_url>/` directly to it — so this
+single override is what the user sees.
+
+#### Outbound — ingress paths (Pattern 1)
+
+**This pack does not stitch API paths onto the frontend subdomain.** The
+only ingress rule is `/` → `rag-frontend:3000`. The frontend uses
+Pattern 2 env vars to reach the backend services.
+
+#### Outbound — env vars (Pattern 2)
+
+Set by the `frontend.envVars` block in
+`ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` (lines 384–392).
+Defaults:
+
+| Env var              | Value                                |
+|----------------------|--------------------------------------|
+| `VITE_API_CHAT_URL`  | `http://rag-server:8081/v1`          |
+| `VITE_API_VDB_URL`   | `http://ingestor-server:8082/v1`     |
+| `VITE_MILVUS_URL`    | `http://milvus:19530`                |
+
+These are in-cluster service DNS names. The frontend is a Vite-built SPA
+served by the chart's `rag-frontend` container. Env vars are baked in at
+build time by the chart, not injected by Terraform. If NVIDIA ships new
+env vars in a future chart version, they will appear in the same
+`frontend.envVars` block.
+
+#### Worked example
+
+```js
+// Browser — chat completion against the rag-server.
+// Note: this call is made from inside the frontend's Node/Vite runtime,
+// which reads VITE_API_CHAT_URL at build time and embeds it.
+const reply = await fetch(`${import.meta.env.VITE_API_CHAT_URL}/chat`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ messages, model }),
+});
+
+// Server-side (Vite's SSR path, if used) — upload a document.
+const body = new FormData();
+body.append('file', file);
+await fetch(`${import.meta.env.VITE_API_VDB_URL}/documents`, {
+  method: 'POST',
+  body,
+});
+```
+
+#### Source of truth
+
+- `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` — the
+  `frontend.envVars` block and the chart's `frontend.*` defaults.
+- `ai-accelerator-tf/helm.tf` — the `rag` helm_release with the skin
+  image override.
+- Upstream chart for advanced config:
+  `https://helm.ngc.nvidia.com/nvidia/blueprint/charts/nvidia-blueprint-rag-v2.3.0.tgz`.
 
 ### 3.5 enterprise_rag_aiq (Enterprise Agentic AI Starter Kit)
 
