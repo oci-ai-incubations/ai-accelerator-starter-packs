@@ -64,12 +64,13 @@ is CPU-only.
   `port 80` → container `targetPort 8321`. External traffic reaches it via
   either (a) the frontend skin's stitched `/v1/*` ingress paths (Pattern 1),
   or (b) `llamastack`'s own Corrino-rendered ingress at
-  `<canonical-name>.<fqdn>` (optionally API-key-gated — see §5.3).
+  `https://llamastack.<fqdn>/` (optionally API-key-gated — see §5.3).
 - Enabled llama-stack APIs at runtime:
   `agents, datasetio, eval, files, inference, safety, scoring, tool_runtime, vector_io`
-  (declared at `files/llamastack_paas_config.yaml:3-12`). Safety is listed
-  in `apis:` but the safety provider block is commented out, so
-  `/v1/safety/*` and `/v1/moderations` will return 501 / empty.
+  (declared at `files/llamastack_paas_config.yaml:3-12`). Safety is
+  listed under `apis:` but the safety provider block is commented out,
+  so `/v1/safety/*`, `/v1/moderations`, and `/v1/shields/*` register
+  without a usable implementation (see §10).
 - Registered tool groups at boot:
   - `builtin::websearch` → Tavily (requires `TAVILY_SEARCH_API_KEY`, not
     set by default).
@@ -89,7 +90,7 @@ is the frontend's own origin (Pattern 1, see §5.1).
   `port 80` → container `targetPort 8321`).
 - **External address (via skin):** `https://frontend-paas.<fqdn>/v1/...`
   (Pattern 1; see §5.1).
-- **External address (backend's own ingress):** `https://<llamastack-canonical>.<fqdn>/`
+- **External address (backend's own ingress):** `https://llamastack.<fqdn>/`
   (optionally API-key-gated; see §5.3).
 - **URL prefix:** all routes are mounted under `/v1` (legacy `@webmethod`
   routes) or `/v1alpha` / `/v1beta` for experimental endpoints.
@@ -110,13 +111,38 @@ is the frontend's own origin (Pattern 1, see §5.1).
 - **OpenAPI / Swagger:** `GET /v1/docs`, `GET /v1/openapi.json` (served by
   the FastAPI app at runtime; reachable through the skin's `/v1` catch-all).
 
+### 2.0 Transport, authentication, and limits
+
+All four items below are load-bearing for anyone integrating with the
+llamastack backend. They are fixed by the runtime config and the
+Corrino/ingress wiring, not by any skin-side choice.
+
+| Concern                | Value in paas_rag                                                         | Where it is decided                                                                                           |
+|------------------------|----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| Authentication         | **Disabled.** No `Authorization` header is required or parsed.             | `files/llamastack_paas_config.yaml` has no `server.auth` block; `core/server/server.py:425-438` only installs `AuthenticationMiddleware` when one is present. |
+| CORS                   | **Disabled.** Cross-origin browser requests to `llamastack` will fail preflight. Pattern 1 (§5.1) is same-origin and therefore unaffected. | Same file has no `server.cors` block; `core/server/server.py:469-473` only installs `CORSMiddleware` when one is present. |
+| Max request body       | **2 GB** (`nginx.ingress.kubernetes.io/proxy-body-size: 2000m`), applied by Corrino's ingress template to every recipe's ingress. | `corrino/api/control_plane/digest.py:1256-1257` (default) + `corrino/api/manifests/templates/recipe_ingress_template.yaml:8`. |
+| Error shape            | FastAPI default — `{"detail": "<message>"}` with an HTTP status code. Some routes (e.g. Responses) re-map `ValueError` → 400. | `src/llama_stack_api/agents/fastapi_routes.py:118-138`.                                                       |
+
+**Consequence:** a skin that lives at `frontend-paas.<fqdn>` calls the
+stitched `/v1/*` paths with no `Authorization` header, no CORS preflight,
+and up to 2 GB per request body. A tool running outside the cluster that
+wants to reach llamastack's own ingress (§5.3) faces the optional ingress
+API-key gate but, once past that, also encounters an unauthenticated
+server.
+
 ### 2.1 OpenAI-compatible inference
 
-The primary LLM surface. Backed by `remote::oci` → OCI Generative AI. The
-set of usable `model` values is whatever OCI GenAI exposes in the region
-selected by `var.genai_region` — the pack does not pre-register any models
-(`registered_resources.models: []`), so `GET /v1/models` returns the
-provider's live listing.
+The primary LLM surface. Backed by `remote::oci` → OCI Generative AI in
+the region selected by `var.genai_region`. No models are pre-registered
+(`registered_resources.models: []`), so a skin should treat `GET /v1/models`
+as the authoritative source for usable `model` IDs and not hard-code
+model names.
+
+Router source: `src/llama_stack_api/models/fastapi_routes.py` (prefix
+`/v1`), plus `src/llama_stack_api/inference/fastapi_routes.py` for
+`/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, and the
+experimental `/v1alpha/inference/rerank`.
 
 | Method | Path                                      | Purpose                                                                                                                        |
 |--------|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
@@ -142,18 +168,19 @@ vector store. Backed by `remote::s3` against OCI Object Storage
 (`S3_ENDPOINT_URL` is the per-region S3-compat host; `S3_BUCKET_NAME` is
 the bucket Terraform provisions in `object_storage.tf`).
 
-| Method | Path                            | Purpose                                                                                                |
-|--------|---------------------------------|--------------------------------------------------------------------------------------------------------|
-| POST   | `/v1/files`                     | Upload a file (multipart form, field name `file`). Returns an `OpenAIFileObject` with an `id`.          |
-| GET    | `/v1/files`                     | List files. Query: `limit`, `order`, `after`, `before`, `purpose`.                                      |
-| GET    | `/v1/files/{file_id}`           | Retrieve file metadata.                                                                                 |
-| DELETE | `/v1/files/{file_id}`           | Delete a file.                                                                                          |
-| GET    | `/v1/files/{file_id}/content`   | Download raw file content.                                                                              |
+| Method | Path                            | Purpose                                                                                                                                       |
+|--------|---------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| POST   | `/v1/files`                     | Upload a file. Multipart form: required `file` (binary) and `purpose` (enum: `assistants` \| `batch`); optional `expires_after`. Returns `OpenAIFileObject` with `id`. |
+| GET    | `/v1/files`                     | List files. Query: `limit`, `order`, `after`, `purpose`.                                                                                       |
+| GET    | `/v1/files/{file_id}`           | Retrieve file metadata.                                                                                                                        |
+| DELETE | `/v1/files/{file_id}`           | Delete a file.                                                                                                                                 |
+| GET    | `/v1/files/{file_id}/content`   | Download raw file content.                                                                                                                     |
 
-Files metadata lives in the `files_metadata` SQL table on the
-llamastack-local SQLite store (`db_path = /sqlite-store/sql_store.db`,
-set via `SQLITE_STORE_DIR`). Object bytes live in the OCI Object Storage
-bucket.
+Router source: `src/llama_stack_api/files/fastapi_routes.py` (prefix `/v1`).
+Purpose enum: `src/llama_stack_api/files/models.py:16-22`. Files metadata
+lives in the `files_metadata` SQL table on the llamastack-local SQLite
+store (`db_path = /sqlite-store/sql_store.db`, set via `SQLITE_STORE_DIR`).
+Object bytes live in the OCI Object Storage bucket.
 
 ### 2.3 Vector stores (Oracle 26ai)
 
@@ -193,55 +220,62 @@ by a skin — see §2.7.
 ### 2.4 Responses API (primary chat-with-retrieval surface)
 
 The OpenAI Responses API is the pack's advertised primary chat endpoint,
-and it is the path-stitched one the skin's frontend should prefer. It
-supports tool calling (including the file-search tool that queries a
-vector store), built-in toolgroups (`builtin::websearch`, `builtin::rag`),
-and streaming.
+and it is one of the explicitly path-stitched prefixes on the frontend's
+ingress. Streaming uses SSE; the schema of streaming events is the full
+OpenAI Responses event taxonomy (see
+`src/llama_stack_api/openai_responses.py:1387-1426`). Supports the
+file-search tool against vector stores and function-calling tools.
 
 | Method | Path                                 | Purpose                                                                       |
 |--------|--------------------------------------|-------------------------------------------------------------------------------|
 | POST   | `/v1/responses`                      | Create a response (optionally streaming, with tools).                         |
-| GET    | `/v1/responses`                      | List responses on the server (from the `responses` SQL table).                |
+| GET    | `/v1/responses`                      | List responses on the server.                                                 |
 | GET    | `/v1/responses/{response_id}`        | Retrieve a response by id.                                                    |
 | DELETE | `/v1/responses/{response_id}`        | Delete a response.                                                            |
 | GET    | `/v1/responses/{response_id}/input_items` | Retrieve the input items that produced a response.                        |
 
+Router source: `src/llama_stack_api/agents/fastapi_routes.py` (prefix
+`/v1`). Response schemas: `src/llama_stack_api/openai_responses.py`.
 Persistence: the `responses` SQL table in the llamastack-local SQL store
-(`files/llamastack_paas_config.yaml:45-49`).
+(configured at `files/llamastack_paas_config.yaml:45-49` via the
+meta-reference agents provider).
 
 ### 2.5 Health and metadata
 
-| Method | Path              | Purpose                                                                                          |
-|--------|-------------------|--------------------------------------------------------------------------------------------------|
-| GET    | `/v1/health`      | Liveness. Returned as a plain OK response; no auth. Public route (`PUBLIC_ROUTE_KEY = x-public`).|
-| GET    | `/v1/version`     | Server version.                                                                                  |
-| GET    | `/v1/inspect/routes` | Registered routes (introspection).                                                            |
-| GET    | `/v1/providers`   | List provider instances (inference, vector_io, files, agents, ...).                              |
-| GET    | `/v1/providers/{provider_id}` | Provider details.                                                                   |
+| Method | Path                           | Purpose                                                                                          |
+|--------|--------------------------------|--------------------------------------------------------------------------------------------------|
+| GET    | `/v1/health`                   | Liveness probe. Tagged `PUBLIC_ROUTE_KEY = x-public`; in paas_rag this distinction is moot because auth is off (§2.0), but the tag matters if auth is ever enabled. |
+| GET    | `/v1/version`                  | Server version. Also tagged `PUBLIC_ROUTE_KEY`.                                                  |
+| GET    | `/v1/inspect/routes`           | Registered routes (introspection). Query `api_filter` = `v1` \| `v1alpha` \| `v1beta` \| `deprecated`. |
+| GET    | `/v1/providers`                | List provider instances (inference, vector_io, files, agents, …).                                |
+| GET    | `/v1/providers/{provider_id}`  | Provider details.                                                                                 |
 
-### 2.6 Additional Llama Stack endpoints under `/v1`
+Router source: `src/llama_stack_api/inspect_api/fastapi_routes.py`,
+`src/llama_stack_api/providers/fastapi_routes.py` (both prefix `/v1`).
 
-Llama Stack also exposes non-OpenAI routes that are reachable through the
-frontend skin's `/v1` catch-all prefix. These are not explicitly
-listed in `_paas_rag_frontend_deployments`, but because the last ingress
-entry is `path = "/v1", path_type = "Prefix"`, every `/v1/*` path the
-llamastack server registers is forwarded. The core extras (not exhaustive —
-see `src/llama_stack_api/*/fastapi_routes.py`):
+### 2.6 Additional Llama Stack endpoints reachable via the `/v1` catch-all
 
-| Namespace                       | Representative routes                                                     | Notes                                                       |
-|---------------------------------|---------------------------------------------------------------------------|-------------------------------------------------------------|
-| Conversations                   | `POST /v1/conversations`, `GET /v1/conversations/{id}`                    | Persisted in the `openai_conversations` SQL table.          |
-| Agents                          | `POST /v1/agents`, `POST /v1/agents/{id}/sessions`                        | `meta-reference` provider; state in `agents` KV.            |
-| Tool runtime                    | `POST /v1/tool-runtime/invoke`, `GET /v1/tool-runtime/list-tools`         | Deprecated `/v1/toolgroups` and `/v1/tools` also still present (see `src/llama_stack_api/tools.py`). |
-| Eval                            | `POST /v1/eval/benchmarks/{benchmark_id}/jobs`, `GET /v1/eval/...`        | Dev/test surface, not intended for production UIs.          |
-| Scoring                         | `POST /v1/scoring/score`, `POST /v1/scoring/score-batch`                  | Dev/test surface.                                           |
-| Shields                         | `GET /v1/shields`, `POST /v1/shields`, `DELETE /v1/shields/{id}`          | Safety provider is disabled in paas_rag — routes resolve but no shields run. |
-| Safety                          | `POST /v1/safety/run-shield`, `POST /v1/moderations`                      | Same caveat as above.                                       |
-| Batches                         | `POST /v1/batches`, `GET /v1/batches`, `GET /v1/batches/{id}`             | Experimental.                                               |
+Llama Stack also exposes non-OpenAI routes at `/v1`. These are not
+explicitly stitched by `_paas_rag_frontend_deployments`, but because the
+last stitched entry is `path = "/v1", path_type = "Prefix"`, every
+`/v1/*` path the server registers is forwarded. Listing only what a skin
+can reasonably plan against; developer-only surfaces are in §2.7.
+
+| Namespace      | Routes                                                                                                                                                     | Notes                                                                                 |
+|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| Conversations  | `POST /v1/conversations`, `GET/POST/DELETE /v1/conversations/{id}`, `POST /v1/conversations/{id}/items`, `GET /v1/conversations/{id}/items[/{item_id}]`, `DELETE /v1/conversations/{id}/items/{item_id}` | Persisted in the `openai_conversations` SQL table. Router: `src/llama_stack_api/conversations/fastapi_routes.py`. |
+| Tool runtime   | `POST /v1/tool-runtime/invoke`, `GET /v1/tool-runtime/list-tools`                                                                                          | Deprecated aliases `/v1/toolgroups`, `/v1/tools` still resolve (marked `deprecated=True` at `src/llama_stack_api/tools.py:112-212`). |
 
 A skin that sticks to the explicitly stitched paths (`/v1/models`,
-`/v1/health`, `/v1/responses`, `/v1/vector_stores`, `/v1/files`) plus the
-`/v1` catch-all is future-proof against the ordering quirk noted in §5.1.
+`/v1/health`, `/v1/responses`, `/v1/vector_stores`, `/v1/files`,
+`/v1/chat/completions`, `/v1/embeddings`, `/v1/conversations`) is covered
+by both a specific stitch and/or the `/v1` catch-all.
+
+> Note — the Llama Stack Agents API (`/v1/agents`, sessions, turns) is
+> **not** exposed in this fork. The `agents/fastapi_routes.py` router
+> registers only the Responses routes in §2.4. Any documentation that
+> mentions `/v1/agents` from upstream llama-stack does not apply to this
+> deployment.
 
 ### 2.7 Endpoints not to call from a skin
 
@@ -249,21 +283,27 @@ A skin that sticks to the explicitly stitched paths (`/v1/models`,
   insert / query. Bypasses file-based chunking, attribute filters, and
   citation formatting. Use `/v1/vector_stores/{id}/files` and
   `/v1/vector_stores/{id}/search` instead.
-- **`/v1alpha/*` and `/v1beta/*`** — experimental surfaces. Not stitched
-  onto the frontend ingress and may change without notice. `/v1alpha/inference/rerank`
-  is the only one likely to tempt skin authors; if you need reranking,
-  rely on the vector store's built-in reranker
-  (`files/llamastack_paas_config.yaml:186-188`) rather than calling the
-  endpoint directly.
-- **`/v1/metrics`** (if enabled in a future release) — Prometheus scrape
-  target, not a UI contract.
+- **`/v1alpha/*`, `/v1beta/*`** — experimental surfaces. Not stitched
+  onto the frontend ingress and subject to change. `/v1alpha/inference/rerank`
+  is the only one likely to tempt skin authors; prefer the vector
+  store's built-in reranker (`files/llamastack_paas_config.yaml:186-188`).
 - **`/v1/safety/*`, `/v1/moderations`, `/v1/shields/*`** — the safety
-  provider is commented out in the paas_rag config, so these routes
-  return empty / error. Do not wire a skin to expect them.
+  provider is commented out in the paas_rag config. The `safety` API is
+  still listed under `apis:`, so the routes register, but with no
+  provider bound they are not expected to produce useful results. Treat
+  them as absent. See §10 for the exact failure mode (unverified).
 - **`/v1/eval/*`, `/v1/scoring/*`, `/v1/datasets/*`, `/v1/datasetio/*`,
-  `/v1/post_training/*`, `/v1/benchmarks/*`** — developer / research
-  surfaces. They work, but they are not a product contract for a
+  `/v1/post_training/*`, `/v1/benchmarks/*`, `/v1/batches/*`,
+  `/v1/connectors/*`, `/v1/prompts/*`** — developer / research /
+  experimental surfaces. They register (the respective APIs are enabled
+  in the runtime config) but are not a product contract for a
   user-facing skin.
+- **`/v1/inspect/routes`, `/v1/providers`, `/v1/providers/{id}`** —
+  operator introspection. Safe to call but not part of the skin
+  contract; may churn with llama-stack version bumps.
+- **`/v1/models` POST and DELETE** — `register_model` / `unregister_model`
+  are marked `deprecated=True` (`src/llama_stack_api/models/fastapi_routes.py:83, 97`).
+  Only the two GET variants are in the contract.
 
 ---
 
@@ -287,11 +327,11 @@ generated `nip.io` domain (default) or a user-supplied FQDN if
 These are *not* deployments in the Corrino blueprint group, but a skin
 cannot be reasoned about without them.
 
-| Resource                       | Provisioned by                                           | How `llamastack` reaches it                                                                                |
-|--------------------------------|----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| Oracle 26ai Autonomous DB      | `ai-accelerator-tf/26ai.tf` (ADB resource + HIGH wallet) | `OCI26AI_CONNECTION_STRING` (HIGH TNS alias), `OCI26AI_USER = var.db_username`, `OCI26AI_PASSWORD = var.db_password`. Walletless via `oracledb` thick client defaults. |
-| OCI Object Storage bucket      | `ai-accelerator-tf/object_storage.tf`                    | `S3_ENDPOINT_URL` = regional S3-compat host, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` = customer secret keys, `S3_BUCKET_NAME` = bucket name. |
-| OCI Generative AI service      | Managed by OCI; selected via `var.genai_region`          | `OCI_COMPARTMENT_OCID`, `OCI_REGION`, `OCI_AUTH_TYPE=instance_principal` — llamastack pod uses the OKE node's instance-principal identity. |
+| Resource                       | Provisioned by                                           | How `llamastack` reaches it                                                                                                                                                                   |
+|--------------------------------|----------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Oracle 26ai Autonomous DB      | `ai-accelerator-tf/26ai.tf`                              | `OCI26AI_CONNECTION_STRING` is a TCPS URL of the form `tcps://<private_endpoint>:1521/<high_service_name>` — walletless, targeting the `HIGH` consumer group via the ADB private endpoint (`26ai.tf:73`). `OCI26AI_USER` = `var.db_username`, `OCI26AI_PASSWORD` = `var.db_password`. |
+| OCI Object Storage bucket      | `ai-accelerator-tf/object_storage.tf`                    | `S3_ENDPOINT_URL` = `https://<object-storage-namespace>.compat.objectstorage.<region>.oci.customer-oci.com`, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` = customer secret keys, `S3_BUCKET_NAME` = bucket name, `AWS_REGION` = `var.region`. |
+| OCI Generative AI service      | Managed by OCI; selected via `var.genai_region`          | `OCI_COMPARTMENT_OCID`, `OCI_REGION`, `OCI_AUTH_TYPE=instance_principal` — the llamastack pod uses the OKE node's instance-principal identity (`src/llama_stack/providers/remote/inference/oci/oci.py:85-104`). |
 
 Environment variables reaching `llamastack` at deploy time:
 `blueprint_files.tf:1482-1497`. Mounted Secret carrying the runtime
@@ -349,16 +389,16 @@ need to.
 
 ### 5.3 Optional API-key gating on the backend's own ingress
 
-Each Corrino recipe is rendered into its own Kubernetes Ingress keyed on
-the recipe's canonical name (see
-`corrino/api/manifests/templates/recipe_ingress_template.yaml`;
+Every Corrino recipe is rendered into its own Kubernetes Ingress with a
+host derived from the recipe's canonical name
+(`corrino/api/manifests/templates/recipe_ingress_template.yaml`;
 `corrino/api/control_plane/digest.py:860-898` for subdomain resolution
-when `service_endpoint_subdomain` is not set). That means `llamastack`
-has a standalone HTTPS host of the form
-`https://<llamastack-canonical>.<fqdn>/` in addition to its in-cluster
-ClusterIP. The `_paas_rag_frontend_deployments` list does not declare a
-subdomain for the backend, so the subdomain defaults to the canonical
-name Corrino assigns at deploy time.
+when `service_endpoint_subdomain` is not set). The canonical name comes
+from `deployment_name` (`digest.py:396`). For the paas_rag llamastack
+recipe, `deployment_name = "llamastack"`
+(`blueprint_files.tf:1475`) and `service_endpoint_subdomain` is not set,
+so the backend's standalone HTTPS host is
+**`https://llamastack.<fqdn>/`** in addition to its in-cluster ClusterIP.
 
 When `var.add_api_key_to_ingress = true`, the `llamastack` recipe inherits
 two nginx annotations threaded in via
@@ -372,16 +412,26 @@ two nginx annotations threaded in via
 
 The validator (`ai-accelerator-tf/app-ingress-auth.tf`) is a minimal
 nginx pod that returns 200 when the inbound request carries
-`Authorization: Bearer <var.ingress_api_key>` and 401 otherwise. This
-protects the backend's own hostname but **does not** protect the
-stitched `/v1/*` paths on the frontend host — the frontend is classified
-as an "open" ingress in `app-ingress-auth.tf:6-13`. Skin authors
-consuming via Pattern 1 should therefore not expect Bearer-token auth on
-`/v1/*` calls made from the skin's subdomain.
+`Authorization: Bearer <var.ingress_api_key>` and 401 otherwise. The
+`auth-url` applies to every path on the ingress, including `/v1/health`.
 
-Frontend ingress (`frontend-paas.<fqdn>`): no auth annotation, no API
-key. Backend ingress (`<llamastack-canonical>.<fqdn>`): API-key-gated
-when the flag is on. See `docs/API_TOKENS.md` for the token model.
+Notes for integrators:
+
+- **The frontend ingress stays open.** `frontend-paas.<fqdn>` is
+  classified as "open" in `app-ingress-auth.tf:6-13`, so the stitched
+  `/v1/*` paths (§5.1) carry **no** API-key requirement even when the
+  flag is on. A skin's browser calls do not need to supply a Bearer
+  token.
+- **llama-stack's own auth is off in paas_rag** (§2.0). Once the
+  ingress validator (if enabled) lets a request through, the backend
+  serves it without any further auth check.
+- **Do not cross-origin the backend hostname from a browser.** CORS
+  middleware is disabled server-side (§2.0), so a browser call from
+  `frontend-paas.<fqdn>` to `llamastack.<fqdn>` will fail preflight.
+  Same-origin calls via §5.1 are the only supported browser path;
+  cross-origin access is a server-side / CLI use case.
+
+See `docs/API_TOKENS.md` for the token model.
 
 ---
 
@@ -393,10 +443,10 @@ that the browser calls its own origin (Pattern 1).
 ### 6.1 Browser — list models and get a chat response
 
 ```js
-// Health probe; public, no auth.
+// Health probe.
 const ok = await fetch('/v1/health').then(r => r.ok);
 
-// Model list.
+// Resolve a valid model ID at runtime — do not hard-code.
 const models = await fetch('/v1/models').then(r => r.json());
 const modelId = models.data[0].id;
 
@@ -473,13 +523,16 @@ await fetch(`/v1/vector_stores/${store.id}/files`, {
   body: JSON.stringify({ file_id: fileId }),
 });
 
-// Step 4: poll until status is 'completed'.
+// Step 4: poll until status leaves `in_progress`. The full enum is
+//   `completed | in_progress | cancelled | failed`
+// (src/llama_stack_api/vector_io/models.py:377).
 async function waitReady(storeId, fileId) {
   while (true) {
     const f = await fetch(`/v1/vector_stores/${storeId}/files/${fileId}`)
       .then(r => r.json());
     if (f.status === 'completed') return f;
     if (f.status === 'failed')    throw new Error(f.last_error?.message ?? 'failed');
+    if (f.status === 'cancelled') throw new Error('ingestion cancelled');
     await new Promise(res => setTimeout(res, 2000));
   }
 }
@@ -514,9 +567,9 @@ const answer = await fetch('/v1/responses', {
 ### 6.5 OpenAI SDK (browser) — point `baseURL` at the same origin
 
 Because the pack stitches `/v1/*` onto the skin's host, an unmodified
-OpenAI SDK works with `baseURL: '/v1'`. Key caveat: the `apiKey` is
-ignored by llamastack for Pattern 1 traffic, but the SDK requires *some*
-non-empty string.
+OpenAI SDK works with `baseURL: '/v1'`. The `apiKey` the SDK attaches as
+`Authorization: Bearer …` is ignored server-side (auth is off, §2.0), but
+the SDK constructor requires *some* non-empty string.
 
 ```js
 import OpenAI from 'openai';
@@ -527,32 +580,34 @@ const client = new OpenAI({
   dangerouslyAllowBrowser: true,
 });
 
-// Works — hits llamastack via the /v1/chat/completions stitch.
+// Resolve a valid model ID first — do not hard-code; see §2.1.
+const { data: models } = await client.models.list();
+const modelId = models[0].id;
+
+// Hits llamastack via the /v1/chat/completions stitch.
 const reply = await client.chat.completions.create({
-  model: 'cohere.command-r-plus',
+  model: modelId,
   messages: [{ role: 'user', content: 'Hello, world.' }],
 });
 
-// Works — hits /v1/vector_stores/.../search.
+// Hits /v1/vector_stores/.../search via the /v1/vector_stores stitch.
 const res = await client.vectorStores.search(storeId, {
   query: 'onboarding',
   max_num_results: 3,
 });
 ```
 
-### 6.6 curl — verify from an admin workstation via the backend's own hostname
+### 6.6 curl — verify from outside the cluster via the backend's own hostname
 
 Assumes `var.add_api_key_to_ingress = true` and the deployer has the
-effective key.
+effective key. The ingress validator gates every path; once it lets the
+request through, llama-stack itself does no further auth check (§2.0).
 
 ```bash
-LLAMA=https://<llamastack-canonical>.<fqdn>      # from deploy output / kubectl get ing
+LLAMA=https://llamastack.<fqdn>
 KEY=<effective ingress_api_key>
 
-# Protected by the API-key validator (§5.3).
 curl -s -H "Authorization: Bearer $KEY" $LLAMA/v1/health
-# Public route inside llamastack — but the ingress auth-url still applies.
-
 curl -s -H "Authorization: Bearer $KEY" $LLAMA/v1/models | jq .
 ```
 
@@ -573,12 +628,13 @@ of the pack's advertised frontend surface.
 | OCI Object Storage (S3-compat API, `customer-oci.com` host)                         | Blob store for uploaded files. Goes through `/v1/files`. `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` live only on the pod. |
 | OCI Generative AI service (direct `GenerativeAI` API calls)                         | Upstream inference provider. `llamastack` fronts it; skins use `/v1/chat/completions`, `/v1/embeddings`, etc.    |
 | `llamastack` ClusterIP (`<llamastack.service_name>:80`)                             | In-cluster only. Nothing external should be wired to the service name.                                          |
-| `llamastack` backend ingress (`<llamastack-canonical>.<fqdn>`)                      | Operational / admin surface — API-key-gated when enabled. Skins should not cross-origin it; use Pattern 1 paths. |
+| `llamastack` backend ingress (`llamastack.<fqdn>`)                                  | Operational / admin surface — optionally API-key-gated (§5.3). Browsers cannot reach it cross-origin (CORS off, §2.0). Skins use Pattern 1 paths. |
 | `/v1/vector-io/insert`, `/v1/vector-io/query`                                       | Low-level chunk API. Use the OpenAI Vector Stores API instead.                                                   |
 | `/v1alpha/*`, `/v1beta/*`                                                           | Experimental endpoints. Not stitched onto the frontend ingress.                                                  |
-| `/v1/safety/*`, `/v1/moderations`, `/v1/shields/*`                                  | Safety provider is disabled in the runtime config. Routes exist but do nothing meaningful.                       |
-| `/v1/eval/*`, `/v1/scoring/*`, `/v1/datasets/*`, `/v1/datasetio/*`, `/v1/post_training/*`, `/v1/benchmarks/*` | Developer / research surfaces. Not a product contract for a user-facing skin.                            |
-| `/v1/metrics` (if enabled in a future release)                                      | Prometheus scrape target. Not a UI contract.                                                                     |
+| `/v1/safety/*`, `/v1/moderations`, `/v1/shields/*`                                  | Safety provider is commented out in the runtime config. Routes register but are not usable.                      |
+| `/v1/eval/*`, `/v1/scoring/*`, `/v1/datasets/*`, `/v1/datasetio/*`, `/v1/post_training/*`, `/v1/benchmarks/*`, `/v1/batches/*`, `/v1/connectors/*`, `/v1/prompts/*` | Developer / research / experimental surfaces. Not a product contract.                           |
+| `/v1/models` POST and DELETE (`register_model`, `unregister_model`)                 | Marked `deprecated=True` at `src/llama_stack_api/models/fastapi_routes.py:83, 97`.                               |
+| `/v1/inspect/routes`, `/v1/providers`, `/v1/providers/{id}`                         | Operator introspection. Not a stable contract for UIs.                                                           |
 | The `llamastack-paas-config` K8s Secret (`/config/config.yaml`)                     | Provider configuration. Read-only from the pod; edited only by Terraform.                                        |
 | The 500 GB `ls-sqlite` PVC at `/sqlite-store`                                       | Persistent metadata / KV / SQL store. No API exposes it directly; retained only between rolling restarts (`retain_after_undeploy = false`). |
 | Corrino REST API (`/deployment/`, `/deploy/`, `/validate/`, `/workspace/`)          | Control-plane API for the starter pack. Not exposed on the pack's public domain.                                 |
@@ -608,7 +664,10 @@ not to call the internal service directly.
 | Pack schema (ORM form)                                | `ai-accelerator-tf/schemas/paas_rag_schema.yaml`                                                                             |
 | Llama-stack container image source                    | `oracle/oraclenet-llama-stack` — `Dockerfile`, `src/llama_stack/distributions/oci/config.yaml` (baked default, overridden at deploy) |
 | Container build pipeline                              | `oracle/oraclenet-llama-stack` — `.github/workflows/build-push-main.yml` (main → `:VERSION`), `build-push-pr.yml` (PR → `:pr-<shortsha>`) |
-| Llama-stack FastAPI route implementations             | `oracle/oraclenet-llama-stack` — `src/llama_stack_api/{inference,files,vector_io,agents,safety,eval,scoring}/fastapi_routes.py`; `src/llama_stack_api/openai_responses.py`; `src/llama_stack_api/tools.py` |
+| Llama-stack FastAPI route implementations             | `oracle/oraclenet-llama-stack` — `src/llama_stack_api/{models,inference,files,vector_io,agents,conversations,inspect_api,providers,safety,eval,scoring}/fastapi_routes.py`; Responses schemas in `src/llama_stack_api/openai_responses.py`; deprecated toolgroups in `src/llama_stack_api/tools.py` |
+| Auth / CORS middleware gating                         | `oracle/oraclenet-llama-stack` — `src/llama_stack/core/server/server.py:425-473` (both conditional on runtime config); `src/llama_stack/core/server/auth.py` for middleware behavior |
+| Corrino canonical-name → ingress host                 | `corrino/api/control_plane/digest.py:396, 860-898`                                                                           |
+| Corrino default `proxy-body-size`                     | `corrino/api/control_plane/digest.py:1256-1257` (`"2000m"`) + `corrino/api/manifests/templates/recipe_ingress_template.yaml:8` |
 | Corrino ingress template (per-recipe)                 | `corrino/api/manifests/templates/recipe_ingress_template.yaml`                                                               |
 | Corrino subdomain-resolution logic                    | `corrino/api/control_plane/digest.py:859-898`                                                                                |
 | OpenAI API schema reference                           | https://platform.openai.com/docs/api-reference                                                                               |
@@ -652,30 +711,16 @@ whenever you change any of:
 
 ## 10. Open Questions
 
-Two things in this document are grounded in code but cannot be verified
-all the way down to the wire without deploying the pack. They are flagged
-here so that future edits can close them when a concrete deployment is at
-hand.
+One item in this document is grounded in code but cannot be fully
+verified without a live deployment.
 
-1. **Exact hostname of `llamastack`'s own backend ingress.** §5.3 claims
-   the llamastack recipe gets a standalone `https://<canonical>.<fqdn>/`
-   host because Corrino's digest
-   (`corrino/api/control_plane/digest.py:859-898`) falls back to the
-   canonical name when `service_endpoint_subdomain` is absent, and
-   `_paas_rag_small_blueprint` does not set that field. What the
-   canonical name actually resolves to (probably `llamastack` or a
-   Corrino-derived variant) can only be confirmed by inspecting a live
-   `kubectl get ingress` after deploy. If an operator wants to pin the
-   host, add `service_endpoint_subdomain = "llamastack"` to the recipe
-   in `blueprint_files.tf:1467-1512`.
-
-2. **Behavior of the `/v1/safety/*`, `/v1/moderations`, `/v1/shields/*`
+1. **Behavior of the `/v1/safety/*`, `/v1/moderations`, `/v1/shields/*`
    routes when the safety provider is disabled.** The paas_rag runtime
-   config (`files/llamastack_paas_config.yaml:35-39`) has the safety
-   provider block commented out, but the `safety` API is still listed
-   under `apis:`. Whether the routes return `501 Not Implemented`,
-   `404 Not Found`, an empty success, or a server error depends on llama-stack
-   internals that vary by release. §2.7 documents the safe rule
-   ("do not wire a skin to expect them") without pinning the exact
-   status. If the behavior matters for a skin, test it against the
-   deployed build rather than inferring from the config alone.
+   config (`files/llamastack_paas_config.yaml:35-39`) comments out the
+   safety provider block, but the `safety` API is still listed under
+   `apis:`. The routes register, but with no provider bound the exact
+   failure mode (`501`, `404`, `500`, or an empty success) depends on
+   llama-stack's resolver behavior and varies by release. §2.7
+   documents the safe rule ("treat them as absent") without pinning the
+   exact status. If the behavior matters for a skin, test it against
+   the deployed build rather than inferring from the config alone.
