@@ -1,7 +1,5 @@
 # Backend API Contract for Skin Authors
 
-> Status: under construction. Sections are being filled in.
-
 ## 1. Orientation
 
 A **skin** is a frontend container you build and run inside an AI Accelerator
