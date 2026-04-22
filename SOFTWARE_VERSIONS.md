@@ -92,7 +92,7 @@ The backend image extends `nvcr.io/nvidia/cuopt:26.6.0a-cuda13.0-py3.13` (GPU so
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| RAG Server | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci | v0.0.3 |
+| RAG Server | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci | v0.0.5 |
 | Ingestor Server | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci | v0.0.3 |
 | RAG Frontend | iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend | v0.0.2 |
 | Elasticsearch | docker.io/bitnamilegacy/elasticsearch | 9.0.3-debian-12-r1 |
