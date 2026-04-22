@@ -5,7 +5,7 @@ import jsonschema
 from jsonschema import Draft7Validator, FormatChecker
 
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"]
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "nemoclaw"]
 
 
 def _get_format_checker():

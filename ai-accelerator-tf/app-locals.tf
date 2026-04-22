@@ -10,12 +10,14 @@ locals {
   effective_cluster_id  = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
 
   # Compound gating locals — single source of truth for repeated count/for_each conditions
-  deploy_app_vss      = local.deploy_application && var.starter_pack_category == "vss"
-  deploy_app_rag      = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
-  deploy_app_rag_aiq  = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq"
-  deploy_app_non_rag  = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
-  deploy_app_26ai     = local.deploy_application && local.needs_26ai
-  run_capacity_checks = local.deploy_infrastructure && !var.skip_capacity_check
+  deploy_app_vss                  = local.deploy_application && var.starter_pack_category == "vss"
+  deploy_app_rag                  = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_rag_aiq              = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq"
+  deploy_app_nemoclaw             = local.deploy_application && var.starter_pack_category == "nemoclaw"
+  deploy_app_nemoclaw_self_hosted = local.deploy_app_nemoclaw && var.nemoclaw_provider == "self_hosted"
+  deploy_app_non_rag              = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_26ai                 = local.deploy_application && local.needs_26ai
+  run_capacity_checks             = local.deploy_infrastructure && !var.skip_capacity_check
 
   app = {
     backend_service_name         = "corrino-cp"
@@ -205,12 +207,13 @@ locals {
     api_origin_insecure = join(".", ["http://api", local.fqdn.name])
     api_origin_secure   = join(".", ["https://api", local.fqdn.name])
     #portal              = join(".", ["portal", local.fqdn.name])
-    blueprint_portal = join(".", ["blueprints", local.fqdn.name])
-    mlflow           = join(".", ["mlflow", local.fqdn.name])
-    prometheus       = join(".", ["prometheus", local.fqdn.name])
-    grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_config.frontend_url, local.fqdn.name])
-    aiq_frontend     = join(".", ["aiq", local.fqdn.name])
+    blueprint_portal  = join(".", ["blueprints", local.fqdn.name])
+    mlflow            = join(".", ["mlflow", local.fqdn.name])
+    prometheus        = join(".", ["prometheus", local.fqdn.name])
+    grafana           = join(".", ["grafana", local.fqdn.name])
+    starter_pack      = join(".", [local.starter_pack_config.frontend_url, local.fqdn.name])
+    aiq_frontend      = join(".", ["aiq", local.fqdn.name])
+    nemoclaw_terminal = join(".", ["terminal-nemoclaw", local.fqdn.name])
   }
 
   third_party_namespaces = {

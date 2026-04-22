@@ -6,7 +6,8 @@
 # =============================================================================
 locals {
   # Whether this starter pack deploys via a blueprint and needs readiness polling
-  uses_blueprint_deployment = local.starter_pack_config.blueprint_file != ""
+  # Must align with deploy_via_blueprint — nemoclaw API providers have a blueprint_file but skip deployment
+  uses_blueprint_deployment = local.deploy_via_blueprint
 }
 
 # =============================================================================

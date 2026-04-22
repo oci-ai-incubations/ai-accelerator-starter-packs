@@ -269,7 +269,7 @@ resource "terraform_data" "capacity_validated" {
     # Require worker_node_availability_domain for GPU starter packs (when worker_node_shape != "none")
     precondition {
       condition     = local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""
-      error_message = "worker_node_availability_domain is required for GPU starter packs (cuopt, vss, enterprise_rag). It is optional for paas_rag."
+      error_message = "worker_node_availability_domain is required for GPU starter packs (cuopt, vss, enterprise_rag, nemoclaw self_hosted). It is optional for paas_rag and nemoclaw API providers."
     }
 
     # Validate that the provided AD exists in the region (only if provided)

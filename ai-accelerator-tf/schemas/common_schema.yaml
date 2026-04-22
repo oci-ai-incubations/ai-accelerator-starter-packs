@@ -180,6 +180,48 @@ variables:
     required: false
     visible: false
 
+  nvidia_api_key:
+    type: password
+    title: "Inference API Key"
+    description: "API key for NemoClaw inference provider authentication"
+    required: false
+    visible: false
+
+  nemoclaw_model:
+    type: string
+    title: "Model ID"
+    description: "Model identifier for NemoClaw NIM inference"
+    default: "nvidia/nemotron-3-super-120b-a12b"
+    required: false
+    visible: false
+
+  nemoclaw_sandbox_name:
+    type: string
+    title: "Sandbox Name"
+    description: "Name for the NemoClaw sandbox instance"
+    default: "my-assistant"
+    required: false
+    visible: false
+
+  nemoclaw_policy_mode:
+    type: enum
+    enum:
+      - suggested
+      - skip
+    title: "Security Policy Mode"
+    description: "NemoClaw security policy mode"
+    default: skip
+    required: false
+    visible: false
+
+  nemoclaw_inference_endpoint:
+    type: string
+    title: "Inference Endpoint"
+    description: "K8s-internal inference endpoint (host:port) for socat proxy. Leave empty to use NVIDIA cloud API."
+    default: ""
+    required: false
+    visible: false
+
   # Oracle 26ai Database Credentials
   db_username:
     type: string

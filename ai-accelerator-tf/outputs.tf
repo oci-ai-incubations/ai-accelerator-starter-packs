@@ -300,3 +300,24 @@ output "ai_accelerator_stack_version" {
   description = "AI Accelerator Starter Packs stack version"
   value       = file("${path.module}/AI_ACCELERATOR_STACK_VERSION")
 }
+
+# NemoClaw Dashboard Token
+output "nemoclaw_dashboard_token" {
+  description = "Gateway token for the NemoClaw OpenClaw dashboard (append as #token=<value> to the URL)"
+  value       = local.deploy_app_nemoclaw ? kubernetes_config_map_v1.nemoclaw_dashboard_token[0].data["token"] : null
+}
+
+output "nemoclaw_dashboard_url" {
+  description = "Full tokenized URL for the NemoClaw OpenClaw dashboard"
+  value       = local.deploy_app_nemoclaw ? "https://${local.public_endpoint.starter_pack}/#token=${kubernetes_config_map_v1.nemoclaw_dashboard_token[0].data["token"]}" : null
+}
+
+output "nemoclaw_terminal_url" {
+  description = "URL for the NemoClaw web terminal (ttyd)"
+  value       = local.deploy_app_nemoclaw && var.nemoclaw_enable_terminal ? "https://${local.public_endpoint.nemoclaw_terminal}" : null
+}
+
+output "nemoclaw_provider_display" {
+  description = "Active inference provider for NemoClaw"
+  value       = local.deploy_app_nemoclaw ? var.nemoclaw_provider : null
+}

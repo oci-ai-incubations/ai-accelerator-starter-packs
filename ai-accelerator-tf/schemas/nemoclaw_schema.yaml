@@ -1,0 +1,249 @@
+# =============================================================================
+# NVIDIA NemoClaw - Schema Overrides
+# =============================================================================
+# Only contains differences from common_schema.yaml
+# NemoClaw uses DinD (Docker-in-Docker) for OpenShell sandbox isolation.
+# Supports self-hosted NIM inference (GPU) or cloud API providers (OpenAI, Anthropic).
+
+title: "NemoClaw Autonomous Agent Sandbox"
+description: "Deploy NVIDIA NemoClaw autonomous agent sandbox on OCI — secure, sandboxed execution of OpenClaw agents with OpenShell runtime protection."
+informationalText: |
+  Deploy NemoClaw on OCI infrastructure.
+
+  NemoClaw provides secure, sandboxed execution of NVIDIA OpenClaw autonomous
+  agents with OpenShell runtime protection. Choose your inference provider:
+  - **Self-hosted**: Deploy NVIDIA Nemotron NIM on 8x A100 GPU
+  - **OpenAI**: Use OpenAI cloud API (no GPU needed)
+  - **Anthropic**: Use Anthropic cloud API (no GPU needed)
+
+# =============================================================================
+# Output Groups
+# =============================================================================
+outputGroups:
+  - title: "Service"
+    outputs:
+      - starter_pack_url
+      - nemoclaw_dashboard_url
+      - nemoclaw_dashboard_token
+      - nemoclaw_terminal_url
+      - nemoclaw_provider_display
+      - starter_pack_deployment_name
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variable Groups
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - nemoclaw_provider
+      - starter_pack_size
+      - worker_node_availability_domain
+
+  - title: "NemoClaw Security"
+    variables:
+      - nemoclaw_security_tier
+
+  - title: "Model Configuration"
+    variables:
+      - nemoclaw_model
+
+  - title: "OpenAI Configuration"
+    variables:
+      - openai_api_key
+    visible:
+      eq:
+        - ${nemoclaw_provider}
+        - "openai"
+
+  - title: "Anthropic Configuration"
+    variables:
+      - anthropic_api_key
+    visible:
+      eq:
+        - ${nemoclaw_provider}
+        - "anthropic"
+
+  - title: "Sandbox Configuration"
+    variables:
+      - nemoclaw_sandbox_name
+      - nemoclaw_enable_terminal
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+# =============================================================================
+# Variables - NemoClaw specific
+# =============================================================================
+variables:
+  nemoclaw_provider:
+    type: enum
+    enum:
+      - self_hosted
+      - openai
+      - anthropic
+    title: "Inference Provider"
+    description: "<strong>self_hosted</strong> — Deploy NVIDIA Nemotron NIM on GPU (8x A100) | <strong>openai</strong> — Use OpenAI API (no GPU needed) | <strong>anthropic</strong> — Use Anthropic API (no GPU needed)"
+    default: self_hosted
+    required: true
+    visible: true
+
+  nemoclaw_security_tier:
+    type: enum
+    enum:
+      - restricted
+      - balanced
+      - open
+    title: "Security Policy Tier"
+    description: "<strong>restricted</strong> — Network isolated, read-only filesystem | <strong>balanced</strong> — Web access + code execution (recommended) | <strong>open</strong> — Full system access (development only)"
+    default: balanced
+    required: true
+    visible: true
+
+  openai_api_key:
+    type: string
+    title: "OpenAI API Key"
+    description: "OpenAI API key for NemoClaw inference"
+    required: true
+    sensitive: true
+    visible:
+      eq:
+        - ${nemoclaw_provider}
+        - "openai"
+
+  anthropic_api_key:
+    type: string
+    title: "Anthropic API Key"
+    description: "Anthropic API key for NemoClaw inference"
+    required: true
+    sensitive: true
+    visible:
+      eq:
+        - ${nemoclaw_provider}
+        - "anthropic"
+
+  nemoclaw_model:
+    type: string
+    title: "Model ID"
+    description: "Model identifier for inference. Examples — self_hosted: nvidia/llama-3.3-nemotron-super-49b-v1.5 | openai: gpt-4o | anthropic: claude-sonnet-4-20250514"
+    default: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+    required: true
+    visible: true
+
+  nemoclaw_sandbox_name:
+    type: string
+    title: "Sandbox Name"
+    description: "Name for the NemoClaw sandbox instance"
+    default: "my-assistant"
+    required: true
+    visible: true
+
+  nemoclaw_enable_terminal:
+    type: boolean
+    title: "Enable Web Terminal"
+    description: "Enable browser-based terminal for running nemoclaw connect, openclaw tui, etc."
+    default: true
+    visible: true
+
+  starter_pack_size:
+    type: enum
+    enum:
+      - poc
+    title: "NemoClaw Deployment Size"
+    description: "<strong>POC</strong> - Proof of concept deployment"
+    default: poc
+    required: true
+
+  # AD only required for self_hosted
+  worker_node_availability_domain:
+    visible:
+      eq:
+        - ${nemoclaw_provider}
+        - "self_hosted"
+
+  # Hide deprecated/unused variables
+  nvidia_api_key:
+    visible: false
+
+  nemoclaw_policy_mode:
+    visible: false
+
+  nemoclaw_inference_endpoint:
+    visible: false
+
+  cuopt_frontend_enabled:
+    visible: false
+
+  genai_region:
+    visible: false
+
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+# =============================================================================
+# Outputs - NemoClaw specific titles, hide database/object storage
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: string
+    title: "NemoClaw Service URL"
+
+  nemoclaw_dashboard_url:
+    type: string
+    title: "NemoClaw Dashboard URL (with token)"
+
+  nemoclaw_dashboard_token:
+    type: string
+    title: "NemoClaw Dashboard Token"
+
+  nemoclaw_terminal_url:
+    type: string
+    title: "NemoClaw Web Terminal URL"
+
+  nemoclaw_provider_display:
+    type: string
+    title: "Active Inference Provider"
+
+  db_username:
+    visible: false
+
+  db_password:
+    visible: false
+
+  autonomous_database_name:
+    visible: false
+
+  autonomous_database_id:
+    visible: false
+
+  aws_access_key_id:
+    visible: false
+
+  aws_secret_access_key:
+    visible: false

@@ -11,6 +11,7 @@ This document is the single source of truth for starter pack naming. Use it to m
 | `enterprise_rag` | `aiQEnterpriseSearch.zip` | Enterprise Knowledge Chat Agent - Self-Hosted AI Models | Self-Hosted Enterprise Chat Agent | Yes |
 | `paas_rag` | `aiQGenAIPowered.zip` | Enterprise Knowledge Chat Agent - Managed AI Models | Managed Enterprise Chat Agent | No |
 | `enterprise_rag_aiq` | `enterpriseAgenticAIStarterKit.zip` | Enterprise Agentic AI Starter Kit | Agentic AI Starter Kit | Yes |
+| `nemoclaw` | `nemoclawAgentSandbox.zip` | NemoClaw Autonomous Agent Sandbox | NemoClaw Agent Sandbox | No |
 
 ## Descriptions
 
@@ -21,6 +22,7 @@ This document is the single source of truth for starter pack naming. Use it to m
 | `enterprise_rag` | Enterprise RAG chat: auto-crawls web + internal data, builds a vector index, answers business questions with citations — all on OCI NVIDIA GPUs. |
 | `paas_rag` | Fully managed, no GPU infrastructure required. Enterprise RAG chat with document upload, vector search, and cited answers — powered by OCI GenAI PaaS + Oracle 26ai. |
 | `enterprise_rag_aiq` | Full-stack agentic AI environment on OCI powered by NVIDIA AIQ. Deploys reasoning models, vector DB, observability, application layer, and more in minutes. Customize and extend to build your own agentic workflows. |
+| `nemoclaw` | Deploy NVIDIA NemoClaw autonomous agent sandbox on OCI GPU infrastructure — secure, sandboxed execution of OpenClaw agents. |
 
 ## When to Use Which Name
 

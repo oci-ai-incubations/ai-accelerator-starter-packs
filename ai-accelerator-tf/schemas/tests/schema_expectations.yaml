@@ -14,6 +14,7 @@ starter_pack_sizes:
   paas_rag: [small, medium]
   enterprise_rag: [small]
   enterprise_rag_aiq: [small, medium]
+  nemoclaw: [poc]
 
 # Outputs that must exist in every schema (referenced in outputGroups)
 required_outputs:
@@ -104,3 +105,49 @@ category_specific:
       starter_pack_url:
         type: string
         visible: true
+
+  nemoclaw:
+    required_variables: [nemoclaw_provider, nemoclaw_security_tier, nemoclaw_sandbox_name, nemoclaw_enable_terminal]
+    absent_outputs: []
+    absent_variables: []
+    variable_properties:
+      nemoclaw_provider:
+        visible: true
+      nemoclaw_security_tier:
+        visible: true
+      nemoclaw_sandbox_name:
+        visible: true
+      nemoclaw_enable_terminal:
+        visible: true
+      nvidia_api_key:
+        visible: false
+      nemoclaw_policy_mode:
+        visible: false
+      nemoclaw_inference_endpoint:
+        visible: false
+      db_password:
+        visible: false
+      db_username:
+        visible: false
+      cuopt_frontend_enabled:
+        visible: false
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true
+      nemoclaw_terminal_url:
+        type: string
+      nemoclaw_provider_display:
+        type: string
+      db_password:
+        visible: false
+      db_username:
+        visible: false
+      autonomous_database_name:
+        visible: false
+      autonomous_database_id:
+        visible: false
+      aws_access_key_id:
+        visible: false
+      aws_secret_access_key:
+        visible: false

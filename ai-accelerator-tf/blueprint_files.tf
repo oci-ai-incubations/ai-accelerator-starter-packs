@@ -33,6 +33,11 @@ locals {
       "medium" = ""
       # Helm-managed deployment; no blueprint artefact required
     }
+    # nemoclaw NIM inference is deployed via blueprint only for self_hosted provider;
+    # API providers (openai/anthropic) skip the blueprint entirely
+    "nemoclaw" = {
+      "poc" = var.nemoclaw_provider == "self_hosted" ? local._nemoclaw_nim_blueprint : ""
+    }
   }
 }
 
@@ -1577,4 +1582,58 @@ locals {
       ]
     }
   })
+
+  # -----------------------------------
+  # NemoClaw NIM Inference Blueprint
+  # Single-service blueprint for the NIM inference endpoint.
+  # The DinD sandbox pod (app-nemoclaw.tf) references this service
+  # via recipe-{deployment_name} DNS name.
+  # -----------------------------------
+  _nemoclaw_nim_blueprint = jsonencode(merge(
+    {
+      recipe_id                                    = "nim-nemoclaw"
+      recipe_mode                                  = "service"
+      deployment_name                              = "DEPLOY_NAME"
+      recipe_image_uri                             = "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5:1.14.0"
+      recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
+      recipe_node_shape                            = local.starter_pack_config.worker_node_shape
+      recipe_replica_count                         = 1
+      recipe_container_port                        = "8000"
+      recipe_host_port                             = "8000"
+      recipe_nvidia_gpu_count                      = 8
+      recipe_use_shared_node_pool                  = true
+      recipe_shared_memory_volume_size_limit_in_mb = 65536
+      recipe_container_env = [
+        { key = "NIM_GPU_MEMORY_UTILIZATION", value = "0.90" }
+      ]
+      recipe_environment_secrets = [
+        {
+          envvar_name = local.ngc_secrets.ngc_api_key_envvar_name
+          secret_name = local.ngc_secrets.ngc_api_key_secret_name
+          secret_key  = local.ngc_secrets.ngc_api_key_secret_key
+        }
+      ]
+      recipe_liveness_probe_params = {
+        port                  = 8000
+        scheme                = "HTTP"
+        endpoint_path         = "/v1/health/live"
+        period_seconds        = 30
+        timeout_seconds       = 10
+        failure_threshold     = 40
+        success_threshold     = 1
+        initial_delay_seconds = 1800
+      }
+      recipe_readiness_probe_params = {
+        port                  = 8000
+        scheme                = "HTTP"
+        endpoint_path         = "/v1/health/ready"
+        period_seconds        = 30
+        timeout_seconds       = 10
+        success_threshold     = 1
+        initial_delay_seconds = 1800
+      }
+    },
+    var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+  ))
+
 }

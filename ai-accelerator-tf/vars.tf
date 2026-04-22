@@ -476,8 +476,8 @@ variable "starter_pack_category" {
   # No default here - schema.yaml provides the default for Resource Manager portal
   # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', or 'enterprise_rag_aiq'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "nemoclaw"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', or 'nemoclaw'."
   }
 }
 
@@ -525,6 +525,81 @@ variable "tavily_api_key" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "nemoclaw_provider" {
+  description = "Inference provider for NemoClaw. self_hosted deploys a NIM model on GPU. openai and anthropic use cloud APIs (no GPU needed)."
+  type        = string
+  default     = "self_hosted"
+  validation {
+    condition     = contains(["self_hosted", "openai", "anthropic"], var.nemoclaw_provider)
+    error_message = "NemoClaw provider must be 'self_hosted', 'openai', or 'anthropic'."
+  }
+}
+
+variable "nvidia_api_key" {
+  description = "NVIDIA API key for NGC container registry and NIM inference (required when nemoclaw_provider = self_hosted)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "openai_api_key" {
+  description = "OpenAI API key for NemoClaw inference (required when nemoclaw_provider = openai)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "anthropic_api_key" {
+  description = "Anthropic API key for NemoClaw inference (required when nemoclaw_provider = anthropic)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "nemoclaw_model" {
+  description = "Model ID for NemoClaw inference. For self_hosted: NIM model (e.g. nvidia/llama-3.3-nemotron-super-49b-v1.5). For openai: e.g. gpt-4o. For anthropic: e.g. claude-sonnet-4-20250514."
+  type        = string
+  default     = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+}
+
+variable "nemoclaw_inference_endpoint" {
+  description = "K8s-internal inference endpoint for NemoClaw (host:port for socat proxy, e.g. 'vllm-svc.default:8000'). Leave empty to use NVIDIA cloud API via nvidia_api_key."
+  type        = string
+  default     = ""
+}
+
+variable "nemoclaw_sandbox_name" {
+  description = "Name for the NemoClaw sandbox instance"
+  type        = string
+  default     = "my-assistant"
+}
+
+variable "nemoclaw_security_tier" {
+  description = "NemoClaw security policy tier controlling sandbox permissions"
+  type        = string
+  default     = "balanced"
+  validation {
+    condition     = contains(["restricted", "balanced", "open"], var.nemoclaw_security_tier)
+    error_message = "NemoClaw security tier must be 'restricted', 'balanced', or 'open'."
+  }
+}
+
+variable "nemoclaw_policy_mode" {
+  description = "Deprecated — use nemoclaw_security_tier instead. Kept for backward compatibility."
+  type        = string
+  default     = "suggested"
+  validation {
+    condition     = contains(["suggested", "custom", "skip"], var.nemoclaw_policy_mode)
+    error_message = "NemoClaw policy mode must be one of: suggested, custom, skip."
+  }
+}
+
+variable "nemoclaw_enable_terminal" {
+  description = "Enable browser-based web terminal for NemoClaw (ttyd)"
+  type        = bool
+  default     = true
 }
 
 # 26ai Autonomous Database Variables
@@ -959,23 +1034,55 @@ locals {
       }
     }
 
+    "nemoclaw" = {
+      "poc" = {
+        blueprint_file                               = "nemoclaw-blueprint.json"
+        deployment_name                              = "nemoclaw"
+        app_namespace                                = "default"
+        nvaie_enabled                                = var.nemoclaw_provider == "self_hosted"
+        create_ngc_secrets_in_cluster                = var.nemoclaw_provider == "self_hosted"
+        worker_node_shape                            = var.nemoclaw_provider == "self_hosted" ? "BM.GPU4.8" : "none"
+        worker_node_pool_size                        = var.nemoclaw_provider == "self_hosted" ? 1 : 0
+        cpu_worker_node_pool_size                    = var.nemoclaw_provider == "self_hosted" ? 0 : 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = var.nemoclaw_provider == "self_hosted" ? "200" : "50"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "50"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 2
+          memory        = 16
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 4
+          memory        = 32
+        }
+        database_storage_size_in_tbs = 0
+        database_compute_count       = 0
+        frontend_url                 = "nemoclaw"
+      }
+    }
+
   }
 
 
   # Resolved config (maintains existing interface for all consuming resources)
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
+  # Whether this category/provider combo deploys via Corrino blueprint
+  # enterprise_rag/enterprise_rag_aiq use Helm; nemoclaw API providers have no NIM to deploy
+  deploy_via_blueprint = local.deploy_app_non_rag && !(var.starter_pack_category == "nemoclaw" && var.nemoclaw_provider != "self_hosted")
+
   # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
-  # enterprise_rag and enterprise_rag_aiq use Helm (not blueprints), so random_id.blueprint_deploy_id doesn't exist for them
-  starter_pack_deployment_name = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.deploy_application ? (
+  starter_pack_deployment_name = local.deploy_via_blueprint ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
   starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
-  canonical_blueprint_content    = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
-  starter_pack_blueprint_content = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
+  canonical_blueprint_content    = local.deploy_via_blueprint ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
+  starter_pack_blueprint_content = local.deploy_via_blueprint ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
 }
 
 # App Name Locals
@@ -1013,8 +1120,8 @@ locals {
 
 # Accelerator specific stuff
 locals {
-  # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag" || var.starter_pack_category == "enterprise_rag_aiq"
+  # GPU image needed for cuopt, vss, enterprise_rag categories and nemoclaw self_hosted (GPU workloads)
+  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag" || var.starter_pack_category == "enterprise_rag_aiq" || (var.starter_pack_category == "nemoclaw" && var.nemoclaw_provider == "self_hosted")
   should_import_amd_gpu_image    = false # if amd starter pack is added, update this
 }
 
