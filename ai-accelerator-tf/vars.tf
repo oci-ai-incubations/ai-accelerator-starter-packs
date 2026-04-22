@@ -642,6 +642,24 @@ variable "dac_hours" {
   }
 }
 
+variable "dac_model_id" {
+  description = "HuggingFace model ID to import and deploy on the Dedicated AI Cluster (e.g. Qwen/Qwen3-VL-235B-A22B-Instruct)."
+  type        = string
+  default     = "Qwen/Qwen3-VL-235B-A22B-Instruct"
+}
+
+variable "dac_unit_shape" {
+  description = "GPU shape for the Dedicated AI Cluster. Must have sufficient memory for the selected model."
+  type        = string
+  default     = "H100_X8"
+}
+
+variable "dac_billing_acknowledgement" {
+  description = "Acknowledge that the Dedicated AI Cluster will be billed hourly until the stack is destroyed."
+  type        = bool
+  default     = false
+}
+
 variable "cuopt_frontend_enabled" {
   description = "Enable cuopt frontend"
   type        = bool
@@ -1135,6 +1153,12 @@ variable "skin_paas_rag_core" {
 variable "skin_wpp_core" {
   type        = bool
   description = "Enable the 'Warehouse Pick Path Optimizer Frontend (Core App)' skin"
+  default     = true
+}
+
+variable "skin_contract_analysis_core" {
+  type        = bool
+  description = "Enable the 'Contract Analysis Frontend (Core App)' skin"
   default     = true
 }
 

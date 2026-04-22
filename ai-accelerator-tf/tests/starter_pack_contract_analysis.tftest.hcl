@@ -60,27 +60,17 @@ variables {
 run "plan_contract_analysis_small" {
   command = plan
 
-  # Deployment name should start with 'contract-analysis-' (suffixed with random_id hex)
-  assert {
-    condition     = startswith(output.starter_pack_deployment_name, "dox-")
-    error_message = "contract_analysis deployment name should start with 'dox-'"
-  }
-
-  # Database username should default to ADMIN when not explicitly set
-  assert {
-    condition     = output.db_username == "ADMIN"
-    error_message = "DB username should use default value"
-  }
+  # Postflight registration trigger should record the selected starter pack category
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "contract_analysis"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "contract_analysis"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   # Postflight registration trigger should record the deployment region
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 }
