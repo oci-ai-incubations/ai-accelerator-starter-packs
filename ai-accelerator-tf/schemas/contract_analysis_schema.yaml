@@ -1,0 +1,230 @@
+# =============================================================================
+# Contract Analysis - Schema Overrides
+# =============================================================================
+# Based on paas_rag. Adds DAC (Dedicated AI Cluster) and contract services.
+# REQUIRES Oracle 26ai database + Object Storage + GenAI DAC.
+
+title: "Contract Analysis"
+description: "Ephemeral contract intelligence deployment with OCI GenAI Dedicated AI Cluster (H100), Qwen3-VL-235B vision-language model, contract analysis services, and Oracle 26ai database."
+informationalText: |
+  Deploy a Contract Intelligence stack with:
+  - OCI GenAI Dedicated AI Cluster (H100 GPU) hosting Qwen3-VL-235B-A22B-Instruct
+  - Contract analysis backend and frontend
+  - LlamaStack inference gateway
+  - Oracle 26ai Autonomous Database for vector storage
+  - S3-compatible Object Storage for document uploads
+
+  ⚠️ BILLING NOTICE: This stack provisions an OCI GenAI Dedicated AI Cluster
+  (H100 x 8) which is billed hourly. You will incur charges for as long as
+  the cluster is active. Remember to destroy the stack when you are done to
+  stop billing.
+
+# =============================================================================
+# Output Groups
+# =============================================================================
+outputGroups:
+  - title: "Contract Intelligence Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+      - dac_endpoint_url
+      - dac_cluster_id
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Oracle 26ai Database"
+    outputs:
+      - autonomous_database_name
+      - autonomous_database_id
+      - db_username
+      - db_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variable Groups
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+      - genai_region
+      - dac_model_id
+      - dac_unit_shape
+      - dac_billing_acknowledgement
+
+  - title: "Administrator Account"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+  - title: "Oracle 26ai Database"
+    variables:
+      - db_username
+      - db_password
+
+  - title: "Object Storage Secrets (Customer Secret Keys)"
+    variables:
+      - aws_access_key_id
+      - aws_secret_access_key
+
+  - title: "Hidden - Not Used"
+    variables:
+      - cuopt_frontend_enabled
+      - cuopt_frontend_admin_username
+      - cuopt_frontend_admin_password
+      - google_maps_api_key
+      - ngc_api_key
+      - tavily_api_key
+      - worker_node_availability_domain
+    visible: false
+
+# =============================================================================
+# Variables
+# =============================================================================
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+    title: "Deployment Size"
+    description: "<strong>SMALL</strong> - 2x VM.Standard.E5.Flex (6 OCPU, 48GB Mem), 1x VM.Standard.E5.Flex (12 OCPU, 96GB Mem), Oracle 26ai Autonomous Database (4 ECPU, 2TB storage), OCI GenAI DAC (H100 x 8)"
+    default: small
+    required: true
+
+  genai_region:
+    title: "OCI GenAI Services Region"
+    description: "Region for OCI GenAI Dedicated AI Cluster and Services."
+    type: enum
+    default: us-chicago-1
+    enum:
+      - uk-london-1
+      - eu-frankfurt-1
+      - us-chicago-1
+      - us-ashburn-1
+      - me-riyadh-1
+    required: true
+    visible: true
+
+  dac_model_id:
+    type: string
+    title: "HuggingFace Model ID"
+    description: "HuggingFace model to import and deploy on the DAC (e.g. Qwen/Qwen3-VL-235B-A22B-Instruct, meta-llama/Llama-4-Scout-17B-16E-Instruct). See supported models: https://docs.oracle.com/en-us/iaas/Content/generative-ai/imported-models.htm#imported-models"
+    default: "Qwen/Qwen3-VL-235B-A22B-Instruct"
+    required: true
+    visible: true
+
+  dac_unit_shape:
+    type: enum
+    title: "DAC GPU Shape"
+    description: "GPU shape for the Dedicated AI Cluster. Must have sufficient memory for the selected model. See region and shape availability: https://docs.oracle.com/en-us/iaas/Content/generative-ai/model-dac-endpoint-regions.htm"
+    default: "H100_X8"
+    enum:
+      - A10_X1
+      - A10_X2
+      - A10_X4
+      - A100_40G_X1
+      - A100_40G_X2
+      - A100_40G_X4
+      - A100_40G_X8
+      - A100_80G_X1
+      - A100_80G_X2
+      - A100_80G_X4
+      - A100_80G_X8
+      - H100_X1
+      - H100_X2
+      - H100_X4
+      - H100_X8
+      - H200_X1
+      - H200_X2
+      - H200_X4
+      - H200_X8
+    required: true
+    visible: true
+
+  dac_billing_acknowledgement:
+    type: boolean
+    title: "I acknowledge that this stack creates a Dedicated AI Cluster which will be billed hourly until the stack is destroyed."
+    description: "You must accept this to proceed. The Dedicated AI Cluster incurs hourly charges. Destroy the stack when done to stop billing."
+    default: false
+    required: true
+    visible: true
+
+  db_password:
+    type: password
+    title: "Database Admin Password"
+    pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*]).{12,}$"
+    description: "Must be 12+ characters with uppercase, lowercase, number, and special character (!@#$%^&*)"
+    required: true
+
+  aws_access_key_id:
+    type: password
+    title: "AWS-Compatible Access Key ID"
+    description: "Access Key ID for S3-compatible Object Storage. If not provided, one will be generated automatically."
+    required: false
+
+  aws_secret_access_key:
+    type: password
+    title: "AWS-Compatible Secret Access Key"
+    description: "Secret Access Key for S3-compatible Object Storage. If not provided, one will be generated automatically."
+    required: false
+
+
+  # Hidden - not used by contract_analysis but defined in Terraform
+  cuopt_frontend_enabled:
+    type: boolean
+    visible: false
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+  cuopt_frontend_admin_password:
+    type: password
+    visible: false
+  google_maps_api_key:
+    type: string
+    visible: false
+  ngc_api_key:
+    type: password
+    visible: false
+  tavily_api_key:
+    type: password
+    visible: false
+  worker_node_availability_domain:
+    type: string
+    visible: false
+
+# =============================================================================
+# Outputs
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: string
+    title: "Contract Frontend URL"
+
+  dac_endpoint_url:
+    type: string
+    title: "GenAI DAC Endpoint URL"
+    visible: true
+
+  dac_cluster_id:
+    type: string
+    title: "GenAI Dedicated AI Cluster OCID"
+    visible: true

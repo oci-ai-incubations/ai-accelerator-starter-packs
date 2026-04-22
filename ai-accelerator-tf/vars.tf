@@ -494,8 +494,8 @@ variable "starter_pack_category" {
   # No default here - schema.yaml provides the default for Resource Manager portal
   # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', or 'warehouse_pick_path'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "contract_analysis"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', 'warehouse_pick_path', or 'contract_analysis'."
   }
 }
 
@@ -631,6 +631,41 @@ variable "genai_region" {
   type        = string
   default     = "us-chicago-1"
 }
+
+variable "dac_hours" {
+  description = "Number of hours for the OCI GenAI Dedicated AI Cluster before auto-termination. Only used by contract_analysis starter pack."
+  type        = number
+  default     = 24
+  validation {
+    condition     = var.dac_hours >= 1 && var.dac_hours <= 720
+    error_message = "dac_hours must be between 1 and 720."
+  }
+}
+
+variable "dac_model_id" {
+  description = "HuggingFace model ID to import and deploy on the Dedicated AI Cluster (e.g. Qwen/Qwen3-VL-235B-A22B-Instruct)."
+  type        = string
+  default     = "Qwen/Qwen3-VL-235B-A22B-Instruct"
+}
+
+variable "dac_unit_shape" {
+  description = "GPU shape for the Dedicated AI Cluster. Must have sufficient memory for the selected model."
+  type        = string
+  default     = "H100_X8"
+}
+
+variable "dac_billing_acknowledgement" {
+  description = "Acknowledge that the Dedicated AI Cluster will be billed hourly until the stack is destroyed."
+  type        = bool
+  default     = false
+}
+
+variable "cuopt_frontend_enabled" {
+  description = "Enable cuopt frontend"
+  type        = bool
+  default     = true
+}
+
 
 variable "google_maps_api_key" {
   description = "Google Maps API key for the cuOpt frontend map visualization"
@@ -877,6 +912,35 @@ locals {
       # Add "large" here when implemented
     }
 
+    "contract_analysis" = {
+      "small" = {
+        blueprint_file                               = "contract-analysis-blueprint.json"
+        deployment_name                              = "dox"
+        app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
+        worker_node_shape                            = "none"
+        worker_node_pool_size                        = 0
+        cpu_worker_node_pool_size                    = 1
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "100"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 6
+          memory        = 48
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 12
+          memory        = 96
+        }
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
+        frontend_url                 = "contract-frontend"
+      }
+    }
+
     "enterprise_rag" = {
       "small" = {
         blueprint_file                               = ""
@@ -1054,8 +1118,8 @@ locals {
 }
 
 locals {
-  # 26ai database needed for paas_rag, enterprise_rag, and enterprise_rag_aiq categories
-  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path"], var.starter_pack_category)
+  # 26ai database needed for paas_rag, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path, and contract_analysis categories
+  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "contract_analysis"], var.starter_pack_category)
 }
 
 # ---------------------------------------------------------------------------
@@ -1089,6 +1153,12 @@ variable "skin_paas_rag_core" {
 variable "skin_wpp_core" {
   type        = bool
   description = "Enable the 'Warehouse Pick Path Optimizer Frontend (Core App)' skin"
+  default     = true
+}
+
+variable "skin_contract_analysis_core" {
+  type        = bool
+  description = "Enable the 'Contract Analysis Frontend (Core App)' skin"
   default     = true
 }
 

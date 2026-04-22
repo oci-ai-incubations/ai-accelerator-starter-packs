@@ -15,6 +15,7 @@ starter_pack_sizes:
   enterprise_rag: [small]
   enterprise_rag_aiq: [small, medium]
   warehouse_pick_path: [small]
+  contract_analysis: [small]
 
 
 # Outputs that must exist in every schema (referenced in outputGroups)
@@ -109,6 +110,27 @@ category_specific:
         visible: false
       aws_secret_access_key:
         visible: false
+
+  contract_analysis:
+    required_outputs: [autonomous_database_id, autonomous_database_name, db_username, dac_endpoint_url, dac_cluster_id]
+    required_variables: [db_password, dac_hours, genai_region]
+    variable_properties:
+      db_password:
+        visible: true
+        type: password
+      dac_hours:
+        visible: true
+        type: integer
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true
+      dac_endpoint_url:
+        type: string
+        visible: true
+      dac_cluster_id:
+        type: string
+        visible: true
 
   enterprise_rag:
     variable_properties:

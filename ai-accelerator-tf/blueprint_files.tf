@@ -22,6 +22,9 @@ locals {
       "medium" = local._paas_rag_small_blueprint
       # Add "large" here when implemented
     }
+    "contract_analysis" = {
+      "small" = local._contract_analysis_small_blueprint
+    }
     # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
     "enterprise_rag" = {
       "small" = ""
@@ -1600,6 +1603,79 @@ locals {
         ],
         local._paas_rag_frontend_deployments
       )
+    }
+  })
+
+  # -----------------------------------
+  # Contract Analysis Blueprint
+  # Inherits paas_rag deployments (LlamaStack), removes OracleNet frontend,
+  # adds contract-backend and contract-frontend + DAC.
+  # Shares one 26ai database across all services.
+  # -----------------------------------
+
+  # Take paas_rag's deployments, remove the OracleNet frontend
+  _paas_rag_base_for_contract_analysis = [
+    for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments
+    : d if d.name != "frontend"
+  ]
+
+  _contract_analysis_small_blueprint = jsonencode({
+    deployment_group = {
+      name = "DEPLOY_NAME"
+      deployments = concat(local._paas_rag_base_for_contract_analysis, [
+        {
+          name       = "contract-backend"
+          exports    = ["service_name"]
+          depends_on = ["llamastack"]
+          recipe = {
+            recipe_id                            = "contract-backend"
+            recipe_mode                          = "service"
+            deployment_name                      = "contract-backend"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend:v1.0.2"
+            recipe_replica_count                 = 1
+            recipe_flex_shape_ocpu_count         = 4
+            recipe_flex_shape_memory_size_in_gbs = 32
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool          = true
+            recipe_container_port                = "8000"
+            recipe_container_env = [
+              { "key" = "DB_MODE", value = "oracle" },
+              { "key" = "ORACLE_USER", value = var.db_username },
+              { "key" = "ORACLE_PASSWORD", value = var.db_password },
+              { "key" = "ORACLE_DSN", value = local.oracle26ai_high_connection_string },
+              { "key" = "ORACLE_SSL_SERVER_DN_MATCH", value = "False" },
+              { "key" = "QWEN_URL", value = local.dac_inference_url },
+              { "key" = "QWEN_MODEL", value = "/models/${var.dac_model_id}" },
+              { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:80" },
+              { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
+              { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
+              { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
+              { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-contracts" },
+              { "key" = "PYTHONUNBUFFERED", value = "1" },
+            ]
+          }
+        },
+        {
+          name       = "contract-frontend"
+          depends_on = ["contract-backend"]
+          recipe = {
+            recipe_id                            = "contract-frontend"
+            recipe_mode                          = "service"
+            deployment_name                      = "contract-frontend"
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:v1.0.1"
+            recipe_replica_count                 = 1
+            recipe_flex_shape_ocpu_count         = 4
+            recipe_flex_shape_memory_size_in_gbs = 32
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool          = true
+            recipe_container_port                = "80"
+            service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+            recipe_container_env = [
+              { "key" = "BACKEND_SVC", value = "$${contract-backend.service_name}" },
+            ]
+          }
+        }
+      ])
     }
   })
 }
