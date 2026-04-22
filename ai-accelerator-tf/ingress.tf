@@ -187,7 +187,7 @@ resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
       }
     }
   }
-  depends_on = [helm_release.ingress_nginx, helm_release.rag, terraform_data.patch_nim_llm_service_selector]
+  depends_on = [helm_release.ingress_nginx, helm_release.rag, terraform_data.patch_nim_operator_resources]
 }
 
 resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {

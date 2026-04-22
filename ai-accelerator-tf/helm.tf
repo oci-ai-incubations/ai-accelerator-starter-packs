@@ -581,12 +581,12 @@ resource "local_sensitive_file" "kubeconfig_patch" {
   filename = "${path.module}/kubeconfig_patch"
 }
 
-resource "terraform_data" "patch_nim_llm_service_selector" {
+resource "terraform_data" "patch_nim_operator_resources" {
   count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
-    "patch_nim_llm_service_selector_v1"
+    "patch_nim_operator_resources_v2"
   ]
 
   depends_on = [
@@ -598,42 +598,88 @@ resource "terraform_data" "patch_nim_llm_service_selector" {
   provisioner "local-exec" {
     command = <<-EOT
       export KUBECONFIG=${local_sensitive_file.kubeconfig_patch[0].filename}
-      kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{"spec":{"selector":{"statefulset.kubernetes.io/pod-name":"rag-nim-llm-0","app.kubernetes.io/name":null}}}'
+      NS=${local.starter_pack_config.app_namespace}
+
+      echo "Patching NIMCache CRs with GPU tolerations..."
+      for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+        kubectl patch nimcache "$cache" -n "$NS" --type=merge \
+          -p '{"spec":{"tolerations":[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]}}' 2>/dev/null && \
+          echo "  Patched nimcache/$cache" || echo "  Skipped nimcache/$cache (not found yet)"
+      done
+
+      echo "Patching LLM NIMCache with vllm/fp8/TP8 engine..."
+      kubectl patch nimcache nim-llm-cache -n "$NS" --type=merge \
+        -p '{"spec":{"source":{"ngc":{"model":{"engine":"vllm","precision":"fp8","tensorParallelism":"8"}}}}}' 2>/dev/null || true
+
+      echo "Patching NIMService CRs with GPU tolerations..."
+      for svc in nim-llm nemotron-embedding-ms nemotron-ranking-ms \
+        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+        kubectl patch nimservice "$svc" -n "$NS" --type=merge \
+          -p '{"spec":{"tolerations":[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]}}' 2>/dev/null && \
+          echo "  Patched nimservice/$svc" || echo "  Skipped nimservice/$svc (not found yet)"
+      done
+
+      echo "Fixing nim-llm service selector (remove stale statefulset selector)..."
+      kubectl patch service nim-llm -n "$NS" --type=json \
+        -p '[{"op":"remove","path":"/spec/selector/statefulset.kubernetes.io~1pod-name"}]' 2>/dev/null && \
+        echo "  Fixed nim-llm service selector" || echo "  nim-llm service selector already correct"
+
+      echo "Deleting NIMCache pods to trigger recreation with tolerations..."
+      for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+        kubectl delete pod "$${cache}-pod" -n "$NS" 2>/dev/null || true
+      done
+
+      echo "NIM Operator post-deploy patches complete."
     EOT
   }
 }
 
-resource "terraform_data" "patch_nim_llm_service_selector_via_operator" {
+resource "terraform_data" "patch_nim_operator_resources_via_operator" {
   count = local.deploy_app_rag && local.readiness_via_operator ? 1 : 0
 
   triggers_replace = [
     local.cluster_id,
-    "patch_nim_llm_service_selector_v1"
+    "patch_nim_operator_resources_v2"
   ]
 
-  connection {
-    type                = "ssh"
-    user                = "opc"
-    host                = oci_core_instance.operator[0].private_ip
-    private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
-    bastion_host        = oci_core_instance.bastion[0].public_ip
-    bastion_user        = "opc"
-    bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
-    timeout             = "30m"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "kubectl patch service nim-llm -n ${local.starter_pack_config.app_namespace} --type=merge -p '{\"spec\":{\"selector\":{\"statefulset.kubernetes.io/pod-name\":\"rag-nim-llm-0\",\"app.kubernetes.io/name\":null}}}'"
-    ]
-  }
-
   depends_on = [
-    null_resource.operator_ready,
     helm_release.rag,
     kubernetes_secret_v1.oci_config_secret,
   ]
+
+  provisioner "remote-exec" {
+    connection {
+      type                = "ssh"
+      user                = "opc"
+      host                = oci_core_instance.operator[0].private_ip
+      private_key         = tls_private_key.oke_ssh_key[0].private_key_pem
+      bastion_host        = oci_core_instance.bastion[0].public_ip
+      bastion_user        = "opc"
+      bastion_private_key = tls_private_key.oke_ssh_key[0].private_key_pem
+      timeout             = "30m"
+    }
+    inline = [
+      "NS=${local.starter_pack_config.app_namespace}",
+      "echo 'Patching NIMCache CRs with GPU tolerations...'",
+      "for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do kubectl patch nimcache \"$cache\" -n \"$NS\" --type=merge -p '{\"spec\":{\"tolerations\":[{\"key\":\"nvidia.com/gpu\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}' 2>/dev/null && echo \"  Patched nimcache/$cache\" || echo \"  Skipped nimcache/$cache\"; done",
+      "echo 'Patching LLM NIMCache with vllm/fp8/TP8...'",
+      "kubectl patch nimcache nim-llm-cache -n \"$NS\" --type=merge -p '{\"spec\":{\"source\":{\"ngc\":{\"model\":{\"engine\":\"vllm\",\"precision\":\"fp8\",\"tensorParallelism\":\"8\"}}}}}' 2>/dev/null || true",
+      "echo 'Patching NIMService CRs with GPU tolerations...'",
+      "for svc in nim-llm nemotron-embedding-ms nemotron-ranking-ms nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do kubectl patch nimservice \"$svc\" -n \"$NS\" --type=merge -p '{\"spec\":{\"tolerations\":[{\"key\":\"nvidia.com/gpu\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}' 2>/dev/null && echo \"  Patched nimservice/$svc\" || echo \"  Skipped nimservice/$svc\"; done",
+      "echo 'Fixing nim-llm service selector...'",
+      "kubectl patch service nim-llm -n \"$NS\" --type=json -p '[{\"op\":\"remove\",\"path\":\"/spec/selector/statefulset.kubernetes.io~1pod-name\"}]' 2>/dev/null || true",
+      "echo 'Deleting NIMCache pods for recreation with tolerations...'",
+      "for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do kubectl delete pod \"$${cache}-pod\" -n \"$NS\" 2>/dev/null || true; done",
+      "echo 'NIM Operator post-deploy patches complete.'"
+    ]
+  }
 }
+
 
 
 resource "helm_release" "aiq" {
@@ -706,8 +752,8 @@ resource "helm_release" "aiq" {
   # the AIQ namespace secrets to be created by configure_oke.
   depends_on = [
     helm_release.rag,
-    terraform_data.patch_nim_llm_service_selector,
-    terraform_data.patch_nim_llm_service_selector_via_operator,
+    terraform_data.patch_nim_operator_resources,
+    terraform_data.patch_nim_operator_resources_via_operator,
     kubernetes_job_v1.configure_oke_for_aiq_namespace,
   ]
 }
