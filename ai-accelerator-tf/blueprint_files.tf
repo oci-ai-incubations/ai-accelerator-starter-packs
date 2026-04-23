@@ -1628,16 +1628,17 @@ locals {
           exports    = ["service_name"]
           depends_on = ["llamastack"]
           recipe = {
-            recipe_id                            = "contract-backend"
-            recipe_mode                          = "service"
-            deployment_name                      = "contract-backend"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend"
-            recipe_replica_count                 = 1
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 32
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool          = true
-            recipe_container_port                = "8000"
+            recipe_id                             = "contract-backend"
+            recipe_mode                           = "service"
+            deployment_name                       = "contract-backend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend"
+            recipe_replica_count                  = 1
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 32
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "8000"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             recipe_container_env = [
               { "key" = "DB_MODE", value = "oracle" },
               { "key" = "ORACLE_USER", value = var.db_username },
@@ -1658,17 +1659,18 @@ locals {
           name       = "contract-frontend"
           depends_on = ["contract-backend"]
           recipe = {
-            recipe_id                            = "contract-frontend"
-            recipe_mode                          = "service"
-            deployment_name                      = "contract-frontend"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend"
-            recipe_replica_count                 = 1
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 32
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool          = true
-            recipe_container_port                = "80"
-            service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+            recipe_id                             = "contract-frontend"
+            recipe_mode                           = "service"
+            deployment_name                       = "contract-frontend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend"
+            recipe_replica_count                  = 1
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 32
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "80"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            service_endpoint_subdomain            = local.starter_pack_config.frontend_url
             recipe_container_env = [
               { "key" = "BACKEND_SVC", value = "$${contract-backend.service_name}" },
             ]

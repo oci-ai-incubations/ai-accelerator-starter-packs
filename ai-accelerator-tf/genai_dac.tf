@@ -9,14 +9,14 @@
 locals {
   needs_dac = var.starter_pack_category == "contract_analysis"
   # OpenAI-compatible inference URL for the DAC endpoint
-  dac_inference_url = local.needs_dac && length(oci_generative_ai_endpoint.qwen3_vl_endpoint) > 0 ? "https://inference.generativeai.${var.region}.oci.oraclecloud.com/${oci_generative_ai_endpoint.qwen3_vl_endpoint[0].id}/v1/chat/completions" : ""
+  dac_inference_url = local.needs_dac && length(oci_generative_ai_endpoint.qwen3_vl_endpoint) > 0 ? "https://inference.generativeai.${var.genai_region}.oci.oraclecloud.com/${oci_generative_ai_endpoint.qwen3_vl_endpoint[0].id}/v1/chat/completions" : ""
   # Extract a short display name from the model ID (e.g. "Qwen3-VL-235B-A22B-Instruct" from "Qwen/Qwen3-VL-235B-A22B-Instruct")
   dac_model_display_name = element(split("/", var.dac_model_id), length(split("/", var.dac_model_id)) - 1)
 }
 
 # Step 1: Import model from HuggingFace
 resource "oci_generative_ai_imported_model" "qwen3_vl" {
-  provider       = oci.current_region
+  provider       = oci.genai_region
   count          = local.needs_dac ? 1 : 0
   compartment_id = var.compartment_ocid
   display_name   = "${local.dac_model_display_name}-${local.deploy_id}"
@@ -37,7 +37,7 @@ resource "oci_generative_ai_imported_model" "qwen3_vl" {
 
 # Step 2: Create Dedicated AI Cluster for hosting the model
 resource "oci_generative_ai_dedicated_ai_cluster" "contract_analysis_dac" {
-  provider       = oci.current_region
+  provider       = oci.genai_region
   count          = local.needs_dac ? 1 : 0
   compartment_id = var.compartment_ocid
   display_name   = "contract-analysis-dac-${local.deploy_id}"
@@ -60,7 +60,7 @@ resource "oci_generative_ai_dedicated_ai_cluster" "contract_analysis_dac" {
 
 # Step 3: Create endpoint binding the imported model to the DAC
 resource "oci_generative_ai_endpoint" "qwen3_vl_endpoint" {
-  provider                = oci.current_region
+  provider                = oci.genai_region
   count                   = local.needs_dac ? 1 : 0
   compartment_id          = var.compartment_ocid
   dedicated_ai_cluster_id = oci_generative_ai_dedicated_ai_cluster.contract_analysis_dac[0].id
