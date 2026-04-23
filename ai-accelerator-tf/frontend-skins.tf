@@ -8,11 +8,12 @@ locals {
   # Map of skin variable_name → var value. Must stay in sync with vars.tf.
   # Referencing an undeclared var is a plan-time error, which catches mismatches.
   skin_enabled_map = {
-    "skin_cuopt_core"    = var.skin_cuopt_core
-    "skin_cuopt_partner" = var.skin_cuopt_partner
-    "skin_vss_core"      = var.skin_vss_core
-    "skin_paas_rag_core" = var.skin_paas_rag_core
-    "skin_wpp_core"      = var.skin_wpp_core
+    "skin_cuopt_core"             = var.skin_cuopt_core
+    "skin_cuopt_partner"          = var.skin_cuopt_partner
+    "skin_vss_core"               = var.skin_vss_core
+    "skin_paas_rag_core"          = var.skin_paas_rag_core
+    "skin_wpp_core"               = var.skin_wpp_core
+    "skin_contract_analysis_core" = var.skin_contract_analysis_core
   }
 
   # Helm-pack single-select enum: category → user's skin key choice (empty = catalog default).
