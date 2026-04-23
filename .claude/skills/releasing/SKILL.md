@@ -38,7 +38,7 @@ branch creation, version bump, validation, schema gen/tests, commit, push, and p
 ls -la release_test_matrix/
 # Expect: <version>_enterprise_rag.zip, <version>_enterprise_rag_aiq.zip,
 #         <version>_paas_rag.zip, <version>_cuopt.zip, <version>_vss.zip,
-#         <version>_warehouse_pick_path.zip
+#         <version>_warehouse_pick_path.zip, <version>_contract_analysis.zip
 ```
 
 If any zip is missing, stop and investigate.
@@ -87,6 +87,7 @@ gh release create $VERSION \
   release_test_matrix/${VERSION}_cuopt.zip \
   release_test_matrix/${VERSION}_vss.zip \
   release_test_matrix/${VERSION}_warehouse_pick_path.zip \
+  release_test_matrix/${VERSION}_contract_analysis.zip \
   --target release_v${VERSION} \
   --title "$VERSION" \
   --prerelease \
@@ -134,6 +135,7 @@ Ask the user which packs and sizes to test. Default: all 6 packs at their standa
 | vss | poc | VM.GPU.A10.2 | 2 |
 | warehouse_pick_path | small | VM.GPU.A10.1 | 1 |
 | paas_rag | small | none (CPU) | 0 |
+| contract_analysis | small | none (CPU + DAC) | 0 |
 
 ### 3b. Design parallel tracks
 
@@ -148,7 +150,7 @@ For the default test matrix (poc/small sizes):
 
 - **Track 1 (BM.GPU4.8):** enterprise_rag/small then enterprise_rag_aiq/small — back-to-back (destroy app, re-apply infra, new app)
 - **Track 2 (VM.GPU.A10):** vss/poc, cuopt/poc, warehouse_pick_path/small — sequential with full destroy between rounds (all use VM.GPU.A10.x shapes)
-- **Track 3 (CPU only):** paas_rag/small (independent)
+- **Track 3 (CPU):** paas_rag/small, contract_analysis/small -- sequential (CPU-only, no GPU)
 
 Present the track plan to the user and confirm. Adjust if they want different groupings.
 
@@ -242,6 +244,7 @@ Build a combined results table:
 | vss                 | poc   | uk-london-1    | Track 2 | PASS   | —          |
 | cuopt               | poc   | uk-london-1    | Track 2 | PASS   | —          |
 | warehouse_pick_path | small | uk-london-1    | Track 2 | PASS   | —          |
+| contract_analysis | small | <region>       | Track 3 | PASS   | —          |
 ```
 
 ### 4e. Post combined results to PR
@@ -310,7 +313,7 @@ After all fixes are committed:
 rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
 ```
 
-For each category in `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`, `warehouse_pick_path`:
+For each category in `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`, `warehouse_pick_path`, `contract_analysis`:
 
 1. Set category: `echo 'starter_pack_category = "<category>"' > ai-accelerator-tf/starter_pack_category.auto.tfvars`
 2. Regenerate schema: `source venv/bin/activate && python3 create_final_schema.py -c <category>`
@@ -321,7 +324,7 @@ For each category in `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`
 
 ```bash
 # Delete old assets
-for asset in enterprise_rag enterprise_rag_aiq paas_rag cuopt vss warehouse_pick_path; do
+for asset in enterprise_rag enterprise_rag_aiq paas_rag cuopt vss warehouse_pick_path contract_analysis; do
   gh release delete-asset $VERSION ${VERSION}_${asset}.zip --yes 2>/dev/null
 done
 
@@ -409,6 +412,7 @@ Accept Terms of Use, click through to Step 2 (Configure Variables), and verify t
 | `vehicleRouteOptimizer.zip` | "cuOpt Deployment Size" |
 | `videoSearchSummarization.zip` | "VSS Deployment Size" |
 | `warehousePickPathOptimizer.zip` | "Optimizer Deployment Size" |
+| `contractAnalysis.zip` | "Contract Analysis Deployment Size" |
 
 ### 8c. Screenshot each pack
 
