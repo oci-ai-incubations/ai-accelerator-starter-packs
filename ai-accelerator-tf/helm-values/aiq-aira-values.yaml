@@ -1,100 +1,295 @@
-# Default values for NVIDIA AI-Q Research Assistant (AIRA) Helm chart.
+# NVIDIA AI-Q v2.0.0 (aiq2-web chart) values for enterprise_rag_aiq starter pack.
 # Managed by Terraform in the AI Accelerator starter pack.
+#
+# Structure: aiq.apps.<component>.{image,env,...}  (rewritten from v1.x flat shape)
+# Chart: https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq2-web-2.0.0.tgz
+# Release notes: https://github.com/NVIDIA-AI-Blueprints/aiq/releases/tag/2.0.0
 
-# -- AIQ namespace reference
-namespace: "aiq"
+aiq:
+  appname: aiq
+  project:
+    name: aiq
+    deploymentEnv: prd
+    cluster_name: oke
+    cloud_provider: oci
+    primary_owner: ai-accelerator
+    secondary_owner: ai-accelerator
+    blueprint_type: web
+    deploymentTarget: kubernetes
+    orientation: external
+    profile: web
+    services:
+      - backend
+      - frontend
+      - postgres
+      - rag
 
-# -- Global image pull secret for NGC resources
-# Secret is pre-created by configure_oke.py; the chart just references it.
-imagePullSecret:
-  name: "ngc-secret"
-  create: false
+  # aiq-credentials secret is pre-created by Terraform (kubernetes_secret_v1.aiq_credentials).
+  # Contains: NVIDIA_API_KEY, TAVILY_API_KEY, DB_USER_NAME, DB_USER_PASSWORD.
+  sharedSecrets:
+    enabled: true
+    autoMount: true
+    refreshInterval: 5m
+    dataFrom: []
 
-# -- Secret containing API key for NVIDIA NGC model registry
-# Secret is pre-created by configure_oke.py; the chart just references it.
-ngcApiSecret:
-  name: "ngc-api-secret"
-  create: false
+  secretEnvAsEnv: false
 
-# -- Tavily API secret configuration (optional)
-# Secret is created so the chart can mount it, but the key is also passed via
-# backendEnvVars.TAVILY_SEARCH_API_KEY to bake it into the Deployment spec and
-# trigger rolling restarts automatically when the key changes.
-tavilyApiSecret:
-  name: "tavily-secret"
-  password: ""
-  create: true
+  apps:
+    backend:
+      enabled: true
+      replicas: 1
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 3
+        targetCPUUtilizationPercentage: 80
+        targetMemoryUtilizationPercentage: 80
+      image:
+        repository: nvcr.io/nvidia/blueprint/aiq-agent
+        tag: "2.0.0"
+        pullPolicy: IfNotPresent
+      imagePullSecrets:
+        - name: ngc-secret
+      service:
+        type: ClusterIP
+        port: 8000
+        targetPort: 8000
+      port: 8000
+      healthCheck:
+        enabled: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+      env:
+        APP_ENV: production
+        LOG_LEVEL: INFO
+        # FRAG workflow integrates AIQ with our NVIDIA RAG v2.5.0 deployment
+        CONFIG_FILE: configs/config_web_frag.yml
+        DASK_NWORKERS: "1"
+        DASK_NTHREADS: "4"
+        # Postgres URLs — bundled chart deploys aiq-postgres
+        NAT_JOB_STORE_DB_URL: postgresql+asyncpg://$(DB_USER_NAME):$(DB_USER_PASSWORD)@aiq-postgres:5432/aiq_jobs
+        AIQ_CHECKPOINT_DB: postgresql://$(DB_USER_NAME):$(DB_USER_PASSWORD)@aiq-postgres:5432/aiq_jobs
+        AIQ_SUMMARY_DB: postgresql+asyncpg://$(DB_USER_NAME):$(DB_USER_PASSWORD)@aiq-postgres:5432/aiq_jobs
+        # RAG URLs overridden by Terraform helm_release.aiq set block with full FQDN.
+        RAG_SERVER_URL: http://rag-server:8081/v1
+        RAG_INGEST_URL: http://ingestor-server:8082/v1
+        COLLECTION_NAME: multimodal_data
+        AIQ_CHROMA_DIR: /app/data/chroma
+        MODE: web
+      labels:
+        component: backend
+      ingress:
+        enabled: false
+        annotations: {}
+      volumes:
+        - name: postgres-init
+          configMap:
+            name: aiq-postgres-init
+      initContainers:
+        - name: db-init
+          image: bitnami/postgresql:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for postgres..."
+              until pg_isready -h aiq-postgres -U $(DB_USER_NAME) -d aiq_jobs; do
+                sleep 2
+              done
+              echo "Running init script..."
+              psql -h aiq-postgres -U $(DB_USER_NAME) -d aiq_jobs -v db_user=$(DB_USER_NAME) -f /db-init/init.sql
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aiq-credentials
+                  key: DB_USER_PASSWORD
+            - name: DB_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: aiq-credentials
+                  key: DB_USER_NAME
+          volumeMounts:
+            - name: postgres-init
+              mountPath: /db-init
+              readOnly: true
+      stdin: false
+      tty: false
+      podSecurityContext: null
 
-# -- Backend service configuration
-replicaCount: 1
+    postgres:
+      enabled: true
+      replicas: 1
+      image:
+        repository: bitnami/postgresql
+        tag: latest
+        pullPolicy: IfNotPresent
+      service:
+        type: ClusterIP
+        ports:
+          - name: postgres
+            port: 5432
+            targetPort: 5432
+      ports:
+        - name: postgres
+          containerPort: 5432
+          protocol: TCP
+      secretEnv:
+        POSTGRES_USER: DB_USER_NAME
+        POSTGRES_PASSWORD: DB_USER_PASSWORD
+      env:
+        POSTGRES_DB: aiq_jobs
+      configMaps:
+        - name: aiq-postgres-init
+          data:
+            init.sql: |
+              -- AI-Q Database Initialization (runs on fresh PostgreSQL volume only)
+              CREATE DATABASE aiq_checkpoints;
+              GRANT ALL PRIVILEGES ON DATABASE aiq_jobs TO :"db_user";
+              GRANT ALL PRIVILEGES ON DATABASE aiq_checkpoints TO :"db_user";
 
-image:
-  baserepo: nvcr.io
-  repository: nvcr.io/nvidia/blueprint/aira-backend
-  tag: v1.2.0
-  pullPolicy: Always
+              \connect aiq_jobs
 
-service:
-  type: ClusterIP
-  port: 3838
+              CREATE TABLE IF NOT EXISTS job_info (
+                  job_id VARCHAR PRIMARY KEY,
+                  status VARCHAR NOT NULL,
+                  config_file VARCHAR,
+                  error VARCHAR,
+                  output_path VARCHAR,
+                  created_at TIMESTAMP WITH TIME ZONE,
+                  updated_at TIMESTAMP WITH TIME ZONE,
+                  expiry_seconds INTEGER,
+                  output VARCHAR,
+                  is_expired BOOLEAN DEFAULT FALSE
+              );
 
-backendEnvVars:
-  INSTRUCT_MODEL_NAME: "meta/llama-3.1-8b-instruct"
-  INSTRUCT_MODEL_TEMP: "0.0"
-  NEMOTRON_MAX_TOKENS: "5000"
-  INSTRUCT_MAX_TOKENS: "20000"
-  INSTRUCT_BASE_URL: "http://instruct-llm:8000"
-  INSTRUCT_API_KEY: "not-needed"
-  NEMOTRON_MODEL_NAME: "nvidia/llama-3.3-nemotron-super-49b-v1.5"
-  NEMOTRON_MODEL_TEMP: "0.5"
-  NEMOTRON_BASE_URL: "http://nim-llm.rag.svc.cluster.local:8000"
-  AIRA_APPLY_GUARDRAIL: "false"
-  RAG_SERVER_URL: "http://rag-server.rag.svc.cluster.local:8081"
-  RAG_INGEST_URL: "http://ingestor-server.rag.svc.cluster.local:8082"
+              CREATE INDEX IF NOT EXISTS idx_job_info_status ON job_info(status);
+              CREATE INDEX IF NOT EXISTS idx_job_info_created_at ON job_info(created_at);
+      persistence:
+        - name: aiq-postgres-data
+          accessModes:
+            - ReadWriteOnce
+          size: 10Gi
+          storageClassName: oci-bv
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: aiq-postgres-data
+      volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      healthCheck:
+        enabled: true
+        livenessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - pg_isready -U $POSTGRES_USER -d aiq_jobs
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 5
+        readinessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - pg_isready -U $POSTGRES_USER -d aiq_jobs
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 5
+      labels:
+        component: postgres
+      podSecurityContext: null
 
-# -- Instruction tuned NIM configuration
-nim-llm:
-  enabled: true
-  service:
-    name: "instruct-llm"
-  image:
-    repository: nvcr.io/nim/meta/llama-3.1-8b-instruct
-    tag: "latest"
-    pullPolicy: IfNotPresent
-  resources:
-    limits:
-      nvidia.com/gpu: 1
-    requests:
-      nvidia.com/gpu: 1
-  model:
-    ngcAPIKey: ""
-    name: "meta/llama-3.1-8b-instruct"
-
-# -- Frontend configuration
-frontend:
-  enabled: true
-  service:
-    type: NodePort
-    port: 3000
-    targetPort: 3000
-    nodePort: 30080
-  image:
-    repository: nvcr.io/nvidia/blueprint/aira-frontend
-    tag: v1.2.0
-    pullPolicy: Always
-  replicaCount: 1
-
-# -- Phoenix tracing service
-phoenix:
-  enabled: true
-  image:
-    repository: docker.io/arizephoenix/phoenix
-    tag: latest
-    pullPolicy: IfNotPresent
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 200m
-      memory: 256Mi
+    frontend:
+      enabled: true
+      replicas: 1
+      autoscaling:
+        enabled: false
+        minReplicas: 1
+        maxReplicas: 3
+        targetCPUUtilizationPercentage: 80
+      image:
+        repository: nvcr.io/nvidia/blueprint/aiq-frontend
+        tag: "2.0.0"
+        pullPolicy: IfNotPresent
+      imagePullSecrets:
+        - name: ngc-secret
+      service:
+        type: ClusterIP
+        port: 3000
+        targetPort: 3000
+      port: 3000
+      healthCheck:
+        enabled: true
+        path: /
+        startupProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 2Gi
+      env:
+        BACKEND_URL: http://aiq-backend:8000
+        NODE_ENV: production
+        REQUIRE_AUTH: "false"
+        FILE_UPLOAD_ACCEPTED_TYPES: .pdf,.docx,.txt,.md
+        FILE_UPLOAD_MAX_SIZE_MB: "100"
+        FILE_UPLOAD_MAX_FILE_COUNT: "10"
+        FILE_EXPIRATION_CHECK_INTERVAL_HOURS: "0"
+        NEXT_PUBLIC_DATADOG_ENABLED: "false"
+      labels:
+        component: frontend
+      # Ingress handled by our own kubernetes_ingress_v1 resource in ingress.tf
+      ingress:
+        enabled: false
+      podSecurityContext: null

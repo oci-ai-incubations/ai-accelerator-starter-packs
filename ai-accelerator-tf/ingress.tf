@@ -220,7 +220,7 @@ resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
           path_type = "Prefix"
           backend {
             service {
-              name = "aiq-aira-aira-frontend"
+              name = "aiq-frontend"
               port {
                 number = 3000
               }
