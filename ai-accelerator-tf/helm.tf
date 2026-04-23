@@ -501,6 +501,17 @@ resource "helm_release" "rag" {
   timeout         = 5400 # Increase timeout to 90 minutes
   cleanup_on_fail = true
 
+  # wait=false so Terraform returns as soon as Helm dispatches the release,
+  # unblocking terraform_data.patch_nim_operator_resources which patches the
+  # NIMCache/NIMService CRs with GPU tolerations and deletes stuck cache pods
+  # so they reschedule on GPU nodes. With the default wait=true, Helm blocks
+  # waiting for pods to become Ready, but pods can't schedule until the
+  # post-install patch runs — deadlock past the 90-minute timeout.
+  # Smoke tests and the blueprint deploy job poll for actual cluster readiness.
+  # Follow-up (v0.0.8+): push tolerations into NIMCache/NIMService values
+  # directly, delete patch_nim_operator_resources, restore wait=true.
+  wait = false
+
   values = [
     {
       enterprise_rag     = file("${path.module}/helm-values/enterprise-rag-values.yaml")
