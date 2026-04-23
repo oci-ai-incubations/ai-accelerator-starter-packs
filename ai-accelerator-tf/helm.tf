@@ -693,12 +693,42 @@ resource "terraform_data" "patch_nim_operator_resources_via_operator" {
 
 
 
+# Pre-create the aiq-credentials secret required by the v2.0.0 chart.
+# The chart's sharedSecrets.autoMount wires these into env via envFrom.
+resource "kubernetes_secret_v1" "aiq_credentials" {
+  count = local.deploy_app_rag_aiq ? 1 : 0
+  metadata {
+    name      = "aiq-credentials"
+    namespace = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
+  }
+  data = {
+    NVIDIA_API_KEY   = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
+    TAVILY_API_KEY   = var.tavily_api_key
+    DB_USER_NAME     = "aiq"
+    DB_USER_PASSWORD = random_password.aiq_db_password[0].result
+  }
+  type       = "Opaque"
+  depends_on = [kubernetes_job_v1.configure_oke_for_aiq_namespace, kubernetes_namespace_v1.aiq_namespace]
+}
+
+resource "random_password" "aiq_db_password" {
+  count   = local.deploy_app_rag_aiq ? 1 : 0
+  length  = 24
+  special = false
+}
+
 resource "helm_release" "aiq" {
-  name             = "aiq-aira"
+  name             = "aiq"
   namespace        = coalesce(local.starter_pack_config.aiq_namespace, "aiq")
   create_namespace = true
 
-  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq-aira-v1.2.1.tgz"
+  # AIQ v2.0.0 — renamed chart (aiq-aira → aiq2-web). Breaking changes:
+  # - Values structure rewritten from flat to nested under aiq.apps.<component>
+  # - Backend image: aira-backend → aiq-agent, Frontend: aira-frontend → aiq-frontend
+  # - Requires aiq-credentials secret (NVIDIA_API_KEY, TAVILY_API_KEY, DB_USER_NAME, DB_USER_PASSWORD)
+  # - Bundled Postgres (no more Phoenix, no more bundled NIM)
+  # - RAG URLs require /v1 suffix
+  chart = "https://helm.ngc.nvidia.com/nvidia/blueprint/charts/aiq2-web-2.0.0.tgz"
 
   repository_username = "$oauthtoken"
   repository_password = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
@@ -710,49 +740,26 @@ resource "helm_release" "aiq" {
     file("${path.module}/helm-values/aiq-aira-values.yaml")
   ]
 
-  set_sensitive = concat(
-    [
-      {
-        name  = "imagePullSecret.password"
-        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
-      },
-      {
-        name  = "ngcApiSecret.password"
-        value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
-      }
-    ],
-    var.tavily_api_key != "" ? [
-      {
-        name  = "tavilyApiSecret.password"
-        value = var.tavily_api_key
-      }
-    ] : []
-  )
   set = [
+    # Point AIQ at our enterprise_rag v2.5.0 services in the rag namespace.
+    # v2.0.0 requires /v1 suffix on both RAG URLs.
     {
-      name  = "backendEnvVars.RAG_SERVER_URL"
-      value = "http://rag-server.${local.starter_pack_config.app_namespace}.svc.cluster.local:8081"
+      name  = "aiq.apps.backend.env.RAG_SERVER_URL"
+      value = "http://rag-server.${local.starter_pack_config.app_namespace}.svc.cluster.local:8081/v1"
     },
     {
-      name  = "backendEnvVars.RAG_INGEST_URL"
-      value = "http://ingestor-server.${local.starter_pack_config.app_namespace}.svc.cluster.local:8082"
+      name  = "aiq.apps.backend.env.RAG_INGEST_URL"
+      value = "http://ingestor-server.${local.starter_pack_config.app_namespace}.svc.cluster.local:8082/v1"
     },
+    # BUG-020 fix: enterprise_rag_aiq's user-facing frontend is aiq-frontend
+    # (from this `aiq` Helm release). The skin_enterprise_rag_aiq enum dropdown
+    # must override THIS release's frontend image for the selection to take effect.
     {
-      name  = "backendEnvVars.NEMOTRON_BASE_URL"
-      value = "http://nim-llm.${local.starter_pack_config.app_namespace}.svc.cluster.local:8000"
-    },
-    # BUG-020 fix: enterprise_rag_aiq's user-facing frontend is aiq-aira-aira-frontend
-    # (from this `aiq-aira` Helm release), NOT the rag release's frontend. The
-    # skin_enterprise_rag_aiq enum dropdown must override THIS release's frontend
-    # image, or the selection has no visible effect. The corresponding override on
-    # the `rag` release above remains for the rag sub-frontend deployed alongside
-    # (not user-facing for this pack), but only this override reaches the user.
-    {
-      name  = "frontend.image.repository"
+      name  = "aiq.apps.frontend.image.repository"
       value = split(":", local.frontend_skin_image_uri)[0]
     },
     {
-      name  = "frontend.image.tag"
+      name  = "aiq.apps.frontend.image.tag"
       value = split(":", local.frontend_skin_image_uri)[1]
     }
   ]
@@ -766,6 +773,7 @@ resource "helm_release" "aiq" {
     terraform_data.patch_nim_operator_resources,
     terraform_data.patch_nim_operator_resources_via_operator,
     kubernetes_job_v1.configure_oke_for_aiq_namespace,
+    kubernetes_secret_v1.aiq_credentials,
   ]
 }
 

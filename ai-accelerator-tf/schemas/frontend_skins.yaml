@@ -51,10 +51,10 @@ enterprise_rag:
       subdomain: "frontend-erag"
 
 enterprise_rag_aiq:
-  default: "NVIDIA AIRA - Agentic workflows (Core App)"
+  default: "NVIDIA AI-Q - Agentic workflows (Core App)"
   skins:
-    - key: "NVIDIA AIRA - Agentic workflows (Core App)"
-      image_uri: "nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0"
+    - key: "NVIDIA AI-Q - Agentic workflows (Core App)"
+      image_uri: "nvcr.io/nvidia/blueprint/aiq-frontend:2.0.0"
       provider: "NVIDIA"
       container_port: "3000"
       subdomain: "aiq"
