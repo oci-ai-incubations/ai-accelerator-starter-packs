@@ -1644,7 +1644,7 @@ locals {
               { "key" = "ORACLE_USER", value = var.db_username },
               { "key" = "ORACLE_PASSWORD", value = var.db_password },
               { "key" = "ORACLE_DSN", value = replace(local.oracle26ai_high_connection_string, "tcps://", "") },
-              { "key" = "QWEN_URL", value = local.dac_inference_url },
+              { "key" = "QWEN_ENDPOINT", value = local.dac_inference_url },
               { "key" = "QWEN_MODEL", value = "/models/${var.dac_model_id}" },
               { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
               { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
