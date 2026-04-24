@@ -15,21 +15,21 @@
 ```bash
 EVIDENCE_DIR="/tmp/cuopt-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$EVIDENCE_DIR"
-SESSION="cuopt-test-$(date +%s)"
+# AGENT_BROWSER_SESSION is inherited from the calling /testing-pack session (see CRITICAL RULE #5 in /testing-pack/SKILL.md).
 BASE_URL="$STARTER_PACK_URL"
-agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
-agent-browser --session $SESSION wait --load networkidle
-agent-browser --session $SESSION wait 3000
+agent-browser --headed --ignore-https-errors open "$BASE_URL"
+agent-browser wait --load networkidle
+agent-browser wait 3000
 ```
 
 ## Test Pattern
 
 Every test follows this cycle:
-1. `agent-browser --session $SESSION snapshot -i` — capture interactive element refs
+1. `agent-browser snapshot -i` — capture interactive element refs
 2. Find the relevant `@ref` for the element to interact with
 3. Interact: `click`, `fill`, `select`, etc.
 4. Re-snapshot or use `wait` to confirm the result
-5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-XX-name.png"` — capture evidence
+5. `agent-browser screenshot "$EVIDENCE_DIR/CU-XX-name.png"` — capture evidence
 
 ---
 
@@ -83,11 +83,11 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Header (top of page)
 - **Interaction:** Take a snapshot and verify header elements are present
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for Oracle logo image and title text
+  1. `agent-browser snapshot -i` — look for Oracle logo image and title text
   2. Verify Oracle logo image is visible in the snapshot
   3. Verify title text containing "Vehicle Routing" or "cuOpt" is visible
   4. Verify "Find Optimal Routes" button is visible (note its `@ref` for CU-10)
-  5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-01-header.png"`
+  5. `agent-browser screenshot "$EVIDENCE_DIR/CU-01-header.png"`
 - **Verify:**
   - Oracle logo image is visible
   - Title text containing "Vehicle Routing" or "cuOpt" is visible
@@ -98,9 +98,9 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Problem" tab (default active)
 - **Interaction:** Verify table is visible on page load (no click needed — Problem tab is default)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for table with columns: Vehicle, Type, Capacity, Shift, Max Route Time
+  1. `agent-browser snapshot -i` — look for table with columns: Vehicle, Type, Capacity, Shift, Max Route Time
   2. Use `get text` on table cells to verify "Car-1", "Truck-1", capacity values
-  3. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-02-fleet-table.png"`
+  3. `agent-browser screenshot "$EVIDENCE_DIR/CU-02-fleet-table.png"`
 - **Verify:**
   - Table has >=2 rows (Car-1 and Truck-1)
   - "Car-1" and "Truck-1" text visible in table cells
@@ -112,10 +112,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Problem" tab
 - **Interaction:** Scroll down if needed to see the delivery stops table
 - **Steps:**
-  1. `agent-browser --session $SESSION scroll down 500` — scroll to reveal delivery stops table
-  2. `agent-browser --session $SESSION snapshot -i` — look for table with columns: #, Customer, Address, Time Window, Demand, Service Time, Value
+  1. `agent-browser scroll down 500` — scroll to reveal delivery stops table
+  2. `agent-browser snapshot -i` — look for table with columns: #, Customer, Address, Time Window, Demand, Service Time, Value
   3. Use `get text` on cells to verify customer names, addresses, demand values
-  4. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-03-delivery-stops.png"`
+  4. `agent-browser screenshot "$EVIDENCE_DIR/CU-03-delivery-stops.png"`
 - **Verify:**
   - Table has >=6 rows (default problem has 6 deliveries)
   - Customer names visible (e.g., text containing customer identifiers)
@@ -128,9 +128,9 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Problem" tab
 - **Interaction:** None (visual check via snapshot)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for chip/badge components showing vehicle count and stop count
+  1. `agent-browser snapshot -i` — look for chip/badge components showing vehicle count and stop count
   2. Use `get text` on chip elements to verify counts
-  3. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-04-summary-chips.png"`
+  3. `agent-browser screenshot "$EVIDENCE_DIR/CU-04-summary-chips.png"`
 - **Verify:**
   - A chip/badge showing "2" (vehicles) is visible
   - A chip/badge showing "6" (delivery stops) is visible
@@ -140,11 +140,14 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Map" tab
 - **Interaction:** Click the "Map" tab
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the "Map" tab `@ref`
-  2. `agent-browser --session $SESSION click @ref` — click the Map tab
-  3. `agent-browser --session $SESSION wait 2000` — wait for map tiles to load
-  4. `agent-browser --session $SESSION snapshot -i` — verify Leaflet map container is present
-  5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-05-map-renders.png"`
+  1. `agent-browser snapshot -i` — find the "Map" tab `@ref`
+  2. Click the "Map" tab (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Map' || el.getAttribute('aria-label') === 'Map'))?.click();`
+     `EOF`
+  3. `agent-browser wait 2000` — wait for map tiles to load
+  4. `agent-browser snapshot -i` — verify Leaflet map container is present
+  5. `agent-browser screenshot "$EVIDENCE_DIR/CU-05-map-renders.png"`
 - **Verify:**
   - Tab switches to show a Leaflet map
   - Map tiles are loaded (OpenStreetMap tiles visible)
@@ -156,8 +159,8 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Map" tab (already active from CU-5)
 - **Interaction:** None (visual check via snapshot)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for marker elements on the map
-  2. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-06-markers.png"`
+  1. `agent-browser snapshot -i` — look for marker elements on the map
+  2. `agent-browser screenshot "$EVIDENCE_DIR/CU-06-markers.png"`
 - **Verify:**
   - >=7 markers visible on the map (1 depot + 6 delivery stops)
   - Red square marker visible (depot)
@@ -168,12 +171,15 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Map" tab
 - **Interaction:** Click a delivery stop marker
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find a delivery stop marker `@ref` (teal circle)
-  2. `agent-browser --session $SESSION click @ref` — click the marker
-  3. `agent-browser --session $SESSION wait 1000` — wait for popup
-  4. `agent-browser --session $SESSION snapshot -i` — verify popup content
-  5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-07-marker-popup.png"`
-  6. **Dismiss the popup** — click elsewhere on the map or press Escape: `agent-browser --session $SESSION press Escape`
+  1. `agent-browser snapshot -i` — find a delivery stop marker `@ref` (teal circle)
+  2. Click the first delivery stop marker on the map (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelectorAll('.leaflet-marker-icon')[0] || document.querySelectorAll('path[stroke*="teal" i], circle[fill*="teal" i]')[0] || document.querySelectorAll('.leaflet-interactive')[1])?.click();`
+     `EOF`
+  3. `agent-browser wait 1000` — wait for popup
+  4. `agent-browser snapshot -i` — verify popup content
+  5. `agent-browser screenshot "$EVIDENCE_DIR/CU-07-marker-popup.png"`
+  6. **Dismiss the popup** — click elsewhere on the map or press Escape: `agent-browser press Escape`
 - **Verify:**
   - Popup appears with stop information
   - Popup contains: stop number, customer name, address
@@ -184,14 +190,20 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Left panel, "Settings" tab
 - **Interaction:** Click the "Settings" tab, then click the model dropdown
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the "Settings" tab `@ref`
-  2. `agent-browser --session $SESSION click @ref` — click the Settings tab
-  3. `agent-browser --session $SESSION wait 1000`
-  4. `agent-browser --session $SESSION snapshot -i` — find the "AI Model" dropdown `@ref`
-  5. `agent-browser --session $SESSION click @ref` — click the dropdown to open it
-  6. `agent-browser --session $SESSION snapshot -i` — verify dropdown options are present
-  7. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-08-settings-dropdown.png"`
-  8. `agent-browser --session $SESSION press Escape` — close the dropdown
+  1. `agent-browser snapshot -i` — find the "Settings" tab `@ref`
+  2. Click the "Settings" tab (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Settings' || el.getAttribute('aria-label') === 'Settings'))?.click();`
+     `EOF`
+  3. `agent-browser wait 1000`
+  4. `agent-browser snapshot -i` — find the "AI Model" dropdown `@ref`
+  5. Click the "AI Model" dropdown to open it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, [role="combobox"], [role="button"], select')).find(el => /ai model|model/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
+  6. `agent-browser snapshot -i` — verify dropdown options are present
+  7. `agent-browser screenshot "$EVIDENCE_DIR/CU-08-settings-dropdown.png"`
+  8. `agent-browser press Escape` — close the dropdown
 - **Verify:**
   - Settings tab content is visible
   - "AI Model" label is present
@@ -209,13 +221,16 @@ The chat interface uses an LLM with function calling to modify the problem data.
   4. Verify text appears in the input
   5. Clear the input (do NOT send — just verify input works)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the "Problem" tab `@ref`
-  2. `agent-browser --session $SESSION click @ref` — click Problem tab
-  3. `agent-browser --session $SESSION snapshot -i` — find the chat input field `@ref` (placeholder containing "Ask" or "modify" or "solve" or "chat") and Send button
-  4. `agent-browser --session $SESSION fill @ref "hello"` — type into the chat input
-  5. `agent-browser --session $SESSION snapshot -i` — verify "hello" appears in the input
-  6. `agent-browser --session $SESSION fill @ref ""` — clear the input (do NOT send)
-  7. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-09-chat-input.png"`
+  1. `agent-browser snapshot -i` — find the "Problem" tab `@ref`
+  2. Click the "Problem" tab (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Problem' || el.getAttribute('aria-label') === 'Problem'))?.click();`
+     `EOF`
+  3. `agent-browser snapshot -i` — find the chat input field `@ref` (placeholder containing "Ask" or "modify" or "solve" or "chat") and Send button
+  4. `agent-browser fill @ref "hello"` — type into the chat input
+  5. `agent-browser snapshot -i` — verify "hello" appears in the input
+  6. `agent-browser fill @ref ""` — clear the input (do NOT send)
+  7. `agent-browser screenshot "$EVIDENCE_DIR/CU-09-chat-input.png"`
 - **Verify:**
   - Chat input field is visible and editable
   - Send button is visible
@@ -229,16 +244,19 @@ The chat interface uses an LLM with function calling to modify the problem data.
   2. Verify button shows loading state ("Finding routes..." with spinner)
   3. Wait for results to appear in the right panel (replaces the delivery schedule)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the "Find Optimal Routes" button `@ref`
-  2. `agent-browser --session $SESSION click @ref` — click the solve button
-  3. `agent-browser --session $SESSION wait 2000`
-  4. `agent-browser --session $SESSION snapshot -i` — verify loading state (button text changes to "Finding routes...")
-  5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-10-solving.png"`
+  1. `agent-browser snapshot -i` — find the "Find Optimal Routes" button `@ref`
+  2. Click "Find Optimal Routes" to start solving (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Find Optimal Routes' || el.getAttribute('aria-label') === 'Find Optimal Routes')?.click();`
+     `EOF`
+  3. `agent-browser wait 2000`
+  4. `agent-browser snapshot -i` — verify loading state (button text changes to "Finding routes...")
+  5. `agent-browser screenshot "$EVIDENCE_DIR/CU-10-solving.png"`
   6. **Poll for completion:** In a loop (up to 60 iterations, 5 seconds apart):
-     - `agent-browser --session $SESSION wait 5000`
-     - `agent-browser --session $SESSION snapshot -i` — check if results summary is visible (vehicle count, delivery count, solve time) or if button has returned to normal state
+     - `agent-browser wait 5000`
+     - `agent-browser snapshot -i` — check if results summary is visible (vehicle count, delivery count, solve time) or if button has returned to normal state
      - If results are visible, break out of the loop
-  7. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-10-solved.png"`
+  7. `agent-browser screenshot "$EVIDENCE_DIR/CU-10-solved.png"`
 - **Verify:**
   - Button enters loading state when clicked
   - After solve completes: results summary is visible (vehicle count, delivery count, solve time)
@@ -250,9 +268,9 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Right panel, results section (after CU-10 solve)
 - **Interaction:** None (visual check via snapshot)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for summary statistics in results area
+  1. `agent-browser snapshot -i` — look for summary statistics in results area
   2. Use `get text` on summary elements to extract vehicle count, delivery count, solve time
-  3. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-11-summary-bar.png"`
+  3. `agent-browser screenshot "$EVIDENCE_DIR/CU-11-summary-bar.png"`
 - **Verify:**
   - Vehicle count displayed (number, e.g., "2")
   - Delivery count displayed (number, e.g., "6" or less if some dropped)
@@ -265,9 +283,9 @@ The chat interface uses an LLM with function calling to modify the problem data.
   1. Locate the vehicle routes section (should be expanded by default)
   2. Verify per-vehicle cards are visible
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for vehicle route cards/accordion sections
+  1. `agent-browser snapshot -i` — look for vehicle route cards/accordion sections
   2. Use `get text` on card headers to verify vehicle IDs and delivery counts
-  3. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-12-vehicle-routes.png"`
+  3. `agent-browser screenshot "$EVIDENCE_DIR/CU-12-vehicle-routes.png"`
 - **Verify:**
   - >=1 vehicle route card visible (e.g., "Car-1" or "Truck-1")
   - Each card shows the vehicle ID
@@ -278,11 +296,11 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Right panel, inside a vehicle route card
 - **Interaction:** Read the route segments within the first vehicle card
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the first vehicle card and its route segments
+  1. `agent-browser snapshot -i` — find the first vehicle card and its route segments
   2. If the card needs expanding, find and click its expand `@ref`
-  3. `agent-browser --session $SESSION snapshot -i` — read route segment details
+  3. `agent-browser snapshot -i` — read route segment details
   4. Use `get text` on segment elements to verify From/To locations, drive time, arrival time
-  5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-13-route-segments.png"`
+  5. `agent-browser screenshot "$EVIDENCE_DIR/CU-13-route-segments.png"`
 - **Verify:**
   - Route starts from Depot (first segment "From: Depot" or node 0)
   - Route ends at Depot (last segment returns to Depot)
@@ -294,9 +312,9 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Area:** Right panel, inside vehicle route cards
 - **Interaction:** None (visual check via snapshot)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for capacity utilization info in vehicle cards
+  1. `agent-browser snapshot -i` — look for capacity utilization info in vehicle cards
   2. Use `get text` on capacity elements to extract demand/capacity values
-  3. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-14-capacity.png"`
+  3. `agent-browser screenshot "$EVIDENCE_DIR/CU-14-capacity.png"`
 - **Verify:**
   - Each vehicle card shows capacity utilization (e.g., "25/50" or "50%")
   - Demand total per vehicle does not exceed capacity
@@ -309,10 +327,13 @@ The chat interface uses an LLM with function calling to modify the problem data.
   2. If present and has items, expand it
   3. If no tasks were dropped, verify the section shows 0 or is absent
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — look for "Dropped Tasks" section
-  2. If an expand `@ref` is found, `agent-browser --session $SESSION click @ref`
-  3. `agent-browser --session $SESSION snapshot -i` — verify dropped tasks content
-  4. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-15-dropped-tasks.png"`
+  1. `agent-browser snapshot -i` — look for "Dropped Tasks" section
+  2. If an expand control is present, click it to expand the "Dropped Tasks" section (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, [role="button"], summary, [aria-expanded]')).find(el => /dropped tasks/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
+  3. `agent-browser snapshot -i` — verify dropped tasks content
+  4. `agent-browser screenshot "$EVIDENCE_DIR/CU-15-dropped-tasks.png"`
 - **Verify:**
   - If dropped tasks exist: expandable section shows customer names and drop reasons
   - If no dropped tasks: section shows "0" or is not displayed (both valid)
@@ -327,16 +348,19 @@ The chat interface uses an LLM with function calling to modify the problem data.
   3. Verify user message appears in chat (right-aligned)
   4. Wait for AI response (left-aligned message)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the chat input `@ref` and Send button `@ref`
-  2. `agent-browser --session $SESSION fill @ref "What is cuOpt?"` — type the message
-  3. `agent-browser --session $SESSION click @ref` — click Send (or `agent-browser --session $SESSION press Enter`)
-  4. `agent-browser --session $SESSION wait 2000`
-  5. `agent-browser --session $SESSION snapshot -i` — verify user message appears
+  1. `agent-browser snapshot -i` — find the chat input `@ref` and Send button `@ref`
+  2. `agent-browser fill @ref "What is cuOpt?"` — type the message
+  3. Click "Send" to send the message — or `agent-browser press Enter` (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send' || el.getAttribute('type') === 'submit')?.click();`
+     `EOF`
+  4. `agent-browser wait 2000`
+  5. `agent-browser snapshot -i` — verify user message appears
   6. **Poll for AI response:** In a loop (up to 24 iterations, 5 seconds apart):
-     - `agent-browser --session $SESSION wait 5000`
-     - `agent-browser --session $SESSION snapshot -i` — check for AI response text (left-aligned message about cuOpt/vehicle routing)
+     - `agent-browser wait 5000`
+     - `agent-browser snapshot -i` — check for AI response text (left-aligned message about cuOpt/vehicle routing)
      - If AI response is visible, break out of the loop
-  7. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-16-chat-response.png"`
+  7. `agent-browser screenshot "$EVIDENCE_DIR/CU-16-chat-response.png"`
 - **Verify:**
   - User message "What is cuOpt?" appears in the chat
   - "Thinking..." indicator appears briefly
@@ -353,11 +377,14 @@ The chat interface uses an LLM with function calling to modify the problem data.
   3. Verify the chip text populates the input field
   4. Clear the input (do NOT send — this is just testing the chip interaction)
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find example chip `@ref` (e.g., "Add car", "Add truck", "Add 3 more delivery locations")
-  2. `agent-browser --session $SESSION click @ref` — click the chip
-  3. `agent-browser --session $SESSION snapshot -i` — verify the chat input is now populated with the chip's text
-  4. Find the chat input `@ref` and `agent-browser --session $SESSION fill @ref ""` — clear it (do NOT send)
-  5. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-17-chip-click.png"`
+  1. `agent-browser snapshot -i` — find example chip `@ref` (e.g., "Add car", "Add truck", "Add 3 more delivery locations")
+  2. Click the first example chip (e.g. "Add car") (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, a, [role="button"], [class*="chip" i]')).find(el => /add car|add truck|add .* delivery|example/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
+  3. `agent-browser snapshot -i` — verify the chat input is now populated with the chip's text
+  4. Find the chat input `@ref` and `agent-browser fill @ref ""` — clear it (do NOT send)
+  5. `agent-browser screenshot "$EVIDENCE_DIR/CU-17-chip-click.png"`
 - **Verify:**
   - Clicking the chip populates the chat input with the chip's text
   - Input field is not empty after chip click
@@ -372,20 +399,26 @@ The chat interface uses an LLM with function calling to modify the problem data.
   4. Switch to "Problem" tab
   5. Check the fleet table for a new vehicle
 - **Steps:**
-  1. `agent-browser --session $SESSION snapshot -i` — find the chat input `@ref` and Send button `@ref`
-  2. `agent-browser --session $SESSION fill @ref "Add a truck to the fleet"` — type the message
-  3. `agent-browser --session $SESSION click @ref` — click Send (or `agent-browser --session $SESSION press Enter`)
-  4. `agent-browser --session $SESSION wait 2000`
+  1. `agent-browser snapshot -i` — find the chat input `@ref` and Send button `@ref`
+  2. `agent-browser fill @ref "Add a truck to the fleet"` — type the message
+  3. Click "Send" to send the message — or `agent-browser press Enter` (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send' || el.getAttribute('type') === 'submit')?.click();`
+     `EOF`
+  4. `agent-browser wait 2000`
   5. **Poll for AI response:** In a loop (up to 36 iterations, 5 seconds apart):
-     - `agent-browser --session $SESSION wait 5000`
-     - `agent-browser --session $SESSION snapshot -i` — check for AI response acknowledging truck addition
+     - `agent-browser wait 5000`
+     - `agent-browser snapshot -i` — check for AI response acknowledging truck addition
      - If AI response about adding a truck is visible, break out of the loop
-  6. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-18-chat-modify.png"`
-  7. `agent-browser --session $SESSION snapshot -i` — find the "Problem" tab `@ref`
-  8. `agent-browser --session $SESSION click @ref` — switch to Problem tab
-  9. `agent-browser --session $SESSION wait 2000`
-  10. `agent-browser --session $SESSION snapshot -i` — verify fleet table now shows >=3 vehicles
-  11. `agent-browser --session $SESSION screenshot "$EVIDENCE_DIR/CU-18-fleet-updated.png"`
+  6. `agent-browser screenshot "$EVIDENCE_DIR/CU-18-chat-modify.png"`
+  7. `agent-browser snapshot -i` — find the "Problem" tab `@ref`
+  8. Click the "Problem" tab to switch to it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Problem' || el.getAttribute('aria-label') === 'Problem'))?.click();`
+     `EOF`
+  9. `agent-browser wait 2000`
+  10. `agent-browser snapshot -i` — verify fleet table now shows >=3 vehicles
+  11. `agent-browser screenshot "$EVIDENCE_DIR/CU-18-fleet-updated.png"`
 - **Verify:**
   - AI responds acknowledging the modification (message about adding a truck)
   - Fleet table now shows >=3 vehicles (was 2 before: Car-1, Truck-1 + new truck)
@@ -400,7 +433,7 @@ The chat interface uses an LLM with function calling to modify the problem data.
 After all tests complete (whether passed or failed):
 
 ```bash
-agent-browser --session $SESSION close
+agent-browser close
 echo "Evidence screenshots saved to: $EVIDENCE_DIR"
 ls -la "$EVIDENCE_DIR"
 ```

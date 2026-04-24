@@ -11,11 +11,11 @@
 ```bash
 EVIDENCE_DIR="/tmp/vss-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$EVIDENCE_DIR"
-SESSION="vss-test-$(date +%s)"
+# AGENT_BROWSER_SESSION is inherited from the calling /testing-pack session (see CRITICAL RULE #5 in /testing-pack/SKILL.md).
 BASE_URL="$STARTER_PACK_URL"
-agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
-agent-browser --session $SESSION wait --load networkidle
-agent-browser --session $SESSION wait 3000
+agent-browser --headed --ignore-https-errors open "$BASE_URL"
+agent-browser wait --load networkidle
+agent-browser wait 3000
 ```
 
 All subsequent commands use `--session $SESSION --ignore-https-errors`. For brevity, test descriptions omit these flags — always include them.
@@ -83,8 +83,11 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 - **Page:** Start from any page
 - **Interaction:**
   1. `agent-browser snapshot -i` — identify navigation link refs for Home, Content Review, Analytics, Settings
-  2. For each nav link:
-     - `agent-browser click @ref`
+  2. For each nav link (Home, Content Review, Analytics, Settings) — click by label (via evaluate — BUG-025 workaround):
+     - Click the nav link — substitute the LABEL variable per iteration:
+       `agent-browser evaluate --stdin <<'EOF'`
+       `var LABEL = 'Home'; Array.from(document.querySelectorAll('nav a, nav button, aside a, aside button, [role="navigation"] a, [role="navigation"] button')).find(el => (el.textContent || '').trim() === LABEL || el.getAttribute('aria-label') === LABEL)?.click();`
+       `EOF`
      - `agent-browser wait --load networkidle`
      - `agent-browser get url` — verify correct URL
      - `agent-browser snapshot -i` — verify page rendered (not blank/error)
@@ -103,7 +106,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
   1. `agent-browser open "$BASE_URL/"`
   2. `agent-browser wait --load networkidle`
   3. `agent-browser snapshot -i` — locate the refresh button (icon button near file list area)
-  4. `agent-browser click @ref` on the refresh button
+  4. Click the refresh button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Refresh' || /refresh/i.test(el.getAttribute('aria-label') || '') || /refresh/i.test(el.getAttribute('title') || '')))?.click();`
+     `EOF`
   5. `agent-browser wait --load networkidle`
   6. `agent-browser snapshot -i` — verify file list populated
 - **Verify:** File list populates with files from the configured bucket (>=1 file visible with name, size, date)
@@ -115,7 +121,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 - **Page:** `/`
 - **Interaction:**
   1. `agent-browser snapshot -i` — identify file row refs in the table/grid
-  2. `agent-browser click @ref` on a file row
+  2. Click the first file row in the table/grid (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('table tbody tr') || document.querySelectorAll('[role="row"]')[1] || document.querySelectorAll('[class*="file-row" i], [data-file], [class*="row" i]')[0])?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify selection visual change
 - **Verify:** Selected file gets a visual highlight/selection indicator; action buttons become enabled
 - **Evidence:** `agent-browser screenshot "$EVIDENCE_DIR/VU-06-file-selection.png"`
@@ -125,7 +134,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 - **Page:** `/`
 - **Interaction:**
   1. `agent-browser snapshot -i` — look for accordion/collapsible section headers for VLM, RAG, Summarize parameters
-  2. If found, `agent-browser click @ref` on a section header to expand/collapse
+  2. If found, click a section header to expand/collapse (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, [role="button"], summary, [aria-expanded]')).find(el => /vlm|rag|summarize|parameters/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify content toggles visibility
 - **Verify:** Section content toggles visibility on click
 - **Note:** Current UI may show a simplified batch mode without exposed parameter accordion — mark N/A if no collapsible parameter sections are visible. This is acceptable.
@@ -140,7 +152,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
   3. `agent-browser snapshot -i` — identify file checkboxes in the file list
   4. Select >=2 video files by clicking their checkbox refs
   5. `agent-browser snapshot -i` — locate button with text containing "Analyze"
-  6. `agent-browser click @ref` on the "Upload & Analyze" button
+  6. Click the "Upload & Analyze" button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => /analyze/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '')))?.click();`
+     `EOF`
   7. `agent-browser snapshot -i` — verify jobs are queued (job count in UI matches selected files)
   8. **Poll for completion** using a loop:
      ```bash
@@ -169,7 +184,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
   1. `agent-browser open "$BASE_URL/content-review"`
   2. `agent-browser wait --load networkidle`
   3. `agent-browser snapshot -i` — identify tab bar refs (one per summarized video)
-  4. `agent-browser click @ref` on a tab
+  4. Click the first tab in the tab bar (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `document.querySelectorAll('[role="tab"]')[0]?.click();`
+     `EOF`
   5. `agent-browser snapshot -i` — verify tab content loads
 - **Verify:** Tab bar shows >=1 tab per processed video; clicking a tab loads that video's summary
 - **Evidence:** `agent-browser screenshot "$EVIDENCE_DIR/VU-20-content-tabs.png"`
@@ -189,9 +207,15 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 - **Page:** `/content-review`
 - **Interaction:**
   1. `agent-browser snapshot -i` — identify Approve button (checkmark/green) and Reject button (X/red) refs per row
-  2. `agent-browser click @ref` on an Approve button for one row
+  2. Click the Approve button on the first row (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var approveButtons = Array.from(document.querySelectorAll('button, a, [role="button"]')).filter(el => (el.textContent || '').trim() === 'Approve' || /approve/i.test(el.getAttribute('aria-label') || '') || /approve/i.test(el.getAttribute('title') || '')); approveButtons[0]?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify visual indicator changes (green/check)
-  4. `agent-browser click @ref` on a Reject button for a different row
+  4. Click the Reject button on a different row (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var rejectButtons = Array.from(document.querySelectorAll('button, a, [role="button"]')).filter(el => (el.textContent || '').trim() === 'Reject' || /reject/i.test(el.getAttribute('aria-label') || '') || /reject/i.test(el.getAttribute('title') || '')); (rejectButtons[1] || rejectButtons[0])?.click();`
+     `EOF`
   5. `agent-browser snapshot -i` — verify visual indicator changes (red/X)
 - **Verify:** Row visual state reflects the approval/rejection action
 - **Evidence:** `agent-browser screenshot "$EVIDENCE_DIR/VU-28-29-approve-reject.png"`
@@ -201,7 +225,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 - **Page:** `/content-review`
 - **Interaction:**
   1. `agent-browser snapshot -i` — locate the Save/persist button ref
-  2. `agent-browser click @ref` on the Save button (triggers PUT `/api/videos/summary/[id]/reviews`)
+  2. Click the Save button — triggers PUT `/api/videos/summary/[id]/reviews` (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Save' || el.getAttribute('aria-label') === 'Save')?.click();`
+     `EOF`
   3. `agent-browser wait --load networkidle`
   4. `agent-browser reload`
   5. `agent-browser wait --load networkidle`
@@ -225,7 +252,10 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 - **Interaction:**
   1. `agent-browser snapshot -i` — note the current tab count
   2. Locate the Delete button ref (button with "Delete" text or trash icon)
-  3. `agent-browser click @ref` on the Delete button
+  3. Click the Delete button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Delete' || el.getAttribute('aria-label') === 'Delete' || /delete/i.test(el.getAttribute('title') || ''))?.click();`
+     `EOF`
   4. Check for a confirmation dialog: `agent-browser dialog status`
      - If a dialog is open: `agent-browser dialog accept`
   5. `agent-browser wait --load networkidle`
@@ -262,7 +292,7 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 ## Teardown
 
 ```bash
-agent-browser --session $SESSION close
+agent-browser close
 echo "Evidence screenshots saved to: $EVIDENCE_DIR"
 ls -la "$EVIDENCE_DIR"
 ```

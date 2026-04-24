@@ -206,6 +206,7 @@ Each teammate message should include:
 5. For **BM tracks** (back-to-back): instruction to destroy the app stack (preserve infra), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` for the second pack
 6. For **VM tracks** (sequential fresh): instruction to destroy both stacks (app first, then infra), clean up resources (customer secret keys, orphaned ADB), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` fresh (creates new infra + app stacks)
 7. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
+8. Before running `/testing-pack`, export the track name: `export TEAMMATE_NAME=<track-name>` (e.g., `track1-gpu4`, `track2-a10`, `track3-cpu`). `/testing-pack` CRITICAL RULE #5 uses this to derive a unique `AGENT_BROWSER_SESSION` name isolated from other tracks (see BUG-021)
 
 ### 4c. Launch monitor teammate
 

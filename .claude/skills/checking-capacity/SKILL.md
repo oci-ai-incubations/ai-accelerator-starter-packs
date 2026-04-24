@@ -44,8 +44,10 @@ Every invocation starts by auditing the Terraform code to build the resource man
    | `oci_database_autonomous_database` | `database` | `adw-ecpu-count`, `adw-total-storage-tb` (for default LH/DW workload) | Regional (no AD param!) | paas_rag, enterprise_rag |
    | `oci_identity_customer_secret_key` | IAM (per-user) | 2/user hard limit | User | paas_rag only |
    | `oci_objectstorage_bucket` | `objectstorage` | `bucket-count` | Regional | paas_rag only; high limit ~1000, skip check |
-   | `oci_containerengine_cluster` | `container-engine` | `cluster-count` | Regional | All packs; high limit, low-priority |
-   | `oci_core_vcn` / `oci_core_virtual_network` | `vcn` | `vcn-count` | Regional | All packs; high limit, low-priority |
+   | `oci_containerengine_cluster` | `container-engine` | `cluster-count` | Regional | All packs; **always check** — same shared-tenancy risk as `vcn-count` |
+   | `oci_core_vcn` / `oci_core_virtual_network` | `vcn` | `vcn-count` | Regional | All packs; **always check** — high limit but frequently saturated in shared tenancies |
+
+   `vcn-count` and `cluster-count` are always checked. The `aiincubations` tenancy (~50 engineers) routinely saturates these regional limits with orphaned OKE VCNs and clusters, and a silent capacity miss here surfaces as a `LimitExceeded` error ~45 seconds into `terraform apply`.
 
    Any `oci_*` resource type NOT in this table → flag as **"untracked — verify if quota-gated"** and warn the user.
 

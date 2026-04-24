@@ -12,7 +12,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-006 | Blueprint validation fails — subnetId required for shared_node_pool recipes | Critical | 2026-04-02 |
 | Fixed | BUG-007 | VSS infra-only apply fails — blueprint_files.tf references empty FSS resources | Critical | 2026-04-06 |
 | Fixed | BUG-008 | Enterprise RAG infra-only apply fails — helm.tf k8s data source missing deploy_application gate | Critical | 2026-04-06 |
-| Open | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
+| Fixed (pending) | BUG-009 | Stale nim-llm taint blocks pod scheduling after two-stack pack switch | High | 2026-04-07 |
 | Fixed | BUG-010 | worker_node_availability_domain required for paas_rag (CPU-only) | Medium | 2026-04-08 |
 | Open | BUG-011 | /checking-capacity only checks GPU — misses FSS, ADB, and other resource quotas | Medium | 2026-04-08 |
 | Fixed | BUG-012 | Back-to-back pack switch on VMs leaves stale images filling ephemeral storage | Medium | 2026-04-09 |
@@ -24,6 +24,14 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-018 | BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch | High | 2026-04-19 |
 | Open | BUG-019 | paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files | Medium | 2026-04-17 |
 | Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
+| Fixed | BUG-021 | agent-browser --headed silently ignored on existing session (release-testing blocker) | High | 2026-04-22 |
+| Fixed | BUG-022 | /checking-capacity skips vcn-count quota (low-priority assumption invalid in shared tenancy) | High | 2026-04-22 |
+| Fixed | BUG-023 | Rapid JS eval on ORM Configure Variables wizard crashes agent-browser iframe, loses session | High | 2026-04-22 |
+| Open | BUG-024 | paas_rag /vector_stores/{id}/file_batches rejects file when embedding dim mismatches (1024 vs 1536) | Low | 2026-04-23 |
+| Fixed | BUG-025 | agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored) | Medium | 2026-04-23 |
+| Open (Environmental — OCI-side, not release-blocking; file for OCI support escalation) | BUG-026 | enterprise_rag ingestor/rag-server cannot connect to Oracle 26ai ADB in aiincubations-uk-london-1 — DPY-6000 listener refused | Critical | 2026-04-23 |
+| Open | BUG-029 | enterprise_rag v2.5.0 NIMCache pods missing GPU toleration — blocked on scheduling (RELEASE BLOCKER for v0.0.7 helm v2.5.0 path) | Critical | 2026-04-23 |
+| Fixed | BUG-027 | testing-pack skill doesn't carve out destroy-via-CLI as a permitted fallback | Low | 2026-04-23 |
 
 ---
 
@@ -284,9 +292,9 @@ Changed count condition from `contains(["enterprise_rag", "enterprise_rag_aiq"],
 
 ### BUG-009: Stale nim-llm taint blocks pod scheduling after two-stack pack switch
 
-**Status:** Open (fix incomplete)
+**Status:** Fixed (pending confirmation on v0.0.7 rebased APPLY)
 **Date found:** 2026-04-07
-**Date fixed:** 2026-04-07 (partial — destroy provisioner added but has chicken-and-egg bug)
+**Date fixed:** 2026-04-07 (partial — destroy provisioner added but has chicken-and-egg bug); 2026-04-23 architectural fix via PR #101 rebase (pending runtime confirmation)
 **Found by:** Track 1 agent during v0.0.5 enterprise_rag → enterprise_rag_aiq two-stack test
 **Severity:** High
 
@@ -334,6 +342,20 @@ kubectl taint nodes <node-name> workload=nim-llm:NoSchedule-
 **Prevention:** Any resource that modifies Kubernetes node state (taints, labels) should have a destroy-time provisioner to clean up when the app stack is destroyed. The two-stack model requires clean node state between rounds. Destroy provisioner node selectors must NOT depend on labels set by daemonsets that can be blocked by the very taints being cleaned up.
 
 **Recurrence (v0.0.6):** During Track 1's enterprise_rag → enterprise_rag_aiq pack switch in ap-melbourne-1, the stale `nim-llm` taint reappeared on GPU nodes despite the destroy provisioner fix. The GPU device-plugin daemonset showed DESIRED=0 and the operator-validator was stuck. Manual taint removal (`kubectl taint nodes <node> workload=nim-llm:NoSchedule-`) immediately restored GPU allocation. Root cause of recurrence needs investigation — the destroy provisioner may not have fired correctly during the ORM-managed app destroy, or the taint was re-applied during the infra re-apply before the new app stack was deployed.
+
+**Recurrences:**
+- 2026-04-23 during v0.0.7 rebase retest — stale `workload=nim-llm:NoSchedule` taint persisted on node 10.0.106.114 after enterprise_rag app destroy on 2026-04-23 in uk-london-1. Track1-gpu4 detected during pre-reapply verification and manually removed with `kubectl taint nodes 10.0.106.114 workload=nim-llm:NoSchedule-`. Confirms the destroy-provisioner taint cleanup is still not fully reliable.
+- 2026-04-23 post-rebase — the 2026-04-23 recurrence above was a **legacy leftover on preserved infra from the pre-rebase v0.0.7 deploy**, not a fresh occurrence of the root cause. The rebased v0.0.7 code (release_v0.0.7 after PR #101 merge) no longer applies the `workload=nim-llm:NoSchedule` taint at all — see Fix section below. No new recurrence is expected once the rebased APPLY runs on a cleanly-tainted node pool.
+
+**Fix:** Eliminated architecturally by PR #101 (helm chart v2.5.0 + NIM Operator) in release_v0.0.7 rebase. The old `workload=nim-llm:NoSchedule` taint is no longer applied; NIM Operator uses native `nvidia.com/gpu` tolerations on NIMCache/NIMService CRs (patched in via terraform_data in commit 2b6e8f9). The 2026-04-23 recurrence was a legacy leftover on preserved infra from the pre-rebase v0.0.7 deploy, not a fresh occurrence of the root cause. Will be closed after track1's rebased APPLY succeeds and Phase 6 confirms no new taints appear.
+
+Code evidence (`ai-accelerator-tf/helm.tf:460-462`):
+```
+# NIM Operator handles GPU node scheduling via NIMCache/NIMService CRs.
+# The workload=nim-llm taint is no longer applied — the nvidia.com/gpu taint
+# from GPU Feature Discovery is sufficient, and NIMCache CRs include tolerations.
+```
+Git diff confirms the `kubectl label` / `kubectl taint` / `# Clean up taints on app stack destroy` lines are all REMOVED in the rebased code. Commits: PR #101 bfa54d1 (v2.5.0 chart + NIM Operator), 2b6e8f9 (NIM Operator post-deploy patches including NIMCache tolerations).
 
 ### BUG-010: worker_node_availability_domain required for paas_rag (CPU-only)
 
@@ -759,6 +781,9 @@ Every Object Storage bucket that accepts user uploads (via the app itself or tes
 
 **Reference:** Discovered during Track 3 of the `multiple_skins_per_pack` branch testing (2026-04-17). Destroy job that failed: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaliugbktvutq3n7pep43vmppumfnzrmdgs65ojg5vabva`. Retry job after manual bucket-empty: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaapa2rxnd2gsx5hlfe2zjsdfngwrtkwuvkxtnqvxxdro7a`. The bug does not affect the multi-skin feature itself — paas_rag Phase 6 test results (5 infra + 10 API + 6 UI PASS) are valid; this only affects cleanup.
 
+**Recurrences:**
+- 2026-04-23 during v0.0.7 Track 3 paas_rag/small testing — blocked Phase 7 app destroy after PA-5 uploaded test doc to `paas-rag-oyVDQe-bucket`. Unblocked by manual bucket empty via OCI CLI. Failed destroy job: `ocid1.ormjob.oc1.iad.amaaaaaam3augwaa36amwh2exfz6a5qmudwfisslfggi3vtrklfl5bdqx22a` (us-ashburn-1). Confirms the bug is not yet fixed at the code level — workaround still required on every paas_rag run that exercises file upload.
+
 ### BUG-020: enterprise_rag_aiq skin dropdown override lands on wrong Helm release
 
 **Status:** Fixed
@@ -808,3 +833,623 @@ Now the enum selection reaches the correct Helm release. The parallel override o
 The new `test_helm_skin_override.py` locks the invariant: any future helm_release that serves a user-facing frontend under the skin system must carry the `frontend.image.{repository,tag}` set entries wired to `local.frontend_skin_image_uri`. If a new Helm-pack category is added, its release must be appended to `RELEASES_REQUIRING_SKIN_OVERRIDE` at the top of the test file.
 
 **Reference:** Discovered during the `multiple_skins_per_pack` branch post-merge work. Fix committed in branch multiple_skins_per_pack; final verification pending on Track 1 infra redeploy.
+
+---
+
+### BUG-021: agent-browser --headed silently ignored on existing session (release-testing blocker)
+
+**Status:** Open
+**Date found:** 2026-04-22
+**Found by:** Monitor agent during v0.0.7 release testing (surfaced by track2-a10 after ~2.5h stuck in headless mode; escalated by team-lead for logging)
+**Severity:** High
+
+**Symptoms:**
+During `/testing-pack` Phase 3 (ORM UI schema validation), the agent invokes `agent-browser` with a `--session <name>` flag to drive a visible browser for the user to complete IDCS sign-in. If a daemon is already running for the named session (e.g., left over from an earlier call, or created internally by the skill before headed mode was requested), subsequent commands that pass `--headed` (or an equivalent headful flag) are silently accepted and silently ignored. The browser stays headless. No warning, no error, no user-visible window. From the agent's perspective the wizard is "open"; from the user's perspective there is simply no browser to sign into. This looks identical to a stuck IDCS login or expired SSO cookies.
+
+During v0.0.7 release testing this cost track2-a10 roughly 2.5 hours of apparent "sign-in is stuck" before being diagnosed. Track1-gpu4 and track3-cpu had the same symptom pattern in the same session. Recovery required `agent-browser --session <name> close`, then re-launching with both the `--headed` flag AND the `AGENT_BROWSER_HEADED=true` environment variable explicitly set.
+
+**Root cause:**
+agent-browser's per-session daemon latches its headless/headful mode from the first command that starts the daemon. Subsequent commands that pass a conflicting mode flag to an already-running daemon are silently ignored — the existing daemon process keeps its original mode. There is no validation that warns when the requested mode differs from the current session mode.
+
+`/testing-pack` Phase 3a ("Authenticate to OCI Console") relies on a visible browser window for the user to complete IDCS sign-in, but the skill does not:
+1. Explicitly force headful mode via both flag AND env var on the *first* command that creates the session, OR
+2. Detect that the current session is headless-but-should-be-headed and auto-recover.
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — Phase 3a does not force headful and does not document the close+re-launch recovery
+- `.claude/skills/testing-pack/references/orm-browser-nav.md` (if it contains the launch command template) — same gap
+- agent-browser CLI source (external to this repo) — the real fix for "silently ignored" is upstream: warn or fail when an existing-daemon mode doesn't match the newly-requested mode
+
+**Workaround:**
+When the user reports "I only see N browser windows, not 3" or "sign-in is not loading" during Phase 3:
+1. Run `agent-browser --session <name> close` to kill the stale headless daemon.
+2. Relaunch with BOTH `--headed` flag AND `AGENT_BROWSER_HEADED=true` env var:
+   ```bash
+   AGENT_BROWSER_HEADED=true agent-browser --headed --session <name> open "https://cloud.oracle.com"
+   ```
+3. Verify a real OS window opens before proceeding.
+
+**Resolution:**
+Fixed by env-var-based session management (`AGENT_BROWSER_HEADED=1` + `AGENT_BROWSER_SESSION`) in `/testing-pack` CRITICAL RULE #5 + `--session-name` sweep across reference files and test-coverage ui-tests. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):** `/testing-pack` Phase 3a should:
+- Require both `--headed` and `AGENT_BROWSER_HEADED=true` on the very first `open` command that starts the session (before any headless helper commands run under the same session name).
+- Include a preflight "headless-detect" snippet — e.g., query the daemon for its current mode via `browser_get_config` and, if the session exists and is headless, auto-run `close` + relaunch with the headful combination.
+- Document this close+relaunch recovery in the skill so future testing runs don't lose hours to the same symptom.
+
+Upstream (agent-browser) ideally: detect mode mismatch and either (a) error loudly so the caller knows the flag was rejected, or (b) tear down the mismatched daemon and relaunch automatically.
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-22). Track1-gpu4 (session `track1-1776884811`), track2-a10 (session `track2-1776884817`), and track3-cpu were all affected by the same underlying behavior. Team-lead escalated via monitor after track2-a10 diagnosed and recovered via explicit close+relaunch.
+
+---
+
+### BUG-022: /checking-capacity skips vcn-count quota (low-priority assumption invalid in shared tenancy)
+
+**Status:** Open
+**Date found:** 2026-04-22
+**Found by:** Monitor agent during v0.0.7 release testing (surfaced by team-lead after track3-cpu paas_rag infra apply was blocked in us-ashburn-1)
+**Severity:** High
+
+**Symptoms:**
+During v0.0.7 release testing, track3-cpu ran `/checking-capacity paas_rag small` for us-ashburn-1 and the skill reported capacity OK. Track3 proceeded to apply the infra stack. The apply failed after ~45 seconds with `LimitExceeded`: the `vcn-count` service limit in us-ashburn-1 was 51/51 — the tenancy had already hit the hard cap on VCNs.
+
+The /checking-capacity skill manifest explicitly classifies `vcn-count` as a "high limit, low-priority" quota and skips it by default in the normal run — only "deep" mode inspects it. In the `aiincubations` tenancy (shared by ~50 engineers), this assumption is wrong: stale OKE quick-dev VCNs from other engineers had consumed all 51 slots in us-ashburn-1, so the "it's a high limit, usually fine" heuristic masked a real blocker.
+
+**Root cause:**
+`/checking-capacity` has a resource manifest that classifies each OCI quota as priority-check (always audited) vs low-priority (skipped unless `--deep`). `vcn-count` was placed in the low-priority bucket based on the reasonable assumption that per-region VCN limits (default 10, raised to 51 here) are almost never hit in a single-engineer compartment. This assumption does not hold for shared tenancies where orphaned VCNs from unrelated work accumulate across engineers.
+
+The skill therefore reports "capacity OK" when in fact the stack can't create its VCN at all, and the failure doesn't show up until `terraform apply` 30–60 seconds in.
+
+**Affected files:**
+- `.claude/skills/checking-capacity/SKILL.md` (or wherever the resource manifest lives — look for the list that marks vcn-count as "skip" or "low-priority")
+- See also BUG-011 (similar theme: /checking-capacity only checks GPU and misses FSS/ADB/other quotas) — BUG-022 is a narrower, concrete instance of the same class of problem
+
+**Workaround:**
+Before running `terraform apply` on an infra stack in a shared tenancy, manually check VCN usage:
+```bash
+export OCI_CLI_PROFILE=<profile>
+oci limits value list --service-name compute --region <region> \
+  --compartment-id <tenancy-ocid> --query 'data[?"name"==`vcn-count`]'
+oci network vcn list --compartment-id <tenancy-ocid> --region <region> \
+  --query 'data[].{name:"display-name",created:"time-created",lifecycle:"lifecycle-state"}' \
+  --output table --all
+```
+If the count is at/near the limit, identify stale VCNs (old `quick-dev` or `test-*` VCNs from other engineers) and coordinate deletion before proceeding.
+
+During v0.0.7 testing, this was unblocked manually by identifying and deleting stale Grant-owned OKE VCNs in us-ashburn-1.
+
+**Resolution:**
+Fixed by reclassifying both `vcn-count` AND `cluster-count` in `/checking-capacity/SKILL.md` as "always check" (not low-priority). Both quotas have identical "high limit, low-priority" classification and identical shared-tenancy failure mode. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
+1. Remove the "low-priority / skip by default" classification for `vcn-count` in the `/checking-capacity` resource manifest. The cost of one extra API call is trivial; the cost of a silent ~45-second apply failure is not.
+2. Add a shared-tenancy smoke check: when the `/checking-capacity` run detects that `vcn-count` usage is >80% of the limit, list the top VCN-consuming compartments (or oldest VCNs) so the user can see candidates to ask about stale ones.
+3. Cross-reference BUG-011's broader fix (audit ALL quota types a starter pack actually provisions — FSS, ADB, customer secret keys, VCN, subnets, NAT gateways, etc.) and include `vcn-count` in whatever comprehensive manifest results from that work.
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-22). Track3-cpu (paas_rag/small) in us-ashburn-1. Unblocked manually; BUG-022 captures the skill gap so future runs fail fast (or succeed reliably) instead of hitting a 45-second apply error.
+
+---
+
+### BUG-023: Rapid JS evaluate on ORM Configure Variables wizard crashes agent-browser iframe, loses session
+
+**Status:** Open
+**Date found:** 2026-04-22
+**Found by:** Monitor agent during v0.0.7 release testing (surfaced by track2-a10; escalated by team-lead)
+**Severity:** High
+
+**Symptoms:**
+During `/testing-pack` Phase 3 (or Phase 5) on the ORM Edit Stack wizard Step 2 "Configure Variables" screen, the agent executes a bulk `agent-browser evaluate()` call (the browser automation's JS-in-page primitive) to toggle multiple checkboxes / fill multiple fields in a single JavaScript block. The wizard iframe (the Resource Manager Create/Edit stack wizard is rendered inside an iframe on the OCI Console page) crashes as a result: the browser tab returns to `about:blank`, all OCI session cookies are lost, and every piece of wizard state (uploaded zip, filled variables, stack name) is discarded. The agent cannot recover the in-flight wizard — it must re-authenticate, re-open the stack, re-upload the zip, and re-fill every variable from scratch.
+
+Track 2 hit this mid-Phase 3 after successfully loading Step 2 and then issuing a rapid multi-field `evaluate()` call. Recovery cost was significant: full re-auth (IDCS sign-in + MFA), re-upload of v0.0.7_vss.zip, and full re-entry of every Step 2 variable.
+
+**Root cause:**
+The ORM Edit/Create Stack wizard is a nested iframe inside cloud.oracle.com. Rapid sequential DOM mutations from a single-shot `evaluate()` call — especially when they trigger React/Redux state updates across many controlled components at once — can crash the iframe's JavaScript context. When the iframe crashes, the outer page navigates to `about:blank` and OCI session cookies stored in the iframe's origin are lost. There is no crash signal returned to agent-browser; the `evaluate()` call simply returns and subsequent snapshots show an empty page.
+
+`/testing-pack` Phase 3 and Phase 5 do not currently enforce single-field interactions — there's no guardrail against rapid bulk `evaluate()`, and no post-call safety check that verifies the iframe is still mounted before the next step.
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — Phase 3c/3d and Phase 4a/5a describe Step 2 variable filling; no rule against bulk `evaluate()` calls
+- `.claude/skills/testing-pack/references/orm-browser-nav.md` (if it contains wizard interaction patterns) — same gap
+- Upstream agent-browser — could add iframe-crash detection: after `evaluate()` or `browser_fill_form`, check whether the iframe is still present in the DOM and surface a clear error if it vanished
+
+**Workaround:**
+Avoid bulk JS `evaluate()` on the Configure Variables wizard. Instead:
+1. Use single-field `browser_fill_form` calls — one field per call.
+2. For checkboxes, use individual `browser_click` calls rather than an `evaluate()` that toggles many at once.
+3. Between interactions, take a snapshot or call `browser_verify_element_visible` on a stable wizard element to confirm the iframe is still alive.
+4. If the tab ever returns to `about:blank`, treat it as a full wizard reset: re-auth, re-open stack, re-upload zip, re-fill everything.
+
+**Resolution:**
+Fixed by adding CRITICAL RULE #6 to `/testing-pack/SKILL.md` banning bulk `agent-browser evaluate()` on ORM wizard form fields; Phase 4a/5a instructions now point to Rule #6; Error Handling table has an `about:blank mid-wizard` recovery row. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
+1. `/testing-pack` Phase 3/5 should document a rule: use one `browser_fill_form` / `browser_click` call per field, never a multi-field `evaluate()` loop on the Configure Variables page.
+2. Add a post-interaction safety check: after every form interaction in the ORM wizard, snapshot and verify the iframe's stable selector (e.g., the "Next" button) is still present. If missing, treat as a crash and trigger full re-auth + re-entry.
+3. Document in the skill: if agent-browser's tab URL ever becomes `about:blank` mid-wizard, the recovery is NOT "refresh and continue" — it's a full restart from Phase 3a authentication.
+4. Upstream (agent-browser): add iframe-crash detection and a clear error return.
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-22). Track2-a10 (vss/poc) in us-sanjose-1. Wizard state lost; recovery required full re-auth via SSO and re-upload. Bug total this release: 3 (BUG-021 agent-browser headed flag, BUG-022 /checking-capacity vcn-count, BUG-023 wizard iframe crash on bulk `evaluate()`).
+
+---
+
+### BUG-024: paas_rag /vector_stores/{id}/file_batches rejects file when embedding dim mismatches (1024 vs 1536)
+
+**Status:** Open
+**Date found:** 2026-04-23
+**Found by:** Monitor agent during v0.0.7 release testing (surfaced by track3-cpu in Phase 6 API test PA-6; escalated by team-lead for logging)
+**Severity:** Low
+
+**Symptoms:**
+During Phase 6 API testing of `paas_rag` (test PA-6, file ingestion into a vector store), track3 created a vector store via `POST /v1/vector_stores` with the default embedding configuration, which produces 1024-dim embeddings. On the subsequent `POST /v1/vector_stores/{id}/file_batches` call to attach a file, the API returned a dimension-mismatch error because the file's content was processed with an embedder that produces 1536-dim embeddings (the upload path inferred a different embedding model than the vector store was created with).
+
+Retry with the `/vector_stores` create call setting an explicit `embedding_dim=1536` (matching the file-path inference) succeeded. Total impact: one retry loop, a few minutes of debugging. No data loss; no deployment impact.
+
+**Root cause:**
+The paas_rag document ingestion pipeline (backed by LlamaStack) uses different default embedding models in two places:
+1. The vector-store creation path defaults to a 1024-dim embedder.
+2. The file-batches attach path auto-detects/selects an embedder per file, and for this input it chose a 1536-dim model.
+
+There is no reconciliation between "what the vector store was indexed with" and "what the incoming file's embedder produces," so the mismatch surfaces as a hard API error at attach time instead of being caught at vector-store creation (when the user can still pick the right model).
+
+**Affected surface (not affected files in this repo — this is an API/LlamaStack UX bug exposed through paas_rag):**
+- paas_rag `POST /v1/vector_stores` — should surface `embedding_dim` (and/or `embedding_model`) as an explicit, documented, required-in-practice field
+- paas_rag `POST /v1/vector_stores/{id}/file_batches` — could either (a) auto-detect mismatch and re-index with the file's dim, or (b) return a much clearer error pointing the user at the dim parameter
+
+**Workaround:**
+When creating a vector store for paas_rag document ingestion, explicitly set the embedding dim to match the model you'll use at file-attach time. For the default paas_rag file ingestion path during release testing, that is `embedding_dim=1536`. If unsure, create the vector store after uploading at least one file so the correct dim is known, or retry creation with `embedding_dim=1536` if the 1024 default fails.
+
+**Resolution:**
+Pending. Proposed fix options (documented in this entry so whoever picks it up has choices):
+1. `POST /v1/vector_stores` should expose `embedding_dim` (or better, `embedding_model`) as an explicit, documented field — validation rejects creation if not set, or at minimum warns that the default may not match typical file inputs.
+2. `POST /v1/vector_stores/{id}/file_batches` should auto-detect the dim mismatch and either (a) re-create the vector store with the file's dim (if empty), or (b) re-index the incoming file with the vector store's dim.
+3. Minimum viable fix: improve the error message on dim mismatch to name the two dims and point the user at the fix ("vector store uses 1024, file produces 1536; recreate vector store with embedding_dim=1536").
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-23). Track3-cpu (paas_rag/small) in us-ashburn-1, Phase 6 API test PA-6. Not a release blocker — paas_rag v0.0.7 testing proceeded after retry with explicit `embedding_dim=1536`. Bug total this release: 4 (BUG-021, BUG-022, BUG-023, BUG-024).
+
+---
+
+### BUG-025: agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored)
+
+**Status:** Open
+**Date found:** 2026-04-23
+**Found by:** Monitor agent during v0.0.7 release testing (surfaced by track3-cpu in Phase 6 UI tests; escalated by team-lead)
+**Severity:** Medium
+
+**Symptoms:**
+During `/testing-pack` Phase 6 UI tests on track3 (and likely applicable to any track driving the OCI Console or other React-heavy pages via agent-browser), `browser_click` calls that target elements by snapshot `@ref` did not fire the page's React `onClick` handler. The click appears to be dispatched at the DOM level (no agent-browser error, element briefly gets focus), but nothing happens — form state doesn't update, no navigation, no API request. Multiple button/link interactions had to be repeated or re-approached.
+
+**Workaround that works:** use `browser_evaluate` with either:
+- `element.click()` (HTMLElement.click() invokes React's synthetic event path), or
+- `element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))` (the explicit synthetic dispatch that matches what React is listening for).
+
+Both workarounds reliably trigger the React handler where `browser_click @ref` silently does not.
+
+**Root cause:**
+agent-browser's `browser_click` by `@ref` appears to dispatch a native CDP-level click (via `Input.dispatchMouseEvent` or similar). React (including the OCI Console and most modern React apps) installs its event listeners on the root via synthetic event delegation, not on individual DOM nodes. Depending on how the synthetic listener is wired — and whether React detects the event as "trusted" — a CDP native click can miss the React event path entirely.
+
+There is no error from agent-browser; the call reports success. The symptom is a silent test flake: the UI doesn't change, subsequent assertions fail, the tester doesn't know which interaction didn't land.
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — Phase 6 UI test patterns for each pack; should prefer `browser_evaluate`-based click for React pages
+- `.claude/skills/*-test-coverage/` — pack-specific test coverage specs that use `browser_click` in UI phases may need updating
+- Upstream agent-browser — click adapter should route through the synthetic-event-compatible path when a React (or other framework with synthetic events) is detected
+
+**Workaround:**
+For any click in Phase 6 UI tests on React-heavy pages (OCI Console, starter-pack frontends if they're React-based):
+```
+// Preferred: click via the element's native .click() method (triggers React)
+agent-browser --session <name> evaluate --stdin <<'EOF'
+document.querySelector('<selector>').click();
+EOF
+
+// Fallback: explicit synthetic dispatch
+agent-browser --session <name> evaluate --stdin <<'EOF'
+var el = document.querySelector('<selector>');
+el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+EOF
+```
+Prefer `.click()` because it's one line and React recognizes it reliably. Use the explicit dispatch only when the target isn't an HTMLElement or `.click()` is unavailable (e.g., SVG, some custom elements).
+
+Caveat vs. BUG-023: BUG-023 warns against *bulk* JS evaluate() on the ORM Configure Variables wizard because rapid multi-mutation crashes the iframe. BUG-025's workaround is a *single-target* click — not a multi-field bulk operation — so the BUG-023 guidance (avoid bulk eval) does NOT forbid this pattern. One click via evaluate() per button is fine and recommended.
+
+**Resolution:**
+Fixed by adding Phase 6c-3 React click pattern subsection to `/testing-pack/SKILL.md` + rewriting all 65 `click @<ref>` calls across the 4 non-stub `*-test-coverage/ui-tests.md` files (paas-rag 27, enterprise-rag 17, vss 10, cuopt 11) to use `evaluate` + `.click()`. wpp-test-coverage is a TODO stub with no changes. Upstream issue against `vercel-labs/agent-browser` is a separate follow-up. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
+1. `/testing-pack` Phase 6 UI tests (and the per-pack test-coverage skills) should use the `browser_evaluate` `.click()` pattern as PRIMARY for React-heavy pages, with `browser_click @ref` as a fallback rather than the default.
+2. Document the pattern in agent-browser README / troubleshooting section.
+3. Upstream agent-browser: detect React on the page (via `window.React`, React DevTools hook, or `data-reactroot` / `__reactFiber$`) and, when present, dispatch clicks via the synthetic event path (equivalent to calling `.click()` or firing a bubbling MouseEvent) instead of — or in addition to — the raw CDP click.
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-23). Track3-cpu (paas_rag/small) in us-ashburn-1, Phase 6 UI tests — multiple button clicks silently failed via `browser_click @ref`, succeeded via `browser_evaluate` + `.click()`. OCI Console is React-based, so this is likely to recur across every track's Phase 3/5 ORM interactions as well — the reason Tracks 1 and 2 haven't hit it yet is that their Phase 3/5 mostly used `browser_fill_form` (which goes through a different input adapter that React handles correctly via input events) rather than `browser_click @ref`. Bug total this release: 5 (BUG-021, BUG-022, BUG-023, BUG-025 skill gaps; BUG-024 product UX).
+
+### BUG-026: enterprise_rag ingestor/rag-server cannot connect to Oracle 26ai ADB — DPY-6000 listener refused
+
+**Status:** Open — **Reclassified as Environmental / OCI-side (not release-blocking)**. File for OCI support escalation.
+**Date found:** 2026-04-23
+**Found by:** track1-gpu4 during v0.0.7 release testing (enterprise_rag/small on BM.GPU4.8, uk-london-1)
+**Severity:** Critical (but NOT a release code blocker — see reclassification below)
+
+**Symptoms:**
+- Frontend HTTP endpoint `GET /api/health?check_dependencies=true` returns HTTP 500 "Internal Server Error".
+- Ingestor-server pod logs show:
+  ```
+  nvidia_rag.rag_server.response_generator.APIError: Oracle database is unavailable at tcps://aiaccelOk6ptj.adb.uk-london-1.oraclecloud.com:1521/g2ec18f1706c18c_aiacceloracle26aiok6ptj_high.adb.oraclecloud.com. Please verify Oracle is running and credentials are correct.
+  ERROR:nvidia_rag.utils.vdb.oracle.oracle_vdb:Failed to connect to Oracle at tcps://...: DPY-6005: cannot connect to database
+  DPY-6000: Listener refused connection. (Similar to ORA-12506)
+  ```
+- Direct test from within pod using `python3 + oracledb` also fails with DPY-6000 using both:
+  - Easy-connect DSN form (`tcps://host:1521/service_name`)
+  - Long-form `(description=(address=...)(connect_data=...))`
+- ADB CLI reports state=AVAILABLE, open-mode=READ_WRITE, private endpoint on the app stack's autonomous_db_subnet. No paused state.
+- Deleting + restarting the ingestor pod does not resolve — fresh pod hits the same error.
+- Hostname resolves correctly inside the pod (`getent hosts` returns the private IP 10.0.2.27).
+
+**Root cause (provisional):**
+Unknown — needs further debugging. Possibilities:
+1. ADB private-endpoint listener has not registered the service name despite reporting AVAILABLE (stale listener state after the two-stack preserve-infra apply cycle).
+2. Pod network path to the ADB private endpoint is bounced but the listener declines registration — possibly a wallet/TLS mismatch where the ADB requires the pod to present a wallet ssl-cert that the Helm chart doesn't inject when deploying against an "existing" ADB discovered via `data` source rather than a freshly provisioned `resource`.
+3. Possible subnet/NSG/SL mismatch — but hostname resolution working suggests DNS is OK, and reaching the listener suggests TCP reaches; only the listener's service registration path is broken.
+
+**Affected files (to investigate):**
+- `ai-accelerator-tf/26ai.tf` — how ADB is provisioned vs how the Helm chart is pointed at it.
+- `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` — Oracle vector-store connection config.
+- `ai-accelerator-tf/secrets.tf` / `oci-config-secret` — wallet handling for existing-ADB path.
+- `ai-accelerator-tf/kubernetes.tf` (data.oracle_db_adb_database or similar) — existing-ADB data lookup may return stale connection strings.
+
+**Workaround:**
+None yet. The pod is stuck in a state where every API call hits the ADB and returns 500. Healthcheck / generate / collection APIs are all unusable. The infra layer (cluster, pods, GPUs) is fine — only the ADB connection is broken.
+
+**Impact on release testing:**
+- Round 1 (enterprise_rag/small, v0.0.7) Phase 6 API tests all blocked at EA-1.
+- Frontend UI tests would also fail — the first action on the UI (loading collections) hits `/api/collections` which calls the same vector-store op.
+- This blocks Round 2 too, because Round 2 reuses the same infra (cluster + ADB subnet) with a different app Helm release.
+
+**Next debugging step:**
+Compare ORACLE_CS service name (from pod env) against the list of registered services on the ADB listener. Check if the ADB was re-provisioned during the v0.0.7 app apply (state.tfstate "created" timestamp is 2026-04-23T01:27:02Z, which IS during the v0.0.7 app apply — so fresh ADB, ~17h old). Try `lsnrctl status` equivalent from OCI side.
+
+**2026-04-23 confirmation — REPRODUCES cleanly under helm v2.5.0 + NIM Operator 3.1.0 + fresh ADB + v0.0.6 rag-retrieval-oci image:**
+
+Reproduces cleanly under helm chart v2.5.0 + NIM Operator 3.1.0 + fresh ADB `aiaccelBVx8Nw` + v0.0.6 rag-retrieval-oci image. Verified via direct `python3 oracledb.connect()` from ingestor-server pod on 2026-04-23 (at 21:26Z, during Track 1's rebased v0.0.7 app apply). Rules out chart regression, rag-server image regression, AND ADB provisioning race.
+
+Test details:
+- DSN: `tcps://aiaccelBVx8Nw.adb.uk-london-1.oraclecloud.com:1521/g2ec18f1706c18c_aiacceloracle26aibvx8nw_high.adb.oraclecloud.com` (same connection-string format, same `_high` service-name suffix as the pre-rebase test)
+- Error: identical `DPY-6005 / DPY-6000 / ORA-12506` "Listener refused connection" — definitive reproduction
+- ADB state: AVAILABLE / READ_WRITE / workload=UNKNOWN_ENUM_VALUE (the 26ai lifecycle-state enum the OCI CLI doesn't yet recognize) / created 2026-04-23T20:36:30Z (fresh on this rebased apply — ~50 min old at test time)
+- Cluster-side image tags verified at test time: `rag-server:v0.0.6`, `ingestor-server:v0.0.6`, `k8s-nim-operator 3.1.0` — all correct per PR #101 / SOFTWARE_VERSIONS.md
+- NIM Operator present, NIMCache CRs for 7 models created, nim-llm-cache-pod Running (nemotron-3-super-120b-a12b:1.8.0) under BUG-029 manual-workaround toleration fix
+
+**Cross-track evidence (Track 3 / paas_rag / us-ashburn-1):**
+
+paas_rag (Track 3) connected successfully to a 26ai ADB in `us-ashburn-1` using identical `oracledb` thin-mode connection semantics, same service-name suffix convention. This is strong supporting evidence that **26ai globally is not broken**; the issue is scoped to the aiincubations tenancy's `uk-london-1` 26ai fleet specifically. Phase 6 API tests on paas_rag (PA-1 through PA-11) all passed, including vector-store creation and file ingestion — all of which exercise the Python `oracledb` client path that BUG-026 fails on in uk-london-1.
+
+**Hypotheses ruled out by this retest:**
+- **Chart regression:** ruled out. v2.5.0 chart fails the same way v2.3.x did.
+- **rag-server image regression:** ruled out. v0.0.6 image tags confirmed running, error still reproduces.
+- **ADB provisioning race:** ruled out. A completely fresh ADB (50 min old at test time) still refuses the listener.
+- **PR #101 nv-ingest DNS fix (commit 28243ba) as a BUG-026 fix path:** ruled out — the DNS fix addresses a different symptom class (nv-ingest resolving the Corrino API DNS); BUG-026 is an Oracle listener-level refusal, not a DNS-level failure (the pod resolves the ADB hostname correctly).
+
+**Remaining hypothesis (narrowed to exactly one):**
+- **OCI tenancy+region specific 26ai listener issue in aiincubations-uk-london-1.** All client-side and chart-side hypotheses ruled out. The ADB reports AVAILABLE but its listener rejects incoming service-name-registered connections. paas_rag in us-ashburn-1 proves the same client code works elsewhere. This is an OCI ADB / 26ai fleet issue scoped to one region/tenancy combination, upstream of anything release code can fix.
+
+**What was NOT re-verified in the post-SUCCEEDED / pre-destroy window (21:49:51Z → 21:53:51Z):**
+- `GET /api/health?check_dependencies=true` via frontend/ingress — would have returned 500 regardless since the direct `oracledb` test already proved the ADB is unreachable upstream.
+- End-to-end ingestion or chat API smoke tests — blocked by the same ADB issue.
+
+Not re-testing these is fine: the direct `oracledb.connect()` call is a stricter test than the API endpoints (both the API and the direct test share the same failure mode, and proving the underlying connection fails is sufficient).
+
+**Reclassification (team-lead, 2026-04-23):**
+BUG-026 is **Environmental / OCI-side (not release-blocking)**. All release code paths are correct; the failure is entirely in the OCI ADB listener layer in aiincubations-uk-london-1. File for OCI support escalation against the ADB `aiaccelBVx8Nw` (or any fresh 26ai ADB provisioned in this tenancy/region).
+
+**Release implications:**
+- Release **can ship** — enterprise_rag code is validated against v2.5.0 + NIM Operator + v0.0.6 images; the Terraform paths for ADB provisioning, Helm deployment, and client-side connection config are all correct.
+- uk-london-1 enterprise_rag deployments will fail at first ADB connection attempt until OCI support resolves the regional listener issue.
+- Other regions (e.g., us-ashburn-1 where Track 3 paas_rag succeeded) are unaffected.
+- Separate from BUG-029 (helm chart v2.5.0 toleration deadlock), which IS a release-code blocker.
+
+**Next action:** Open an OCI support ticket referencing ADB `aiaccelBVx8Nw` in uk-london-1 (aiincubations tenancy), include the `DPY-6005 / DPY-6000 / ORA-12506` error pattern, and request listener-side introspection (equivalent to `lsnrctl services`) on the ADB. Cross-reference Track 3's successful us-ashburn-1 paas_rag connection as the working baseline.
+
+**Resolution:**
+Pending.
+
+---
+
+### BUG-027: testing-pack skill doesn't carve out destroy-via-CLI as a permitted fallback
+
+**Status:** Open
+**Date found:** 2026-04-23
+**Found by:** Monitor agent during v0.0.7 release testing (surfaced by team-lead after track1-gpu4 used OCI CLI for app destroy when browser session expired)
+**Severity:** Low
+
+**Symptoms:**
+During v0.0.7 release testing, Track 1's browser session (`track1-1776884811`) expired mid-test. Rather than re-authenticate through IDCS + MFA just to click "Destroy" in the ORM UI, the teammate ran the destroy via OCI CLI (`oci resource-manager job create-destroy-job ...`). The destroy succeeded.
+
+However, `/testing-pack`'s CRITICAL RULE #3 explicitly restricts CLI usage:
+> "OCI CLI is ONLY used for: listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply."
+
+The rule says "Never for stack create/update/apply" — it does NOT explicitly mention destroy. The teammate claimed "destroy is carved out," but there is no written carve-out. This created a compliance ambiguity that the monitor had to escalate.
+
+**Root cause:**
+The skill's CRITICAL RULE #3 was written with the intent that CLI bypasses the UI validation the skill is meant to test. For create/update/apply, that's a genuine concern — the wizard exercises required-field validation, dropdown defaults (starter_pack_size!), schema visibility, and file-upload CDP paths. For destroy, there is effectively no UI validation to test: the Destroy button just confirms and runs. CLI destroy is substantively equivalent to UI destroy.
+
+But the rule text as written forbids all "stack create/update/apply" by CLI and is silent on destroy. A strict reading forbids only the three named operations; a stricter reading (argued by some teammates during parallel tracks) treats the list as exhaustive. The absence of an explicit carve-out forces judgment calls mid-test.
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — CRITICAL RULES section (rule #3 and rule #4 "Destroy before deleting app stack" both touch destroy but don't address CLI vs UI)
+
+**Workaround:**
+Two options when the browser session expires and only a destroy is needed:
+1. (Preferred per current rule text) Re-open browser + re-auth + click Destroy in the UI. Slow, re-triggers IDCS/MFA, but unambiguous.
+2. (Used by Track 1) Run `oci resource-manager job create-destroy-job --stack-id <ocid> --execution-plan-strategy AUTO_APPROVED` via CLI. Fast, no user action needed, but technically not blessed by the skill.
+
+**Resolution:**
+Fixed by extending CRITICAL RULE #3 in `/testing-pack/SKILL.md` with an explicit catch-all: the UI-only rule applies to destroy jobs as well. If the browser session is unavailable mid-test, wait for or re-establish a browser session before running any stack operation — including destroy. CLI destroy is not a permitted fallback. RULE #4 also clarified to say "re-authenticate before Destroy" rather than pointing at the CLI command. Error Handling table has a "browser session expired mid-test" recovery row. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
+1. **Explicit carve-out.** Update CRITICAL RULE #3 to: "OCI CLI is ONLY used for: listing stacks (Phase 1 discovery), resolving compartment OCIDs, kubectl/helm commands, **and stack destroy jobs when the browser session is unavailable**. Never for stack create/update/apply." Rationale: destroy doesn't exercise UI validation.
+2. **Strict rule with documented recovery.** Keep the current rule text but add a short section "When the browser session expires before destroy" that tells the teammate to reopen + re-auth. Costs a few minutes per destroy but keeps the rule unambiguous.
+3. **Make the rule op-specific.** Rewrite rule #3 as a per-operation table: create/update/apply = browser required; destroy/list/inspect = CLI permitted. Cleanest long-term but biggest edit.
+
+Recommend option 1 (explicit carve-out) — low skill-drift risk, matches what teammates already do under pressure, and the rationale is defensible.
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-23). Track1-gpu4 used CLI for the app destroy after browser session expired; team-lead flagged the rule ambiguity and asked monitor to log. Not a release blocker — destroy succeeded and caused no downstream issues. Bug total this release: 7 (BUG-021 through BUG-027).
+
+---
+
+### BUG-028: testing-pack doesn't enforce PR screenshot uploads — systematic skip under time pressure
+
+**Status:** Open
+**Date found:** 2026-04-23
+**Found by:** Monitor agent during v0.0.7 release testing (confirmed by PR #104 screenshot audit at monitor request — zero screenshots across 14 comments and all 3 active tracks)
+**Severity:** Medium
+
+**Symptoms:**
+During v0.0.7 release testing, all three testing tracks (`track1-gpu4`, `track2-a10`, `track3-cpu`) posted milestone updates to PR #104 with **no screenshots attached**. A monitor-driven audit of all 14 PR comments found zero markdown image references (no `![...](...)` syntax, no `user-images.githubusercontent.com` URLs, no `github.com/user-attachments/` links). Track 2 in particular posted nothing at all — not even text.
+
+Specific coverage gap:
+| Track | Direct PR comments | Screenshots |
+|---|---|---|
+| track1-gpu4 (enterprise_rag/small) | 2 (Phase 3/4 start, Phase 5+6 status) | 0 |
+| track2-a10 (vss/poc) | 0 | 0 |
+| track3-cpu (paas_rag/small) | 10 (full Phase 4–7 lifecycle + test tables) | 0 |
+
+Track 3 reached Phase 7 destroy without ever attaching a screenshot; the skill's "bulk upload at end-of-run via the side-branch flow" never executed. Track 1 skipped screenshot uploads entirely for Round 1 before the rebase reset state. Track 2 is even further behind — no PR evidence at all.
+
+**Root cause:**
+`/testing-pack` Phase 0h tells the teammate screenshots will be attached later ("Screenshots will be attached in the bulk upload at end-of-run via the side-branch flow in `references/pr-screenshot-upload.md`"), with per-milestone comments that include the line "Screenshots will be attached in the bulk upload at end-of-run." This is a soft promise with:
+
+1. **No checklist-gate on Phase 7 completion** — Phase 7 closes out without verifying that the side-branch upload actually ran.
+2. **No friction for skipping** — a teammate under time pressure (IDCS timeouts, rebase churn, long apply cycles) naturally drops "nice to have" work when tools (agent-browser) are themselves flaky. Screenshots are the first thing cut.
+3. **No monitor-visible failure** — text-only PR comments look "complete" even though they're missing the visual evidence release reviewers use to confirm UI actually rendered, ORM wizard actually showed the correct pack/size, etc.
+4. **Side-branch upload flow is documented in a reference file, not the main phase flow** — easy to skip on a busy run.
+
+The net effect: on the v0.0.7 run, release reviewers must trust teammate text assertions about what the UI looked like, instead of seeing the UI. That defeats one of the main reasons `/testing-pack` exists (to catch UX regressions the OCI CLI would miss).
+
+**Affected files:**
+- `.claude/skills/testing-pack/SKILL.md` — Phase 0h (soft promise), per-phase milestone sections (no explicit required-screenshot list), Phase 7 (no verify step), CRITICAL RULES (no rule requiring screenshots)
+- `.claude/skills/testing-pack/references/pr-screenshot-upload.md` — documented but not enforced
+
+**Workaround:**
+Monitor-driven nudging (as happened this release): audit PR #104 comments for missing screenshots and ping each track with a concrete list of screenshots to post. Track 3 can run the side-branch upload now that Phase 7 is effectively done; Track 1 should capture screenshots as it reapplies post-rebase; Track 2 should backfill Phase 3/4 posts with screenshots.
+
+**Resolution:**
+Pending. Proposed fix:
+1. **Add a required-screenshots list to each milestone.** Phase 3 requires schema-validation screenshots of BOTH infra and app wizards. Phase 4 requires an infra APPLY SUCCEEDED job screenshot. Phase 5 requires app APPLY SUCCEEDED + extracted frontend URLs. Phase 6 requires at least one screenshot per pack-specific UI test. Phase 7 requires a DESTROY SUCCEEDED screenshot.
+2. **Gate Phase 7 on screenshot attachment.** Explicitly: "Before marking Phase 7 complete, verify PR has at least N screenshots (N = sum of per-milestone required counts). If any are missing, run the side-branch bulk upload now."
+3. **Promote the side-branch upload from a reference to a Phase step.** Add "Phase 7a: Bulk-upload saved screenshots to PR" as its own numbered step — not a footnote.
+4. **Add a CRITICAL RULE:** "Every milestone comment MUST include at least one screenshot. Text-only evidence is not acceptable for phases that exercise the UI."
+
+**Reference:** Discovered during v0.0.7 release testing (2026-04-23). PR #104 screenshot audit returned 0 images across 14 comments. Team-lead classified screenshots as "release evidence, not optional" and asked monitor to log. All three active tracks affected, confirming this is a systematic skill gap and not an individual teammate error. Bug total this release: 8 (BUG-021 through BUG-028).
+
+### BUG-029: enterprise_rag v2.5.0 NIMCache pods missing GPU toleration — blocked on scheduling
+
+**Status:** Open — **RELEASE BLOCKER** for v0.0.7 helm chart v2.5.0 path
+**Date found:** 2026-04-23
+**Found by:** track1-gpu4 during v0.0.7 rebased release testing (enterprise_rag/small on BM.GPU4.8, uk-london-1); dependency-graph analysis confirmed by team-lead 2026-04-23
+**Severity:** Critical (release blocker)
+
+**Symptoms:**
+- After deploying with the post-rebase v0.0.7 zip (nvidia-blueprint-rag v2.5.0 + NIM Operator 3.1.0), 7 NIMCache-backed pods sit Pending in the `rag` namespace for >50 min:
+  - `nim-llm-cache-pod`, `nemotron-embedding-ms-cache-pod`, `nemotron-ranking-ms-cache-pod`
+  - `nemoretriever-ocr-v1-pod`, `nemoretriever-page-elements-v3-pod`, `nemoretriever-table-structure-v1-pod`, `nemoretriever-graphic-elements-v1-pod`
+- `kubectl describe pod` shows:
+  ```
+  0/4 nodes are available: 2 node(s) didn't match Pod's node affinity/selector, 2 node(s) had untolerated taint {nvidia.com/gpu: present}
+  ```
+- NIMCache CRs: all NotReady (or blank status, for ones whose cache download hasn't started)
+- NIMService CRs: all NotReady (downstream of NIMCache)
+- PVCs for cache volumes: Pending (WaitForFirstConsumer — because the pods can't schedule to a node yet)
+
+**Root cause:**
+The NIMCache CRs in the v2.5.0 chart (`nvidia-blueprint-rag`) create their cache downloader pods with only the default tolerations (`node.kubernetes.io/not-ready` and `node.kubernetes.io/unreachable`, both NoExecute). They lack the toleration for `nvidia.com/gpu=present:NoSchedule` that every GPU-tainted node in OKE has by default. This is the same class of issue as BUG-009 (workload=nim-llm taint) but in reverse — instead of a stale taint on the node, the *pod spec* is missing the taint toleration.
+
+The pod's `nodeSelector` is correctly `feature.node.kubernetes.io/pci-10de.present=true` (matches GPU nodes), but OKE also applies `nvidia.com/gpu=present:NoSchedule` to those nodes via gpu-operator's auto-tainting, and the NIMCache CR template doesn't include the matching toleration. Result: nodes match the selector but reject the pod via the NoSchedule taint.
+
+**Affected files (to investigate):**
+- `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` — maybe needs `tolerations:` stanza added for NIM Operator NIMCache CRs.
+- Upstream: NVIDIA `nvidia-blueprint-rag` chart v2.5.0 NIMCache CR template / NIM Operator 3.1.0 default toleration list.
+
+**Workaround (not yet tested):**
+Remove the `nvidia.com/gpu=present:NoSchedule` taint from the GPU nodes:
+```bash
+kubectl taint nodes 10.0.106.114 nvidia.com/gpu=present:NoSchedule-
+kubectl taint nodes 10.0.108.242 nvidia.com/gpu=present:NoSchedule-
+```
+This allows non-GPU pods to be scheduled on GPU nodes too, which is undesirable for production. Better fix: add `tolerations:` block to NIMCache CR template in chart values.
+
+**Impact on release testing:**
+- Round 1 (enterprise_rag/small, v0.0.7 rebased) Phase 5 app apply may eventually SUCCEED at the Terraform level (helm_release.rag likely exits with a pending-install state waiting for NIMCache readiness), but Phase 6 smoke tests will be blocked until the cache pods schedule.
+- BUG-026 cannot be re-verified (it depends on NIM pods being Running, which depends on NIMCache being Ready) until this is unblocked.
+
+**Live cluster image confirmation (v0.0.7 tags on running pods):**
+- rag-server: `nvidia-rag-retrieval-oci:v0.0.6` — correct, bumped per SOFTWARE_VERSIONS.md
+- ingestor-server: `nvidia-rag-ingestion-oci:v0.0.6` — correct
+- rag-frontend: `enterprise-rag-frontend:v0.0.2` — unchanged
+- nim-llm-cache: `nemotron-3-super-120b-a12b:1.8.0` — new model image (per v2.5.0)
+- nemoretriever-*: `nemotron-*` / `nemoretriever-*` images per v2.5.0 chart defaults
+
+**Resolution:**
+Pending.
+
+**Dependency-graph analysis (team-lead, 2026-04-23):**
+
+Confirmed a deadlock in the rebased `helm.tf`:
+- `helm_release.rag` defaults to `wait = true` (Terraform blocks until all Helm-managed resources report Ready).
+- `terraform_data.patch_nim_operator_resources` declares `depends_on = [helm_release.rag]`.
+- Therefore the tolerations that NIMCache pods need to schedule are only applied **after** `helm_release.rag` reports complete.
+- But `helm_release.rag` cannot complete because its pods (the NIMCache-backed ones) cannot reach Ready without those tolerations.
+
+Net effect: Terraform apply either times out waiting on `helm_release.rag`, or exits with a partial/error state and the `patch_nim_operator_resources` step never runs. In either case, PR #101's post-install patching approach as-coded cannot close the loop on a clean deploy. The manual workaround (applying the taint/toleration fix out-of-band) is what's letting Track 1 continue to validate BUG-026 right now, but it's not a shippable path for customers.
+
+This makes BUG-029 a **release blocker** for the v0.0.7 helm-chart-v2.5.0 path (Track 1 / enterprise_rag+aiq only; vss/paas_rag/cuopt/wpp unaffected since they don't use the rag helm release or NIMCache CRs).
+
+**Proposed fixes (team-lead, 2026-04-23 — pick one):**
+
+1. **Change `helm_release.rag` to `wait = false`.** Lowest-risk edit. Terraform returns after Helm dispatches the release instead of waiting for pod readiness; the `terraform_data.patch_nim_operator_resources` step then fires and applies tolerations to NIMCache CRs; pods reach Ready on the next reconcile. Trade-off: Terraform's completion signal no longer implies "application is live" — downstream consumers (smoke tests, the blueprint deploy job) must poll cluster state themselves.
+
+2. **Move tolerations into chart values so no post-install patching is needed.** Cleanest long-term. Add a `tolerations:` stanza to the NIMCache CR templates in `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` (and/or a corresponding values override the chart exposes). The `terraform_data.patch_nim_operator_resources` step can then be deleted. Risk: may require chart support we don't control, depending on whether the `nvidia-blueprint-rag` v2.5.0 templates expose per-CR toleration overrides.
+
+3. **Add a pre-install hook that patches NIMCache CRs before pods are created.** Use a Helm chart `pre-install` / `pre-upgrade` hook (or a separate `null_resource`/`terraform_data` with `depends_on` inverted — i.e. runs *before* `helm_release.rag`) that creates a mutating admission policy or patches the NIMCache CRDs themselves so every new NIMCache CR is born with the toleration. Highest complexity; avoids touching `wait = true`. Only worth it if option 1's downstream-polling shift is unacceptable.
+
+Team-lead recommendation: option 1 first (unblocks the chart right now), then option 2 as the real fix in a follow-up PR so `wait = true` can return.
+
+**Status of Track 1 validation under the manual workaround:**
+Track 1 is applying the manual toleration removal as a workaround so that Phase 6 smoke tests can still re-verify BUG-026 (ADB DPY-6000). This proves PR #101's *intent* works (the nv-ingest DNS fix + v0.0.6 images + NIM Operator) but does NOT prove the *as-shipped* Terraform code handles the deploy cleanly. Release go/no-go decision deferred until Phase 6 completes and we can separately decide whether to ship the fix in-release (option 1) or block shipping until option 2 is in.
+
+**Release-summary flag:** Must appear as a top-line blocker in the end-of-release summary to PR #104, regardless of Phase 6 outcome. Close-out only possible after one of the three fixes above is merged AND a clean (no-manual-workaround) apply verifies cache pods schedule + rag release reports healthy + Phase 6 passes.
+
+---
+
+### BUG-030: enterprise_rag v2.5.0 app destroy hangs on NIMCache/NIMService finalizers — `resource-policy: keep` annotation preserves CRs after Helm uninstall
+
+**Status:** Open — **RELEASE BLOCKER** (customer can't cleanly destroy without manual finalizer removal)
+**Date found:** 2026-04-23
+**Found by:** track1-gpu4 during v0.0.7 rebased release testing (enterprise_rag/small on BM.GPU4.8, uk-london-1); escalated by team-lead
+**Severity:** High — complements BUG-029 as a destroy-path bug (vs BUG-029's apply-path deadlock)
+
+**Symptoms:**
+- `oci resource-manager job create-destroy-job` on the enterprise_rag app stack FAILS with a Terraform error: `context deadline exceeded on kubernetes_namespace_v1.app_namespace[0]`.
+- `kubectl describe ns rag` shows finalizers present on the namespace; namespace stuck in `Terminating`.
+- The NIMCache and NIMService CRs in the `rag` namespace are NOT deleted by the Helm uninstall. `kubectl get nimcache,nimservice -n rag` still lists all 7 NIMCache and all 7 NIMService CRs after Helm reports the release gone.
+- Their controller's finalizers prevent the namespace from fully deleting, so `kubernetes_namespace_v1` times out waiting on namespace deletion.
+
+**Root cause:**
+PR #101's v2.5.0 chart (`nvidia-blueprint-rag`) marks NIMCache and NIMService CRs with the Helm annotation `helm.sh/resource-policy: keep`. That annotation tells Helm to preserve those objects on `helm uninstall` — likely intended upstream so cache volumes persist across upgrade cycles. In our destroy flow, that's the wrong behavior: we want the namespace (and everything in it) fully removed.
+
+Chain of events on destroy:
+1. Terraform destroys `helm_release.rag` → Helm runs `helm uninstall rag -n rag`.
+2. Helm honors `resource-policy: keep` and leaves all 7 NIMCache + 7 NIMService CRs in the `rag` namespace.
+3. Terraform then destroys `kubernetes_namespace_v1.app_namespace[0]` → Kubernetes tries to delete the namespace.
+4. Namespace deletion blocks on the CRs' own finalizers (owned by the NIM Operator controller).
+5. `kubernetes_namespace_v1` times out with `context deadline exceeded`.
+
+Net effect: the destroy fails mid-way. The infra stack's OKE cluster is left in an inconsistent state with orphaned CRs, orphaned namespace in `Terminating`, and an ACTIVE ORM app stack that Terraform can't reconcile.
+
+**Affected files:**
+- Upstream: `nvidia-blueprint-rag` chart v2.5.0 — NIMCache and NIMService CR templates ship with `helm.sh/resource-policy: keep`.
+- Release-repo candidates for fix:
+  - `ai-accelerator-tf/helm.tf` — where `helm_release.rag` is declared; candidate for a destroy-time `provisioner "local-exec" { when = destroy ... }` step to strip the annotation / finalizers before uninstall.
+  - `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml` — if the chart exposes a values override to suppress the `resource-policy: keep` annotation, we can set it here.
+
+**Workaround used by track1-gpu4 (2026-04-23):**
+```bash
+# For each stuck CR, clear the finalizer so the controller deletion can proceed:
+for cr in $(kubectl get nimcache -n rag -o name); do
+  kubectl patch "$cr" -n rag --type=merge -p '{"metadata":{"finalizers":[]}}'
+done
+for cr in $(kubectl get nimservice -n rag -o name); do
+  kubectl patch "$cr" -n rag --type=merge -p '{"metadata":{"finalizers":[]}}'
+done
+# Then retry the destroy job.
+```
+Applied to all 7 NIMCache + 7 NIMService CRs on Track 1's v0.0.7-rebased app stack. Destroy then proceeded.
+
+**Proposed fixes (pick one):**
+
+1. **Cleanest: add a destroy-time Terraform provisioner.** Either a `provisioner "local-exec" { when = destroy ... }` on `helm_release.rag` itself, OR a separate `terraform_data` resource with `depends_on = [helm_release.rag]` and a destroy-time action. The provisioner runs `kubectl patch` (or equivalent) to clear the NIMCache + NIMService finalizers BEFORE Helm uninstall removes the release. This mirrors the approach already used for other teardown-sensitive resources in this codebase.
+
+2. **Or: override `resource-policy: keep` via chart values.** If the v2.5.0 chart exposes a values override to disable the `keep` annotation (or set it to `delete`), flip it in `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml`. Lowest effort if supported.
+
+3. **Or: remove `resource-policy: keep` from NIMCache/NIMService CR templates in values entirely.** Only viable if the chart's templates are locally rendered or if NVIDIA will accept a PR upstream; otherwise fork-pinning territory.
+
+**Classification:** Same release-blocker family as BUG-029 — both are v2.5.0 chart orchestration bugs introduced by the PR #101 rebase (apply-path + destroy-path respectively). Both must be fixed before shipping v0.0.7.
+
+**Release implications:**
+- Customer flow "`terraform destroy`" or ORM destroy on enterprise_rag app stack **fails without manual intervention**. Unacceptable for v0.0.7 ship.
+- Combined with BUG-029 (apply-path deadlock), the v0.0.7 enterprise_rag path is broken in both directions (can't apply cleanly without manual toleration fix, can't destroy cleanly without manual finalizer fix).
+- vss/paas_rag/cuopt/warehouse_pick_path unaffected (no NIMCache/NIMService CRs).
+
+**Close-out gating:** One of the 3 proposed fixes merged AND a clean (no-manual-workaround) destroy completes against an enterprise_rag app stack that was applied via the rebased v0.0.7 path. Ideally demonstrated in the same test cycle as BUG-029's close-out.
+
+**Reference:** Discovered during Track 1's Round 1 → Round 2 transition on 2026-04-23 (post-BUG-029 manual workaround). Teardown job submitted 2026-04-23T21:53:51Z for app stack `Enterprise RAG - App - v0.0.7 2026-04-22 1824` (Track 1's app stack OCID `ocid1.ormstack.oc1.uk-london-1.amaaaaaam3augwaa5fvnopcj6uokwllhuo6spwl4rgqgxsh72yhgte744fdq`). Workaround steps above confirmed unsticking the destroy. **Release-summary flag:** must appear as a top-line blocker alongside BUG-029.
+
+**Evidence (CLI-confirmed timeline):**
+
+App stack OCID (uk-london-1): `ocid1.ormstack.oc1.uk-london-1.amaaaaaam3augwaa5fvnopcj6uokwllhuo6spwl4rgqgxsh72yhgte744fdq`
+
+- **2026-04-23T21:53:51Z** — DESTROY submitted (no manual workaround).
+  Job OCID: `ocid1.ormjob.oc1.uk-london-1.amaaaaaam3augwaaamkm4awauepnavhzp5k3fc63pepjox5eexawaeno3kza`
+- **2026-04-23T21:59:51Z** — **DESTROY FAILED** after 6 min (context deadline on `kubernetes_namespace_v1.app_namespace`) — BUG-030 firing.
+  Same job OCID as above; terminal state FAILED recorded on the job.
+- **2026-04-23T~22:00 → ~22:22Z** — operator cleared finalizers on all 7 NIMCache + 7 NIMService CRs via `kubectl patch ... -p '{"metadata":{"finalizers":[]}}'` (see Workaround section above). ~23 min of manual recovery overhead between the FAILED destroy and the retry.
+- **2026-04-23T22:22:11Z** — DESTROY re-submitted after workaround.
+  Job OCID: `ocid1.ormjob.oc1.uk-london-1.amaaaaaam3augwaa32qjeqprwsuctty5wmk2cxg4c34ftw7jftcp3eykrxsq`
+- **2026-04-23T22:23:04Z** — **DESTROY SUCCEEDED** (53s — fast, because the namespace-deletion block was the only thing stuck).
+
+This timeline is pulled directly from `oci resource-manager job list` on the Track 1 app stack; it serves as audit-trail evidence for the release-blocker classification of BUG-030. Any customer running the v0.0.7 enterprise_rag pack through its full lifecycle will hit the same failure on first destroy attempt without the finalizer-clearing workaround.
+
+---
+
+### BUG-031: Release zips have TF files nested under `ai-accelerator-tf/` — CLI `resource-manager stack update --config-source` rejects them; only ORM Console auto-unpacks
+
+**Status:** Open
+**Date found:** 2026-04-23
+**Found by:** track1-gpu4 during v0.0.7 rebased release testing (CLI-path stack update on enterprise_rag app stack); escalated by team-lead
+**Severity:** Low — skill / release-packaging tooling gap; does not affect the ORM Console path customers use
+
+**Symptoms:**
+`oci resource-manager stack update --config-source release_test_matrix/v0.0.7_<pack>.zip` fails to recognize the Terraform code because every `.tf` file inside the zip is nested under a top-level `ai-accelerator-tf/` directory. The CLI does not flatten or auto-descend; it looks for `.tf` files at the root of the archive and finds none, so the upload is rejected (or the subsequent plan errors out with "no Terraform configuration found").
+
+The ORM Console's UI upload path is more forgiving: when a user uploads the same zip through the browser, the Console's upload handler detects the single-subdirectory layout and auto-flattens during unpack, so the Terraform code is placed at the stack root. CLI and Console therefore accept different zip layouts for the same logical input.
+
+This divergence is invisible at build time (the zips pass all smoke checks — `unzip -l` looks correct, `schema.yaml` is present at the expected path, the Console accepts them). It only surfaces when someone reaches for the CLI during release testing and gets a confusing rejection from a file that "clearly contains Terraform."
+
+**Root cause:**
+The `/zip-tf` skill (and the `/releasing` skill that calls it) packages the repo's `ai-accelerator-tf/` directory using `zip -r <out>.zip ai-accelerator-tf/`, which preserves the directory prefix in the archive. That matches how humans usually think about the source tree, and the Console handles it. The CLI's `--config-source` expects a "Terraform project archive" layout with `.tf` files at zip root, which is a valid but stricter convention.
+
+CLAUDE.md (`.claude/rules/terraform.md`) already acknowledges this: "When creating ORM zips, TF files must be at the zip root (zip from inside `ai-accelerator-tf/`, not the parent directory)." — but the `release_test_matrix/` zips produced by `/releasing` don't follow that rule, because the `/zip-tf` skill zips from the repo root.
+
+**Affected files:**
+- `.claude/skills/zip-tf/` — the skill that produces the nested-layout zips
+- `.claude/skills/releasing/` — invokes `/zip-tf` for per-pack release zips
+- `release_test_matrix/v0.0.7_*.zip` — existing v0.0.7 release zips, all nested
+- `.claude/rules/terraform.md` — documents the flat-zip-root rule but it isn't enforced by the tooling
+- `.claude/skills/testing-pack/SKILL.md` — CRITICAL RULE #3 restricts CLI usage but doesn't call out this specific packaging mismatch
+
+**Workaround (used by Track 1 on 2026-04-23):**
+Repack the zip with TF files at the root before the CLI update:
+```bash
+cd ai-accelerator-tf && zip -r /tmp/flat.zip .
+oci resource-manager stack update --config-source /tmp/flat.zip --stack-id <ocid>
+```
+Adds ~10 seconds per stack update when doing CLI-path work.
+
+**Classification:** Skill gap + packaging convention mismatch between the UI and CLI ORM paths. Companion to BUG-027 (testing-pack doesn't carve out destroy-via-CLI as a permitted fallback): both bugs point to the same underlying gap — the release-packaging and testing skills assume UI-only interaction, while teammates legitimately use CLI for efficiency during release testing.
+
+**Proposed fix options:**
+
+1. **Produce two zip variants.** Update `/zip-tf` to emit a UI-compatible nested variant AND a CLI-compatible flat variant. Name them accordingly: `v0.0.7_cuopt.zip` (current layout, UI-compatible) and `v0.0.7_cuopt-flat.zip` (CLI-compatible). Slightly more build output but zero ambiguity at consumption time.
+
+2. **Pack flat by default.** The ORM Console accepts both the nested and the flat layout (it just auto-flattens the nested case), so switching to a single flat layout satisfies both consumers. Simpler than option 1; updates one skill (`/zip-tf`) and nothing else downstream. Recommended.
+
+3. **Document the asymmetry in `/testing-pack`.** Lowest effort but highest ongoing tax — every teammate who reaches for the CLI has to remember to re-pack. This is what the workaround above already does.
+
+Team-lead recommendation (implicit): option 2 is the cleanest — one layout that works everywhere.
+
+**Release implications:**
+- Not a customer-facing blocker. Customers use the ORM Console upload path, which already handles the nested layout transparently.
+- Blocker for internal tooling / release-testing teammates who legitimately use CLI (per the workaround). Costs ~10s per stack update; no data-loss or state-corruption risk.
+- Does NOT need to block v0.0.7 shipping, but should be fixed before v0.0.8 to remove the ongoing friction and reduce the chance of a teammate hitting it in production-adjacent work.
+
+**Close-out gating:** One of the 3 fixes above merged. If option 2 is chosen, a smoke check that `unzip -l release_test_matrix/v0.0.X_cuopt.zip | head -20` shows `.tf` files at the zip root (no `ai-accelerator-tf/` prefix) is sufficient.
+
+**Reference:** Discovered during v0.0.7 rebased release testing on 2026-04-23. Track 1's CLI-based stack update against Track 1's enterprise_rag app stack failed at `--config-source` step; manual repack via `cd ai-accelerator-tf && zip -r /tmp/flat.zip .` resolved it. Team-lead classified and escalated for logging. Bug total this release: 11 (BUG-021 through BUG-031).

@@ -15,13 +15,13 @@
 ```bash
 EVIDENCE_DIR="/tmp/erag-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$EVIDENCE_DIR"
-SESSION="erag-test-$(date +%s)"
+# AGENT_BROWSER_SESSION is inherited from the calling /testing-pack session (see CRITICAL RULE #5 in /testing-pack/SKILL.md).
 BASE_URL="$STARTER_PACK_URL"
 
 # Self-signed certs on nip.io domains — must use --ignore-https-errors
-agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
-agent-browser --session $SESSION wait --load networkidle
-agent-browser --session $SESSION wait 3000
+agent-browser --headed --ignore-https-errors open "$BASE_URL"
+agent-browser wait --load networkidle
+agent-browser wait 3000
 ```
 
 All subsequent commands use `--session $SESSION`. For brevity, examples below omit the flag — **always include it**.
@@ -105,7 +105,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** Start at `/`, navigate to `/collections/new`
 - **Steps:**
   1. `agent-browser snapshot -i` — find the "Add New Collection" button ref
-  2. `agent-browser click @ref` — click it
+  2. Click "Add New Collection" (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Add New Collection' || el.getAttribute('aria-label') === 'Add New Collection')?.click();`
+     `EOF`
   3. `agent-browser wait --url "**/collections/new"`
   4. `agent-browser snapshot -i` — verify new page elements
 - **Verify:**
@@ -160,7 +163,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/`
 - **Steps:**
   1. `agent-browser snapshot -i` — find "ui_test_collection" item ref in sidebar
-  2. `agent-browser click @ref` — click the collection item
+  2. Click the "ui_test_collection" item to select it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('aside button, aside a, aside [role="button"], nav button, nav a, nav [role="button"]')).find(el => (el.textContent || '').includes('ui_test_collection')) || Array.from(document.querySelectorAll('button, a, [role="button"], [role="listitem"]')).find(el => (el.textContent || '').includes('ui_test_collection')))?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify selected state
 - **Verify:**
   - [ ] Collection item shows selected state (highlighted/active styling)
@@ -182,10 +188,16 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/`
 - **Steps:**
   1. `agent-browser snapshot -i` — verify "ui_test_collection" chip is still visible, find chat input textarea ref
-  2. `agent-browser click @textarea_ref` — focus the chat input
+  2. Click the chat input to focus it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('textarea, [role="textbox"], input[type="text"]'))?.focus();`
+     `EOF`
   3. `agent-browser fill @textarea_ref "What is in the uploaded document?"` — type the query
   4. `agent-browser snapshot -i` — find the Send button ref
-  5. `agent-browser click @send_ref` — send the message
+  5. Click "Send" to send the message (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send')?.click();`
+     `EOF`
   6. Wait for the response — poll with snapshots every 15s for up to 3 minutes:
      ```bash
      agent-browser wait 15000
@@ -217,7 +229,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/`
 - **Steps:**
   1. `agent-browser snapshot -i` — find "View Citations" or "Citations" button ref on the assistant message
-  2. `agent-browser click @citations_ref` — open the citation drawer
+  2. Click the citations button to open the citation drawer (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => /citation/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '')))?.click();`
+     `EOF`
   3. `agent-browser wait 2000` — wait for drawer animation
   4. `agent-browser snapshot -i` — verify drawer content
 - **Verify:**
@@ -246,7 +261,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/` (citation drawer open)
 - **Steps:**
   1. `agent-browser snapshot -i` — find the close button (X) on the citation drawer
-  2. `agent-browser click @close_ref` — close the drawer
+  2. Click the drawer close (X) button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('[role="dialog"] [aria-label="Close" i], aside [aria-label="Close" i], [role="complementary"] [aria-label="Close" i]') || Array.from(document.querySelectorAll('button, [role="button"]')).find(el => (el.getAttribute('aria-label') || '').toLowerCase() === 'close'))?.click();`
+     `EOF`
   3. If no close button found, try: `agent-browser press Escape`
   4. `agent-browser snapshot -i` — verify drawer is closed
 - **Verify:**
@@ -260,11 +278,17 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/`
 - **Steps:**
   1. `agent-browser snapshot -i` — find the X button on the "ui_test_collection" chip
-  2. `agent-browser click @chip_x_ref` — remove the chip to deselect all collections
+  2. Click the X on the "ui_test_collection" chip to deselect the collection (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var chip = Array.from(document.querySelectorAll('[class*="chip" i], [data-chip], [role="button"]')).find(el => (el.textContent || '').includes('ui_test_collection')); (chip && (chip.querySelector('[aria-label*="remove" i], [aria-label*="close" i], button, svg')?.closest('button, [role="button"]') || chip.querySelector('button, [role="button"]')))?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify no collection chips remain above the input
   4. `agent-browser fill @textarea_ref "What is retrieval augmented generation?"` — type query
   5. `agent-browser snapshot -i` — find and click Send button
-  6. `agent-browser click @send_ref`
+  6. Click "Send" to send the message (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send')?.click();`
+     `EOF`
   7. Wait for response — poll with snapshots every 15s for up to 2 minutes
 - **Verify:**
   - [ ] Message sends successfully even without collections selected
@@ -277,7 +301,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/`
 - **Steps:**
   1. `agent-browser snapshot -i` — find the "More" button (vertical dots / kebab menu) on the "ui_test_collection" item in sidebar
-  2. `agent-browser click @more_ref` — open the collection drawer
+  2. Click the "More" (kebab) button on the "ui_test_collection" item to open the collection drawer (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var row = Array.from(document.querySelectorAll('li, [role="listitem"], button, [class*="item" i]')).find(el => (el.textContent || '').includes('ui_test_collection')); (row && (row.querySelector('[aria-label*="more" i], [aria-label*="menu" i], [aria-label*="option" i]') || row.querySelector('button:last-of-type')))?.click();`
+     `EOF`
   3. `agent-browser wait 2000` — wait for drawer animation
   4. `agent-browser snapshot -i` — examine drawer contents
 - **Verify:**
@@ -294,7 +321,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** Navigate from `/` to `/settings`
 - **Steps:**
   1. `agent-browser snapshot -i` — find the Settings button/icon in the header
-  2. `agent-browser click @settings_ref` — navigate to settings
+  2. Click "Settings" to navigate to the settings page (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('header a, header button, header [role="button"]')).find(el => /settings/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))) || Array.from(document.querySelectorAll('a, button, [role="button"]')).find(el => (el.textContent || '').trim() === 'Settings' || el.getAttribute('aria-label') === 'Settings'))?.click();`
+     `EOF`
   3. `agent-browser wait --url "**/settings"`
   4. `agent-browser snapshot -i` — verify settings page structure
 - **Verify:**
@@ -309,7 +339,10 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Steps:**
   1. `agent-browser snapshot -i` — verify RAG Configuration section is visible (should be default active)
   2. Find the Temperature slider ref
-  3. `agent-browser click @slider_ref` — interact with the slider to change value
+  3. Interact with the Temperature slider to change its value (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var slider = document.querySelector('input[type="range"][name*="temperature" i], input[type="range"][aria-label*="temperature" i], input[type="range"]'); if (slider) { slider.focus(); var min = parseFloat(slider.min || '0'); var max = parseFloat(slider.max || '1'); var step = parseFloat(slider.step || '0.1'); var cur = parseFloat(slider.value || '0'); var next = Math.min(max, Math.max(min, cur + step * 2)); slider.value = String(next); slider.dispatchEvent(new Event('input', { bubbles: true })); slider.dispatchEvent(new Event('change', { bubbles: true })); }`
+     `EOF`
   4. `agent-browser snapshot -i` — check that the displayed value updated
 - **Verify:**
   - [ ] Temperature slider is visible with current value displayed
@@ -325,12 +358,21 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 - **Page:** `/settings`
 - **Steps:**
   1. `agent-browser snapshot -i` — find "Feature Toggles" nav item in the settings sidebar
-  2. `agent-browser click @feature_toggles_ref` — navigate to Feature Toggles section
+  2. Click "Feature Toggles" to navigate to that section (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"], [role="tab"], [role="menuitem"]')).find(el => (el.textContent || '').trim() === 'Feature Toggles' || el.getAttribute('aria-label') === 'Feature Toggles')?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — find toggle switches
-  4. `agent-browser click @toggle_ref` — click one toggle (e.g., "Enable Reranker")
+  4. Click one toggle, e.g. "Enable Reranker" (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('label, [role="switch"]')).find(el => /enable reranker/i.test(el.textContent || '')) || document.querySelector('[role="switch"], input[type="checkbox"][role="switch"]'))?.click();`
+     `EOF`
   5. If a confirmation/warning modal appears:
      - `agent-browser snapshot -i` — find Cancel button in the modal
-     - `agent-browser click @cancel_ref` — dismiss the modal without changing settings
+     - Click "Cancel" to dismiss the modal without changing settings (via evaluate — BUG-025 workaround):
+       `agent-browser evaluate --stdin <<'EOF'`
+       `Array.from(document.querySelectorAll('[role="dialog"] button, [role="dialog"] [role="button"], .modal button')).find(el => (el.textContent || '').trim() === 'Cancel' || el.getAttribute('aria-label') === 'Cancel')?.click();`
+       `EOF`
 - **Verify:**
   - [ ] Feature Toggles section shows >=4 toggle switches
   - [ ] Toggle labels visible: "Enable Reranker", "Include Citations", "Use Guardrails", "Query Rewriting"
@@ -345,12 +387,21 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
   1. `agent-browser open "$BASE_URL"` — navigate back to chat page
   2. `agent-browser wait --load networkidle`
   3. `agent-browser snapshot -i` — find "ui_test_collection" in sidebar, then its "More" button (kebab menu)
-  4. `agent-browser click @more_ref` — open the collection drawer
+  4. Click the "More" (kebab) button on the "ui_test_collection" item to open the collection drawer (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var row = Array.from(document.querySelectorAll('li, [role="listitem"], button, [class*="item" i]')).find(el => (el.textContent || '').includes('ui_test_collection')); (row && (row.querySelector('[aria-label*="more" i], [aria-label*="menu" i], [aria-label*="option" i]') || row.querySelector('button:last-of-type')))?.click();`
+     `EOF`
   5. `agent-browser wait 2000`
   6. `agent-browser snapshot -i` — find "Delete Collection" button
-  7. `agent-browser click @delete_ref` — click delete
+  7. Click "Delete Collection" (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Delete Collection' || el.getAttribute('aria-label') === 'Delete Collection')?.click();`
+     `EOF`
   8. `agent-browser snapshot -i` — find confirmation modal, click Confirm/OK
-  9. `agent-browser click @confirm_ref`
+  9. Click the confirmation button (Confirm/Delete/OK) in the modal (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('[role="dialog"] button, [role="alertdialog"] button, .modal button')).find(el => { var t = (el.textContent || '').trim(); return t === 'Confirm' || t === 'Delete' || t === 'OK' || t === 'Yes' || t === 'Confirm Delete'; })?.click();`
+     `EOF`
   10. `agent-browser wait 2000`
   11. `agent-browser snapshot -i` — verify collection is gone from sidebar
 - **Verify:**
@@ -366,7 +417,7 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 
 ```bash
 agent-browser screenshot "$EVIDENCE_DIR/EU-final-state.png"
-agent-browser --session $SESSION close
+agent-browser close
 ```
 
 ## Results Template

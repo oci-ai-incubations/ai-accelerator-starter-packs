@@ -18,19 +18,30 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 2. **On Step 2 (Configure Variables), check for required field validation errors** before clicking Next. Look for "This variable is required" text. If any required fields are empty, fill them via agent-browser (or ask the user for values). Do NOT skip past validation errors.
 
-3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply.
+3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply. **This applies to destroy jobs as well.** If the browser session is unavailable mid-test (expired, crashed, or not yet opened), wait for or re-establish a browser session before running any stack operation — including destroy. CLI destroy is not a permitted fallback.
 
-4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button in agent-browser or `oci resource-manager job create-destroy-job`.
+4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button via agent-browser (not CLI — see Rule #3). If the browser session has expired, re-authenticate before running Destroy — do not bypass via CLI.
 
-5. **Use an isolated agent-browser session** to avoid conflicts with other Claude sessions or parallel tracks. Generate a unique session name at the start:
+5. **Session isolation (prevent BUG-021).** `/testing-pack` sets `AGENT_BROWSER_SESSION` once at session start so every subsequent `agent-browser` command targets the same isolated context without needing `--session` on each invocation. Do NOT pass `--session` or `--session-name` explicitly — the env var handles it.
+
    ```bash
-   SESSION_NAME="oci-$(date +%s)"
+   export AGENT_BROWSER_HEADED=1
+   export AGENT_BROWSER_SESSION="${TEAMMATE_NAME:-oci-$(date +%s)}"
    ```
-   Use `--session $SESSION_NAME` (NOT `--session-name`) on ALL agent-browser commands. Close the session when done: `agent-browser --session $SESSION_NAME close`
 
-   **IMPORTANT: `--session` vs `--session-name` are different flags:**
-   - `--session <name>` — Creates a **separate isolated browser instance** with its own cookies, storage, and navigation. **Use this one.** This is required for parallel test tracks to avoid browser conflicts.
-   - `--session-name <name>` — Only persists cookies/localStorage under a name but **shares** the browser daemon with all other sessions. Do NOT use this for parallel testing.
+   `TEAMMATE_NAME` is set per-teammate by `/releasing` Phase 4b. In solo/interactive runs it's unset and the timestamp fallback gives a unique name.
+
+   Per Vercel Labs `agent-browser`:
+   - `--session <name>` — *"Isolate Browser Contexts with Named Sessions. Use the --session flag to maintain separate cookies, storage, and history for different tasks. Commands are isolated by session."* (from `agent-browser/skills/agent-browser/references/session-management.md`)
+   - `--session-name <name>` — *"Manage Session Persistence. Use session names to automatically handle state persistence without manual file management. Auto-saves state on close, auto-restores on next launch."* (from `agent-browser/skills/agent-browser/references/authentication.md`)
+
+   `--session-name` keeps the browser process alive between invocations to preserve state. That persistent process latches its launch mode (headed/headless) on first open — the root cause of BUG-021. `--session` creates ephemeral isolated contexts and is what release testing needs.
+
+   Claude Code teammates run in separate Claude Code instances with isolated shell environments (per `code.claude.com/docs/en/agent-teams.md`), so `AGENT_BROWSER_SESSION` exports are safe from cross-teammate leakage.
+
+   **If BUG-021 recurs** (teammate reports "I only see N browser windows, not all of them" or "IDCS sign-in not loading"): run `agent-browser close`, then re-open. The env var export at session start still applies. See BUG-021 in `BUGS.md`.
+
+6. **Never use bulk `agent-browser evaluate()` to toggle multiple form fields on the ORM Configure Variables wizard.** The wizard renders inside a nested iframe; rapid multi-field DOM mutations crash the iframe's JS context — the tab navigates to `about:blank`, session cookies are lost, and all wizard state is destroyed. Use the documented single-field primitives instead: `agent-browser fill @<ref>`, `agent-browser check @<ref>`, `agent-browser select @<ref>`, one call per field. Single-target `click` or `.click()` via `evaluate()` is safe; only multi-mutation bulk `evaluate()` crashes. See BUG-023 in `BUGS.md`.
 
 ## Arguments
 
@@ -277,13 +288,13 @@ Same zip is used for both infra and app stacks.
 
 ## Phase 3: ORM UI Schema Validation
 
-All ORM interactions use `agent-browser` in headed mode (`--headed --session $SESSION_NAME`).
+All ORM interactions use `agent-browser` in headed mode (`--headed`).
 
 ### 3a. Authenticate to OCI Console
 
 Open the OCI Console and check if authenticated. See [orm-browser-nav.md](references/orm-browser-nav.md) for the full login flow.
 
-1. `agent-browser --headed --session $SESSION_NAME open "https://cloud.oracle.com"`
+1. `agent-browser --headed open "https://cloud.oracle.com"`
 2. Take a snapshot — if login form visible (User Name / Password fields, or redirected to sign-in page), ask the user to enter credentials in the browser window. **Wait for user confirmation before proceeding.**
 3. If Console home page visible, continue.
 
@@ -361,6 +372,7 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack 
   - Fill admin/DB credentials
   - Validate no required field errors before clicking Next.
   - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (e.g., `poc`, `small`, `medium`). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
+  - Fill each variable with a separate `agent-browser fill`/`check`/`select` call. **See CRITICAL RULE #6** — never bulk-`evaluate()`.
 - Step 3: Check "Run apply", click Create
 
 See `references/orm-browser-nav.md` for checkbox toggling, password validation, and React Select patterns.
@@ -387,7 +399,7 @@ After infra succeeds, navigate to the stack's "Application Information" tab and 
 
 Use agent-browser eval to get the values:
 ```bash
-agent-browser --session $SESSION_NAME eval --stdin <<'EVALEOF'
+agent-browser eval --stdin <<'EVALEOF'
 var iframe = document.querySelector('iframe');
 var doc = iframe.contentDocument || iframe.contentWindow.document;
 var text = doc.body.innerText;
@@ -423,6 +435,7 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through
   - Fill admin/DB credentials (same as infra stack)
   - Validate no required field errors
   - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (must match infra stack). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
+  - Fill each variable with a separate `agent-browser fill`/`check`/`select` call. **See CRITICAL RULE #6** — never bulk-`evaluate()`.
 - Step 3: Check "Run apply", click Create
 
 ### 5b. Monitor app apply with kubectl
@@ -499,8 +512,8 @@ From the app stack's "Application Information" tab in agent-browser, extract:
 The deployed apps use self-signed certificates (nip.io domains). You must relaunch agent-browser with `--ignore-https-errors`:
 
 ```bash
-agent-browser --session $SESSION_NAME close 2>/dev/null
-agent-browser --headed --session $SESSION_NAME --ignore-https-errors open "https://<frontend-url>"
+agent-browser close 2>/dev/null
+agent-browser --headed --ignore-https-errors open "https://<frontend-url>"
 ```
 
 Verify the page loads (HTTP 200, expected content visible in snapshot).
@@ -557,6 +570,8 @@ If `PR_NUMBER` is set, post results to the PR (same table format as 6c-1).
 
 #### 6c-3. Execute UI tests
 
+**React click pattern (upstream workaround — BUG-025).** `agent-browser click @<ref>` dispatches a raw CDP native click. React's synthetic event delegation does not reliably catch CDP native clicks, so `onClick` handlers silently do not fire — no error, just a UI that does not change. This is an upstream `agent-browser` behavior not documented in Vercel Labs' CLI reference (file a follow-up issue against `vercel-labs/agent-browser`). Until upstream is fixed, for React-backed frontends (paas_rag, enterprise_rag, enterprise_rag_aiq, vss, cuopt — all confirmed React per each pack's SKILL.md), use `evaluate` + `.click()` which fires through React's synthetic event path. Per-pack `ui-tests.md` files use this pattern for every click. Single-target `click` via `evaluate()` is explicitly safe — CRITICAL RULE #6 forbids only multi-field bulk `evaluate()`. `fill`, `check`, `select` on React pages are unaffected — they go through a different input adapter that React catches via input events. **Only `click` needs the workaround.**
+
 > **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with agent-browser commands, interaction steps, and verification criteria. Execute directly from it.
 
 For every test in `ui-tests.md`:
@@ -603,7 +618,7 @@ Skip this step if no PR number was set.
 ```bash
 cd /tmp
 git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
-agent-browser --session $SESSION_NAME close 2>/dev/null
+agent-browser close 2>/dev/null
 ```
 
 ### 7c. Report
@@ -670,6 +685,8 @@ STACK IDs:
 | Pods not healthy after 15min | Invoke `/diagnosing-stack`, report, stop for user |
 | App smoke tests fail | Report results, stop for user decision |
 | Browser navigation fails | Take screenshot, report current page state, retry once |
+| Browser tab shows `about:blank` mid-wizard | Full reset — re-auth from Phase 3a, re-open stack, re-upload zip, re-fill variables (see BUG-023) |
+| Browser session expired mid-test | Run `agent-browser close`; re-open with `agent-browser open "https://cloud.oracle.com"` (env vars from CRITICAL RULE #5 still apply); wait for user to complete IDCS + MFA; resume from the phase the test was in (see BUG-027) |
 
 **Never auto-remediate.** Always stop and wait for user guidance on failures.
 
