@@ -25,7 +25,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-019 | paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files | Medium | 2026-04-17 |
 | Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
 | Fixed | BUG-021 | agent-browser --headed silently ignored on existing session (release-testing blocker) | High | 2026-04-22 |
-| Open | BUG-022 | /checking-capacity skips vcn-count quota (low-priority assumption invalid in shared tenancy) | High | 2026-04-22 |
+| Fixed | BUG-022 | /checking-capacity skips vcn-count quota (low-priority assumption invalid in shared tenancy) | High | 2026-04-22 |
 | Open | BUG-023 | Rapid JS eval on ORM Configure Variables wizard crashes agent-browser iframe, loses session | High | 2026-04-22 |
 | Open | BUG-024 | paas_rag /vector_stores/{id}/file_batches rejects file when embedding dim mismatches (1024 vs 1536) | Low | 2026-04-23 |
 | Open | BUG-025 | agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored) | Medium | 2026-04-23 |
@@ -919,7 +919,9 @@ If the count is at/near the limit, identify stale VCNs (old `quick-dev` or `test
 During v0.0.7 testing, this was unblocked manually by identifying and deleting stale Grant-owned OKE VCNs in us-ashburn-1.
 
 **Resolution:**
-Pending. Proposed fix:
+Fixed by reclassifying both `vcn-count` AND `cluster-count` in `/checking-capacity/SKILL.md` as "always check" (not low-priority). Both quotas have identical "high limit, low-priority" classification and identical shared-tenancy failure mode. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
 1. Remove the "low-priority / skip by default" classification for `vcn-count` in the `/checking-capacity` resource manifest. The cost of one extra API call is trivial; the cost of a silent ~45-second apply failure is not.
 2. Add a shared-tenancy smoke check: when the `/checking-capacity` run detects that `vcn-count` usage is >80% of the limit, list the top VCN-consuming compartments (or oldest VCNs) so the user can see candidates to ask about stale ones.
 3. Cross-reference BUG-011's broader fix (audit ALL quota types a starter pack actually provisions — FSS, ADB, customer secret keys, VCN, subnets, NAT gateways, etc.) and include `vcn-count` in whatever comprehensive manifest results from that work.
