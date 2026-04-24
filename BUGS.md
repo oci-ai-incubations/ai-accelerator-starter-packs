@@ -26,7 +26,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
 | Fixed | BUG-021 | agent-browser --headed silently ignored on existing session (release-testing blocker) | High | 2026-04-22 |
 | Fixed | BUG-022 | /checking-capacity skips vcn-count quota (low-priority assumption invalid in shared tenancy) | High | 2026-04-22 |
-| Open | BUG-023 | Rapid JS eval on ORM Configure Variables wizard crashes agent-browser iframe, loses session | High | 2026-04-22 |
+| Fixed | BUG-023 | Rapid JS eval on ORM Configure Variables wizard crashes agent-browser iframe, loses session | High | 2026-04-22 |
 | Open | BUG-024 | paas_rag /vector_stores/{id}/file_batches rejects file when embedding dim mismatches (1024 vs 1536) | Low | 2026-04-23 |
 | Open | BUG-025 | agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored) | Medium | 2026-04-23 |
 | Open (Environmental — OCI-side, not release-blocking; file for OCI support escalation) | BUG-026 | enterprise_rag ingestor/rag-server cannot connect to Oracle 26ai ADB in aiincubations-uk-london-1 — DPY-6000 listener refused | Critical | 2026-04-23 |
@@ -960,7 +960,9 @@ Avoid bulk JS `evaluate()` on the Configure Variables wizard. Instead:
 4. If the tab ever returns to `about:blank`, treat it as a full wizard reset: re-auth, re-open stack, re-upload zip, re-fill everything.
 
 **Resolution:**
-Pending. Proposed fix:
+Fixed by adding CRITICAL RULE #6 to `/testing-pack/SKILL.md` banning bulk `agent-browser evaluate()` on ORM wizard form fields; Phase 4a/5a instructions now point to Rule #6; Error Handling table has an `about:blank mid-wizard` recovery row. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
 1. `/testing-pack` Phase 3/5 should document a rule: use one `browser_fill_form` / `browser_click` call per field, never a multi-field `evaluate()` loop on the Configure Variables page.
 2. Add a post-interaction safety check: after every form interaction in the ORM wizard, snapshot and verify the iframe's stable selector (e.g., the "Next" button) is still present. If missing, treat as a crash and trigger full re-auth + re-entry.
 3. Document in the skill: if agent-browser's tab URL ever becomes `about:blank` mid-wizard, the recovery is NOT "refresh and continue" — it's a full restart from Phase 3a authentication.

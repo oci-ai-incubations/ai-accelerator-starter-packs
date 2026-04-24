@@ -41,6 +41,8 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
    **If BUG-021 recurs** (teammate reports "I only see N browser windows, not all of them" or "IDCS sign-in not loading"): run `agent-browser close`, then re-open. The env var export at session start still applies. See BUG-021 in `BUGS.md`.
 
+6. **Never use bulk `agent-browser evaluate()` to toggle multiple form fields on the ORM Configure Variables wizard.** The wizard renders inside a nested iframe; rapid multi-field DOM mutations crash the iframe's JS context — the tab navigates to `about:blank`, session cookies are lost, and all wizard state is destroyed. Use the documented single-field primitives instead: `agent-browser fill @<ref>`, `agent-browser check @<ref>`, `agent-browser select @<ref>`, one call per field. Single-target `click` or `.click()` via `evaluate()` is safe; only multi-mutation bulk `evaluate()` crashes. See BUG-023 in `BUGS.md`.
+
 ## Arguments
 
 - `$0` - Category: `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`
@@ -370,6 +372,7 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`), fill in the stack 
   - Fill admin/DB credentials
   - Validate no required field errors before clicking Next.
   - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (e.g., `poc`, `small`, `medium`). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
+  - Fill each variable with a separate `agent-browser fill`/`check`/`select` call. **See CRITICAL RULE #6** — never bulk-`evaluate()`.
 - Step 3: Check "Run apply", click Create
 
 See `references/orm-browser-nav.md` for checkbox toggling, password validation, and React Select patterns.
@@ -432,6 +435,7 @@ Upload the zip via CDP (see `references/cdp-file-upload.md`). Then click through
   - Fill admin/DB credentials (same as infra stack)
   - Validate no required field errors
   - **SIZE VERIFICATION GATE:** Before clicking Next, take a snapshot and confirm the `starter_pack_size` dropdown displays the expected value (must match infra stack). If it shows the wrong size, change it now. Do NOT proceed to Step 3 until the size is confirmed correct. Log the verified size in your status output.
+  - Fill each variable with a separate `agent-browser fill`/`check`/`select` call. **See CRITICAL RULE #6** — never bulk-`evaluate()`.
 - Step 3: Check "Run apply", click Create
 
 ### 5b. Monitor app apply with kubectl
@@ -679,6 +683,7 @@ STACK IDs:
 | Pods not healthy after 15min | Invoke `/diagnosing-stack`, report, stop for user |
 | App smoke tests fail | Report results, stop for user decision |
 | Browser navigation fails | Take screenshot, report current page state, retry once |
+| Browser tab shows `about:blank` mid-wizard | Full reset — re-auth from Phase 3a, re-open stack, re-upload zip, re-fill variables (see BUG-023) |
 
 **Never auto-remediate.** Always stop and wait for user guidance on failures.
 
