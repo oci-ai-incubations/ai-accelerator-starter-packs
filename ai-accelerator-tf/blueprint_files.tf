@@ -1631,7 +1631,7 @@ locals {
             recipe_id                             = "contract-backend"
             recipe_mode                           = "service"
             deployment_name                       = "contract-backend"
-            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend:v1.0.3"
             recipe_replica_count                  = 1
             recipe_flex_shape_ocpu_count          = 4
             recipe_flex_shape_memory_size_in_gbs  = 32
@@ -1662,7 +1662,7 @@ locals {
             recipe_id                             = "contract-frontend"
             recipe_mode                           = "service"
             deployment_name                       = "contract-frontend"
-            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:v1.0.1"
             recipe_replica_count                  = 1
             recipe_flex_shape_ocpu_count          = 4
             recipe_flex_shape_memory_size_in_gbs  = 32
