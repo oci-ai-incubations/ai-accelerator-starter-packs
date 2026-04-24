@@ -31,7 +31,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-025 | agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored) | Medium | 2026-04-23 |
 | Open (Environmental — OCI-side, not release-blocking; file for OCI support escalation) | BUG-026 | enterprise_rag ingestor/rag-server cannot connect to Oracle 26ai ADB in aiincubations-uk-london-1 — DPY-6000 listener refused | Critical | 2026-04-23 |
 | Open | BUG-029 | enterprise_rag v2.5.0 NIMCache pods missing GPU toleration — blocked on scheduling (RELEASE BLOCKER for v0.0.7 helm v2.5.0 path) | Critical | 2026-04-23 |
-| Open | BUG-027 | testing-pack skill doesn't carve out destroy-via-CLI as a permitted fallback | Low | 2026-04-23 |
+| Fixed | BUG-027 | testing-pack skill doesn't carve out destroy-via-CLI as a permitted fallback | Low | 2026-04-23 |
 
 ---
 
@@ -1182,7 +1182,9 @@ Two options when the browser session expires and only a destroy is needed:
 2. (Used by Track 1) Run `oci resource-manager job create-destroy-job --stack-id <ocid> --execution-plan-strategy AUTO_APPROVED` via CLI. Fast, no user action needed, but technically not blessed by the skill.
 
 **Resolution:**
-Pending. Proposed fix options:
+Fixed by extending CRITICAL RULE #3 in `/testing-pack/SKILL.md` with an explicit catch-all: the UI-only rule applies to destroy jobs as well. If the browser session is unavailable mid-test, wait for or re-establish a browser session before running any stack operation — including destroy. CLI destroy is not a permitted fallback. RULE #4 also clarified to say "re-authenticate before Destroy" rather than pointing at the CLI command. Error Handling table has a "browser session expired mid-test" recovery row. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
 1. **Explicit carve-out.** Update CRITICAL RULE #3 to: "OCI CLI is ONLY used for: listing stacks (Phase 1 discovery), resolving compartment OCIDs, kubectl/helm commands, **and stack destroy jobs when the browser session is unavailable**. Never for stack create/update/apply." Rationale: destroy doesn't exercise UI validation.
 2. **Strict rule with documented recovery.** Keep the current rule text but add a short section "When the browser session expires before destroy" that tells the teammate to reopen + re-auth. Costs a few minutes per destroy but keeps the rule unambiguous.
 3. **Make the rule op-specific.** Rewrite rule #3 as a per-operation table: create/update/apply = browser required; destroy/list/inspect = CLI permitted. Cleanest long-term but biggest edit.

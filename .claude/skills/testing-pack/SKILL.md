@@ -18,9 +18,9 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 2. **On Step 2 (Configure Variables), check for required field validation errors** before clicking Next. Look for "This variable is required" text. If any required fields are empty, fill them via agent-browser (or ask the user for values). Do NOT skip past validation errors.
 
-3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply.
+3. **OCI CLI is ONLY used for:** listing stacks (Phase 1 discovery), resolving compartment OCIDs, and kubectl/helm commands. Never for stack create/update/apply. **This applies to destroy jobs as well.** If the browser session is unavailable mid-test (expired, crashed, or not yet opened), wait for or re-establish a browser session before running any stack operation — including destroy. CLI destroy is not a permitted fallback.
 
-4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button in agent-browser or `oci resource-manager job create-destroy-job`.
+4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button via agent-browser (not CLI — see Rule #3). If the browser session has expired, re-authenticate before running Destroy — do not bypass via CLI.
 
 5. **Session isolation (prevent BUG-021).** `/testing-pack` sets `AGENT_BROWSER_SESSION` once at session start so every subsequent `agent-browser` command targets the same isolated context without needing `--session` on each invocation. Do NOT pass `--session` or `--session-name` explicitly — the env var handles it.
 
@@ -686,6 +686,7 @@ STACK IDs:
 | App smoke tests fail | Report results, stop for user decision |
 | Browser navigation fails | Take screenshot, report current page state, retry once |
 | Browser tab shows `about:blank` mid-wizard | Full reset — re-auth from Phase 3a, re-open stack, re-upload zip, re-fill variables (see BUG-023) |
+| Browser session expired mid-test | Run `agent-browser close`; re-open with `agent-browser open "https://cloud.oracle.com"` (env vars from CRITICAL RULE #5 still apply); wait for user to complete IDCS + MFA; resume from the phase the test was in (see BUG-027) |
 
 **Never auto-remediate.** Always stop and wait for user guidance on failures.
 
