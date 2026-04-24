@@ -22,15 +22,24 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 4. **ALWAYS Destroy before deleting an app stack.** If an app stack exists and needs to be replaced (e.g., testing a different pack on the same infra), you MUST run ORM Destroy first to clean up all Kubernetes resources (Helm releases, secrets, configmaps, PVCs). Deleting the ORM stack without destroying orphans all resources on the cluster, causing "already exists" errors on the next deploy. Use the Destroy button in agent-browser or `oci resource-manager job create-destroy-job`.
 
-5. **Use an isolated agent-browser session** to avoid conflicts with other Claude sessions or parallel tracks. Generate a unique session name at the start:
-   ```bash
-   SESSION_NAME="oci-$(date +%s)"
-   ```
-   Use `--session $SESSION_NAME` (NOT `--session-name`) on ALL agent-browser commands. Close the session when done: `agent-browser --session $SESSION_NAME close`
+5. **Session isolation (prevent BUG-021).** `/testing-pack` sets `AGENT_BROWSER_SESSION` once at session start so every subsequent `agent-browser` command targets the same isolated context without needing `--session` on each invocation. Do NOT pass `--session` or `--session-name` explicitly — the env var handles it.
 
-   **IMPORTANT: `--session` vs `--session-name` are different flags:**
-   - `--session <name>` — Creates a **separate isolated browser instance** with its own cookies, storage, and navigation. **Use this one.** This is required for parallel test tracks to avoid browser conflicts.
-   - `--session-name <name>` — Only persists cookies/localStorage under a name but **shares** the browser daemon with all other sessions. Do NOT use this for parallel testing.
+   ```bash
+   export AGENT_BROWSER_HEADED=1
+   export AGENT_BROWSER_SESSION="${TEAMMATE_NAME:-oci-$(date +%s)}"
+   ```
+
+   `TEAMMATE_NAME` is set per-teammate by `/releasing` Phase 4b. In solo/interactive runs it's unset and the timestamp fallback gives a unique name.
+
+   Per Vercel Labs `agent-browser`:
+   - `--session <name>` — *"Isolate Browser Contexts with Named Sessions. Use the --session flag to maintain separate cookies, storage, and history for different tasks. Commands are isolated by session."* (from `agent-browser/skills/agent-browser/references/session-management.md`)
+   - `--session-name <name>` — *"Manage Session Persistence. Use session names to automatically handle state persistence without manual file management. Auto-saves state on close, auto-restores on next launch."* (from `agent-browser/skills/agent-browser/references/authentication.md`)
+
+   `--session-name` keeps the browser process alive between invocations to preserve state. That persistent process latches its launch mode (headed/headless) on first open — the root cause of BUG-021. `--session` creates ephemeral isolated contexts and is what release testing needs.
+
+   Claude Code teammates run in separate Claude Code instances with isolated shell environments (per `code.claude.com/docs/en/agent-teams.md`), so `AGENT_BROWSER_SESSION` exports are safe from cross-teammate leakage.
+
+   **If BUG-021 recurs** (teammate reports "I only see N browser windows, not all of them" or "IDCS sign-in not loading"): run `agent-browser close`, then re-open. The env var export at session start still applies. See BUG-021 in `BUGS.md`.
 
 ## Arguments
 
@@ -277,13 +286,13 @@ Same zip is used for both infra and app stacks.
 
 ## Phase 3: ORM UI Schema Validation
 
-All ORM interactions use `agent-browser` in headed mode (`--headed --session $SESSION_NAME`).
+All ORM interactions use `agent-browser` in headed mode (`--headed`).
 
 ### 3a. Authenticate to OCI Console
 
 Open the OCI Console and check if authenticated. See [orm-browser-nav.md](references/orm-browser-nav.md) for the full login flow.
 
-1. `agent-browser --headed --session $SESSION_NAME open "https://cloud.oracle.com"`
+1. `agent-browser --headed open "https://cloud.oracle.com"`
 2. Take a snapshot — if login form visible (User Name / Password fields, or redirected to sign-in page), ask the user to enter credentials in the browser window. **Wait for user confirmation before proceeding.**
 3. If Console home page visible, continue.
 
@@ -387,7 +396,7 @@ After infra succeeds, navigate to the stack's "Application Information" tab and 
 
 Use agent-browser eval to get the values:
 ```bash
-agent-browser --session $SESSION_NAME eval --stdin <<'EVALEOF'
+agent-browser eval --stdin <<'EVALEOF'
 var iframe = document.querySelector('iframe');
 var doc = iframe.contentDocument || iframe.contentWindow.document;
 var text = doc.body.innerText;
@@ -499,8 +508,8 @@ From the app stack's "Application Information" tab in agent-browser, extract:
 The deployed apps use self-signed certificates (nip.io domains). You must relaunch agent-browser with `--ignore-https-errors`:
 
 ```bash
-agent-browser --session $SESSION_NAME close 2>/dev/null
-agent-browser --headed --session $SESSION_NAME --ignore-https-errors open "https://<frontend-url>"
+agent-browser close 2>/dev/null
+agent-browser --headed --ignore-https-errors open "https://<frontend-url>"
 ```
 
 Verify the page loads (HTTP 200, expected content visible in snapshot).
@@ -603,7 +612,7 @@ Skip this step if no PR number was set.
 ```bash
 cd /tmp
 git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
-agent-browser --session $SESSION_NAME close 2>/dev/null
+agent-browser close 2>/dev/null
 ```
 
 ### 7c. Report

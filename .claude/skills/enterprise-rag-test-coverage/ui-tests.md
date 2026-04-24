@@ -15,13 +15,13 @@
 ```bash
 EVIDENCE_DIR="/tmp/erag-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$EVIDENCE_DIR"
-SESSION="erag-test-$(date +%s)"
+# AGENT_BROWSER_SESSION is inherited from the calling /testing-pack session (see CRITICAL RULE #5 in /testing-pack/SKILL.md).
 BASE_URL="$STARTER_PACK_URL"
 
 # Self-signed certs on nip.io domains — must use --ignore-https-errors
-agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
-agent-browser --session $SESSION wait --load networkidle
-agent-browser --session $SESSION wait 3000
+agent-browser --headed --ignore-https-errors open "$BASE_URL"
+agent-browser wait --load networkidle
+agent-browser wait 3000
 ```
 
 All subsequent commands use `--session $SESSION`. For brevity, examples below omit the flag — **always include it**.
@@ -366,7 +366,7 @@ Document upload returns a `task_id`. A notification bell in the header shows ing
 
 ```bash
 agent-browser screenshot "$EVIDENCE_DIR/EU-final-state.png"
-agent-browser --session $SESSION close
+agent-browser close
 ```
 
 ## Results Template

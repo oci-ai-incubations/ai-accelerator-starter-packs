@@ -11,11 +11,11 @@
 ```bash
 EVIDENCE_DIR="/tmp/vss-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$EVIDENCE_DIR"
-SESSION="vss-test-$(date +%s)"
+# AGENT_BROWSER_SESSION is inherited from the calling /testing-pack session (see CRITICAL RULE #5 in /testing-pack/SKILL.md).
 BASE_URL="$STARTER_PACK_URL"
-agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
-agent-browser --session $SESSION wait --load networkidle
-agent-browser --session $SESSION wait 3000
+agent-browser --headed --ignore-https-errors open "$BASE_URL"
+agent-browser wait --load networkidle
+agent-browser wait 3000
 ```
 
 All subsequent commands use `--session $SESSION --ignore-https-errors`. For brevity, test descriptions omit these flags — always include them.
@@ -262,7 +262,7 @@ When a batch operation (e.g., "Upload & Analyze" for multiple videos) shows a pr
 ## Teardown
 
 ```bash
-agent-browser --session $SESSION close
+agent-browser close
 echo "Evidence screenshots saved to: $EVIDENCE_DIR"
 ls -la "$EVIDENCE_DIR"
 ```
