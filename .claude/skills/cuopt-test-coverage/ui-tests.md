@@ -141,7 +141,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Interaction:** Click the "Map" tab
 - **Steps:**
   1. `agent-browser snapshot -i` — find the "Map" tab `@ref`
-  2. `agent-browser click @ref` — click the Map tab
+  2. Click the "Map" tab (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Map' || el.getAttribute('aria-label') === 'Map'))?.click();`
+     `EOF`
   3. `agent-browser wait 2000` — wait for map tiles to load
   4. `agent-browser snapshot -i` — verify Leaflet map container is present
   5. `agent-browser screenshot "$EVIDENCE_DIR/CU-05-map-renders.png"`
@@ -169,7 +172,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Interaction:** Click a delivery stop marker
 - **Steps:**
   1. `agent-browser snapshot -i` — find a delivery stop marker `@ref` (teal circle)
-  2. `agent-browser click @ref` — click the marker
+  2. Click the first delivery stop marker on the map (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelectorAll('.leaflet-marker-icon')[0] || document.querySelectorAll('path[stroke*="teal" i], circle[fill*="teal" i]')[0] || document.querySelectorAll('.leaflet-interactive')[1])?.click();`
+     `EOF`
   3. `agent-browser wait 1000` — wait for popup
   4. `agent-browser snapshot -i` — verify popup content
   5. `agent-browser screenshot "$EVIDENCE_DIR/CU-07-marker-popup.png"`
@@ -185,10 +191,16 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Interaction:** Click the "Settings" tab, then click the model dropdown
 - **Steps:**
   1. `agent-browser snapshot -i` — find the "Settings" tab `@ref`
-  2. `agent-browser click @ref` — click the Settings tab
+  2. Click the "Settings" tab (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Settings' || el.getAttribute('aria-label') === 'Settings'))?.click();`
+     `EOF`
   3. `agent-browser wait 1000`
   4. `agent-browser snapshot -i` — find the "AI Model" dropdown `@ref`
-  5. `agent-browser click @ref` — click the dropdown to open it
+  5. Click the "AI Model" dropdown to open it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, [role="combobox"], [role="button"], select')).find(el => /ai model|model/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
   6. `agent-browser snapshot -i` — verify dropdown options are present
   7. `agent-browser screenshot "$EVIDENCE_DIR/CU-08-settings-dropdown.png"`
   8. `agent-browser press Escape` — close the dropdown
@@ -210,7 +222,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
   5. Clear the input (do NOT send — just verify input works)
 - **Steps:**
   1. `agent-browser snapshot -i` — find the "Problem" tab `@ref`
-  2. `agent-browser click @ref` — click Problem tab
+  2. Click the "Problem" tab (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Problem' || el.getAttribute('aria-label') === 'Problem'))?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — find the chat input field `@ref` (placeholder containing "Ask" or "modify" or "solve" or "chat") and Send button
   4. `agent-browser fill @ref "hello"` — type into the chat input
   5. `agent-browser snapshot -i` — verify "hello" appears in the input
@@ -230,7 +245,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
   3. Wait for results to appear in the right panel (replaces the delivery schedule)
 - **Steps:**
   1. `agent-browser snapshot -i` — find the "Find Optimal Routes" button `@ref`
-  2. `agent-browser click @ref` — click the solve button
+  2. Click "Find Optimal Routes" to start solving (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Find Optimal Routes' || el.getAttribute('aria-label') === 'Find Optimal Routes')?.click();`
+     `EOF`
   3. `agent-browser wait 2000`
   4. `agent-browser snapshot -i` — verify loading state (button text changes to "Finding routes...")
   5. `agent-browser screenshot "$EVIDENCE_DIR/CU-10-solving.png"`
@@ -310,7 +328,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
   3. If no tasks were dropped, verify the section shows 0 or is absent
 - **Steps:**
   1. `agent-browser snapshot -i` — look for "Dropped Tasks" section
-  2. If an expand `@ref` is found, `agent-browser click @ref`
+  2. If an expand control is present, click it to expand the "Dropped Tasks" section (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, [role="button"], summary, [aria-expanded]')).find(el => /dropped tasks/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify dropped tasks content
   4. `agent-browser screenshot "$EVIDENCE_DIR/CU-15-dropped-tasks.png"`
 - **Verify:**
@@ -329,7 +350,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Steps:**
   1. `agent-browser snapshot -i` — find the chat input `@ref` and Send button `@ref`
   2. `agent-browser fill @ref "What is cuOpt?"` — type the message
-  3. `agent-browser click @ref` — click Send (or `agent-browser press Enter`)
+  3. Click "Send" to send the message — or `agent-browser press Enter` (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send' || el.getAttribute('type') === 'submit')?.click();`
+     `EOF`
   4. `agent-browser wait 2000`
   5. `agent-browser snapshot -i` — verify user message appears
   6. **Poll for AI response:** In a loop (up to 24 iterations, 5 seconds apart):
@@ -354,7 +378,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
   4. Clear the input (do NOT send — this is just testing the chip interaction)
 - **Steps:**
   1. `agent-browser snapshot -i` — find example chip `@ref` (e.g., "Add car", "Add truck", "Add 3 more delivery locations")
-  2. `agent-browser click @ref` — click the chip
+  2. Click the first example chip (e.g. "Add car") (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('button, a, [role="button"], [class*="chip" i]')).find(el => /add car|add truck|add .* delivery|example/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))))?.click();`
+     `EOF`
   3. `agent-browser snapshot -i` — verify the chat input is now populated with the chip's text
   4. Find the chat input `@ref` and `agent-browser fill @ref ""` — clear it (do NOT send)
   5. `agent-browser screenshot "$EVIDENCE_DIR/CU-17-chip-click.png"`
@@ -374,7 +401,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
 - **Steps:**
   1. `agent-browser snapshot -i` — find the chat input `@ref` and Send button `@ref`
   2. `agent-browser fill @ref "Add a truck to the fleet"` — type the message
-  3. `agent-browser click @ref` — click Send (or `agent-browser press Enter`)
+  3. Click "Send" to send the message — or `agent-browser press Enter` (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send' || el.getAttribute('type') === 'submit')?.click();`
+     `EOF`
   4. `agent-browser wait 2000`
   5. **Poll for AI response:** In a loop (up to 36 iterations, 5 seconds apart):
      - `agent-browser wait 5000`
@@ -382,7 +412,10 @@ The chat interface uses an LLM with function calling to modify the problem data.
      - If AI response about adding a truck is visible, break out of the loop
   6. `agent-browser screenshot "$EVIDENCE_DIR/CU-18-chat-modify.png"`
   7. `agent-browser snapshot -i` — find the "Problem" tab `@ref`
-  8. `agent-browser click @ref` — switch to Problem tab
+  8. Click the "Problem" tab to switch to it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('[role="tab"], button, a')).find(el => (el.textContent || '').trim() === 'Problem' || el.getAttribute('aria-label') === 'Problem'))?.click();`
+     `EOF`
   9. `agent-browser wait 2000`
   10. `agent-browser snapshot -i` — verify fleet table now shows >=3 vehicles
   11. `agent-browser screenshot "$EVIDENCE_DIR/CU-18-fleet-updated.png"`

@@ -570,6 +570,8 @@ If `PR_NUMBER` is set, post results to the PR (same table format as 6c-1).
 
 #### 6c-3. Execute UI tests
 
+**React click pattern (upstream workaround — BUG-025).** `agent-browser click @<ref>` dispatches a raw CDP native click. React's synthetic event delegation does not reliably catch CDP native clicks, so `onClick` handlers silently do not fire — no error, just a UI that does not change. This is an upstream `agent-browser` behavior not documented in Vercel Labs' CLI reference (file a follow-up issue against `vercel-labs/agent-browser`). Until upstream is fixed, for React-backed frontends (paas_rag, enterprise_rag, enterprise_rag_aiq, vss, cuopt — all confirmed React per each pack's SKILL.md), use `evaluate` + `.click()` which fires through React's synthetic event path. Per-pack `ui-tests.md` files use this pattern for every click. Single-target `click` via `evaluate()` is explicitly safe — CRITICAL RULE #6 forbids only multi-field bulk `evaluate()`. `fill`, `check`, `select` on React pages are unaffected — they go through a different input adapter that React catches via input events. **Only `click` needs the workaround.**
+
 > **JUST-IN-TIME LOADING:** Read `.claude/skills/<category>-test-coverage/ui-tests.md` NOW. This file is self-contained — it has every UI test with agent-browser commands, interaction steps, and verification criteria. Execute directly from it.
 
 For every test in `ui-tests.md`:

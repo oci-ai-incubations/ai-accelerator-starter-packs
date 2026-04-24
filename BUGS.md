@@ -28,7 +28,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-022 | /checking-capacity skips vcn-count quota (low-priority assumption invalid in shared tenancy) | High | 2026-04-22 |
 | Fixed | BUG-023 | Rapid JS eval on ORM Configure Variables wizard crashes agent-browser iframe, loses session | High | 2026-04-22 |
 | Open | BUG-024 | paas_rag /vector_stores/{id}/file_batches rejects file when embedding dim mismatches (1024 vs 1536) | Low | 2026-04-23 |
-| Open | BUG-025 | agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored) | Medium | 2026-04-23 |
+| Fixed | BUG-025 | agent-browser browser_click by @ref fails on React onClick handlers (CDP native click ignored) | Medium | 2026-04-23 |
 | Open (Environmental — OCI-side, not release-blocking; file for OCI support escalation) | BUG-026 | enterprise_rag ingestor/rag-server cannot connect to Oracle 26ai ADB in aiincubations-uk-london-1 — DPY-6000 listener refused | Critical | 2026-04-23 |
 | Open | BUG-029 | enterprise_rag v2.5.0 NIMCache pods missing GPU toleration — blocked on scheduling (RELEASE BLOCKER for v0.0.7 helm v2.5.0 path) | Critical | 2026-04-23 |
 | Open | BUG-027 | testing-pack skill doesn't carve out destroy-via-CLI as a permitted fallback | Low | 2026-04-23 |
@@ -1053,7 +1053,9 @@ Prefer `.click()` because it's one line and React recognizes it reliably. Use th
 Caveat vs. BUG-023: BUG-023 warns against *bulk* JS evaluate() on the ORM Configure Variables wizard because rapid multi-mutation crashes the iframe. BUG-025's workaround is a *single-target* click — not a multi-field bulk operation — so the BUG-023 guidance (avoid bulk eval) does NOT forbid this pattern. One click via evaluate() per button is fine and recommended.
 
 **Resolution:**
-Pending. Proposed fix:
+Fixed by adding Phase 6c-3 React click pattern subsection to `/testing-pack/SKILL.md` + rewriting all 65 `click @<ref>` calls across the 4 non-stub `*-test-coverage/ui-tests.md` files (paas-rag 27, enterprise-rag 17, vss 10, cuopt 11) to use `evaluate` + `.click()`. wpp-test-coverage is a TODO stub with no changes. Upstream issue against `vercel-labs/agent-browser` is a separate follow-up. Spec: `docs/superpowers/specs/2026-04-23-release-testing-skill-hardening-design.md`.
+
+**Prior proposed-fix notes (for reference only):**
 1. `/testing-pack` Phase 6 UI tests (and the per-pack test-coverage skills) should use the `browser_evaluate` `.click()` pattern as PRIMARY for React-heavy pages, with `browser_click @ref` as a fallback rather than the default.
 2. Document the pattern in agent-browser README / troubleshooting section.
 3. Upstream agent-browser: detect React on the page (via `window.React`, React DevTools hook, or `data-reactroot` / `__reactFiber$`) and, when present, dispatch clicks via the synthetic event path (equivalent to calling `.click()` or firing a bubbling MouseEvent) instead of — or in addition to — the raw CDP click.

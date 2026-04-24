@@ -122,7 +122,10 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** "New Collection" button, modal dialog
 - **Interaction:**
   1. `agent-browser snapshot -i` — find the "New Collection" button ref
-  2. `agent-browser click @<new-collection-button-ref>` — open the modal
+  2. Click "New Collection" to open the modal (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'New Collection' || el.getAttribute('aria-label') === 'New Collection')?.click();`
+     `EOF`
   3. `agent-browser wait 1000`
   4. `agent-browser snapshot -i` — verify modal contents (name input, embedding model dropdown, dimensions input, metadata fields, Cancel/Create buttons)
 - **Verify:**
@@ -134,7 +137,10 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   - "Add Custom Field" button is visible
   - "Cancel" and "Create Collection" buttons are visible
 - **Dismiss:** Click "Cancel" to close the modal before PU-5:
-  1. `agent-browser click @<cancel-button-ref>`
+  1. Click "Cancel" (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Cancel' || el.getAttribute('aria-label') === 'Cancel')?.click();`
+     `EOF`
   2. `agent-browser wait 500`
 - **Evidence:** `agent-browser screenshot "$EVIDENCE_DIR/PU-04-create-modal.png"`
 
@@ -144,17 +150,29 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** "New Collection" button, modal form fields
 - **Interaction:**
   1. `agent-browser snapshot -i` — find "New Collection" button ref
-  2. `agent-browser click @<new-collection-button-ref>` — open modal
+  2. Click "New Collection" to open modal (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'New Collection' || el.getAttribute('aria-label') === 'New Collection')?.click();`
+     `EOF`
   3. `agent-browser wait 1000`
   4. `agent-browser snapshot -i` — find form field refs (name input, embedding model dropdown, dimensions input, purpose input, create button)
   5. `agent-browser fill @<name-input-ref> "ui_test_collection"` — enter collection name
-  6. `agent-browser click @<embedding-model-dropdown-ref>` — open embedding model dropdown
+  6. Click the embedding model dropdown to open it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"], [role="combobox"]')).find(el => /embedding model/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '')))?.click();`
+     `EOF`
   7. `agent-browser wait 500`
   8. `agent-browser snapshot -i` — find available model options
-  9. `agent-browser click @<first-model-option-ref>` — select first available model
+  9. Click the first model option (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `document.querySelectorAll('[role="option"]')[0]?.click();`
+     `EOF`
   10. Optionally: `agent-browser fill @<purpose-input-ref> "testing"` — fill in purpose
   11. `agent-browser snapshot -i` — verify form is filled and "Create Collection" button is enabled
-  12. `agent-browser click @<create-collection-button-ref>` — submit
+  12. Click "Create Collection" to submit (via evaluate — BUG-025 workaround):
+      `agent-browser evaluate --stdin <<'EOF'`
+      `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Create Collection' || el.getAttribute('aria-label') === 'Create Collection')?.click();`
+      `EOF`
   13. `agent-browser wait 2000` — wait for modal to close and success toast
   14. `agent-browser snapshot -i` — verify modal closed and toast appeared
 - **Verify:**
@@ -193,7 +211,10 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   2. `agent-browser hover @<collection-item-ref>` — hover to reveal the chevron button
   3. `agent-browser wait 500`
   4. `agent-browser snapshot -i` — find the revealed chevron/details button ref
-  5. `agent-browser click @<chevron-button-ref>` — open the drawer
+  5. Click the chevron/details button on the collection to open the drawer (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var item = Array.from(document.querySelectorAll('[data-collection-name="ui_test_collection"], li, [role="listitem"]')).find(el => (el.textContent || '').includes('ui_test_collection')); (item && item.querySelector('[aria-label*="detail" i], [aria-label*="chevron" i], [aria-label*="open" i], button:last-of-type'))?.click();`
+     `EOF`
   6. `agent-browser wait 1000`
   7. `agent-browser snapshot -i` — verify drawer contents
 - **Verify:**
@@ -211,14 +232,20 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** "Upload Documents" button, file input, upload controls
 - **Interaction:**
   1. `agent-browser snapshot -i` — find "Upload Documents" button ref
-  2. `agent-browser click @<upload-documents-button-ref>` — switch to upload view
+  2. Click "Upload Documents" to switch to upload view (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Upload Documents' || el.getAttribute('aria-label') === 'Upload Documents')?.click();`
+     `EOF`
   3. `agent-browser wait 1000`
   4. `agent-browser snapshot -i` — find file input ref in the drag-and-drop zone
   5. Create a test file: `echo "This is a test document for PaaS RAG UI testing. It contains information about retrieval augmented generation." > /tmp/test_document.txt`
   6. `agent-browser upload @<file-input-ref> /tmp/test_document.txt` — upload the test file
   7. `agent-browser wait 1000`
   8. `agent-browser snapshot -i` — verify file appears in list with "pending" status, find "Upload" button ref
-  9. `agent-browser click @<upload-button-ref>` — start upload
+  9. Click "Upload" to start the upload (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Upload' || el.getAttribute('aria-label') === 'Upload')?.click();`
+     `EOF`
   10. Poll for completion (up to 3 minutes):
       - `agent-browser wait 5000`
       - `agent-browser snapshot -i` — check for "completed" status (green checkmark)
@@ -238,7 +265,10 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** Close button (X) on the drawer, or back chevron
 - **Interaction:**
   1. `agent-browser snapshot -i` — find close button (X) ref
-  2. `agent-browser click @<close-button-ref>` — close the drawer
+  2. Click the drawer close (X) button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('[role="dialog"] [aria-label="Close" i], [role="complementary"] [aria-label="Close" i], aside [aria-label="Close" i]') || Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Close' || (el.getAttribute('aria-label') || '').toLowerCase() === 'close'))?.click();`
+     `EOF`
   3. `agent-browser wait 500`
   4. `agent-browser snapshot -i` — verify drawer is closed
 - **Verify:**
@@ -254,7 +284,10 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** Checkbox on "ui_test_collection" item in sidebar
 - **Interaction:**
   1. `agent-browser snapshot -i` — find the checkbox ref on the "ui_test_collection" item
-  2. `agent-browser click @<checkbox-ref>` — select the collection
+  2. Click the "ui_test_collection" checkbox to select the collection (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var row = Array.from(document.querySelectorAll('li, tr, [role="listitem"], [role="row"], label')).find(el => (el.textContent || '').includes('ui_test_collection')); (row && (row.querySelector('input[type="checkbox"], [role="checkbox"]') || row))?.click();`
+     `EOF`
   3. `agent-browser wait 500`
   4. `agent-browser snapshot -i` — verify selection state and "Searching in:" badge
 - **Verify:**
@@ -269,10 +302,16 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** Chat input textarea, Send button
 - **Interaction:**
   1. `agent-browser snapshot -i` — verify "ui_test_collection" badge is visible, find chat input ref
-  2. `agent-browser click @<chat-input-ref>` — focus the input
+  2. Click the chat input to focus it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('textarea, [role="textbox"], input[type="text"]'))?.focus();`
+     `EOF`
   3. `agent-browser fill @<chat-input-ref> "What is in the uploaded document?"` — type the message
   4. `agent-browser snapshot -i` — find the Send button ref (should now be enabled)
-  5. `agent-browser click @<send-button-ref>` — send the message
+  5. Click "Send" to send the message (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send')?.click();`
+     `EOF`
   6. Poll for response completion (up to 3 minutes):
      - `agent-browser wait 5000`
      - `agent-browser snapshot -i` — check for assistant response (look for bot message bubble, typing indicator gone)
@@ -321,13 +360,22 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** Collection checkbox, chat input, Send button
 - **Interaction:**
   1. `agent-browser snapshot -i` — find the checkbox ref on "ui_test_collection"
-  2. `agent-browser click @<checkbox-ref>` — deselect the collection (uncheck)
+  2. Click the "ui_test_collection" checkbox to deselect (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var row = Array.from(document.querySelectorAll('li, tr, [role="listitem"], [role="row"], label')).find(el => (el.textContent || '').includes('ui_test_collection')); (row && (row.querySelector('input[type="checkbox"], [role="checkbox"]') || row))?.click();`
+     `EOF`
   3. `agent-browser wait 500`
   4. `agent-browser snapshot -i` — verify no "Searching in:" badges remain
-  5. `agent-browser click @<chat-input-ref>` — focus the input
+  5. Click the chat input to focus it (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('textarea, [role="textbox"], input[type="text"]'))?.focus();`
+     `EOF`
   6. `agent-browser fill @<chat-input-ref> "What is retrieval augmented generation?"` — type the message
   7. `agent-browser snapshot -i` — find Send button ref
-  8. `agent-browser click @<send-button-ref>` — send
+  8. Click "Send" to send the message (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Send' || el.getAttribute('aria-label') === 'Send')?.click();`
+     `EOF`
   9. Poll for response completion (up to 2 minutes):
      - `agent-browser wait 5000`
      - `agent-browser snapshot -i` — check for assistant response
@@ -347,10 +395,16 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   2. `agent-browser hover @<collection-item-ref>` — hover to reveal the chevron button
   3. `agent-browser wait 500`
   4. `agent-browser snapshot -i` — find the revealed chevron/details button ref
-  5. `agent-browser click @<chevron-button-ref>` — open the drawer
+  5. Click the chevron/details button on the collection to open the drawer (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var item = Array.from(document.querySelectorAll('[data-collection-name="ui_test_collection"], li, [role="listitem"]')).find(el => (el.textContent || '').includes('ui_test_collection')); (item && item.querySelector('[aria-label*="detail" i], [aria-label*="chevron" i], [aria-label*="open" i], button:last-of-type'))?.click();`
+     `EOF`
   6. `agent-browser wait 1000`
   7. `agent-browser snapshot -i` — find the document count card ref (should show >=1 document)
-  8. `agent-browser click @<document-count-card-ref>` — open documents modal
+  8. Click the document count card to open the documents modal (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('[role="dialog"] *, aside *, [role="complementary"] *')).find(el => /document/i.test(el.textContent || '') && /\d+/.test(el.textContent || '') && (el.matches('button, a, [role="button"], [data-clickable], .card, [class*="card" i]') || el.closest('button, a, [role="button"], [data-clickable], .card, [class*="card" i]')))?.click();`
+     `EOF`
   9. `agent-browser wait 1000`
   10. `agent-browser snapshot -i` — verify documents modal contents (search input, table, pagination)
 - **Verify:**
@@ -361,10 +415,16 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
   - Pagination controls are visible (Previous/Next)
 - **Dismiss:** Close the modal, then close the collection drawer:
   1. `agent-browser snapshot -i` — find modal close button (X) ref
-  2. `agent-browser click @<modal-close-ref>` — close modal
+  2. Click the modal close (X) button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('[role="dialog"] [aria-label="Close" i], .modal [aria-label="Close" i], [data-state="open"] [aria-label="Close" i]'))?.click();`
+     `EOF`
   3. `agent-browser wait 500`
   4. `agent-browser snapshot -i` — find drawer close button (X) ref
-  5. `agent-browser click @<drawer-close-ref>` — close drawer
+  5. Click the drawer close (X) button (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(document.querySelector('aside [aria-label="Close" i], [role="complementary"] [aria-label="Close" i]') || Array.from(document.querySelectorAll('button, [role="button"]')).find(el => (el.getAttribute('aria-label') || '').toLowerCase() === 'close'))?.click();`
+     `EOF`
   6. `agent-browser wait 500`
 - **Evidence:** `agent-browser screenshot "$EVIDENCE_DIR/PU-15-documents-modal.png"`
 
@@ -374,11 +434,17 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** Settings button/icon in the header
 - **Interaction:**
   1. `agent-browser snapshot -i` — find the Settings button/icon ref in the header
-  2. `agent-browser click @<settings-button-ref>` — navigate to settings
+  2. Click "Settings" to navigate to the settings page (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('header a, header button, header [role="button"]')).find(el => /settings/i.test((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || ''))) || Array.from(document.querySelectorAll('a, button, [role="button"]')).find(el => (el.textContent || '').trim() === 'Settings' || el.getAttribute('aria-label') === 'Settings'))?.click();`
+     `EOF`
   3. `agent-browser wait --url "**/settings"` — wait for URL change
   4. `agent-browser wait --load networkidle`
   5. `agent-browser snapshot -i` — verify settings page loaded, find "Model Configuration" nav item ref
-  6. `agent-browser click @<model-config-nav-ref>` — click "Model Configuration"
+  6. Click "Model Configuration" (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"], [role="tab"], [role="menuitem"]')).find(el => (el.textContent || '').trim() === 'Model Configuration' || el.getAttribute('aria-label') === 'Model Configuration')?.click();`
+     `EOF`
   7. `agent-browser wait 500`
   8. `agent-browser snapshot -i` — verify model config section contents
 - **Verify:**
@@ -398,10 +464,16 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Interaction:**
   1. `agent-browser snapshot -i` — find temperature slider ref and "Reset to Defaults" button ref
   2. Note the current temperature value displayed
-  3. `agent-browser click @<temperature-slider-ref>` — interact with slider to change value
+  3. Click the temperature slider to change its value (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var slider = document.querySelector('input[type="range"][name*="temperature" i], input[type="range"][aria-label*="temperature" i], input[type="range"]'); if (slider) { slider.focus(); var min = parseFloat(slider.min || '0'); var max = parseFloat(slider.max || '1'); var step = parseFloat(slider.step || '0.1'); var cur = parseFloat(slider.value || '0'); var next = Math.min(max, Math.max(min, cur + step * 2)); slider.value = String(next); slider.dispatchEvent(new Event('input', { bubbles: true })); slider.dispatchEvent(new Event('change', { bubbles: true })); }`
+     `EOF`
   4. `agent-browser wait 500`
   5. `agent-browser snapshot -i` — verify the displayed value changed
-  6. `agent-browser click @<reset-to-defaults-button-ref>` — reset
+  6. Click "Reset to Defaults" (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Reset to Defaults' || el.getAttribute('aria-label') === 'Reset to Defaults')?.click();`
+     `EOF`
   7. `agent-browser wait 1000`
   8. `agent-browser snapshot -i` — verify values returned to defaults
 - **Verify:**
@@ -416,17 +488,26 @@ The app uses a dark Oracle-branded theme (#191919 primary, #C74634 oracle red). 
 - **Selector:** Collection drawer for "ui_test_collection"
 - **Interaction:**
   1. `agent-browser snapshot -i` — find "Chat" button or Oracle logo ref in header
-  2. `agent-browser click @<chat-button-ref>` — navigate back to `/`
+  2. Click "Chat" (or the Oracle logo) to navigate back to `/` (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `(Array.from(document.querySelectorAll('header a, header button, header [role="button"]')).find(el => (el.textContent || '').trim() === 'Chat' || el.getAttribute('aria-label') === 'Chat' || (el.getAttribute('href') || '') === '/'))?.click();`
+     `EOF`
   3. `agent-browser wait --load networkidle`
   4. `agent-browser wait 1000`
   5. `agent-browser snapshot -i` — find the "ui_test_collection" item ref
   6. `agent-browser hover @<collection-item-ref>` — hover to reveal chevron
   7. `agent-browser wait 500`
   8. `agent-browser snapshot -i` — find chevron/details button ref
-  9. `agent-browser click @<chevron-button-ref>` — open drawer
+  9. Click the chevron/details button on the collection to open the drawer (via evaluate — BUG-025 workaround):
+     `agent-browser evaluate --stdin <<'EOF'`
+     `var item = Array.from(document.querySelectorAll('[data-collection-name="ui_test_collection"], li, [role="listitem"]')).find(el => (el.textContent || '').includes('ui_test_collection')); (item && item.querySelector('[aria-label*="detail" i], [aria-label*="chevron" i], [aria-label*="open" i], button:last-of-type'))?.click();`
+     `EOF`
   10. `agent-browser wait 1000`
   11. `agent-browser snapshot -i` — find "Delete Collection" button ref (red/danger)
-  12. `agent-browser click @<delete-collection-button-ref>` — click delete
+  12. Click "Delete Collection" (via evaluate — BUG-025 workaround):
+      `agent-browser evaluate --stdin <<'EOF'`
+      `Array.from(document.querySelectorAll('button, a, [role="button"]')).find(el => (el.textContent || '').trim() === 'Delete Collection' || el.getAttribute('aria-label') === 'Delete Collection')?.click();`
+      `EOF`
   13. `agent-browser dialog accept` — accept the confirm() dialog
   14. `agent-browser wait 1000`
   15. `agent-browser snapshot -i` — verify collection removed from sidebar
