@@ -1641,9 +1641,9 @@ locals {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             recipe_container_env = [
               { "key" = "DB_MODE", value = "oracle" },
-              { "key" = "ORACLE_USER", value = var.db_username },
-              { "key" = "ORACLE_PASSWORD", value = var.db_password },
-              { "key" = "ORACLE_DSN", value = replace(local.oracle26ai_high_connection_string, "tcps://", "") },
+              { "key" = "DB_USER", value = var.db_username },
+              { "key" = "DB_PASSWORD", value = var.db_password },
+              { "key" = "DB_DSN", value = replace(local.oracle26ai_high_connection_string, "tcps://", "") },
               { "key" = "GENAI_INFERENCE_ENDPOINT", value = local.dac_inference_url },
               { "key" = "GENAI_MODEL", value = "/models/${var.dac_model_id}" },
               { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
