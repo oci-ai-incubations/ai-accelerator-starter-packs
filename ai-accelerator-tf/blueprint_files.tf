@@ -1643,7 +1643,7 @@ locals {
               { "key" = "DB_MODE", value = "oracle" },
               { "key" = "DB_USER", value = var.db_username },
               { "key" = "DB_PASSWORD", value = var.db_password },
-              { "key" = "DB_DSN", value = replace(local.oracle26ai_high_connection_string, "tcps://", "") },
+              { "key" = "DB_DSN", value = local.oracle26ai_high_connection_string },
               { "key" = "GENAI_INFERENCE_ENDPOINT", value = local.dac_inference_url },
               { "key" = "GENAI_MODEL", value = "/models/${var.dac_model_id}" },
               { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
