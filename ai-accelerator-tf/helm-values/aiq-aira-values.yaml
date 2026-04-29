@@ -15,7 +15,11 @@ aiq:
     primary_owner: ai-accelerator
     secondary_owner: ai-accelerator
     blueprint_type: web
-    deploymentTarget: kubernetes
+    # deploymentTarget=kind bypasses the chart's hardcoded "ns-" namespace
+    # prefix in aiq.namespace helper (charts/aiq/templates/_helpers.tpl). Without
+    # this, the chart targets namespace "ns-aiq" but Terraform installs the
+    # release into "aiq" — namespace mismatch breaks every templated resource.
+    deploymentTarget: kind
     orientation: external
     profile: web
     services:
@@ -108,7 +112,7 @@ aiq:
             name: aiq-postgres-init
       initContainers:
         - name: db-init
-          image: bitnami/postgresql:latest
+          image: docker.io/bitnami/postgresql:latest
           command:
             - sh
             - -c
@@ -142,7 +146,7 @@ aiq:
       enabled: true
       replicas: 1
       image:
-        repository: bitnami/postgresql
+        repository: docker.io/bitnami/postgresql
         tag: latest
         pullPolicy: IfNotPresent
       service:
