@@ -202,7 +202,7 @@ aiq:
             claimName: aiq-postgres-data
       volumeMounts:
         - name: postgres-data
-          mountPath: /var/lib/postgresql/data
+          mountPath: /bitnami/postgresql
       healthCheck:
         enabled: true
         livenessProbe:
