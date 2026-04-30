@@ -24,6 +24,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-018 | BM.GPU4.8 node loses GPU allocation after app destroy in two-stack pack switch | High | 2026-04-19 |
 | Open | BUG-019 | paas_rag app destroy fails with 409-BucketNotEmpty when Object Storage bucket has user-uploaded files | Medium | 2026-04-17 |
 | Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
+| Open | BUG-021 | /checking-capacity skill rejects BM shapes — faultDomain causes 400 CannotParseRequest | Medium | 2026-04-28 |
+| Open | BUG-022 | NIM Operator post-deploy patcher deadlocks with helm_release.rag — enterprise_rag/BM apply fails | Critical | 2026-04-29 |
 
 ---
 
@@ -782,15 +784,15 @@ For `enterprise_rag_aiq`, selecting a different skin via the ORM `Frontend Skin`
 
 Before the fix, `helm.tf:647-654` set `frontend.image.repository` and `frontend.image.tag` only on the `rag` helm_release. The `aiq` helm_release's `set` block (lines 771-784) did not override these values, so `aiq-aira-values.yaml`'s hardcoded `frontend.image.tag: v1.2.0` always won.
 
-**Affected files:**
-- `ai-accelerator-tf/helm.tf:771-797` — the `aiq` release's `set` block was missing the frontend image override.
-- `ai-accelerator-tf/ingress.tf:~210-235` — confirms the user URL routes to `aiq-aira-aira-frontend`.
-- `ai-accelerator-tf/helm-values/aiq-aira-values.yaml:frontend.image` — the hardcoded default that persists without an override.
+**Affected files (at original fix time, against chart `aiq-aira-v1.2.1.tgz`):**
+- `ai-accelerator-tf/helm.tf` — the `aiq` release's `set` block was missing the frontend image override.
+- `ai-accelerator-tf/ingress.tf` — confirms the user URL routes to the AIQ frontend service.
+- `ai-accelerator-tf/helm-values/aiq-aira-values.yaml:frontend.image` — the hardcoded default that persisted without an override.
 
 **Workaround:** None needed today (catalog has only one `enterprise_rag_aiq` skin).
 
 **Resolution:**
-Added two new `set` entries to the `aiq` helm_release's `set = [...]` block:
+Added two new `set` entries to the `aiq` helm_release's `set = [...]` block, originally at the chart's flat `frontend.image.*` path:
 
 ```hcl
 { name = "frontend.image.repository", value = split(":", local.frontend_skin_image_uri)[0] },
@@ -799,12 +801,52 @@ Added two new `set` entries to the `aiq` helm_release's `set = [...]` block:
 
 Now the enum selection reaches the correct Helm release. The parallel override on the `rag` release is retained — it's a harmless no-op for `enterprise_rag_aiq` (the rag release's frontend isn't exposed via ingress for this pack) and the primary fix for `enterprise_rag` (where the `rag` release IS the user-facing one).
 
+**Update — 2026-04-30, AIQ chart v2.0.0 upgrade (commit `cfc63e6`):**
+The AIQ chart was upgraded from `aiq-aira-v1.2.1.tgz` to `aiq2-web-2.0.0.tgz`, which restructured values from flat to nested under `aiq.apps.<component>` (release notes: https://github.com/NVIDIA-AI-Blueprints/aiq/releases/tag/2.0.0). The BUG-020 override on the `aiq` release was correspondingly re-wired to the new value path — see `ai-accelerator-tf/helm.tf:746-753`:
+
+```hcl
+{ name = "aiq.apps.frontend.image.repository", value = split(":", local.frontend_skin_image_uri)[0] },
+{ name = "aiq.apps.frontend.image.tag",        value = split(":", local.frontend_skin_image_uri)[1] }
+```
+
+The `rag` release continues to use the flat `frontend.image.*` path (`helm.tf:549-556`), since its chart shape did not change. The structural test `test_helm_skin_override.py` was updated in the same window to allow per-release expected key paths.
+
 **Verification:**
 - `terraform validate` clean.
-- New structural test `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py` asserts both `rag` and `aiq` Helm releases carry the `frontend.image.{repository,tag}` set entries with values derived from `local.frontend_skin_image_uri`. Drift-verified: test fails if either release's override is removed.
-- Pending: live verification on preserved Track 1 infra — redeploy AIQ with the fix, then `helm get values aiq-aira -n aiq` should show `frontend.image.tag: v1.2.0` in the USER-SUPPLIED VALUES section (not just chart default). `kubectl describe pod -l app=aira-frontend` should show image `aira-frontend:v1.2.0` (same as hardcoded today, but the override is now applied at the `aiq` release level).
+- Structural test `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py` asserts both `rag` and `aiq` Helm releases carry the chart-appropriate `frontend image` set entries with values derived from `local.frontend_skin_image_uri`. As of the v2.0.0 upgrade, the expected key tuple is per-release: `rag → frontend.image.*`, `aiq → aiq.apps.frontend.image.*`. Drift-verified: test fails if either release's override is removed or moved to the wrong path.
+- Pending: live verification on preserved Track 1 infra — redeploy AIQ with the fix, then `helm get values aiq -n aiq` should show `aiq.apps.frontend.image.tag: 2.0.0` in the USER-SUPPLIED VALUES section (or whatever skin tag was selected). `kubectl describe pod -l app=aiq-frontend -n aiq` should show the corresponding image.
 
 **Prevention:**
-The new `test_helm_skin_override.py` locks the invariant: any future helm_release that serves a user-facing frontend under the skin system must carry the `frontend.image.{repository,tag}` set entries wired to `local.frontend_skin_image_uri`. If a new Helm-pack category is added, its release must be appended to `RELEASES_REQUIRING_SKIN_OVERRIDE` at the top of the test file.
+`test_helm_skin_override.py` locks the invariant: any future helm_release that serves a user-facing frontend under the skin system must carry the chart-appropriate frontend image set entries wired to `local.frontend_skin_image_uri`. If a new Helm-pack category is added, add an entry to `RELEASES_REQUIRING_SKIN_OVERRIDE` (mapping release name to its expected `(repository_key, tag_key)` tuple) at the top of the test file.
 
-**Reference:** Discovered during the `multiple_skins_per_pack` branch post-merge work. Fix committed in branch multiple_skins_per_pack; final verification pending on Track 1 infra redeploy.
+**Reference:** Discovered during the `multiple_skins_per_pack` branch post-merge work. Original fix committed in branch `multiple_skins_per_pack`; re-wired against `aiq2-web` v2.0.0 in commit `cfc63e6` on `feature/aiq-v2.0.0-upgrade`. Final verification pending on Track 1 infra redeploy against v2.0.0.
+
+
+### BUG-021: /checking-capacity skill rejects BM shapes — faultDomain causes 400 CannotParseRequest
+
+**Status:** Open
+**Date found:** 2026-04-28
+**Found by:** Grant (via Claude Opus 4.7) during v0.0.7 post-release validation capacity check
+**Severity:** Medium
+
+**Symptoms:**
+The `/checking-capacity` skill's example `shape-availabilities` payload includes `"faultDomain": "FAULT-DOMAIN-1"`. Running the skill against any BM shape (e.g., `BM.GPU4.8`) returns HTTP 400 `ServiceError: CannotParseRequest / "Incorrectly formatted request"` from the `compute-capacity-report` API. The skill's bash script then incorrectly tags the region as `NOT_SUPPORTED` for every region scanned — hiding the true capacity. During v0.0.7 testing, all 21 subscribed regions falsely reported `NOT_SUPPORTED` for `BM.GPU4.8` until `faultDomain` was removed from the payload.
+
+**Root cause:**
+BM shapes do not accept `faultDomain` in `compute-capacity-report` payloads — only VM shapes do. The skill's documented example
+`[{"instanceShape": "$SHAPE", "faultDomain": "FAULT-DOMAIN-1"}]`
+must omit `faultDomain` when the target is a BM shape (or omit it always — the API tolerates the omission for both VM and BM shapes).
+
+**Affected files:**
+- `.claude/skills/checking-capacity/SKILL.md` — Phase 3 GPU capacity check section, the `--shape-availabilities` example.
+
+**Workaround:**
+Remove `faultDomain` from the payload. Direct verification with the corrected payload showed `us-sanjose-1` had 3 `BM.GPU4.8` hosts available (vs. the skill's incorrect "NOT_SUPPORTED" report).
+
+**Cosmetic follow-up:**
+The same skill's printf shows `GPU_QUOTA` / ADW columns as `X/0` when `effective-quota-value` is `null`. A `null` effective-quota means the service default applies, not zero. Display should show `X/—` (or trust `available` as the source of truth). Cosmetic only.
+
+**Classification:** Skill gap — the documented example payload is wrong for BM shapes.
+
+**Resolution:**
+Pending. Recommended fix: drop `faultDomain` from the example payload in the SKILL.md and from the reference script. Optionally, only include `faultDomain` when the shape starts with `VM.` (in which case it's still optional, but valid).

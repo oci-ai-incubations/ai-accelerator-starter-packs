@@ -162,20 +162,20 @@ Oracle Net chat interface for the managed enterprise RAG pipeline. Provides docu
 
 | Skin Name | Type | Provider | Default Enabled |
 |---|---|---|---|
-| NVIDIA AIRA - Agentic workflows (Core App) | Core App | NVIDIA | Yes |
+| NVIDIA AI-Q - Agentic workflows (Core App) | Core App | NVIDIA | Yes |
 
-### NVIDIA AIRA - Agentic workflows (Core App)
+### NVIDIA AI-Q - Agentic workflows (Core App)
 
 | Field | Value |
 |---|---|
 | Type | Core App |
 | Provider | NVIDIA |
-| Image | `nvcr.io/nvidia/blueprint/aira-frontend:v1.2.0` |
-| Version | v1.2.0 |
+| Image | `nvcr.io/nvidia/blueprint/aiq-frontend:2.0.0` |
+| Version | 2.0.0 |
 | Container Port | 3000 |
 | Repository | [NVIDIA AIQ Frontends](https://github.com/NVIDIA-AI-Blueprints/aiq/tree/develop/frontends/ui) |
 
-NVIDIA AIRA (AI Research Assistant) frontend for the agentic AI starter kit. Provides a chat-based interface for interacting with AI agents that can reason over documents, execute multi-step workflows, and use tools. Includes observability integration with Phoenix for tracing agent execution, viewing tool call chains, and debugging agentic reasoning paths.
+NVIDIA AI-Q (formerly AIRA) frontend for the agentic AI starter kit. Provides a chat-based interface for interacting with AI agents that can reason over documents, execute multi-step workflows, and use tools. The v2.0.0 chart bundles its own PostgreSQL job store; bundled Phoenix tracing and the bundled instruct-llm NIM that shipped with v1.x have been removed.
 
 ## Warehouse Pick Path Optimizer (`warehouse_pick_path`)
 
