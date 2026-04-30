@@ -347,8 +347,10 @@ Ingress host: `https://frontend-erag.<fqdn>`. `<fqdn>` is the generated
 
 **Skin image override.** The selected `image_uri` is split on `:` and
 fed into the Helm release's `frontend.image.{repository,tag}` set blocks
-(`helm.tf:647-654`). The split invariant (for both `rag` and `aiq-aira`
-releases) is locked by
+(`helm.tf:549-556`). The split invariant — wired with chart-specific
+key paths for both the `rag` release (flat `frontend.image.*`) and the
+`aiq` release (nested `aiq.apps.frontend.image.*` under the `aiq2-web`
+v2.0.0 chart) — is locked by
 `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py`.
 
 ---

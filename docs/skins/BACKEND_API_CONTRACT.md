@@ -100,8 +100,10 @@ service DNS names.
 - For **enterprise_rag**, those DNS names are in `frontend.envVars` in
   `helm-values/enterprise-rag-values.yaml` (Pattern 2, documented in §3.4).
 - For **enterprise_rag_aiq**, the user-facing frontend is shipped by the
-  `aiq-aira` chart with no `frontend.envVars` list in the values file —
-  endpoints are chart-internal. See §3.5.
+  `aiq2-web` v2.0.0 chart. The chart's `aiq.apps.frontend.env` block sets
+  one backend-locating variable on the frontend container
+  (`BACKEND_URL: http://aiq-backend:8000`) — a limited Pattern-2 surface,
+  not the chart-internal-only setup that v1.x had. See §3.5.
 
 ## 3. Per-Pack Contract
 
@@ -139,15 +141,19 @@ Update this doc or the relevant per-pack contract in `contracts/` whenever you c
   `enterprise-rag-aiq-values.yaml` — changes to the `frontend:` block
   (envVars, port, image defaults).
 - `ai-accelerator-tf/helm-values/aiq-aira-values.yaml` — changes to the
-  `frontend:` block that drives the AIQ user-facing frontend.
+  `aiq.apps.frontend` block that drives the AIQ user-facing frontend.
+  (Filename retains the `aiq-aira` prefix for backwards compatibility,
+  but the file holds v2.0.0 values for the renamed `aiq2-web` chart.)
 - `ai-accelerator-tf/schemas/frontend_skins.yaml` — changes to
   `container_port`, `subdomain`, or any new skin entries.
 - `ai-accelerator-tf/ingress.tf` — changes to Helm-pack ingress rules
   (enterprise_rag / enterprise_rag_aiq).
-- `ai-accelerator-tf/helm.tf` — changes to the `rag` or `aiq-aira`
-  helm_release `set` blocks, especially the
-  `frontend.image.{repository,tag}` overrides wired to
-  `local.frontend_skin_image_uri` (BUG-020 invariant).
+- `ai-accelerator-tf/helm.tf` — changes to the `rag` or `aiq`
+  helm_release `set` blocks, especially the chart-specific frontend
+  image overrides wired to `local.frontend_skin_image_uri` (BUG-020
+  invariant). `rag` uses flat `frontend.image.{repository,tag}`; `aiq`
+  uses nested `aiq.apps.frontend.image.{repository,tag}` under the
+  `aiq2-web` v2.0.0 chart.
 
 ### Where the source of truth lives
 
@@ -163,11 +169,13 @@ Update this doc or the relevant per-pack contract in `contracts/` whenever you c
 Two pytest structural checks lock claims that this doc depends on:
 
 - `ai-accelerator-tf/schemas/tests/test_helm_skin_override.py` — asserts
-  both the `rag` and `aiq-aira` Helm releases carry the
-  `frontend.image.{repository,tag}` set entries wired via
-  `split(":", local.frontend_skin_image_uri)` (BUG-020 invariant). If a
-  future Helm pack is added, append its release name to
-  `RELEASES_REQUIRING_SKIN_OVERRIDE` at the top of the test file.
+  both the `rag` and `aiq` Helm releases carry their chart-specific
+  frontend image set entries wired via
+  `split(":", local.frontend_skin_image_uri)` (BUG-020 invariant). The
+  expected key path is per-release: `rag` → `frontend.image.*`, `aiq`
+  → `aiq.apps.frontend.image.*`. If a future Helm pack is added, add an
+  entry to `RELEASES_REQUIRING_SKIN_OVERRIDE` (release name → expected
+  key tuple) at the top of the test file.
 - `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation`
   — keeps every backend recipe carrying the bearer-token annotation
   (see `docs/API_TOKENS.md`).

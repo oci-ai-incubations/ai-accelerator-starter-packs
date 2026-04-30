@@ -1,10 +1,20 @@
 """Structural invariant for Helm-pack skin override (BUG-020).
 
-enterprise_rag_aiq has a separate `aiq-aira` Helm release that serves the
-user-facing frontend; the `rag` release's frontend override does NOT reach
-the user. Both releases must carry `frontend.image.repository` and
-`frontend.image.tag` set blocks with the skin image URI, or the
-`skin_enterprise_rag_aiq` enum dropdown has no visible effect.
+enterprise_rag_aiq has a separate `aiq` Helm release (chart `aiq2-web`
+v2.0.0) that serves the user-facing frontend; the `rag` release's
+frontend override does NOT reach the user. Both releases must carry the
+chart-appropriate `frontend.image.{repository,tag}` set entries with the
+skin image URI, or the `skin_enterprise_rag_aiq` enum dropdown has no
+visible effect.
+
+The two releases use different chart shapes, so the override key paths
+differ:
+  - `rag` (nvidia-blueprint-rag, flat values): `frontend.image.*`
+  - `aiq` (aiq2-web v2.0.0, nested values):   `aiq.apps.frontend.image.*`
+
+The keys were the same flat path in v1.2.1 (chart `aiq-aira`); commit
+cfc63e6 upgraded the AIQ chart to v2.0.0 and rewired the override to the
+nested path.
 
 See BUGS.md#BUG-020.
 """
@@ -16,14 +26,20 @@ import pytest
 
 HELM_TF_PATH = Path(__file__).parent.parent.parent / "helm.tf"
 
-# Each release's set block must contain both of these
-REQUIRED_KEYS = ("frontend.image.repository", "frontend.image.tag")
-
 # Every Helm release that serves a user-facing frontend subject to the
-# skin dropdown. The `rag` release serves enterprise_rag's user-facing
-# frontend directly; the `aiq` release serves enterprise_rag_aiq's
-# user-facing frontend (BUG-020 — both releases need the override).
-RELEASES_REQUIRING_SKIN_OVERRIDE = ["rag", "aiq"]
+# skin dropdown, mapped to the (repository_key, tag_key) pair its chart
+# expects in helm_release `set` entries. The keys differ per chart:
+#   - `rag` uses the `nvidia-blueprint-rag` chart's flat values
+#     (`frontend.image.*`).
+#   - `aiq` uses the `aiq2-web` v2.0.0 chart's nested values, where the
+#     workload is a sub-chart and its values namespace under `aiq.apps`
+#     (`aiq.apps.frontend.image.*`).
+# When adding a new Helm pack, append its release name and the exact
+# value-key pair the chart expects.
+RELEASES_REQUIRING_SKIN_OVERRIDE = {
+    "rag": ("frontend.image.repository", "frontend.image.tag"),
+    "aiq": ("aiq.apps.frontend.image.repository", "aiq.apps.frontend.image.tag"),
+}
 
 
 def _load_release_set_block(release_name: str) -> str:
@@ -78,22 +94,28 @@ def _load_release_set_block(release_name: str) -> str:
 class TestHelmSkinOverride:
     """BUG-020: Helm-pack skin override must reach every user-facing frontend."""
 
-    @pytest.mark.parametrize("release_name", RELEASES_REQUIRING_SKIN_OVERRIDE)
-    def test_release_has_frontend_image_override(self, release_name):
+    @pytest.mark.parametrize(
+        "release_name,required_keys",
+        RELEASES_REQUIRING_SKIN_OVERRIDE.items(),
+    )
+    def test_release_has_frontend_image_override(self, release_name, required_keys):
         set_block = _load_release_set_block(release_name)
         assert set_block, (
             f"helm_release {release_name!r} has no `set = [...]` block; cannot verify "
             f"skin override."
         )
-        for key in REQUIRED_KEYS:
+        for key in required_keys:
             assert f'"{key}"' in set_block, (
                 f"helm_release {release_name!r} is missing required `set` entry for "
                 f"{key!r}. Without it, the skin_<category> enum dropdown won't "
                 f"replace the frontend image for this pack. See BUGS.md#BUG-020."
             )
 
-    @pytest.mark.parametrize("release_name", RELEASES_REQUIRING_SKIN_OVERRIDE)
-    def test_frontend_image_value_is_split_skin_uri(self, release_name):
+    @pytest.mark.parametrize(
+        "release_name,required_keys",
+        RELEASES_REQUIRING_SKIN_OVERRIDE.items(),
+    )
+    def test_frontend_image_value_is_split_skin_uri(self, release_name, required_keys):
         """The override value must be `split(":", local.frontend_skin_image_uri)[N]`.
 
         Catches cases where someone accidentally hardcodes an image in the
@@ -101,8 +123,8 @@ class TestHelmSkinOverride:
         feature).
         """
         set_block = _load_release_set_block(release_name)
-        # Find the two lines and verify each references frontend_skin_image_uri
-        for key, idx in (("frontend.image.repository", "0"), ("frontend.image.tag", "1")):
+        repository_key, tag_key = required_keys
+        for key, idx in ((repository_key, "0"), (tag_key, "1")):
             # Find the `name = "<key>"` line, then look at the following `value = ...`
             pattern = rf'name\s*=\s*"{re.escape(key)}"\s*\n?\s*value\s*=\s*(.+)'
             m = re.search(pattern, set_block)
