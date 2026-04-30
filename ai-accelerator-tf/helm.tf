@@ -530,8 +530,8 @@ resource "helm_release" "rag" {
         value = data.kubernetes_secret_v1.ngc_api_secret[0].data["NGC_API_KEY"]
       }
     ],
-    # Oracle 26ai credentials are only needed for enterprise_rag (not enterprise_rag_aiq)
-    var.starter_pack_category == "enterprise_rag" ? [
+    # Oracle 26ai credentials needed for both enterprise_rag and enterprise_rag_aiq
+    [
       {
         name  = "envVars.ORACLE_USER"
         value = var.db_username
@@ -548,7 +548,7 @@ resource "helm_release" "rag" {
         name  = "ingestor-server.envVars.ORACLE_PASSWORD"
         value = var.db_password
       }
-    ] : []
+    ]
   )
 
   set = concat(
@@ -566,8 +566,8 @@ resource "helm_release" "rag" {
         value = split(":", local.frontend_skin_image_uri)[1]
       }
     ],
-    # Oracle 26ai connection string is only needed for enterprise_rag (not enterprise_rag_aiq)
-    var.starter_pack_category == "enterprise_rag" ? [
+    # Oracle 26ai connection string needed for both enterprise_rag and enterprise_rag_aiq
+    [
       {
         name  = "envVars.ORACLE_CS"
         value = local.oracle26ai_high_connection_string
@@ -576,7 +576,7 @@ resource "helm_release" "rag" {
         name  = "ingestor-server.envVars.ORACLE_CS"
         value = local.oracle26ai_high_connection_string
       }
-    ] : []
+    ]
   )
   count = local.deploy_app_rag ? 1 : 0
   depends_on = [
