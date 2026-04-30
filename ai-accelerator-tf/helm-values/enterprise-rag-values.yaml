@@ -36,7 +36,7 @@ ngcApiSecret:
 # -- RAG server container image
 image:
   repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci
-  tag: "v0.0.6"
+  tag: "v0.0.7"
   pullPolicy: Always
 
 # -- RAG server service configuration
@@ -234,7 +234,7 @@ ingestor-server:
 
   image:
     repository: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci
-    tag: "v0.0.6"
+    tag: "v0.0.7"
     pullPolicy: Always
 
   # -- Service config for ingestor-server
