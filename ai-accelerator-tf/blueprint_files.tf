@@ -1634,7 +1634,7 @@ locals {
           recipe = {
             recipe_id                             = "dox-backend"
             recipe_mode                           = "service"
-            deployment_name                       = "dox-backend"
+            deployment_name                       = "contract-backend"
             recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend:v1.0.3"
             recipe_replica_count                  = 1
             recipe_flex_shape_ocpu_count          = 4
