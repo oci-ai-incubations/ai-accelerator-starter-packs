@@ -494,8 +494,8 @@ variable "starter_pack_category" {
   # No default here - schema.yaml provides the default for Resource Manager portal
   # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "contract_analysis"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', 'warehouse_pick_path', or 'contract_analysis'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', 'warehouse_pick_path', or 'dox_pack'."
   }
 }
 
@@ -895,10 +895,10 @@ locals {
       # Add "large" here when implemented
     }
 
-    "contract_analysis" = {
+    "dox_pack" = {
       "small" = {
-        blueprint_file                               = "contract-analysis-blueprint.json"
-        deployment_name                              = "contract-analysis"
+        blueprint_file                               = "dox-pack-blueprint.json"
+        deployment_name                              = "dox-pack"
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = false
@@ -920,7 +920,7 @@ locals {
         }
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
-        frontend_url                 = "contract-frontend"
+        frontend_url                 = "dox-frontend"
       }
     }
 
@@ -1101,8 +1101,8 @@ locals {
 }
 
 locals {
-  # 26ai database needed for paas_rag, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path, and contract_analysis categories
-  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "contract_analysis"], var.starter_pack_category)
+  # 26ai database needed for paas_rag, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path, and dox_pack categories
+  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category)
 }
 
 # ---------------------------------------------------------------------------
@@ -1139,9 +1139,9 @@ variable "skin_wpp_core" {
   default     = true
 }
 
-variable "skin_contract_analysis_core" {
+variable "skin_dox_pack_core" {
   type        = bool
-  description = "Enable the 'Contract Analysis Frontend (Core App)' skin"
+  description = "Enable the 'Document Extractor Frontend (Core App)' skin"
   default     = true
 }
 

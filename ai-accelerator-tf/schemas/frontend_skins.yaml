@@ -70,13 +70,13 @@ warehouse_pick_path:
       variable_name: "skin_wpp_core"
       default_enabled: true
 
-contract_analysis:
-  default: "Contract Analysis Frontend (Core App)"
+dox_pack:
+  default: "Document Extractor Frontend (Core App)"
   skins:
-    - key: "Contract Analysis Frontend (Core App)"
+    - key: "Document Extractor Frontend (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:latest"
       provider: "Oracle"
       container_port: "80"
-      subdomain: "contract-frontend"
-      variable_name: "skin_contract_analysis_core"
+      subdomain: "dox-frontend"
+      variable_name: "skin_dox_pack_core"
       default_enabled: true

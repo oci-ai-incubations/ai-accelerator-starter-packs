@@ -1,11 +1,11 @@
 # =============================================================================
-# Contract Analysis - Schema Overrides
+# Document Extractor - Schema Overrides
 # =============================================================================
-# Based on paas_rag. Adds DAC (Dedicated AI Cluster) and contract services.
+# Based on paas_rag. Adds DAC (Dedicated AI Cluster) and document extractor services.
 # REQUIRES Oracle 26ai database + Object Storage + GenAI DAC.
 
-title: "Contract Analysis"
-description: "Ephemeral contract intelligence deployment with OCI GenAI Dedicated AI Cluster (H100), Qwen3-VL-235B vision-language model, contract analysis services, and Oracle 26ai database."
+title: "Document Extractor"
+description: "Ephemeral document extractor deployment with OCI GenAI Dedicated AI Cluster (H100), Qwen3-VL-235B vision-language model, document extractor services, and Oracle 26ai database."
 informationalText: |
   Deploy a Contract Intelligence stack with:
   - OCI GenAI Dedicated AI Cluster (H100 GPU) hosting Qwen3-VL-235B-A22B-Instruct
@@ -188,7 +188,7 @@ variables:
     required: false
 
 
-  # Hidden - not used by contract_analysis but defined in Terraform
+  # Hidden - not used by dox_pack but defined in Terraform
   cuopt_frontend_enabled:
     type: boolean
     visible: false

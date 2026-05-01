@@ -1,4 +1,4 @@
-# Contract Analysis starter pack test
+# Document Extractor starter pack test
 # Dynamic URL path (blueprint_file != "").
 # Supplies db_password for 26ai.tf and dac_billing_acknowledgement for GenAI DAC.
 
@@ -49,21 +49,21 @@ variables {
   corrino_admin_username          = "testadmin"
   corrino_admin_password          = "TestP@ssw0rd123!"
   corrino_admin_email             = "test@example.com"
-  starter_pack_category           = "contract_analysis"
+  starter_pack_category           = "dox_pack"
   db_password                     = "TestDBP@ssw0rd123!"
   dac_billing_acknowledgement     = true
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
 }
 
-# Test: contract_analysis starter pack plans successfully with correct deployment name, DB defaults, and registration triggers
-run "plan_contract_analysis_small" {
+# Test: dox_pack starter pack plans successfully with correct deployment name, DB defaults, and registration triggers
+run "plan_dox_pack_small" {
   command = plan
 
   # Config deployment name should be the base name (output includes random_id hex suffix, unknown at plan time)
   assert {
-    condition     = local.starter_pack_config.deployment_name == "contract-analysis"
-    error_message = "contract_analysis config deployment name should be 'contract-analysis'"
+    condition     = local.starter_pack_config.deployment_name == "dox-pack"
+    error_message = "dox_pack config deployment name should be 'dox-pack'"
   }
 
   # Database username should default to ADMIN when not explicitly set
@@ -74,7 +74,7 @@ run "plan_contract_analysis_small" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "contract_analysis"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "dox_pack"
     error_message = "postflight trigger should capture starter pack category"
   }
 

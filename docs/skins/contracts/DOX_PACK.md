@@ -1,12 +1,12 @@
-# contract_analysis Pack — Backend API Contract
+# dox_pack Pack — Backend API Contract
 
 Companion document to [`BACKEND_API_CONTRACT.md`](../BACKEND_API_CONTRACT.md). That file is the multi-pack
 reference organized around skin-access *mechanisms* (ingress paths vs env
-vars). This file is the contract_analysis-pack-specific deep dive organized around
+vars). This file is the dox_pack-pack-specific deep dive organized around
 *backend services and their API surface* — what a skin author can actually
 call.
 
-Scope: `starter_pack_category = "contract_analysis"`. For other packs, see
+Scope: `starter_pack_category = "dox_pack"`. For other packs, see
 [`CUOPT.md`](CUOPT.md), [`VSS.md`](VSS.md),
 [`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md),
 [`ENTERPRISE_RAG_AIQ.md`](ENTERPRISE_RAG_AIQ.md),
@@ -17,10 +17,10 @@ Scope: `starter_pack_category = "contract_analysis"`. For other packs, see
 
 ## 1. Deployment Group Composition
 
-contract_analysis deploys a **Corrino blueprint deployment group** to OKE,
+dox_pack deploys a **Corrino blueprint deployment group** to OKE,
 composed of one backend inference service (`llamastack`), one contract
-extraction/chat backend (`contract-backend`), and one frontend
-(`contract-frontend`). The group inherits paas_rag's LlamaStack
+extraction/chat backend (`dox-backend`), and one frontend
+(`dox-frontend`). The group inherits paas_rag's LlamaStack
 deployment and removes the OracleNet frontend, replacing it with the
 contract-specific services.
 
@@ -35,16 +35,16 @@ LlamaStack. Everything on the cluster is CPU-only.
 | Service              | Container image                                                          | Container port | GPU | Role                                                                                                |
 |----------------------|--------------------------------------------------------------------------|----------------|-----|-----------------------------------------------------------------------------------------------------|
 | `llamastack`         | `iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3` | 8321           | --  | Llama Stack server with OCI GenAI inference (Maverick LLM) + Oracle 26ai vector store + OCI Object Storage file store. OpenAI-compatible API. |
-| `contract-backend`   | contract analysis FastAPI image                                          | 8000           | --  | 3-pass contract extraction pipeline (Qwen3-VL OCR, Maverick expansion, validation) + RAG chat over extracted data. |
-| `contract-frontend`  | contract analysis Next.js image                                          | 80             | --  | User-facing UI for uploading contracts, viewing extractions, downloading CSV/JSON, and chatting with contract data. |
+| `dox-backend`   | document extractor FastAPI image                                          | 8000           | --  | 3-pass document extraction pipeline (Qwen3-VL OCR, Maverick expansion, validation) + RAG chat over extracted data. |
+| `dox-frontend`  | document extractor Next.js image                                          | 80             | --  | User-facing UI for uploading contracts, viewing extractions, downloading CSV/JSON, and chatting with contract data. |
 
 **Resource shapes:**
 
 - `llamastack`: 8 OCPU / 64 GB RAM on the CPU worker node pool, 1 replica, plus
   a 500 GB PVC (`ls-sqlite`) mounted at `/sqlite-store` for the embedded
   metadata / KV / SQL stores.
-- `contract-backend`: 4 OCPU / 32 GB RAM, 1 replica, shared CPU worker node pool.
-- `contract-frontend`: 4 OCPU / 32 GB RAM, 1 replica, shared CPU worker node pool.
+- `dox-backend`: 4 OCPU / 32 GB RAM, 1 replica, shared CPU worker node pool.
+- `dox-frontend`: 4 OCPU / 32 GB RAM, 1 replica, shared CPU worker node pool.
 
 **Infrastructure (no GPU on cluster):**
 
@@ -60,19 +60,19 @@ cluster and are accessed over the network.
 
 | Dependency                       | How it is reached                                                                                       | Purpose                                                       |
 |----------------------------------|---------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| OCI GenAI Dedicated AI Cluster   | DAC endpoint URL passed as `QWEN_URL` env var to `contract-backend`. REST inference API.                | Qwen3-VL-235B vision-language model for PDF page OCR (Pass 1) |
+| OCI GenAI Dedicated AI Cluster   | DAC endpoint URL passed as `QWEN_URL` env var to `dox-backend`. REST inference API.                | Qwen3-VL-235B vision-language model for PDF page OCR (Pass 1) |
 | OCI Generative AI (Maverick LLM) | `remote::oci` inference provider in LlamaStack. Auth = OKE instance principal.                          | Text LLM for Pass 2 expansion and RAG chat                    |
-| Oracle 26ai Autonomous DB        | `ORACLE_DSN` env var to `contract-backend`; `OCI26AI_*` env vars to `llamastack`.                       | Extraction history storage + vector embeddings for RAG         |
-| OCI Object Storage (S3-compat)   | `remote::s3` files provider in LlamaStack; S3-compat API from `contract-backend` for document uploads.  | Document file storage (uploaded PDFs, extracted artifacts)     |
+| Oracle 26ai Autonomous DB        | `ORACLE_DSN` env var to `dox-backend`; `OCI26AI_*` env vars to `llamastack`.                       | Extraction history storage + vector embeddings for RAG         |
+| OCI Object Storage (S3-compat)   | `remote::s3` files provider in LlamaStack; S3-compat API from `dox-backend` for document uploads.  | Document file storage (uploaded PDFs, extracted artifacts)     |
 
 ---
 
-## 3. Backend Service — `contract-backend`
+## 3. Backend Service — `dox-backend`
 
 FastAPI application (uvicorn, port 8000) implementing a 3-pass contract
 rate card extraction pipeline plus RAG chat over extracted contract data.
 
-- **In-cluster address:** `http://contract-backend:8000`
+- **In-cluster address:** `http://dox-backend:8000`
 - **Not externally exposed** — the frontend proxies API calls to the backend
   via `BACKEND_SVC` env var.
 
@@ -124,12 +124,12 @@ All routes are prefixed with `/api/`.
 Same LlamaStack deployment as paas_rag. See [`PAAS_RAG.md`](PAAS_RAG.md)
 section 2 for full details on the LlamaStack backend.
 
-Key points for contract_analysis:
+Key points for dox_pack:
 
 - **In-cluster address:** `http://<llamastack.service_name>:80` (Service
   `port 80` -> container `targetPort 8321`).
 - **External address (backend's own ingress):** `https://llamastack.<fqdn>/`
-- contract-backend connects to LlamaStack at `LLAMASTACK_URL` for:
+- dox-backend connects to LlamaStack at `LLAMASTACK_URL` for:
   - `POST /v1/chat/completions` — Pass 2 text expansion and RAG chat
   - `GET /v1/models` — model discovery
 - LlamaStack connects to Oracle 26ai for vector storage (Cohere embeddings)
@@ -151,13 +151,13 @@ Key points for contract_analysis:
                   └──┬──────┬──┘
                      │      │
      ┌───────────────▼┐  ┌──▼──────────────┐
-     │contract-frontend│  │  llamastack     │
+     │dox-frontend│  │  llamastack     │
      │  :80            │  │  :8321          │
      │  Next.js UI     │  │  OpenAI API     │
      └───────┬─────────┘  └──▲──────────────┘
              │                │
      ┌───────▼─────────┐     │
-     │contract-backend  │─────┘  (LLAMASTACK_URL)
+     │dox-backend  │─────┘  (LLAMASTACK_URL)
      │  :8000           │
      │  FastAPI         │──────────────────┐
      └───────┬──────────┘                  │
@@ -174,17 +174,17 @@ Key points for contract_analysis:
 
 | Hostname                           | Target Service       | Port | Purpose                           |
 |------------------------------------|----------------------|------|-----------------------------------|
-| `contract-frontend.<fqdn>`        | contract-frontend    | 80   | User-facing UI (starter_pack_url) |
+| `dox-frontend.<fqdn>`        | dox-frontend    | 80   | User-facing UI (starter_pack_url) |
 | `llamastack.<fqdn>`               | llamastack           | 8321 | LlamaStack API (optional direct access) |
 
 **Internal cluster routing:**
 
-- `contract-frontend` -> `contract-backend` via `BACKEND_SVC` env var
-  (e.g., `http://contract-backend:8000`)
-- `contract-backend` -> `llamastack` via `LLAMASTACK_URL` env var
+- `dox-frontend` -> `dox-backend` via `BACKEND_SVC` env var
+  (e.g., `http://dox-backend:8000`)
+- `dox-backend` -> `llamastack` via `LLAMASTACK_URL` env var
   (e.g., `http://llamastack:80`)
-- `contract-backend` -> DAC via `QWEN_URL` env var (external OCI endpoint)
-- `contract-backend` -> Oracle 26ai via `ORACLE_DSN` (TCP connection string)
+- `dox-backend` -> DAC via `QWEN_URL` env var (external OCI endpoint)
+- `dox-backend` -> Oracle 26ai via `ORACLE_DSN` (TCP connection string)
 
 ---
 
@@ -192,10 +192,10 @@ Key points for contract_analysis:
 
 | Variable       | Value                             | Purpose                                       |
 |----------------|-----------------------------------|-----------------------------------------------|
-| `BACKEND_SVC`  | `http://contract-backend:8000`    | In-cluster address of contract-backend service |
+| `BACKEND_SVC`  | `http://dox-backend:8000`    | In-cluster address of dox-backend service |
 
 The frontend is a Next.js application that proxies all `/api/*` requests
-to the contract-backend. It provides:
+to the dox-backend. It provides:
 - PDF upload interface with drag-and-drop
 - Real-time extraction progress monitoring
 - Extraction results table with CSV/JSON download

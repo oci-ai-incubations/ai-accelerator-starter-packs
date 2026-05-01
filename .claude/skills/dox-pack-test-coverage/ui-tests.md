@@ -1,4 +1,4 @@
-# Contract Analysis UI Tests
+# Document Extractor UI Tests
 
 9 tests executed via **agent-browser** in a **single browser session** with **screenshot evidence at each step**. Execute in order — PDF upload and extraction must complete before download and chat tests.
 
@@ -11,9 +11,9 @@
 ## Session Setup
 
 ```bash
-EVIDENCE_DIR="/tmp/contract-analysis-evidence-$(date +%Y%m%d-%H%M%S)"
+EVIDENCE_DIR="/tmp/dox-pack-evidence-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$EVIDENCE_DIR"
-SESSION="contract-analysis-test-$(date +%s)"
+SESSION="dox-pack-test-$(date +%s)"
 BASE_URL="$STARTER_PACK_URL"
 agent-browser --headed --session $SESSION --ignore-https-errors open "$BASE_URL"
 agent-browser --session $SESSION wait --load networkidle
@@ -48,7 +48,7 @@ All subsequent commands use `--session $SESSION --ignore-https-errors`. For brev
 The 3-pass extraction pipeline (Qwen3-VL OCR -> Maverick expansion -> validation) takes 10-15 minutes for a typical contract. The UI shows real-time progress updates during this process. Use polling loops with periodic screenshots.
 
 ### Frontend proxies to backend
-All `/api/*` calls from the frontend are proxied to the contract-backend service. The frontend URL is the `STARTER_PACK_URL`.
+All `/api/*` calls from the frontend are proxied to the dox-backend service. The frontend URL is the `STARTER_PACK_URL`.
 
 ### File upload
 PDF upload uses a file input or drag-and-drop zone. Only PDF files are accepted. The upload triggers an extraction job immediately.
@@ -64,10 +64,10 @@ The RAG chat feature only works after at least one extraction has completed, bec
 
 - **Page:** `/`
 - **Interaction:**
-  1. `agent-browser snapshot -i` — look for page title, logo, or heading text identifying the Contract Analysis application
+  1. `agent-browser snapshot -i` — look for page title, logo, or heading text identifying the Document Extractor application
   2. Verify the page loaded without error (no blank white screen, no 500 error)
 - **Verify:**
-  - Application title or logo is visible (e.g., "Contract Analysis", "Rate Card Extractor", or similar heading)
+  - Application title or logo is visible (e.g., "Document Extractor", "Rate Card Extractor", or similar heading)
   - Upload area or main interface elements are present
   - No error messages or loading spinners stuck indefinitely
 - **Evidence:** `agent-browser screenshot "$EVIDENCE_DIR/CU-01-homepage.png"`

@@ -1,13 +1,13 @@
 # Copyright (c) 2025 Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 #
-# OCI Generative AI resources for Contract Analysis starter pack
+# OCI Generative AI resources for Document Extractor starter pack
 # 1. Import model from HuggingFace
 # 2. Create Dedicated AI Cluster
 # 3. Create endpoint binding the model to the DAC
 
 locals {
-  needs_dac = var.starter_pack_category == "contract_analysis"
+  needs_dac = var.starter_pack_category == "dox_pack"
   # OpenAI-compatible inference URL for the DAC endpoint
   dac_inference_url = local.needs_dac && length(oci_generative_ai_endpoint.qwen3_vl_endpoint) > 0 ? "https://inference.generativeai.${var.genai_region}.oci.oraclecloud.com/${oci_generative_ai_endpoint.qwen3_vl_endpoint[0].id}/v1/chat/completions" : ""
   # Extract a short display name from the model ID (e.g. "Qwen3-VL-235B-A22B-Instruct" from "Qwen/Qwen3-VL-235B-A22B-Instruct")
@@ -36,11 +36,11 @@ resource "oci_generative_ai_imported_model" "qwen3_vl" {
 }
 
 # Step 2: Create Dedicated AI Cluster for hosting the model
-resource "oci_generative_ai_dedicated_ai_cluster" "contract_analysis_dac" {
+resource "oci_generative_ai_dedicated_ai_cluster" "dox_pack_dac" {
   provider       = oci.genai_region
   count          = local.needs_dac ? 1 : 0
   compartment_id = var.compartment_ocid
-  display_name   = "contract-analysis-dac-${local.deploy_id}"
+  display_name   = "dox-pack-dac-${local.deploy_id}"
   type           = "HOSTING"
   unit_count     = 1
   unit_shape     = var.dac_unit_shape
@@ -63,7 +63,7 @@ resource "oci_generative_ai_endpoint" "qwen3_vl_endpoint" {
   provider                = oci.genai_region
   count                   = local.needs_dac ? 1 : 0
   compartment_id          = var.compartment_ocid
-  dedicated_ai_cluster_id = oci_generative_ai_dedicated_ai_cluster.contract_analysis_dac[0].id
+  dedicated_ai_cluster_id = oci_generative_ai_dedicated_ai_cluster.dox_pack_dac[0].id
   model_id                = oci_generative_ai_imported_model.qwen3_vl[0].id
   display_name            = "${local.dac_model_display_name}-endpoint-${local.deploy_id}"
 

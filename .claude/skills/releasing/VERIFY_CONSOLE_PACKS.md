@@ -73,15 +73,15 @@ agent-browser --session verify-packs screenshot /tmp/pack-verification/<ZIPNAME>
 | `vehicleRouteOptimizer.zip` | cuopt | `vehicleRouteOptimizer.zip` |
 | `videoSearchSummarization.zip` | vss | `videoSearchSummarization.zip` |
 | `warehousePickPathOptimizer.zip` | warehouse_pick_path | `warehousePickPathOptimizer.zip` |
-| `contractAnalysis.zip` | contract_analysis | `contractAnalysis.zip` |
+| `doxPack.zip` | dox_pack | `doxPack.zip` |
 
 ## Category Fingerprint Matrix
 
 The most reliable identifier is the **deployment size dropdown label** on Step 2:
 
-| Field/Element | enterprise_rag | paas_rag | enterprise_rag_aiq | cuopt | vss | warehouse_pick_path | contract_analysis |
+| Field/Element | enterprise_rag | paas_rag | enterprise_rag_aiq | cuopt | vss | warehouse_pick_path | dox_pack |
 |---|---|---|---|---|---|---|---|
-| Deployment Size label | "Enterprise RAG" | "RAG" | "Enterprise RAG + AIQ" | "cuOpt" | "VSS" | "Optimizer" | "Contract Analysis" |
+| Deployment Size label | "Enterprise RAG" | "RAG" | "Enterprise RAG + AIQ" | "cuOpt" | "VSS" | "Optimizer" | "Document Extractor" |
 | Worker Node AD field | Yes | **No** | Yes | Yes | Yes | Yes | **No** |
 | OCI GenAI Services Region | No | **Yes** | No | **Yes** | No | No | **Yes** |
 | Tavily API Key | No | No | **Yes** | No | No | No | No |

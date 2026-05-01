@@ -3,13 +3,13 @@
 #
 
 locals {
-  _needs_object_storage = contains(["paas_rag", "contract_analysis"], var.starter_pack_category)
+  _needs_object_storage = contains(["paas_rag", "dox_pack"], var.starter_pack_category)
 }
 
 resource "oci_objectstorage_bucket" "paas_rag_bucket" {
   count          = local.deploy_application && local._needs_object_storage ? 1 : 0
   compartment_id = var.compartment_ocid
-  name           = "${var.starter_pack_category == "contract_analysis" ? "contract-analysis" : "paas-rag"}-${local.deploy_id}-bucket"
+  name           = "${var.starter_pack_category == "dox_pack" ? "dox-pack" : "paas-rag"}-${local.deploy_id}-bucket"
   namespace      = data.oci_objectstorage_namespace.ns.namespace
   access_type    = "NoPublicAccess"
   storage_tier   = "Standard"
@@ -23,7 +23,7 @@ resource "oci_objectstorage_bucket" "paas_rag_bucket" {
 resource "oci_identity_customer_secret_key" "aws_compat_access_key" {
   count        = local.deploy_application && local._needs_object_storage && var.aws_access_key_id == null ? 1 : 0
   provider     = oci.home_region
-  display_name = "${var.starter_pack_category == "contract_analysis" ? "contract-analysis" : "paas-rag"}-${local.deploy_id}"
+  display_name = "${var.starter_pack_category == "dox_pack" ? "dox-pack" : "paas-rag"}-${local.deploy_id}"
   user_id      = var.current_user_ocid
 }
 

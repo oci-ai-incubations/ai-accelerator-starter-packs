@@ -1,23 +1,23 @@
 ---
-name: contract-analysis-test-coverage
-description: Authoritative test specification for the Contract Analysis starter pack. Documents API endpoints, UI interactions, extraction pipeline, RAG chat flows, and infrastructure. Split into phase-specific files.
+name: dox-pack-test-coverage
+description: Authoritative test specification for the Document Extractor starter pack. Documents API endpoints, UI interactions, extraction pipeline, RAG chat flows, and infrastructure. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
 argument-hint: [section] (optional — "api", "ui", "infra", or omit to run all three)
 ---
 
-# Contract Analysis — Test Coverage Specification
+# Document Extractor — Test Coverage Specification
 
-Source of truth for what to test on a deployed contract_analysis stack. Covers the contract-frontend (Next.js), the contract-backend (FastAPI extraction + RAG chat), LlamaStack (OpenAI-compatible inference), OCI GenAI Dedicated AI Cluster (Qwen3-VL-235B), Oracle 26ai database, and OCI infrastructure.
+Source of truth for what to test on a deployed dox_pack stack. Covers the dox-frontend (Next.js), the dox-backend (FastAPI extraction + RAG chat), LlamaStack (OpenAI-compatible inference), OCI GenAI Dedicated AI Cluster (Qwen3-VL-235B), Oracle 26ai database, and OCI infrastructure.
 
 **Frontend:** Next.js UI — contract upload, extraction progress, CSV/JSON download, RAG chat, history, prompt config
-**Backend:** contract-backend (FastAPI, port 8000) — 3-pass extraction pipeline (Qwen3-VL vision OCR, Maverick text expansion, validation) + RAG chat
+**Backend:** dox-backend (FastAPI, port 8000) — 3-pass extraction pipeline (Qwen3-VL vision OCR, Maverick text expansion, validation) + RAG chat
 **Inference:** LlamaStack (port 8321) — OpenAI-compatible API with Maverick LLM + Cohere embeddings; OCI GenAI DAC — Qwen3-VL-235B for vision OCR
 **Database:** Oracle Autonomous Database 26ai — extraction history + vector storage for RAG
 **Object Storage:** OCI Object Storage (S3-compatible) — document file storage
-**Deployment:** Terraform -> OKE -> Corrino Blueprint (3-service deployment group: llamastack + contract-backend + contract-frontend)
+**Deployment:** Terraform -> OKE -> Corrino Blueprint (3-service deployment group: llamastack + dox-backend + dox-frontend)
 
-**Note:** Contract Analysis is CPU-only on the OKE cluster. GPU inference runs on the OCI GenAI Dedicated AI Cluster (DAC), which is a managed OCI service outside the Kubernetes cluster.
+**Note:** Document Extractor is CPU-only on the OKE cluster. GPU inference runs on the OCI GenAI Dedicated AI Cluster (DAC), which is a managed OCI service outside the Kubernetes cluster.
 
 ---
 
@@ -25,23 +25,23 @@ Source of truth for what to test on a deployed contract_analysis stack. Covers t
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              contract-frontend (Next.js, port 80)                │
-│  Exposed via ingress at contract-frontend.<fqdn>                 │
+│              dox-frontend (Next.js, port 80)                │
+│  Exposed via ingress at dox-frontend.<fqdn>                 │
 │                                                                  │
-│  Upload PDF ─────────> contract-backend /api/extract             │
-│  Poll status ────────> contract-backend /api/jobs/{id}           │
-│  Download CSV ───────> contract-backend /api/jobs/{id}/download  │
-│  Download JSON ──────> contract-backend /api/jobs/{id}/download/json │
-│  List contracts ─────> contract-backend /api/contracts           │
-│  Chat ───────────────> contract-backend /api/chat                │
-│  Prompt config ──────> contract-backend /api/config/prompt       │
-│  History ────────────> contract-backend /api/history             │
+│  Upload PDF ─────────> dox-backend /api/extract             │
+│  Poll status ────────> dox-backend /api/jobs/{id}           │
+│  Download CSV ───────> dox-backend /api/jobs/{id}/download  │
+│  Download JSON ──────> dox-backend /api/jobs/{id}/download/json │
+│  List contracts ─────> dox-backend /api/contracts           │
+│  Chat ───────────────> dox-backend /api/chat                │
+│  Prompt config ──────> dox-backend /api/config/prompt       │
+│  History ────────────> dox-backend /api/history             │
 │                                                                  │
 │  Pages: / (Upload + Extraction), /history, /chat, /settings      │
 └──────────────────────┬───────────────────────────────────────────┘
                        │ BACKEND_SVC
            ┌───────────▼───────────┐
-           │  contract-backend     │
+           │  dox-backend     │
            │  (FastAPI, port 8000) │
            │                       │
            │  3-pass extraction:   │
@@ -71,10 +71,10 @@ Source of truth for what to test on a deployed contract_analysis stack. Covers t
 
 ## Invocation Behavior
 
-- **`/contract-analysis-test-coverage infra`** — Read and execute `infra-tests.md` only.
-- **`/contract-analysis-test-coverage api`** — Read and execute `api-tests.md` only.
-- **`/contract-analysis-test-coverage ui`** — Read and execute `ui-tests.md` only.
-- **`/contract-analysis-test-coverage`** (no argument) — Execute ALL three in order: `infra-tests.md`, then `api-tests.md`, then `ui-tests.md`.
+- **`/dox-pack-test-coverage infra`** — Read and execute `infra-tests.md` only.
+- **`/dox-pack-test-coverage api`** — Read and execute `api-tests.md` only.
+- **`/dox-pack-test-coverage ui`** — Read and execute `ui-tests.md` only.
+- **`/dox-pack-test-coverage`** (no argument) — Execute ALL three in order: `infra-tests.md`, then `api-tests.md`, then `ui-tests.md`.
 
 ---
 
@@ -96,10 +96,10 @@ Each file is **self-contained** — it has everything needed to execute its test
 
 | Variable | Required | Description |
 |---|---|---|
-| `STARTER_PACK_URL` | Yes | Base URL of the deployed contract-frontend (e.g. `https://contract-frontend.1-2-3-4.nip.io`) |
+| `STARTER_PACK_URL` | Yes | Base URL of the deployed dox-frontend (e.g. `https://dox-frontend.1-2-3-4.nip.io`) |
 | `TEST_PDF_PATH` | For extraction tests | Path to a test PDF contract file for upload |
 
-**Note:** No authentication required. The contract-frontend has no login.
+**Note:** No authentication required. The dox-frontend has no login.
 
 ---
 
@@ -118,7 +118,7 @@ Each file is **self-contained** — it has everything needed to execute its test
 
 ## Maintenance
 
-- Re-run this skill when `blueprint_files.tf` contract_analysis sections change or image versions update
-- Update API inventory if contract-backend or contract-frontend images change
+- Re-run this skill when `blueprint_files.tf` dox_pack sections change or image versions update
+- Update API inventory if dox-backend or dox-frontend images change
 - IDs (CA-*, CU-*, CI-*) are stable — never renumber, only append
 - If an endpoint is removed, mark `DEPRECATED` — do not delete from this spec
