@@ -1613,13 +1613,17 @@ locals {
   # Shares one 26ai database across all services.
   # -----------------------------------
 
-  # Take paas_rag's deployments, remove the OracleNet frontend
+  # Take paas_rag's deployments, remove the OracleNet frontend.
+  # Category guard inline in the if-clause keeps the result type consistent
+  # (always a list of deployment objects, just empty when dox_pack isn't
+  # the selected category). Pairs with the gated _dox_pack_small_blueprint
+  # below so the frontend_url lookup never evaluates for other packs.
   _paas_rag_base_for_dox_pack = [
     for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments
-    : d if d.name != "frontend"
+    : d if d.name != "frontend" && var.starter_pack_category == "dox_pack"
   ]
 
-  _dox_pack_small_blueprint = jsonencode({
+  _dox_pack_small_blueprint = var.starter_pack_category == "dox_pack" ? jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
       deployments = concat(local._paas_rag_base_for_dox_pack, [
@@ -1678,5 +1682,5 @@ locals {
         }
       ])
     }
-  })
+  }) : ""
 }
