@@ -295,7 +295,7 @@ output "selected_worker_node_availability_domain" {
   value       = local.worker_node_availability_domain
 }
 
-# GenAI DAC Outputs (contract_analysis)
+# GenAI DAC Outputs (dox_pack)
 output "dac_endpoint_url" {
   description = "OCI GenAI Dedicated AI Cluster endpoint for the Qwen3-VL model"
   value       = local.dac_inference_url != "" ? local.dac_inference_url : null
@@ -303,7 +303,7 @@ output "dac_endpoint_url" {
 
 output "dac_cluster_id" {
   description = "OCID of the GenAI Dedicated AI Cluster"
-  value       = local.needs_dac ? oci_generative_ai_dedicated_ai_cluster.contract_analysis_dac[0].id : null
+  value       = local.needs_dac ? oci_generative_ai_dedicated_ai_cluster.dox_pack_dac[0].id : null
 }
 
 # Version Information

@@ -8,7 +8,7 @@ import jsonschema
 from jsonschema import Draft7Validator, FormatChecker
 
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "contract_analysis"]
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"]
 
 
 def _get_format_checker():
@@ -249,7 +249,7 @@ class TestVariableTypesComplete:
 class TestFrontendSkinCatalogSync:
     """Multi-skin catalog synchronization tests."""
 
-    BLUEPRINT_PACKS = ["cuopt", "vss", "paas_rag", "warehouse_pick_path", "contract_analysis"]
+    BLUEPRINT_PACKS = ["cuopt", "vss", "paas_rag", "warehouse_pick_path", "dox_pack"]
     HELM_PACKS = ["enterprise_rag", "enterprise_rag_aiq"]
 
     @pytest.mark.parametrize("category", BLUEPRINT_PACKS)
@@ -357,7 +357,7 @@ class TestFrontendSkinCatalogSync:
 
         # Blueprint-pack variable_names from the catalog.
         blueprint_cat_vars = set()
-        for cat in ("cuopt", "vss", "paas_rag", "warehouse_pick_path", "contract_analysis"):
+        for cat in ("cuopt", "vss", "paas_rag", "warehouse_pick_path", "dox_pack"):
             for skin in catalog[cat]["skins"]:
                 if "variable_name" in skin:
                     blueprint_cat_vars.add(skin["variable_name"])

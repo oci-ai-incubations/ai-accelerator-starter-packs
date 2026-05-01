@@ -106,7 +106,7 @@ git push -u origin release_v<VERSION>
 
 ## Step 8: Create Per-Pack Zips
 
-For each of the 7 starter pack categories (`enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`, `warehouse_pick_path`, `contract_analysis`):
+For each of the 7 starter pack categories (`enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss`, `warehouse_pick_path`, `dox_pack`):
 
 1. Set the category in `ai-accelerator-tf/starter_pack_category.auto.tfvars`:
    ```
@@ -127,7 +127,7 @@ After all 5 zips are created, verify:
 ls -la release_test_matrix/
 # Expect: <VERSION>_enterprise_rag.zip, <VERSION>_enterprise_rag_aiq.zip,
 #         <VERSION>_paas_rag.zip, <VERSION>_cuopt.zip, <VERSION>_vss.zip,
-#         <VERSION>_warehouse_pick_path.zip, <VERSION>_contract_analysis.zip
+#         <VERSION>_warehouse_pick_path.zip, <VERSION>_dox_pack.zip
 ```
 
 If any zip is missing, stop and investigate before proceeding.

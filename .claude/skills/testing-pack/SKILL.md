@@ -34,7 +34,7 @@ End-to-end two-stack testing orchestrator. Manages the full lifecycle: discover/
 
 ## Arguments
 
-- `$0` - Category: `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`, `contract_analysis`
+- `$0` - Category: `paas_rag`, `enterprise_rag`, `enterprise_rag_aiq`, `cuopt`, `vss`, `dox_pack`
 - `$1` - Size: `poc`, `small`, `medium` (category-dependent)
 - `--zip-path <path>` (optional) — Path to a pre-built ORM zip. When provided, **skip Phase -1 (worktree) and Phase 2 (zip creation)** entirely. The zip is used as-is for both infra and app stacks. This is the preferred mode during release testing, where zips are already built and verified.
 
@@ -80,7 +80,7 @@ If not provided as arguments, ask. Valid sizes per category:
 | `paas_rag` | `small`, `medium` |
 | `enterprise_rag` | `small` |
 | `enterprise_rag_aiq` | `small` |
-| `contract_analysis` | `small` |
+| `dox_pack` | `small` |
 
 ### 0b. OCI CLI profile
 
@@ -139,7 +139,7 @@ Pack-specific credentials:
 | `enterprise_rag_aiq` | `tavily_api_key` | Ask user — real API key |
 | `paas_rag` | (none extra) | — |
 | `vss` | (none extra) | NGC keys have defaults in vars.tf |
-| `contract_analysis` | `dac_billing_acknowledgement=true` | Set automatically |
+| `dox_pack` | `dac_billing_acknowledgement=true` | Set automatically |
 
 **NGC keys (`ngc_secret`, `ngc_api_secret`):** These have default values in `vars.tf` and are hidden in the ORM schema. Do NOT ask the user for them.
 
@@ -518,7 +518,7 @@ Determine the test coverage directory for the category:
 | `enterprise_rag_aiq` | `.claude/skills/enterprise-rag-test-coverage/` |
 | `cuopt` | `.claude/skills/cuopt-test-coverage/` |
 | `vss` | `.claude/skills/vss-test-coverage/` |
-| `contract_analysis` | `.claude/skills/contract-analysis-test-coverage/` |
+| `dox_pack` | `.claude/skills/dox-pack-test-coverage/` |
 
 Execute **ALL THREE** test phases in order. Do NOT skip any phase. If a test fails, record the failure and continue to the next test. Only stop the entire sequence if the frontend is unreachable (HTTP connection refused).
 

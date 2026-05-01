@@ -22,8 +22,8 @@ locals {
       "medium" = local._paas_rag_small_blueprint
       # Add "large" here when implemented
     }
-    "contract_analysis" = {
-      "small" = local._contract_analysis_small_blueprint
+    "dox_pack" = {
+      "small" = local._dox_pack_small_blueprint
     }
     # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
     "enterprise_rag" = {
@@ -1607,30 +1607,30 @@ locals {
   })
 
   # -----------------------------------
-  # Contract Analysis Blueprint
+  # Document Extractor Blueprint
   # Inherits paas_rag deployments (LlamaStack), removes OracleNet frontend,
-  # adds contract-backend and contract-frontend + DAC.
+  # adds dox-backend and dox-frontend + DAC.
   # Shares one 26ai database across all services.
   # -----------------------------------
 
   # Take paas_rag's deployments, remove the OracleNet frontend
-  _paas_rag_base_for_contract_analysis = [
+  _paas_rag_base_for_dox_pack = [
     for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments
     : d if d.name != "frontend"
   ]
 
-  _contract_analysis_small_blueprint = jsonencode({
+  _dox_pack_small_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = concat(local._paas_rag_base_for_contract_analysis, [
+      deployments = concat(local._paas_rag_base_for_dox_pack, [
         {
-          name       = "contract-backend"
+          name       = "dox-backend"
           exports    = ["service_name"]
           depends_on = ["llamastack"]
           recipe = {
-            recipe_id                             = "contract-backend"
+            recipe_id                             = "dox-backend"
             recipe_mode                           = "service"
-            deployment_name                       = "contract-backend"
+            deployment_name                       = "dox-backend"
             recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend:v1.0.3"
             recipe_replica_count                  = 1
             recipe_flex_shape_ocpu_count          = 4
@@ -1650,18 +1650,18 @@ locals {
               { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
               { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
               { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
-              { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-contracts" },
+              { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-documents" },
               { "key" = "PYTHONUNBUFFERED", value = "1" },
             ]
           }
         },
         {
-          name       = "contract-frontend"
-          depends_on = ["contract-backend"]
+          name       = "dox-frontend"
+          depends_on = ["dox-backend"]
           recipe = {
-            recipe_id                             = "contract-frontend"
+            recipe_id                             = "dox-frontend"
             recipe_mode                           = "service"
-            deployment_name                       = "contract-frontend"
+            deployment_name                       = "dox-frontend"
             recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:v1.0.1"
             recipe_replica_count                  = 1
             recipe_flex_shape_ocpu_count          = 4
@@ -1672,7 +1672,7 @@ locals {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             service_endpoint_subdomain            = local.starter_pack_config.frontend_url
             recipe_container_env = [
-              { "key" = "BACKEND_SVC", value = "$${contract-backend.service_name}" },
+              { "key" = "BACKEND_SVC", value = "$${dox-backend.service_name}" },
             ]
           }
         }

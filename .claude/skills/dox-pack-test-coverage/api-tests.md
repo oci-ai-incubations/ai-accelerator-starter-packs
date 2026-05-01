@@ -1,4 +1,4 @@
-# Contract Analysis API Tests
+# Document Extractor API Tests
 
 10 tests executed via `curl` against `${STARTER_PACK_URL}`. Execute in order — some tests depend on prior results.
 
@@ -6,7 +6,7 @@
 
 **No authentication required.**
 
-**Note:** The frontend at `${STARTER_PACK_URL}` proxies `/api/*` requests to the contract-backend (port 8000). All API paths use the `/api/` prefix.
+**Note:** The frontend at `${STARTER_PACK_URL}` proxies `/api/*` requests to the dox-backend (port 8000). All API paths use the `/api/` prefix.
 
 ---
 
