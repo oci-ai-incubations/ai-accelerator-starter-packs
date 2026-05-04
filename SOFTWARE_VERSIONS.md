@@ -92,8 +92,8 @@ The backend image extends `nvcr.io/nvidia/cuopt:26.6.0a-cuda13.0-py3.13` (GPU so
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| RAG Server | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci | v0.0.6 |
-| Ingestor Server | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci | v0.0.6 |
+| RAG Server | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-retrieval-oci | v0.0.7 |
+| Ingestor Server | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/nvidia-rag-ingestion-oci | v0.0.7 |
 | RAG Frontend | iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend | v0.0.2 |
 | Helm Chart | nvidia-blueprint-rag | v2.5.0 |
 | NIM Operator | k8s-nim-operator | 3.1.0 |

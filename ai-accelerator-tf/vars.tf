@@ -418,7 +418,7 @@ variable "oci_tag_values" {
 
 variable "accelerator_pack_stack_version" {
   type        = string
-  default     = "v0.0.7"
+  default     = "v0.0.8"
   description = "Stack release version for AI Accelerator Starter Packs"
 }
 
