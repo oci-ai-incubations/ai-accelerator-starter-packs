@@ -23,7 +23,7 @@ and `local._cuopt_frontend_deployments`.
 |----------|------------------------|------------------------------------------------------------|----------------|-----------------------------|
 | Backend  | `llamastack`           | `iad.ocir.io/.../llama-stack-oci:v0.0.3`                   | 8321           | 0 / 0 / 0                   |
 | Backend  | `cuopt`                | `nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13`       | 5000           | 2 / 8 / 8                   |
-| Frontend | `skin_cuopt_core`      | `iad.ocir.io/.../cuopt-interactive-frontend-v0.0.2`        | 3001           | 0                           |
+| Frontend | `skin_cuopt_core`      | `iad.ocir.io/.../cuopt-interactive-frontend-v0.0.2`        | 3000           | 0                           |
 | Frontend | `skin_cuopt_partner`   | `iad.ocir.io/.../cuopt-interactive-frontend-v0.0.3`        | 80             | 0                           |
 
 **Execution order.** `llamastack` and `cuopt` have no `depends_on` entries
@@ -214,7 +214,7 @@ Skin hosts from `schemas/frontend_skins.yaml`:
 
 | Skin                 | `variable_name`      | `container_port` | Ingress host                       |
 |----------------------|----------------------|------------------|------------------------------------|
-| Core App             | `skin_cuopt_core`    | 3001             | `https://demo-cuopt.<fqdn>`        |
+| Core App             | `skin_cuopt_core`    | 3000             | `https://demo-cuopt.<fqdn>`        |
 | Partner Contributed  | `skin_cuopt_partner` | 80               | `https://demo-cuopt-partner.<fqdn>`|
 
 Browser-safe: same origin, so CORS and auth cookies are free.
@@ -235,7 +235,10 @@ Do not attempt to expose them to a browser.
 | `ADMIN_USERNAME`      | user-supplied                         | Skin UI admin username.                                     |
 | `ADMIN_PASSWORD`      | user-supplied                         | Skin UI admin password.                                     |
 | `NODE_ENV`            | `production`                          | Standard Node flag.                                         |
-| `PORT`                | matches `container_port`              | For Node apps reading `process.env.PORT`.                   |
+
+The cuopt blueprint does not inject `PORT`. The core image already defaults to
+its pod-facing listener on 3000, while the partner image must leave `PORT`
+unset so its internal Express server defaults to 3001 behind nginx on 80.
 
 The `<cuopt-svc-name>` and `<llamastack-svc-name>` placeholders resolve to
 the Corrino-generated K8s Service names at container start (via the
