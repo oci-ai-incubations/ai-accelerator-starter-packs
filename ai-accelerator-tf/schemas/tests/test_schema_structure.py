@@ -9,6 +9,26 @@ from jsonschema import Draft7Validator, FormatChecker
 
 
 CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"]
+DOX_PACK_ONLY_VARIABLES = ("dac_model_id", "dac_unit_shape", "dac_billing_acknowledgement")
+
+
+def _tf_root() -> Path:
+    return Path(__file__).resolve().parent.parent.parent
+
+
+def _parse_terraform_variable_names() -> set[str]:
+    vars_tf = (_tf_root() / "vars.tf").read_text()
+    return set(re.findall(r'^variable\s+"([^"]+)"\s*\{', vars_tf, re.MULTILINE))
+
+
+def _load_common_schema() -> dict:
+    with open(_tf_root() / "schemas" / "common_schema.yaml") as f:
+        return yaml.safe_load(f)
+
+
+def _load_frontend_skin_catalog() -> dict:
+    with open(_tf_root() / "schemas" / "frontend_skins.yaml") as f:
+        return yaml.safe_load(f)
 
 
 def _get_format_checker():
@@ -101,6 +121,34 @@ class TestVariableGroupsReferenceValidVariables:
                 assert var_name in variables, (
                     f"{category}: variableGroups references '{var_name}' but it's not in variables"
                 )
+
+
+class TestTerraformVariablesControlledBySchema:
+    """Every Terraform variable must have an ORM schema entry.
+
+    OCI Resource Manager renders Terraform variables that are absent from the
+    schema as raw fields, so pack-specific variables need hidden fallbacks in
+    common_schema.yaml and visible overrides only in their owner schemas.
+    """
+
+    def test_common_schema_declares_every_terraform_variable(self):
+        tf_variables = _parse_terraform_variable_names()
+        common_variables = set(_load_common_schema().get("variables", {}))
+        missing = sorted(tf_variables - common_variables)
+        assert missing == [], (
+            "common_schema.yaml must declare every Terraform variable so ORM does not "
+            f"render raw fields. Add hidden visible:false fallbacks for: {missing}"
+        )
+
+    @pytest.mark.parametrize("category", CATEGORIES)
+    def test_generated_schema_controls_every_terraform_variable(self, generated_schemas, category):
+        tf_variables = _parse_terraform_variable_names()
+        schema_variables = set(generated_schemas[category].get("variables", {}))
+        missing = sorted(tf_variables - schema_variables)
+        assert missing == [], (
+            f"{category}: generated schema is missing Terraform variables {missing}. "
+            "Missing schema entries leak as raw ORM fields; add hidden fallbacks in common_schema.yaml."
+        )
 
 
 class TestRequiredOutputsAndVariables:
@@ -207,6 +255,21 @@ class TestCategorySpecificExpectations:
                 )
 
 
+class TestPackExclusiveVariables:
+    """Variables owned by one pack stay hidden in every other generated schema."""
+
+    @pytest.mark.parametrize("category", CATEGORIES)
+    def test_dac_variables_visible_only_for_dox_pack(self, generated_schemas, category):
+        variables = generated_schemas[category].get("variables", {})
+        for name in DOX_PACK_ONLY_VARIABLES:
+            assert name in variables, f"{category}: missing schema control for dox_pack-only variable {name}"
+            expected_visible = category == "dox_pack"
+            assert variables[name].get("visible") is expected_visible, (
+                f"{category}: {name} visible={variables[name].get('visible')!r}; "
+                f"expected {expected_visible!r} because DAC fields are dox_pack-only"
+            )
+
+
 class TestVariableTypesComplete:
     """Verify that all variables have required type properties."""
 
@@ -270,6 +333,33 @@ class TestFrontendSkinCatalogSync:
             assert var_def["default"] == skin["default_enabled"], (
                 f"{category}: {var_name} default {var_def['default']!r} != "
                 f"catalog default_enabled {skin['default_enabled']!r}"
+            )
+
+    @pytest.mark.parametrize("category", CATEGORIES)
+    def test_foreign_frontend_skin_booleans_are_hidden_and_default_false(self, generated_schemas, category):
+        """A skin toggle is visible only in the pack that owns that skin."""
+        catalog = _load_frontend_skin_catalog()
+        owner_by_var = {
+            skin["variable_name"]: owner
+            for owner, pack in catalog.items()
+            if isinstance(pack, dict)
+            for skin in pack.get("skins", [])
+            if "variable_name" in skin
+        }
+        variables = generated_schemas[category].get("variables", {})
+
+        for var_name, owner in owner_by_var.items():
+            if owner == category:
+                continue
+            assert var_name in variables, (
+                f"{category}: missing hidden fallback for foreign frontend skin {var_name}"
+            )
+            var_def = variables[var_name]
+            assert var_def.get("visible") is False, (
+                f"{category}: foreign frontend skin {var_name} from {owner} must be visible:false"
+            )
+            assert var_def.get("default") is False, (
+                f"{category}: foreign frontend skin {var_name} from {owner} must default false"
             )
 
     @pytest.mark.parametrize("category", HELM_PACKS)

@@ -483,27 +483,52 @@ variables:
     type: string
     visible: false
 
+  # DAC variables are dox_pack-only. Keep hidden fallbacks here so ORM does
+  # not render Terraform-only fields in every other pack.
+  dac_model_id:
+    type: string
+    visible: false
+
+  dac_unit_shape:
+    type: string
+    visible: false
+
+  dac_billing_acknowledgement:
+    type: boolean
+    default: false
+    visible: false
+
   # Per-skin boolean fallbacks. create_final_schema.py's inject_frontend_skin_toggles
   # overrides the entry for the current category's skins with visible=true and full
   # metadata; skins for OTHER categories stay hidden via these defaults.
   skin_cuopt_core:
     type: boolean
+    default: false
     visible: false
 
   skin_cuopt_partner:
     type: boolean
+    default: false
     visible: false
 
   skin_vss_core:
     type: boolean
+    default: false
     visible: false
 
   skin_paas_rag_core:
     type: boolean
+    default: false
     visible: false
 
   skin_wpp_core:
     type: boolean
+    default: false
+    visible: false
+
+  skin_dox_pack_core:
+    type: boolean
+    default: false
     visible: false
 
   skin_enterprise_rag:
