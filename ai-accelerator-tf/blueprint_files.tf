@@ -75,7 +75,6 @@ locals {
             { key = "ADMIN_USERNAME", value = var.cuopt_frontend_admin_username },
             { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
             { key = "NODE_ENV", value = "production" },
-            { key = "PORT", value = skin.container_port },
           ]
           recipe_additional_ingress_ports = [
             { port_name = "cuopt", service_name = "$${cuopt.service_name}", port = 5000, path = "/cuopt", path_type = "Prefix" },

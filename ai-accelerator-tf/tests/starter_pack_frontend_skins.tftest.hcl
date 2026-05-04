@@ -70,6 +70,21 @@ run "cuopt_multi_skin" {
     error_message = "primary = first enabled = Core"
   }
   assert {
+    condition     = local.enabled_frontend_skins[0].container_port == "3000"
+    error_message = "cuopt core skin should expose the image's default listener on 3000"
+  }
+  assert {
+    condition     = local.enabled_frontend_skins[1].container_port == "80"
+    error_message = "cuopt partner skin should expose nginx on 80"
+  }
+  assert {
+    condition = alltrue([
+      for deployment in local._cuopt_frontend_deployments :
+      !contains([for env_pair in deployment.recipe.recipe_container_env : env_pair.key], "PORT")
+    ])
+    error_message = "cuopt frontend deployments must not inject PORT; image-local defaults control internal listeners"
+  }
+  assert {
     condition     = length(output.frontend_skin_urls) == 2
     error_message = "frontend_skin_urls should have 2 entries"
   }
@@ -219,11 +234,11 @@ run "enterprise_rag_aiq_helm_pack_default_selection" {
     error_message = "aiq primary_skin must resolve to catalog default"
   }
   assert {
-    condition     = local.primary_skin.key == "NVIDIA AIRA - Agentic workflows (Core App)"
-    error_message = "aiq default selection = NVIDIA AIRA"
+    condition     = local.primary_skin.key == "NVIDIA AI-Q - Agentic workflows (Core App)"
+    error_message = "aiq default selection = NVIDIA AI-Q"
   }
   assert {
-    condition     = local.frontend_skin_name == "NVIDIA AIRA - Agentic workflows (Core App)"
+    condition     = local.frontend_skin_name == "NVIDIA AI-Q - Agentic workflows (Core App)"
     error_message = "frontend_skin_name must match selected skin key"
   }
   assert {

@@ -88,7 +88,7 @@ cuopt:
     - key: "Vehicle Route Optimizer Frontend (Core App)"
       image_uri: "iad.ocir.io/.../cuopt-interactive-frontend-v0.0.2"
       provider: "Oracle"
-      container_port: "3001"
+      container_port: "3000"
       subdomain: "demo-cuopt"
       variable_name: "skin_cuopt_core"
       default_enabled: true
@@ -110,7 +110,7 @@ Different frontend images may serve on different ports. In OCI AI Blueprints, tw
 - **`recipe_container_port`** — the port the application inside the container listens on. This must match what the frontend process actually binds to.
 - **`recipe_host_port`** — the outward-facing port that OCI AI Blueprints opens for traffic. Defaults to port 80 if not specified.
 
-The `container_port` field in the catalog maps to `recipe_container_port`. Without it, enabling skins that listen on different ports (e.g., Core App on 3001, Partner Contributed on 80) would result in a 502 Bad Gateway because the ingress routes traffic to a port that nothing is listening on.
+The `container_port` field in the catalog maps to `recipe_container_port`. Without it, enabling skins that listen on different ports (e.g., Core App on 3000, Partner Contributed on 80) would result in a 502 Bad Gateway because the ingress routes traffic to a port that nothing is listening on.
 
 ### Environment variables
 
