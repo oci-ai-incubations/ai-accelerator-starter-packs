@@ -26,6 +26,10 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-020 | enterprise_rag_aiq skin dropdown override lands on wrong Helm release (rag instead of aiq-aira) | Medium | 2026-04-20 |
 | Open | BUG-021 | /checking-capacity skill rejects BM shapes — faultDomain causes 400 CannotParseRequest | Medium | 2026-04-28 |
 | Open | BUG-022 | NIM Operator post-deploy patcher deadlocks with helm_release.rag — enterprise_rag/BM apply fails | Critical | 2026-04-29 |
+| Invalid | BUG-023 | (RETRACTED) v0.0.8 zip layout — actually correct; rules file disagreed with /zip-tf skill and prior successful releases | — | 2026-05-04 |
+| Open | BUG-024 | `.claude/rules/terraform.md` contradicts `/zip-tf` skill on ORM zip layout — caused false-positive release block | Low | 2026-05-04 |
+| Fixed | BUG-025 | `skin_dox_pack_core` visible AND defaulted true on paas_rag schema — would silently deploy wrong frontend | High | 2026-05-04 |
+| Fixed | BUG-026 | DAC fields (`dac_billing_acknowledgement`, `dac_model_id`, `dac_unit_shape`) visible on paas_rag schema | Medium | 2026-05-04 |
 
 ---
 
@@ -850,3 +854,147 @@ The same skill's printf shows `GPU_QUOTA` / ADW columns as `X/0` when `effective
 
 **Resolution:**
 Pending. Recommended fix: drop `faultDomain` from the example payload in the SKILL.md and from the reference script. Optionally, only include `faultDomain` when the shape starts with `VM.` (in which case it's still optional, but valid).
+
+
+### BUG-023: (RETRACTED) v0.0.8 zip layout — false positive
+
+**Status:** Invalid / Retracted (2026-05-04, same day)
+**Date found / retracted:** 2026-05-04
+**Found by / retracted by:** Monitor agent during v0.0.8 release testing
+**Severity:** — (originally filed Critical; not actually a bug)
+
+**What was originally claimed:**
+That all `release_test_matrix/v0.0.8_*.zip` files were broken because they wrapped every TF file under a top-level `ai-accelerator-tf/` directory, and that ORM Resource Manager rejects that layout. The claim cited `.claude/rules/terraform.md`'s line that "TF files must be at the zip root (zip from inside `ai-accelerator-tf/`, not the parent directory)."
+
+**Why this is wrong:**
+1. The `/zip-tf` skill (`.claude/skills/zip-tf/SKILL.md`, the authoritative skill for building ORM zips) explicitly does `zip -r "${ZIP_NAME}" ai-accelerator-tf/ ...` from the repo root — producing exactly the wrapped layout.
+2. The previous release `release_test_matrix/v0.0.7_paas_rag.zip` (and every other v0.0.4–v0.0.7 zip) uses the same wrapped layout and was **successfully deployed via ORM** during v0.0.7 release testing.
+3. Team-lead confirmed the wrapped layout is what ORM expects.
+
+The monitor's initial check trusted the `.claude/rules/terraform.md` line over the `/zip-tf` skill and the empirical evidence in past releases. That was the wrong tiebreaker — the rules file is stale; the skill + prior successful releases are authoritative.
+
+**Impact:**
+- ~10 minutes of testing held while the bug was being verified.
+- track3-cpu, track1-gpu4, and track2-a10 each received a "pause uploads" message that was retracted shortly after (track3-cpu was already stopped; track1 was awaiting OCI Console login; track2 was already in motion).
+- No infrastructure deployed, no resources orphaned, no spend.
+
+**Follow-up:** filed as **BUG-024** below — the contradiction between `.claude/rules/terraform.md` and the `/zip-tf` skill that caused this false positive should be fixed so future monitors don't repeat the same mistake.
+
+
+### BUG-024: `.claude/rules/terraform.md` contradicts `/zip-tf` skill on ORM zip layout
+
+**Status:** Open
+**Date found:** 2026-05-04
+**Found by:** Monitor agent during v0.0.8 release testing (after BUG-023 retraction)
+**Severity:** Low (documentation drift — caused one false-positive release-block alert)
+
+**Symptoms:**
+`.claude/rules/terraform.md` includes the rule:
+> When creating ORM zips, TF files must be at the zip root (zip from inside `ai-accelerator-tf/`, not the parent directory).
+
+But the `/zip-tf` skill (`.claude/skills/zip-tf/SKILL.md`) — which is the authoritative ORM-zip builder used by the `/releasing` flow — explicitly runs:
+```bash
+zip -r "${ZIP_NAME}" ai-accelerator-tf/ ...
+```
+from the repo root, producing a wrapped layout where every TF file is under `ai-accelerator-tf/`. Every released zip from v0.0.4 through v0.0.7 uses this wrapped layout and was deployed successfully through ORM.
+
+These two sources are flatly contradictory. The rules file is wrong (or describes an older, unused convention); the skill + the successful release zips are correct.
+
+**Root cause:**
+Stale documentation. Either the rule was true at one point under a previous release process and never updated, or it was written based on an incorrect mental model of how ORM ingests zips. ORM accepts both layouts in practice, but this project standardizes on the wrapped form via `/zip-tf`.
+
+**Affected files:**
+- `.claude/rules/terraform.md` — last bullet under "Terraform Rules" should be removed or rewritten.
+
+**Impact:**
+Caused BUG-023 (a false-positive release-block) when a monitoring agent trusted the rules file over the skill. ~10 min of testing time held; three teammates received and then had to disregard a "pause uploads" message.
+
+**Recommended fix:**
+Replace the offending line in `.claude/rules/terraform.md` with something like:
+> When creating ORM zips, build with the `/zip-tf` skill (or follow its pattern: `zip -r ZIP ai-accelerator-tf/ ...` from the repo root). The `ai-accelerator-tf/` wrapper directory is intentional and is what ORM expects for this project's stacks.
+
+**Classification:** Skill/docs gap (no code change needed; just align the rules file to match the actual skill behavior).
+
+**Resolution:** Pending. Should be done before the next monitor agent reads the rules file.
+
+### BUG-025: `skin_dox_pack_core` visible AND defaulted true on paas_rag schema
+
+**Status:** Fixed
+**Date found:** 2026-05-04
+**Found by:** track3-cpu agent during v0.0.8 release testing — Track 3 Round 1 paas_rag/small in us-dallas-1 (PR #112)
+**Severity:** High
+
+**Symptoms:**
+When creating a `paas_rag` ORM stack with the v0.0.8 zip, Step 2 of the wizard ("Configure variables") displays a `skin_dox_pack_core` checkbox under the Frontend Skins section, **pre-checked**. paas_rag's only valid skin is `skin_paas_rag_core` (oracle-net-frontend). A user accepting the defaults would request the dox_pack frontend (contract-analysis-frontend) inside their paas_rag deployment, which depends on DAC + the dox_pack backend that paas_rag does not provide. Same risk pattern as BUG-001 (cuOpt vars showing in non-cuOpt categories).
+
+Verified during agent-browser checkbox enumeration: `{"skin_dox_pack_core": true}` was the live state on the paas_rag Step 2 form before any user input.
+
+**Root cause (confirmed by monitor agent via independent source-code verification):**
+`skin_dox_pack_core` is declared in `ai-accelerator-tf/vars.tf:1148` (with `default = true`) but does NOT appear anywhere in `ai-accelerator-tf/schemas/common_schema.yaml`. ORM renders any Terraform variable not controlled by the schema as a raw form field, using the vars.tf default. The `dox_pack_schema.yaml` correctly overrides this variable, which is why dox_pack itself shipped without issue in v0.0.7 — but every other pack (paas_rag, cuopt, vss, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path) inherits the leak. This is the same pattern as BUG-001 (cuopt vars in non-cuopt schemas) and violates the BUG-001 prevention principle: every variable in vars.tf MUST be `visible: false` in common_schema.yaml.
+
+**Affected files:**
+- `ai-accelerator-tf/vars.tf:1148` — `skin_dox_pack_core` declared with `default = true`
+- `ai-accelerator-tf/schemas/common_schema.yaml` — missing `visible: false` entry for `skin_dox_pack_core`
+- `ai-accelerator-tf/schemas/generated/paas_rag_schema.yaml` (and every non-dox_pack generated schema) — leaks the variable as a visible field
+
+**Workaround:**
+Manually uncheck `skin_dox_pack_core` in Step 2 before clicking Next. (Applied in Track 3 Round 1.)
+
+**Verification:**
+```bash
+grep -A4 'skin_dox_pack_core:' ai-accelerator-tf/schemas/generated/paas_rag_schema.yaml
+```
+Should show `visible: false` and `default: false` for paas_rag once fixed.
+
+**Resolution:** Fixed. Added a hidden `skin_dox_pack_core` fallback to `common_schema.yaml` and gave all foreign skin fallbacks `default: false`; the schema generator still overrides the current pack's owned skins with catalog defaults, so `dox_pack` keeps `skin_dox_pack_core` visible/default true while every other generated schema hides it/defaults it false.
+
+**Prevention:** Added schema pytest coverage that requires every Terraform variable to be represented in `common_schema.yaml` and every generated category schema. Added a foreign-skin regression test that requires skin toggles to be visible only in their owner pack and hidden/default false everywhere else.
+
+**Cross-pack confirmation (2026-05-04, track2-a10):** Same leak verified on cuopt schema in uk-london-1 during Round 1 cuopt/poc — Step 2 wizard showed `skin_dox_pack_core` checkbox pre-checked. Confirms leak affects every non-dox_pack category. Workaround applied: skin defaults are ignored on cuopt infra stack since `deploy_application=false` makes them moot.
+
+### BUG-026: DAC fields visible on paas_rag schema
+
+**Status:** Fixed
+**Date found:** 2026-05-04
+**Found by:** track3-cpu agent during v0.0.8 release testing — Track 3 Round 1 paas_rag/small in us-dallas-1 (PR #112)
+**Severity:** Medium
+
+**Symptoms:**
+When creating a `paas_rag` ORM stack with the v0.0.8 zip, Step 2 displays DAC (Dedicated AI Cluster) configuration fields that belong only to dox_pack:
+
+- `dac_billing_acknowledgement` (checkbox, default unchecked)
+- `dac_model_id` (textbox, default `Qwen/Qwen3-VL-235B-A22B-Instruct`)
+- `dac_unit_shape` (textbox, default `H100_X8`)
+
+DAC is a dox_pack-only feature. paas_rag does not consume any of these variables.
+
+**Severity rationale:**
+Lower than BUG-025 because `dac_billing_acknowledgement` defaults to `false`, so DAC will not auto-provision even if the user accepts defaults — but the visible model ID + shape strings clutter the UI and confuse users into thinking paas_rag involves an H100 cluster, which it does not.
+
+**Root cause (confirmed by monitor agent via independent source-code verification):**
+All three DAC variables are declared in `ai-accelerator-tf/vars.tf` but missing from `ai-accelerator-tf/schemas/common_schema.yaml`:
+- `dac_model_id` — vars.tf:641 (default `"Qwen/Qwen3-VL-235B-A22B-Instruct"`)
+- `dac_unit_shape` — vars.tf:647 (default `"H100_X8"`)
+- `dac_billing_acknowledgement` — vars.tf:653 (default `false`)
+
+Same pattern as BUG-025 (and BUG-001): variables present in vars.tf but absent from common_schema.yaml leak into every non-overriding category schema. Only `dox_pack_schema.yaml` correctly handles them, so they appear on every other pack.
+
+**Affected files:**
+- `ai-accelerator-tf/vars.tf:641,647,653` — DAC variable declarations
+- `ai-accelerator-tf/schemas/common_schema.yaml` — missing `visible: false` entries for all three DAC variables
+- `ai-accelerator-tf/schemas/generated/paas_rag_schema.yaml` (and every non-dox_pack generated schema) — leaks all three variables as visible fields
+
+**Workaround:**
+Leave DAC fields at their defaults (specifically: `dac_billing_acknowledgement` unchecked) and ignore them. (Applied in Track 3 Round 1.)
+
+**Verification:**
+```bash
+grep -A4 'dac_billing_acknowledgement\|dac_model_id\|dac_unit_shape' ai-accelerator-tf/schemas/generated/paas_rag_schema.yaml
+```
+Should show `visible: false` for all three once fixed.
+
+**Resolution:** Fixed. Added hidden common-schema fallbacks for `dac_model_id`, `dac_unit_shape`, and `dac_billing_acknowledgement`. `dox_pack_schema.yaml` remains the only schema that overrides them to visible fields.
+
+**Prevention:** Added schema pytest coverage that checks DAC variables are visible only for `dox_pack` and hidden in every other generated schema.
+
+**Cross-pack confirmation (2026-05-04, track2-a10):** Same DAC field leak verified on cuopt schema in uk-london-1 during Round 1 cuopt/poc — Step 2 wizard showed `dac_billing_acknowledgement`, `dac_model_id` (default `Qwen/Qwen3-VL-235B-A22B-Instruct`), and `dac_unit_shape` (default `H100_X8`). Confirms leak affects every non-dox_pack category, not just paas_rag.
