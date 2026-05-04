@@ -507,9 +507,8 @@ resource "helm_release" "rag" {
   # so they reschedule on GPU nodes. With the default wait=true, Helm blocks
   # waiting for pods to become Ready, but pods can't schedule until the
   # post-install patch runs — deadlock past the 90-minute timeout.
-  # Smoke tests and the blueprint deploy job poll for actual cluster readiness.
-  # Follow-up (v0.0.8+): push tolerations into NIMCache/NIMService values
-  # directly, delete patch_nim_operator_resources, restore wait=true.
+  # The patch hook itself blocks until NIMCache/NIMService report Ready, so
+  # apply still gates on actual workload readiness despite wait=false.
   wait = false
 
   values = [
@@ -645,7 +644,105 @@ resource "terraform_data" "patch_nim_operator_resources" {
         kubectl delete pod "$${cache}-pod" -n "$NS" 2>/dev/null || true
       done
 
+      # Block until the patched NIM resources actually reach Ready. Without
+      # this, the hook returns immediately after kicking off pod recreation
+      # and Terraform reports "Apply complete" before any GPU workload is
+      # running (because helm_release.rag is wait=false). Wait in parallel
+      # so total apply time is bounded by the slowest model download (the
+      # 120B LLM, ~60 min on first deploy; faster on subsequent reapplies
+      # because PVCs are retained).
+      echo "Waiting for NIMCache CRs to be Ready (up to 90m)..."
+      pids=""
+      for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+        ( kubectl wait nimcache "$cache" -n "$NS" \
+            --for=jsonpath='{.status.state}=Ready' --timeout=90m \
+            && echo "  Ready: nimcache/$cache" \
+            || echo "  TIMED OUT: nimcache/$cache" ) &
+        pids="$pids $!"
+      done
+      wait $pids
+
+      echo "Waiting for NIMService CRs to be Ready (up to 30m)..."
+      pids=""
+      for svc in nim-llm nemotron-embedding-ms nemotron-ranking-ms \
+        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+        ( kubectl wait nimservice "$svc" -n "$NS" \
+            --for=condition=Ready --timeout=30m \
+            && echo "  Ready: nimservice/$svc" \
+            || echo "  TIMED OUT: nimservice/$svc" ) &
+        pids="$pids $!"
+      done
+      wait $pids
+
+      # If any NIMService failed to reach Ready, fail the hook so the apply
+      # surfaces it instead of falsely claiming success.
+      not_ready=$(kubectl get nimservice -n "$NS" \
+        -o jsonpath='{range .items[?(@.status.state!="Ready")]}{.metadata.name}{"\n"}{end}' \
+        2>/dev/null | sort -u)
+      if [ -n "$not_ready" ]; then
+        echo "ERROR: the following NIMService CRs are not Ready:"
+        echo "$not_ready" | sed 's/^/  - /'
+        exit 1
+      fi
+
       echo "NIM Operator post-deploy patches complete."
+    EOT
+  }
+}
+
+# Destroy-time cleanup: clears NIMCache/NIMService finalizers so the rag
+# namespace can be torn down cleanly. Without this, terraform destroys the
+# nim-operator helm release first (it's an explicit dependency of rag),
+# leaving NIMCache CRs in the namespace with `finalizer.nimcache.apps.nvidia.com`
+# attached and no controller alive to release them — namespace stays in
+# Terminating forever and the destroy job fails with "context deadline
+# exceeded". Symmetric to the apply-time patch hook above.
+resource "terraform_data" "nim_operator_destroy_cleanup" {
+  count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
+
+  triggers_replace = {
+    cluster_id      = local.cluster_id
+    region          = var.region
+    app_namespace   = local.starter_pack_config.app_namespace
+    nim_op_ns       = "nim-operator"
+    kubeconfig_path = local_sensitive_file.kubeconfig_patch[0].filename
+  }
+
+  depends_on = [
+    helm_release.rag,
+    helm_release.nim_operator,
+    local_sensitive_file.kubeconfig_patch,
+  ]
+
+  provisioner "local-exec" {
+    when       = destroy
+    on_failure = continue
+    command    = <<-EOT
+      export KUBECONFIG=${self.triggers_replace.kubeconfig_path}
+      NS=${self.triggers_replace.app_namespace}
+      OP_NS=${self.triggers_replace.nim_op_ns}
+
+      echo "Scaling all deployments in $OP_NS to 0 (stop the operator processing finalizers)..."
+      kubectl scale deploy -n "$OP_NS" --all --replicas=0 2>/dev/null || true
+
+      echo "Clearing NIMCache finalizers in $NS..."
+      for cr in $(kubectl get nimcache -n "$NS" -o name 2>/dev/null); do
+        kubectl patch "$cr" -n "$NS" --type=merge \
+          -p '{"metadata":{"finalizers":null}}' 2>/dev/null \
+          && echo "  Cleared $cr" || true
+      done
+
+      echo "Clearing NIMService finalizers in $NS..."
+      for cr in $(kubectl get nimservice -n "$NS" -o name 2>/dev/null); do
+        kubectl patch "$cr" -n "$NS" --type=merge \
+          -p '{"metadata":{"finalizers":null}}' 2>/dev/null \
+          && echo "  Cleared $cr" || true
+      done
+
+      echo "NIM Operator destroy cleanup complete."
     EOT
   }
 }
