@@ -66,6 +66,7 @@ variableGroups:
     variables:
       - starter_pack_size
       - genai_region
+      - llamastack_region
       - dac_model_id
       - dac_unit_shape
       - dac_billing_acknowledgement
@@ -113,6 +114,20 @@ variables:
   genai_region:
     title: "OCI GenAI Services Region"
     description: "Region for OCI GenAI Dedicated AI Cluster and Services."
+    type: enum
+    default: us-chicago-1
+    enum:
+      - uk-london-1
+      - eu-frankfurt-1
+      - us-chicago-1
+      - us-ashburn-1
+      - me-riyadh-1
+    required: true
+    visible: true
+
+  llamastack_region:
+    title: "LlamaStack Catalog Region"
+    description: "Region whose OCI GenAI model catalog LlamaStack reads from for chat and embedding models. Defaults to us-chicago-1 (where Llama-4 lives). Decoupled from genai_region (which sites the DAC) so the DAC can follow GPU capacity while chat models stay reachable."
     type: enum
     default: us-chicago-1
     enum:
