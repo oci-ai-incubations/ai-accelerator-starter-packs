@@ -21,6 +21,16 @@ FRONTEND_LIST_COMPREHENSION_LOCALS = [
     "_wpp_frontend_deployments",
 ]
 
+# Pack-level list comprehensions that TRANSFORM existing deployments inherited
+# from another blueprint (e.g. dox_pack inherits paas_rag's llamastack and
+# overrides only the OCI_REGION env var). The original recipe already carries
+# the annotation in its source local; the transform's `recipe = merge(...)`
+# preserves it. Exempted from the required-annotation check because the
+# annotation is enforced at the source recipe, not at the transform site.
+INHERITED_RECIPE_TRANSFORM_LOCALS = [
+    "_paas_rag_base_for_dox_pack",
+]
+
 # Regex for the attribute every backend recipe must carry. Uses `\s+` instead
 # of a single space because Terraform fmt aligns `=` across adjacent attributes,
 # so the actual line often has multiple spaces between name and `=`.
@@ -40,14 +50,14 @@ def _read_lines() -> list[str]:
     return _blueprint_file_path().read_text().split("\n")
 
 
-def _find_frontend_ranges(lines: list[str]) -> list[tuple[int, int, str]]:
-    """Return (start_line, end_line, local_name) for each frontend list comprehension.
+def _find_local_ranges(lines: list[str], local_names: list[str]) -> list[tuple[int, int, str]]:
+    """Return (start_line, end_line, local_name) for each list-comprehension local.
 
     Start is the `<local_name> = [` line; end is the matching `]` at the same
     indent level. Lines are 0-indexed.
     """
     ranges = []
-    for local_name in FRONTEND_LIST_COMPREHENSION_LOCALS:
+    for local_name in local_names:
         pattern = re.compile(rf"^(\s*){re.escape(local_name)}\s*=\s*\[")
         for i, line in enumerate(lines):
             m = pattern.match(line)
@@ -136,10 +146,12 @@ class TestBlueprintAnnotations:
 
     def test_every_backend_recipe_has_annotation(self):
         lines = _read_lines()
-        frontend_ranges = _find_frontend_ranges(lines)
+        frontend_ranges = _find_local_ranges(lines, FRONTEND_LIST_COMPREHENSION_LOCALS)
+        transform_ranges = _find_local_ranges(lines, INHERITED_RECIPE_TRANSFORM_LOCALS)
+        exempt_ranges = frontend_ranges + transform_ranges
 
-        def in_frontend_range(line_idx: int) -> str | None:
-            for start, end, name in frontend_ranges:
+        def in_exempt_range(line_idx: int) -> str | None:
+            for start, end, name in exempt_ranges:
                 if start <= line_idx <= end:
                     return name
             return None
@@ -149,8 +161,8 @@ class TestBlueprintAnnotations:
 
         missing = []
         for start, end, opener in blocks:
-            if in_frontend_range(start) is not None:
-                continue  # frontend recipe, allowlisted
+            if in_exempt_range(start) is not None:
+                continue  # frontend or transform recipe, allowlisted
             if not _block_contains_annotation(lines, start, end):
                 # Extract a short snippet to help locate the offending recipe
                 snippet_start = start
@@ -179,7 +191,7 @@ class TestBlueprintAnnotations:
         break public access to the UI.
         """
         lines = _read_lines()
-        frontend_ranges = _find_frontend_ranges(lines)
+        frontend_ranges = _find_local_ranges(lines, FRONTEND_LIST_COMPREHENSION_LOCALS)
         blocks = _find_recipe_blocks(lines)
 
         def in_frontend_range(line_idx: int) -> str | None:
@@ -211,7 +223,7 @@ class TestBlueprintAnnotations:
         must actually exist in blueprint_files.tf with the expected shape.
         """
         lines = _read_lines()
-        found = _find_frontend_ranges(lines)
+        found = _find_local_ranges(lines, FRONTEND_LIST_COMPREHENSION_LOCALS)
         found_names = {name for _, _, name in found}
         expected = set(FRONTEND_LIST_COMPREHENSION_LOCALS)
         missing = expected - found_names
