@@ -30,6 +30,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-024 | `.claude/rules/terraform.md` contradicts `/zip-tf` skill on ORM zip layout — caused false-positive release block | Low | 2026-05-04 |
 | Fixed | BUG-025 | `skin_dox_pack_core` visible AND defaulted true on paas_rag schema — would silently deploy wrong frontend | High | 2026-05-04 |
 | Fixed | BUG-026 | DAC fields (`dac_billing_acknowledgement`, `dac_model_id`, `dac_unit_shape`) visible on paas_rag schema | Medium | 2026-05-04 |
+| Fixed | BUG-027 | cuopt frontend credentials hidden in ORM Step 2 — `visible: false` from common_schema.yaml not overridden by cuopt_schema.yaml; group-level visibility ineffective | High | 2026-05-04 |
 
 ---
 
@@ -998,3 +999,78 @@ Should show `visible: false` for all three once fixed.
 **Prevention:** Added schema pytest coverage that checks DAC variables are visible only for `dox_pack` and hidden in every other generated schema.
 
 **Cross-pack confirmation (2026-05-04, track2-a10):** Same DAC field leak verified on cuopt schema in uk-london-1 during Round 1 cuopt/poc — Step 2 wizard showed `dac_billing_acknowledgement`, `dac_model_id` (default `Qwen/Qwen3-VL-235B-A22B-Instruct`), and `dac_unit_shape` (default `H100_X8`). Confirms leak affects every non-dox_pack category, not just paas_rag.
+
+
+### BUG-027: cuopt frontend credentials hidden in ORM Step 2 — common_schema visible:false not overridden, group visibility ineffective
+
+**Status:** Fixed
+**Date found:** 2026-05-04
+**Date fixed:** 2026-05-04
+**Found by:** track2-a10 during v0.0.8 release testing (Round 1 cuopt/poc, Phase 5 app-stack Step 2); root cause confirmed by monitor agent via independent schema inspection
+**Fixed by:** team-lead during v0.0.8 release testing — fix added `visible: true` to all 4 affected vars in `cuopt_schema.yaml` so the deep-merge overrides common_schema's `visible: false`. Group-level `visible: { or: [skin_cuopt_core, skin_cuopt_partner] }` then gates the rendering on the skin toggles. Verified end-to-end: regenerated `ai-accelerator-tf/schema.yaml` shows `visible: true` for all 4. 132 schema tests pass.
+**Severity:** High (release-blocking for cuopt — required app-stack credentials cannot be set through the ORM UI)
+
+**Symptoms:**
+On the cuopt **app stack** Step 2 wizard, the `cuOpt Frontend Credentials` variable group's two required fields — `cuopt_frontend_admin_username` and `cuopt_frontend_admin_password` — do not render in the form, even when both `skin_cuopt_core` and `skin_cuopt_partner` are set to `true` (which should satisfy the group's `visible: { or: [skin_cuopt_core, skin_cuopt_partner] }` condition). Users cannot fill these credentials through the ORM UI. The variables have `default: ''` with `minLength: 1` (username) and `minLength: 8` + `pattern: ".*[0-9].*"` (password) and `required: true`, so terraform validation will fail at apply if they remain empty.
+
+Verified via:
+```bash
+unzip -p release_test_matrix/v0.0.8_cuopt.zip ai-accelerator-tf/schema.yaml | sed -n '413,440p'
+# Shows: cuopt_frontend_admin_username has visible: false; cuopt_frontend_admin_password has visible: false
+```
+
+**Root cause:**
+`common_schema.yaml` at lines 474–480 declares both variables with `visible: false`:
+```yaml
+cuopt_frontend_admin_username:
+  type: string
+  visible: false
+cuopt_frontend_admin_password:
+  type: password
+  visible: false
+```
+
+`cuopt_schema.yaml` at lines 93–108 redefines both variables with rich metadata (title, description, minLength, pattern) but does NOT include an explicit `visible: true` (or any visibility key at all). The author's intent was for the group-level `visible: { or: [...] }` on `cuOpt Frontend Credentials` to control rendering. But:
+
+1. `create_final_schema.py`'s deep-merge logic merges per-variable dicts. Since `cuopt_schema.yaml`'s variable definitions don't include a `visible` key, the merge keeps the `visible: false` from common_schema.
+2. ORM's UI renderer treats variable-level `visible: false` as authoritative — variableGroup-level visibility cannot un-hide a variable that has `visible: false` set on itself.
+
+Net effect: the variables are permanently hidden in the UI regardless of the group condition.
+
+This is the **inverse of BUG-025/026's pattern**:
+- BUG-025/026: variables NOT in common_schema → leak everywhere (need to be added with `visible: false`).
+- BUG-027: variables in common_schema with `visible: false` AND a category-specific group expects to surface them → never renders (need explicit `visible: true` in the category schema).
+
+**Affected files:**
+- `ai-accelerator-tf/schemas/common_schema.yaml:474–480` — base `visible: false` declarations
+- `ai-accelerator-tf/schemas/cuopt_schema.yaml:93–108` — needs explicit `visible: true` (or repeated `or` condition) on each variable
+- `release_test_matrix/v0.0.8_cuopt.zip` — currently broken at the schema layer
+
+**Workaround for in-flight track2-a10 cuopt deploy:**
+Cancel the wizard before submitting Step 3, then update the stack vars via OCI CLI to inject the two credentials, then submit a fresh APPLY job:
+```bash
+# 1. Get current vars
+OCI_CLI_PROFILE=aiincubations oci resource-manager stack get \
+  --stack-id <APP_STACK_OCID> --region uk-london-1 --query 'data.variables' > /tmp/vars.json
+
+# 2. Edit /tmp/vars.json to add cuopt_frontend_admin_username and cuopt_frontend_admin_password
+
+# 3. Update stack
+OCI_CLI_PROFILE=aiincubations oci resource-manager stack update \
+  --stack-id <APP_STACK_OCID> --region uk-london-1 \
+  --variables file:///tmp/vars.json --force
+
+# 4. Submit apply
+OCI_CLI_PROFILE=aiincubations oci resource-manager job create-apply-job \
+  --stack-id <APP_STACK_OCID> --region uk-london-1 \
+  --execution-plan-strategy AUTO_APPROVED
+```
+
+**Resolution (next release):**
+Add explicit `visible: true` (or replicate the `or: [skin_cuopt_core, skin_cuopt_partner]` condition) to the `cuopt_frontend_admin_username` and `cuopt_frontend_admin_password` blocks in `cuopt_schema.yaml`. Recommended: just `visible: true`, since the group-level condition already gates the entire group. This makes the variable-level visibility match the intent.
+
+Add a structural test in `schemas/tests/test_schema_structure.py` (or extend the new TestSchemaVisibility class from BUG-025's fix) that asserts: for any variableGroup with conditional `visible:`, every member variable must NOT have `visible: false` (otherwise the group condition has no effect). This locks the invariant going forward.
+
+**Classification:** Code bug + skill gap. Code: cuopt_schema.yaml needs the override. Skill: `/schema-lint` should detect the variable-level-vs-group-level visibility mismatch.
+
+**Reference:** Discovered when track2-a10 tried to fill the cuopt frontend credentials in the v0.0.8_cuopt.zip Step 2 wizard during Round 1 release testing on 2026-05-04. The same memory rule applies as for BUG-025/026 (BUG-001 prevention principle): every variable in vars.tf must be controllable from common_schema, then per-category schemas override visibility selectively.
