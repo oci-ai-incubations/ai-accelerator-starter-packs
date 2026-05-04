@@ -632,6 +632,12 @@ variable "genai_region" {
   default     = "us-chicago-1"
 }
 
+variable "llamastack_region" {
+  description = "OCI region whose GenAI model catalog LlamaStack reads from. Decoupled from genai_region (which controls the DAC) because the DAC must follow GPU capacity while the chat/embedding catalog only exists in some regions (e.g. Llama-4 is Chicago-only as of 2026)."
+  type        = string
+  default     = "us-chicago-1"
+}
+
 variable "dac_model_id" {
   description = "HuggingFace model ID to import and deploy on the Dedicated AI Cluster (e.g. Qwen/Qwen3-VL-235B-A22B-Instruct)."
   type        = string

@@ -1618,9 +1618,20 @@ locals {
   # (always a list of deployment objects, just empty when dox_pack isn't
   # the selected category). Pairs with the gated _dox_pack_small_blueprint
   # below so the frontend_url lookup never evaluates for other packs.
+  # Override the inherited llamastack's OCI_REGION so it reads the model
+  # catalog from llamastack_region (Chicago by default — where Llama-4 lives)
+  # while the DAC stays in genai_region (where H100 capacity is).
   _paas_rag_base_for_dox_pack = [
-    for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments
-    : d if d.name != "frontend" && var.starter_pack_category == "dox_pack"
+    for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments :
+    d.name == "llamastack" ? merge(d, {
+      recipe = merge(d.recipe, {
+        recipe_container_env = [
+          for e in d.recipe.recipe_container_env :
+          e.key == "OCI_REGION" ? { key = "OCI_REGION", value = var.llamastack_region } : e
+        ]
+      })
+    }) : d
+    if d.name != "frontend" && var.starter_pack_category == "dox_pack"
   ]
 
   _dox_pack_small_blueprint = var.starter_pack_category == "dox_pack" ? jsonencode({

@@ -574,6 +574,10 @@ variables:
     type: string
     visible: false
 
+  llamastack_region:
+    type: string
+    visible: false
+
   aws_access_key_id:
     type: string
     visible: false
