@@ -704,11 +704,10 @@ resource "terraform_data" "nim_operator_destroy_cleanup" {
   count = local.deploy_app_rag && !local.readiness_via_operator ? 1 : 0
 
   triggers_replace = {
-    cluster_id      = local.cluster_id
-    region          = var.region
-    app_namespace   = local.starter_pack_config.app_namespace
-    nim_op_ns       = "nim-operator"
-    kubeconfig_path = local_sensitive_file.kubeconfig_patch[0].filename
+    cluster_id    = local.cluster_id
+    region        = var.region
+    app_namespace = local.starter_pack_config.app_namespace
+    nim_op_ns     = "nim-operator"
   }
 
   depends_on = [
@@ -721,7 +720,19 @@ resource "terraform_data" "nim_operator_destroy_cleanup" {
     when       = destroy
     on_failure = continue
     command    = <<-EOT
-      export KUBECONFIG=${self.triggers_replace.kubeconfig_path}
+      # Generate a fresh kubeconfig at destroy time. The apply-time
+      # local_sensitive_file.kubeconfig_patch embeds an OKE token that expires
+      # in ~5 minutes; on destroy it's almost always stale, which silently
+      # turns kubectl calls into empty-list/no-auth no-ops and the cleanup
+      # accomplishes nothing. Always re-issue from cluster_id.
+      KCFG=$(mktemp -d)/kubeconfig
+      oci ce cluster create-kubeconfig \
+        --cluster-id ${self.triggers_replace.cluster_id} \
+        --region ${self.triggers_replace.region} \
+        --token-version 2.0.0 \
+        --kube-endpoint PUBLIC_ENDPOINT \
+        --file "$KCFG" >/dev/null 2>&1
+      export KUBECONFIG="$KCFG"
       NS=${self.triggers_replace.app_namespace}
       OP_NS=${self.triggers_replace.nim_op_ns}
 
