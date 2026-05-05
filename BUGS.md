@@ -31,6 +31,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-025 | `skin_dox_pack_core` visible AND defaulted true on paas_rag schema — would silently deploy wrong frontend | High | 2026-05-04 |
 | Fixed | BUG-026 | DAC fields (`dac_billing_acknowledgement`, `dac_model_id`, `dac_unit_shape`) visible on paas_rag schema | Medium | 2026-05-04 |
 | Fixed | BUG-027 | cuopt frontend credentials hidden in ORM Step 2 — `visible: false` from common_schema.yaml not overridden by cuopt_schema.yaml; group-level visibility ineffective | High | 2026-05-04 |
+| Open | BUG-028 | nim-llm pod stuck Pending on multi-node BM enterprise_rag — `label_nim_llm_node` partitioning resource removed in commit `bfa54d1`, no node dedicated for 8-GPU pod | High | 2026-05-04 |
+| Open | BUG-029 | enterprise_rag destroy fails — NIMCache/NIMService CRs orphaned by rag chart's `keep` policy; nim_operator destroyed before they can be cleaned, namespace stuck Terminating | High | 2026-05-04 |
 
 ---
 
@@ -766,6 +768,8 @@ Every Object Storage bucket that accepts user uploads (via the app itself or tes
 
 **Reference:** Discovered during Track 3 of the `multiple_skins_per_pack` branch testing (2026-04-17). Destroy job that failed: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaliugbktvutq3n7pep43vmppumfnzrmdgs65ojg5vabva`. Retry job after manual bucket-empty: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaapa2rxnd2gsx5hlfe2zjsdfngwrtkwuvkxtnqvxxdro7a`. The bug does not affect the multi-skin feature itself — paas_rag Phase 6 test results (5 infra + 10 API + 6 UI PASS) are valid; this only affects cleanup.
 
+**Repro confirmed during v0.0.8 release testing (2026-05-04):** track3-cpu hit this exact bug again on Track 3 Round 1 paas_rag/small in us-dallas-1. PA-11 cleanup ran (`DELETE /v1/files/{id}` returned HTTP 200, `oci os object bulk-delete --include '*'` returned `{"deleted-objects": []}`), and a post-cleanup `oci os object list` showed an empty `objects` array. But `oci os object list-object-versions` revealed the bucket actually had 2 versioned entries: the original `file-ef91a01a06db4b10960732f57742e269` blob (version `84c1d489-...`) AND a delete-marker (version `a53d138c-...`). PA-11's bulk-delete missed both because it only operates on the "current view" of the bucket, not the versioned object table. App destroy job `ocid1.ormjob.oc1.us-dallas-1.amaaaaaam3augwaafpsyuzfdqwqma5ocov5ih4he5camxqv6mgyedpwpaoja` FAILED on `DeleteBucket` at 22:09:46Z. Manual `oci os object delete --version-id ...` for both entries unblocked the retry destroy. Reinforces fix recommendation #2 (disable versioning) — fix recommendation #1 (force_destroy via local-exec) needs to handle versions too, not just current objects.
+
 ### BUG-020: enterprise_rag_aiq skin dropdown override lands on wrong Helm release
 
 **Status:** Fixed
@@ -1074,3 +1078,197 @@ Add a structural test in `schemas/tests/test_schema_structure.py` (or extend the
 **Classification:** Code bug + skill gap. Code: cuopt_schema.yaml needs the override. Skill: `/schema-lint` should detect the variable-level-vs-group-level visibility mismatch.
 
 **Reference:** Discovered when track2-a10 tried to fill the cuopt frontend credentials in the v0.0.8_cuopt.zip Step 2 wizard during Round 1 release testing on 2026-05-04. The same memory rule applies as for BUG-025/026 (BUG-001 prevention principle): every variable in vars.tf must be controllable from common_schema, then per-category schemas override visibility selectively.
+
+
+### BUG-028: nim-llm pod stuck Pending on multi-node BM enterprise_rag — `label_nim_llm_node` partitioning resource removed in commit `bfa54d1`
+
+**Status:** Open
+**Date found:** 2026-05-04
+**Found by:** track1-gpu4 during v0.0.8 release testing (Round 1 enterprise_rag/small on 2× BM.GPU4.8 in uk-london-1 / AD-1)
+**Severity:** High (release-blocker for `enterprise_rag` and `enterprise_rag_aiq` on multi-node BM.GPU shapes)
+**Affected packs:** `enterprise_rag`, `enterprise_rag_aiq`
+
+**Symptoms:**
+After `helm_release.rag` apply SUCCEEDED at 22:08:45Z, the NIM Operator created NIMCache + NIMService CRs and pods came up asynchronously over the following 30+ minutes. The 6 small NIM service pods (1 GPU each) scheduled across both BM.GPU4.8 nodes via cache-PVC affinity (4 nemoretrievers on `10.0.111.140`, 2 nemotron embedding+ranking on `10.0.99.116`). When nim-llm's cache finished at ~22:34Z and the NIM Operator created the nim-llm service pod (~22:41Z), the pod went immediately Pending and stayed Pending for 31+ minutes with:
+
+```
+0/4 nodes are available: 4 Insufficient nvidia.com/gpu.
+preemption: Preemption is not helpful for scheduling.
+```
+
+nim-llm requests 8 GPUs; both BM.GPU4.8 nodes already had 4 + 2 GPUs consumed by the small NIMs. Neither node had 8 contiguous free GPUs. The default kubernetes scheduler does NOT proactively evict to make room for a Pending pod, so this state is permanent without manual intervention.
+
+Empirical evidence (track1-gpu4 cluster):
+- 4 nodes (2 control plane + 2 BM.GPU4.8 workers) all have empty `workload=nim-llm` labels and no `workload` taints
+- Apply log grep across 42,778 lines for `label_nim_llm_node|workload=nim-llm|kubectl taint|kubectl label node`: **0 matches**
+- Stack zip's `helm.tf` lines 460-462 contain only the comment `# The workload=nim-llm taint is no longer applied`, no resource
+
+**Root cause:**
+Commit `bfa54d1` ("feat: upgrade enterprise RAG helm chart to v2.5.0 with NIM Operator", 2026-04-15) deleted the `terraform_data.label_nim_llm_node` and `terraform_data.label_nim_llm_node_via_operator` resources from `helm.tf` (116 lines removed) and stripped the `workload=nim-llm` nodeSelector + toleration from nim-llm's section in `helm-values/enterprise-rag-values.yaml` (and `enterprise-rag-aiq-values.yaml`). The commit message states "NIMCache CRs include tolerations" — true, but the NIM Operator handles per-pod tolerations only; it does NOT partition nodes. Without a node tainted for nim-llm, the small NIMs spread across both GPU nodes via PVC affinity, leaving neither with 8 contiguous free GPUs.
+
+The pre-`bfa54d1` config worked by:
+1. `terraform_data.label_nim_llm_node` ran during apply (BEFORE NIM Operator created pods): labeled the first GPU node with `workload=nim-llm` and tainted it `workload=nim-llm:NoSchedule`.
+2. helm-values gave nim-llm `nodeSelector: workload: nim-llm` AND `tolerations: [key=workload, value=nim-llm]` — so nim-llm could ONLY land on (and tolerate) the labeled node.
+3. The 6 small NIMs lacked the `workload=nim-llm` toleration, so they avoided the tainted node and consolidated on the other one (6 × 1 GPU = 6 of 8 fits).
+
+Without the resource AND the helm-values nodeSelector/toleration, the partitioning is gone and the scheduler can't anticipate that splitting the small NIMs leaves no room for nim-llm.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:460-462` — comment block where `terraform_data.label_nim_llm_node` + `_via_operator` resources used to live
+- `ai-accelerator-tf/helm-values/enterprise-rag-values.yaml:557-572` — nim-llm section missing `nodeSelector: workload: nim-llm` + `tolerations: [key=workload, value=nim-llm]`
+- `ai-accelerator-tf/helm-values/enterprise-rag-aiq-values.yaml:557-572` — same gap
+- `release_test_matrix/v0.0.8_enterprise_rag.zip` — broken
+- `release_test_matrix/v0.0.8_enterprise_rag_aiq.zip` — broken (same NIM stack, same gap)
+
+**Why this didn't show up in commit bfa54d1's testing:**
+Commit message says "Tested on OKE cluster in ap-osaka-1 with 2x BM.GPU.A100-v2.8 nodes." Same shape arithmetic (2 nodes × 8 GPUs = 16 total, nim-llm needs 8). The bug is non-deterministic at small scale — the scheduler's "spread" behavior depends on which cache job's PVC gets bound to which node first, which depends on OCI CSI provisioner ordering. ap-osaka-1's apply may have happened to land all 6 small NIM cache PVCs on a single node, leaving the other node free for nim-llm. uk-london-1's apply did not get that lucky.
+
+**Workaround (manual, for users on v0.0.8):**
+After enterprise_rag apply succeeds and nim-llm goes Pending, manually apply the partitioning:
+```bash
+NODE=$(kubectl get nodes -l 'nvidia.com/gpu.present=true' --sort-by=.metadata.name -o jsonpath='{.items[0].metadata.name}')
+kubectl label node "$NODE" workload=nim-llm --overwrite
+kubectl taint node "$NODE" workload=nim-llm:NoSchedule --overwrite
+
+# Delete small NIM pods on that node so they reschedule onto the other node
+kubectl get pods -n rag -o jsonpath='{range .items[?(@.spec.nodeName=="'"$NODE"'")]}{.metadata.name}{"\n"}{end}' | xargs -r kubectl -n rag delete pod
+```
+Recovery is non-trivial because the small NIM pods need to be evicted and re-scheduled on the other node, and the operator may take a few minutes to reconcile.
+
+**Resolution (next release, v0.0.9):**
+Restore the `terraform_data.label_nim_llm_node` and `terraform_data.label_nim_llm_node_via_operator` resources in `helm.tf` (the original 116-line block from before commit `bfa54d1`). Restore the `nodeSelector: workload: nim-llm` and matching `tolerations` block on nim-llm in both `helm-values/enterprise-rag-values.yaml` and `helm-values/enterprise-rag-aiq-values.yaml`. The destroy provisioner from BUG-009's fix should be preserved.
+
+**Prevention:**
+Add a release-test gate that fails if any tested BM.GPU shape with 2+ nodes does not have a `workload=nim-llm:NoSchedule` taint on exactly one GPU node after apply succeeds. Or, more thoroughly, add an apply-time precondition that asserts nim-llm has the right nodeSelector when targeting BM.GPU shapes.
+
+**Classification:** Code regression. Tested behavior on v0.0.7 was correct; commit `bfa54d1` removed both halves of the partitioning together. Recommend a code revert + re-test on multi-node BM.GPU4.8 in uk-london-1 before shipping v0.0.9.
+
+**Decision for v0.0.8 release:** SKIP `enterprise_rag` and `enterprise_rag_aiq` from the v0.0.8 ship lineup. Customers wanting these packs continue to use v0.0.7. Fix lands in v0.0.9.
+
+
+### BUG-029: enterprise_rag destroy fails — NIMCache/NIMService CRs orphaned, nim_operator destroyed before cleanup, namespace stuck Terminating
+
+**Status:** Open
+**Date found:** 2026-05-04
+**Found by:** track1-gpu4 during v0.0.8 release testing (Round 1 enterprise_rag/small destroy after BUG-028 was identified)
+**Severity:** High (release-blocker for clean teardown; user can manually unstick but it's a poor UX)
+**Affected packs:** `enterprise_rag`, `enterprise_rag_aiq`
+
+**Symptoms:**
+ORM destroy job for the enterprise_rag app stack runs through the resource graph correctly — `helm_release.rag` is destroyed before `helm_release.nim_operator` per the depends_on chain — but the helm uninstall of the rag chart returns immediately with a "These resources were kept due to the resource policy" warning listing all NIMCache CRs:
+
+```
+helm_release.rag[0]: Destruction complete after 1s
+
+Warning: Helm uninstall returned an information message
+These resources were kept due to the resource policy:
+[NIMCache] nemoretriever-graphic-elements-v1
+[NIMCache] nemoretriever-ocr-v1
+[NIMCache] nemoretriever-page-elements-v3
+[NIMCache] nemoretriever-table-structure-v1
+[NIMCache] nemotron-embedding-ms-cache
+[NIMCache] nemotron-ranking-ms-cache
+[NIMCache] nim-llm-cache
+```
+
+Then `helm_release.nim_operator` destroys (also fast — 0s helm uninstall). Then `kubernetes_namespace_v1.app_namespace[0]: Destroying... [id=rag]` runs, hangs for 4-5 minutes "Still destroying", and finally fails with:
+
+```
+Error: context deadline exceeded
+```
+
+The `rag` namespace stays in Terminating state indefinitely because the orphan NIMCache CRs have finalizers waiting for the NIM Operator to clean them up — but the NIM Operator helm release was already destroyed, so the finalizers never run.
+
+**Root cause:**
+The nvidia-blueprint-rag-v2.5.0 helm chart annotates NIMCache and NIMService CRs with `helm.sh/resource-policy: keep`, intentionally leaving them in the cluster after `helm uninstall rag`. This is presumably so users can keep their downloaded models across helm upgrades. But for a clean destroy, those CRs become orphans because:
+
+1. `helm_release.rag` destroys → CRs are kept (per chart's `keep` annotation)
+2. `helm_release.nim_operator` destroys → operator deployment removed; its CRDs may still exist briefly but the controller is gone
+3. `kubernetes_namespace_v1.app_namespace[0]` destroys → blocked because the orphan NIMCache/NIMService CRs in that namespace have finalizers (e.g., `apps.nvidia.com/nimcache-protection`) that need the operator to release them
+4. Operator is gone → finalizers never resolve → namespace stays in Terminating until Terraform's 5-min context timeout fires
+
+The depends_on chain in `helm.tf` is correct on apply (rag depends on nim_operator), so destroy correctly tears down rag first. The issue is that rag's helm uninstall does NOT actually clean up the resources it created (NIMCache CRs) — it just disowns them. By the time nim_operator is destroyed, those orphans are still in the namespace with operator-owned finalizers.
+
+**Empirical evidence (track1-gpu4 destroy at 23:07Z):**
+```
+22:13:29  Helm uninstall returned: "[NIMCache] ... kept due to resource policy"
+23:08:33  helm_release.rag: Destruction complete after 1s
+23:08:42  helm_release.nim_operator: Destroying... [id=nim-operator]
+23:08:42  kubernetes_namespace_v1.app_namespace[0]: Destroying... [id=rag]
+23:08:43  helm_release.nim_operator: Destruction complete after 0s
+23:09:10  Still destroying... [id=rag, 10s elapsed]
+23:09:20  Still destroying... [id=rag, 20s elapsed]
+... (repeats every 10s)
+23:13:29  Still destroying... [id=rag, 4m50s elapsed]
+23:13:29  Error: context deadline exceeded
+```
+
+NIM Operator was destroyed in 0s while the namespace was still trying to delete — the controller that owned the CR finalizers was already gone before the namespace's finalizer cascade began.
+
+**Affected files:**
+- `ai-accelerator-tf/helm.tf:474-489` — `helm_release.nim_operator` (no destroy-time provisioner to clean CRs)
+- `ai-accelerator-tf/helm.tf:491-...` — `helm_release.rag` (no override of the chart's keep annotation, no destroy-time CR cleanup)
+- `release_test_matrix/v0.0.8_enterprise_rag.zip` — broken destroy
+- `release_test_matrix/v0.0.8_enterprise_rag_aiq.zip` — same NIM stack, same destroy bug
+
+**Workaround (manual, for users on v0.0.8):**
+When destroy fails with "context deadline exceeded" on the `rag` namespace, manually clean up the orphans then retry:
+
+```bash
+# Force-finalize any orphan NIMCache CRs (operator is already gone, so just strip finalizers)
+kubectl -n rag get nimcache.apps.nvidia.com -o name 2>/dev/null \
+  | xargs -r -I{} kubectl -n rag patch {} --type=merge -p '{"metadata":{"finalizers":[]}}'
+kubectl -n rag get nimservice.apps.nvidia.com -o name 2>/dev/null \
+  | xargs -r -I{} kubectl -n rag patch {} --type=merge -p '{"metadata":{"finalizers":[]}}'
+
+# Force-delete the namespace (will succeed once finalizers are clear)
+kubectl get ns rag -o json | jq '.spec.finalizers=[]' \
+  | kubectl replace --raw "/api/v1/namespaces/rag/finalize" -f - \
+  || kubectl delete ns rag --force --grace-period=0
+
+# Retry the ORM destroy job — should succeed now
+```
+
+Track1-gpu4 used this workaround successfully on 2026-05-05 at 00:10Z (app destroy retry SUCCEEDED).
+
+**Resolution (next release, v0.0.9):**
+Add a `null_resource` (or `terraform_data`) that runs a destroy-time provisioner BEFORE `helm_release.nim_operator` is destroyed, explicitly deleting the NIMCache and NIMService CRs while the operator is still running:
+
+```hcl
+resource "null_resource" "nim_cr_cleanup" {
+  count = local.deploy_app_rag ? 1 : 0
+  triggers = {
+    namespace  = local.starter_pack_config.app_namespace
+    kubeconfig = local_sensitive_file.kubeconfig_patch[0].filename
+  }
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      export KUBECONFIG=${self.triggers.kubeconfig}
+      echo "Cleaning up orphan NIMCache/NIMService CRs before nim_operator destroy..."
+      kubectl -n ${self.triggers.namespace} delete nimcache.apps.nvidia.com --all --ignore-not-found --timeout=120s || true
+      kubectl -n ${self.triggers.namespace} delete nimservice.apps.nvidia.com --all --ignore-not-found --timeout=120s || true
+    EOT
+  }
+  depends_on = [helm_release.rag]
+}
+
+# Wire nim_operator's destroy to wait for the CR cleanup:
+resource "helm_release" "nim_operator" {
+  ...
+  depends_on = [..., null_resource.nim_cr_cleanup]
+}
+```
+
+With this resource in place, destroy ordering becomes:
+1. `helm_release.rag` destroyed (chart's keep policy leaves CRs)
+2. `null_resource.nim_cr_cleanup` destroys → kubectl deletes the orphan CRs (operator still running, finalizers clean up)
+3. `helm_release.nim_operator` destroys (now safe — no orphans depending on it)
+4. `kubernetes_namespace_v1.app_namespace` destroys (no orphan finalizers blocking)
+
+**Prevention:**
+A pytest-level test on the destroy plan would help: assert that for `enterprise_rag*` packs, the destroy-graph order is `rag → nim_cr_cleanup → nim_operator → namespace`. More broadly: any helm chart that uses the `keep` resource-policy annotation needs an explicit Terraform-managed cleanup resource between the chart and any operator that owns finalizers on those kept resources.
+
+**Classification:** Code bug + skill gap. Code: missing destroy-time CR cleanup resource. Skill: `/testing-pack` skill should include a destroy-validation phase that asserts namespace deletes within a reasonable time (currently the skill only validates apply-time success).
+
+**Decision for v0.0.8 release:** SKIP `enterprise_rag` and `enterprise_rag_aiq` from the v0.0.8 ship lineup (combined with BUG-028). Both bugs share the same affected packs and both need fixing for the next release. Customers running v0.0.7 are unaffected (v0.0.7 has the partitioning resource AND the helm chart predates the keep-policy NIMCache pattern).
