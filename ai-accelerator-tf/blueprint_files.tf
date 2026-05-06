@@ -1469,7 +1469,7 @@ locals {
               recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool   = true
               recipe_replica_count          = 1
-              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.4"
+              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.5"
               recipe_container_command_args = ["/config/config.yaml"]
               recipe_container_env = [
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },

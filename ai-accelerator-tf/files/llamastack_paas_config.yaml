@@ -143,6 +143,14 @@ registered_resources:
     provider_id: rag-runtime
 server:
   port: 8321
+  auth:
+    provider_config:
+      type: custom
+      endpoint: http://recipe-auth-service-paas-bba54-6231db7b/auth/validate
+    access_policy:
+      - permit:
+          actions: [create, read, update, delete]
+        when: ["user is owner"]
 vector_stores:
   file_search_params:
     header_template: 'knowledge_search tool found {num_chunks} chunks:
