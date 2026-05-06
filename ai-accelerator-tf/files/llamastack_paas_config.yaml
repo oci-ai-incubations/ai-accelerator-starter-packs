@@ -146,7 +146,7 @@ server:
   auth:
     provider_config:
       type: custom
-      endpoint: http://recipe-auth-service-paas-bba54-6231db7b/auth/validate
+      endpoint: ${env.AUTH_VALIDATE_ENDPOINT:=http://localhost:8080/auth/validate}
     access_policy:
       - permit:
           actions: [create, read, update, delete]

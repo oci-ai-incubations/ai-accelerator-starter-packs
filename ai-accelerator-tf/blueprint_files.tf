@@ -1458,8 +1458,9 @@ locals {
       name = "DEPLOY_NAME"
       deployments = [
         {
-          name    = "llamastack"
-          exports = ["service_name"]
+          name       = "llamastack"
+          exports    = ["service_name"]
+          depends_on = ["auth-service"]
           recipe = merge(
             {
               recipe_id                     = "llamastack"
@@ -1485,7 +1486,8 @@ locals {
                 { "key" = "AWS_SECRET_ACCESS_KEY", value = local.aws_compat_access_key_key },
                 { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
                 { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
-                { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
+                { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" },
+                { "key" = "AUTH_VALIDATE_ENDPOINT", value = "http://$${auth-service.service_name}/auth/validate" }
               ],
               pvcs = {
                 retain_after_undeploy = false
