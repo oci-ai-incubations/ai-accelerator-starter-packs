@@ -596,7 +596,7 @@ resource "terraform_data" "patch_nim_operator_resources" {
 
   triggers_replace = [
     local.cluster_id,
-    "patch_nim_operator_resources_v2"
+    "patch_nim_operator_resources_v3"
   ]
 
   depends_on = [
@@ -644,18 +644,55 @@ resource "terraform_data" "patch_nim_operator_resources" {
         kubectl delete pod "$${cache}-pod" -n "$NS" 2>/dev/null || true
       done
 
-      # Block until the patched NIM resources actually reach Ready. Without
-      # this, the hook returns immediately after kicking off pod recreation
-      # and Terraform reports "Apply complete" before any GPU workload is
-      # running (because helm_release.rag is wait=false). Wait in parallel
-      # so total apply time is bounded by the slowest model download (the
-      # 120B LLM, ~60 min on first deploy; faster on subsequent reapplies
-      # because PVCs are retained).
-      echo "Waiting for NIMCache CRs to be Ready (up to 90m)..."
-      pids=""
-      for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+      NON_LLM_CACHES="nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
         nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
-        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1"
+      NON_LLM_SERVICES="nemotron-embedding-ms nemotron-ranking-ms \
+        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1"
+      LLM_SERVICE="nim-llm"
+
+      llm_runtime_ready() {
+        echo "Waiting for runtime readiness: $LLM_SERVICE Deployment Available + model API..."
+
+        for i in $(seq 1 540); do
+          if kubectl get deployment "$LLM_SERVICE" -n "$NS" >/dev/null 2>&1; then
+            break
+          fi
+
+          echo "  Waiting for deployment/$LLM_SERVICE to be created ($i/540)..."
+          sleep 10
+        done
+
+        kubectl get deployment "$LLM_SERVICE" -n "$NS" >/dev/null 2>&1 || return 1
+
+        kubectl wait deployment/"$LLM_SERVICE" -n "$NS" \
+          --for=condition=Available --timeout=30m || return 1
+
+        for i in $(seq 1 60); do
+          if kubectl exec -n "$NS" deploy/"$LLM_SERVICE" -- \
+              curl -fsS http://localhost:8000/v1/health/ready >/dev/null && \
+             kubectl exec -n "$NS" deploy/"$LLM_SERVICE" -- \
+              curl -fsS http://localhost:8000/v1/models >/dev/null; then
+            echo "  Ready: runtime/$LLM_SERVICE"
+            return 0
+          fi
+
+          echo "  Waiting for runtime/$LLM_SERVICE ($i/60)..."
+          sleep 10
+        done
+
+        echo "  TIMED OUT: runtime/$LLM_SERVICE"
+        return 1
+      }
+
+      # Block until the patched NIM resources actually reach Ready. The six
+      # non-LLM services continue to use operator CR readiness. nim-llm is
+      # checked by runtime health because nim-operator can leave its CR stale
+      # after the model is already serving.
+      echo "Waiting for non-LLM NIMCache CRs to be Ready (up to 90m)..."
+      pids=""
+      for cache in $NON_LLM_CACHES; do
         ( kubectl wait nimcache "$cache" -n "$NS" \
             --for=jsonpath='{.status.state}=Ready' --timeout=90m \
             && echo "  Ready: nimcache/$cache" \
@@ -664,11 +701,28 @@ resource "terraform_data" "patch_nim_operator_resources" {
       done
       wait $pids
 
-      echo "Waiting for NIMService CRs to be Ready (up to 30m)..."
+      not_ready_caches=""
+      for cache in $NON_LLM_CACHES; do
+        state=$(kubectl get nimcache "$cache" -n "$NS" \
+          -o jsonpath='{.status.state}' 2>/dev/null || true)
+        if [ "$state" != "Ready" ]; then
+          display_state="$state"
+          if [ -z "$display_state" ]; then
+            display_state="MISSING"
+          fi
+          not_ready_caches="$not_ready_caches
+  - $cache state=$display_state"
+        fi
+      done
+      if [ -n "$not_ready_caches" ]; then
+        echo "ERROR: the following non-LLM NIMCache CRs are not Ready:"
+        echo "$not_ready_caches"
+        exit 1
+      fi
+
+      echo "Waiting for non-LLM NIMService CRs to be Ready (up to 30m)..."
       pids=""
-      for svc in nim-llm nemotron-embedding-ms nemotron-ranking-ms \
-        nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
-        nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+      for svc in $NON_LLM_SERVICES; do
         ( kubectl wait nimservice "$svc" -n "$NS" \
             --for=condition=Ready --timeout=30m \
             && echo "  Ready: nimservice/$svc" \
@@ -677,14 +731,35 @@ resource "terraform_data" "patch_nim_operator_resources" {
       done
       wait $pids
 
-      # If any NIMService failed to reach Ready, fail the hook so the apply
-      # surfaces it instead of falsely claiming success.
-      not_ready=$(kubectl get nimservice -n "$NS" \
-        -o jsonpath='{range .items[?(@.status.state!="Ready")]}{.metadata.name}{"\n"}{end}' \
-        2>/dev/null | sort -u)
-      if [ -n "$not_ready" ]; then
-        echo "ERROR: the following NIMService CRs are not Ready:"
-        echo "$not_ready" | sed 's/^/  - /'
+      not_ready_services=""
+      for svc in $NON_LLM_SERVICES; do
+        state=$(kubectl get nimservice "$svc" -n "$NS" \
+          -o jsonpath='{.status.state}' 2>/dev/null || true)
+        ready=$(kubectl get nimservice "$svc" -n "$NS" \
+          -o jsonpath='{range .status.conditions[?(@.type=="Ready")]}{.status}{end}' 2>/dev/null || true)
+        if [ "$state" != "Ready" ] || [ "$ready" != "True" ]; then
+          display_state="$state"
+          display_ready="$ready"
+          if [ -z "$display_state" ]; then
+            display_state="MISSING"
+          fi
+          if [ -z "$display_ready" ]; then
+            display_ready="MISSING"
+          fi
+          not_ready_services="$not_ready_services
+  - $svc state=$display_state ready=$display_ready"
+        fi
+      done
+      if [ -n "$not_ready_services" ]; then
+        echo "ERROR: the following non-LLM NIMService CRs are not Ready:"
+        echo "$not_ready_services"
+        exit 1
+      fi
+
+      if ! llm_runtime_ready; then
+        echo "ERROR: nim-llm runtime health check failed."
+        kubectl get nimcache nim-llm-cache -n "$NS" -o wide 2>/dev/null || true
+        kubectl get nimservice "$LLM_SERVICE" -n "$NS" -o wide 2>/dev/null || true
         exit 1
       fi
 
@@ -763,7 +838,7 @@ resource "terraform_data" "patch_nim_operator_resources_via_operator" {
 
   triggers_replace = [
     local.cluster_id,
-    "patch_nim_operator_resources_v2"
+    "patch_nim_operator_resources_v3"
   ]
 
   depends_on = [
@@ -783,18 +858,160 @@ resource "terraform_data" "patch_nim_operator_resources_via_operator" {
       timeout             = "30m"
     }
     inline = [
-      "NS=${local.starter_pack_config.app_namespace}",
-      "echo 'Patching NIMCache CRs with GPU tolerations...'",
-      "for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do kubectl patch nimcache \"$cache\" -n \"$NS\" --type=merge -p '{\"spec\":{\"tolerations\":[{\"key\":\"nvidia.com/gpu\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}' 2>/dev/null && echo \"  Patched nimcache/$cache\" || echo \"  Skipped nimcache/$cache\"; done",
-      "echo 'Patching LLM NIMCache with vllm/fp8/TP8...'",
-      "kubectl patch nimcache nim-llm-cache -n \"$NS\" --type=merge -p '{\"spec\":{\"source\":{\"ngc\":{\"model\":{\"engine\":\"vllm\",\"precision\":\"fp8\",\"tensorParallelism\":\"8\"}}}}}' 2>/dev/null || true",
-      "echo 'Patching NIMService CRs with GPU tolerations...'",
-      "for svc in nim-llm nemotron-embedding-ms nemotron-ranking-ms nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do kubectl patch nimservice \"$svc\" -n \"$NS\" --type=merge -p '{\"spec\":{\"tolerations\":[{\"key\":\"nvidia.com/gpu\",\"operator\":\"Exists\",\"effect\":\"NoSchedule\"}]}}' 2>/dev/null && echo \"  Patched nimservice/$svc\" || echo \"  Skipped nimservice/$svc\"; done",
-      "echo 'Fixing nim-llm service selector...'",
-      "kubectl patch service nim-llm -n \"$NS\" --type=json -p '[{\"op\":\"remove\",\"path\":\"/spec/selector/statefulset.kubernetes.io~1pod-name\"}]' 2>/dev/null || true",
-      "echo 'Deleting NIMCache pods for recreation with tolerations...'",
-      "for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do kubectl delete pod \"$${cache}-pod\" -n \"$NS\" 2>/dev/null || true; done",
-      "echo 'NIM Operator post-deploy patches complete.'"
+      <<-EOT
+        NS=${local.starter_pack_config.app_namespace}
+
+        echo "Patching NIMCache CRs with GPU tolerations..."
+        for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+          nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+          nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+          kubectl patch nimcache "$cache" -n "$NS" --type=merge \
+            -p '{"spec":{"tolerations":[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]}}' 2>/dev/null && \
+            echo "  Patched nimcache/$cache" || echo "  Skipped nimcache/$cache (not found yet)"
+        done
+
+        echo "Patching LLM NIMCache with vllm/fp8/TP8 engine..."
+        kubectl patch nimcache nim-llm-cache -n "$NS" --type=merge \
+          -p '{"spec":{"source":{"ngc":{"model":{"engine":"vllm","precision":"fp8","tensorParallelism":"8"}}}}}' 2>/dev/null || true
+
+        echo "Patching NIMService CRs with GPU tolerations..."
+        for svc in nim-llm nemotron-embedding-ms nemotron-ranking-ms \
+          nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+          nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+          kubectl patch nimservice "$svc" -n "$NS" --type=merge \
+            -p '{"spec":{"tolerations":[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]}}' 2>/dev/null && \
+            echo "  Patched nimservice/$svc" || echo "  Skipped nimservice/$svc (not found yet)"
+        done
+
+        echo "Fixing nim-llm service selector (remove stale statefulset selector)..."
+        kubectl patch service nim-llm -n "$NS" --type=json \
+          -p '[{"op":"remove","path":"/spec/selector/statefulset.kubernetes.io~1pod-name"}]' 2>/dev/null && \
+          echo "  Fixed nim-llm service selector" || echo "  nim-llm service selector already correct"
+
+        echo "Deleting NIMCache pods to trigger recreation with tolerations..."
+        for cache in nim-llm-cache nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+          nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+          nemoretriever-page-elements-v3 nemoretriever-table-structure-v1; do
+          kubectl delete pod "$cache-pod" -n "$NS" 2>/dev/null || true
+        done
+
+        NON_LLM_CACHES="nemotron-embedding-ms-cache nemotron-ranking-ms-cache \
+          nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+          nemoretriever-page-elements-v3 nemoretriever-table-structure-v1"
+        NON_LLM_SERVICES="nemotron-embedding-ms nemotron-ranking-ms \
+          nemoretriever-graphic-elements-v1 nemoretriever-ocr-v1 \
+          nemoretriever-page-elements-v3 nemoretriever-table-structure-v1"
+        LLM_SERVICE="nim-llm"
+
+        llm_runtime_ready() {
+          echo "Waiting for runtime readiness: $LLM_SERVICE Deployment Available + model API..."
+
+          for i in $(seq 1 540); do
+            if kubectl get deployment "$LLM_SERVICE" -n "$NS" >/dev/null 2>&1; then
+              break
+            fi
+
+            echo "  Waiting for deployment/$LLM_SERVICE to be created ($i/540)..."
+            sleep 10
+          done
+
+          kubectl get deployment "$LLM_SERVICE" -n "$NS" >/dev/null 2>&1 || return 1
+
+          kubectl wait deployment/"$LLM_SERVICE" -n "$NS" \
+            --for=condition=Available --timeout=30m || return 1
+
+          for i in $(seq 1 60); do
+            if kubectl exec -n "$NS" deploy/"$LLM_SERVICE" -- \
+                curl -fsS http://localhost:8000/v1/health/ready >/dev/null && \
+               kubectl exec -n "$NS" deploy/"$LLM_SERVICE" -- \
+                curl -fsS http://localhost:8000/v1/models >/dev/null; then
+              echo "  Ready: runtime/$LLM_SERVICE"
+              return 0
+            fi
+
+            echo "  Waiting for runtime/$LLM_SERVICE ($i/60)..."
+            sleep 10
+          done
+
+          echo "  TIMED OUT: runtime/$LLM_SERVICE"
+          return 1
+        }
+
+        echo "Waiting for non-LLM NIMCache CRs to be Ready (up to 90m)..."
+        pids=""
+        for cache in $NON_LLM_CACHES; do
+          ( kubectl wait nimcache "$cache" -n "$NS" \
+              --for=jsonpath='{.status.state}=Ready' --timeout=90m \
+              && echo "  Ready: nimcache/$cache" \
+              || echo "  TIMED OUT: nimcache/$cache" ) &
+          pids="$pids $!"
+        done
+        wait $pids
+
+        not_ready_caches=""
+        for cache in $NON_LLM_CACHES; do
+          state=$(kubectl get nimcache "$cache" -n "$NS" \
+            -o jsonpath='{.status.state}' 2>/dev/null || true)
+          if [ "$state" != "Ready" ]; then
+            display_state="$state"
+            if [ -z "$display_state" ]; then
+              display_state="MISSING"
+            fi
+            not_ready_caches="$not_ready_caches
+        - $cache state=$display_state"
+          fi
+        done
+        if [ -n "$not_ready_caches" ]; then
+          echo "ERROR: the following non-LLM NIMCache CRs are not Ready:"
+          echo "$not_ready_caches"
+          exit 1
+        fi
+
+        echo "Waiting for non-LLM NIMService CRs to be Ready (up to 30m)..."
+        pids=""
+        for svc in $NON_LLM_SERVICES; do
+          ( kubectl wait nimservice "$svc" -n "$NS" \
+              --for=condition=Ready --timeout=30m \
+              && echo "  Ready: nimservice/$svc" \
+              || echo "  TIMED OUT: nimservice/$svc" ) &
+          pids="$pids $!"
+        done
+        wait $pids
+
+        not_ready_services=""
+        for svc in $NON_LLM_SERVICES; do
+          state=$(kubectl get nimservice "$svc" -n "$NS" \
+            -o jsonpath='{.status.state}' 2>/dev/null || true)
+          ready=$(kubectl get nimservice "$svc" -n "$NS" \
+            -o jsonpath='{range .status.conditions[?(@.type=="Ready")]}{.status}{end}' 2>/dev/null || true)
+          if [ "$state" != "Ready" ] || [ "$ready" != "True" ]; then
+            display_state="$state"
+            display_ready="$ready"
+            if [ -z "$display_state" ]; then
+              display_state="MISSING"
+            fi
+            if [ -z "$display_ready" ]; then
+              display_ready="MISSING"
+            fi
+            not_ready_services="$not_ready_services
+        - $svc state=$display_state ready=$display_ready"
+          fi
+        done
+        if [ -n "$not_ready_services" ]; then
+          echo "ERROR: the following non-LLM NIMService CRs are not Ready:"
+          echo "$not_ready_services"
+          exit 1
+        fi
+
+        if ! llm_runtime_ready; then
+          echo "ERROR: nim-llm runtime health check failed."
+          kubectl get nimcache nim-llm-cache -n "$NS" -o wide 2>/dev/null || true
+          kubectl get nimservice "$LLM_SERVICE" -n "$NS" -o wide 2>/dev/null || true
+          exit 1
+        fi
+
+        echo "NIM Operator post-deploy patches complete."
+      EOT
     ]
   }
 }
