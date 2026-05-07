@@ -33,6 +33,9 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Fixed | BUG-027 | cuopt frontend credentials hidden in ORM Step 2 — `visible: false` from common_schema.yaml not overridden by cuopt_schema.yaml; group-level visibility ineffective | High | 2026-05-04 |
 | Open | BUG-028 | nim-llm pod stuck Pending on multi-node BM enterprise_rag — `label_nim_llm_node` partitioning resource removed in commit `bfa54d1`, no node dedicated for 8-GPU pod | High | 2026-05-04 |
 | Open | BUG-029 | enterprise_rag destroy fails — NIMCache/NIMService CRs orphaned by rag chart's `keep` policy; nim_operator destroyed before they can be cleaned, namespace stuck Terminating | High | 2026-05-04 |
+| Invalid | BUG-030 | (RETRACTED 2026-05-05 19:55Z) Original hypothesis (GPU-taint blocking coredns) was wrong; actual cause was OCI Out-of-Host-Capacity for VM.Standard.E5.Flex in uk-london-1 AD-1 — capacity issue, not a code bug. Do NOT implement the proposed fix. | — | 2026-05-05 |
+| Open | BUG-031 | dox_pack two-stack model fails — DAC + imported_model + endpoint not gated on `deploy_application` | High | 2026-05-05 |
+| Open | BUG-032 | enterprise_rag App apply fails — NIMCache RWO PVC Multi-Attach when nim-operator spawns cache-job retry while nim-llm Deployment holds the PVC; pack functionally works but `terraform_data.patch_nim_operator_resources` 30m timeout marks apply FAILED | High | 2026-05-05 |
 
 ---
 
@@ -885,6 +888,8 @@ The monitor's initial check trusted the `.claude/rules/terraform.md` line over t
 
 **Follow-up:** filed as **BUG-024** below — the contradiction between `.claude/rules/terraform.md` and the `/zip-tf` skill that caused this false positive should be fixed so future monitors don't repeat the same mistake.
 
+**Rediscovered:** 2026-05-05 by track3-cpu during the v0.0.8 release re-run. The `track3-cpu` agent independently re-flagged the wrapped layout as a blocker before starting Round 1 (paas_rag) on the same exact set of zips. Team-lead retracted within minutes, citing this bug. Confirms BUG-024 is still actively misleading agents — until `.claude/rules/terraform.md` is corrected, every fresh monitoring/test agent will keep tripping on it. Trap was triggered identically: same rule citation, same zips, same conclusion.
+
 
 ### BUG-024: `.claude/rules/terraform.md` contradicts `/zip-tf` skill on ORM zip layout
 
@@ -1272,3 +1277,343 @@ A pytest-level test on the destroy plan would help: assert that for `enterprise_
 **Classification:** Code bug + skill gap. Code: missing destroy-time CR cleanup resource. Skill: `/testing-pack` skill should include a destroy-validation phase that asserts namespace deletes within a reasonable time (currently the skill only validates apply-time success).
 
 **Decision for v0.0.8 release:** SKIP `enterprise_rag` and `enterprise_rag_aiq` from the v0.0.8 ship lineup (combined with BUG-028). Both bugs share the same affected packs and both need fixing for the next release. Customers running v0.0.7 are unaffected (v0.0.7 has the partitioning resource AND the helm chart predates the keep-policy NIMCache pattern).
+
+---
+
+### BUG-030: (RETRACTED) enterprise_rag/aiq infra apply fails — was OCI Out-of-Host-Capacity, not a code bug
+
+**Status:** Invalid (retracted 2026-05-05 19:55 UTC)
+**Date found:** 2026-05-05
+**Date retracted:** 2026-05-05 (same day, ~75 min after first filed)
+**Found by:** Grant via track1-bmgpu4 during v0.0.8 release re-test
+**Severity:** —
+
+**HEADLINE — DO NOT IMPLEMENT THE PROPOSED FIX BELOW**
+
+The original hypothesis — that infra apply failed because GPU-tainted nodes blocked coredns scheduling — was the *symptom*, not the cause. After being pushed by team-lead for the actual TF error, I queried `oci ce work-request list --cluster-id <my-cluster>` then `oci ce work-request-error list --compartment-id <C> --work-request-id <WR>` and found:
+
+```
+NODEPOOL_CREATE work request status: FAILED at 2026-05-05T18:16:11Z
+  code: InternalError
+  message: 1 node(s) launch failure ... Out of host capacity.
+  shape: VM.Standard.E5.Flex
+  endpoint: https://iaas.uk-london-1.oraclecloud.com/20160918/instances
+  timestamp: 2026-05-05T18:16:09.379Z
+```
+
+The OKE-managed control-plane node pool (`oci_containerengine_node_pool.oke_node_pool`, size=2, VM.Standard.E5.Flex, the resource that hosts coredns + system pods) tried to launch its first instance at 18:16:09Z, OCI returned 500 InternalError "Out of host capacity" in `uk-london-1` AD-1. Terraform's create-with-retry held the resource as "Still creating..." for the next ~20 min waiting for OCI to recover, then timed out at the 30-min mark and reported APPLY FAILED.
+
+The BM.GPU4.8 instance pool DID succeed (work request 18:35:31Z) — that's why the cluster came up ACTIVE with 2 GPU nodes Ready. The `nvidia.com/gpu=present:NoSchedule` taint on those nodes is correct + working as designed; coredns was supposed to land on the missing E5.Flex control-plane nodes. v0.0.7 worked because v0.0.7 was deployed in regions/ADs that had E5.Flex headroom; the same code in uk-london-1 AD-1 today hits OOC.
+
+**Classification:** OCI capacity issue. Same family as track 2's hit. Not a code bug. v0.0.8 release is NOT blocked by this for er/er-aiq.
+
+**Lessons learned (skill, not code):**
+1. `oci resource-manager job get-job-logs` truncates at ~1550 entries. The TF "Apply complete!" / final error block is often beyond this cap when long-poll resources (Still creating...) dominate the log stream. ORM Console UI shows the same truncated log.
+2. For OKE node pool `Still creating...` failures, query `oci ce work-request list --cluster-id <ID>` then `oci ce work-request-error list --compartment-id <C> --work-request-id <WR>`. This is where the actual compute error surfaces.
+3. `/diagnosing-stack` skill should add this exact check sequence for any OKE-related FAILED stack.
+
+**Recommendation for v0.0.8 release:**
+- Retry on a different region/AD with confirmed E5.Flex headroom + BM.GPU4.8 quota (uk-london-1 was the only candidate with both BM.GPU4.8 AND ECPU quota, but capacity is transient)
+- OR retry uk-london-1 AD-1 later (capacity may recover)
+- Do NOT skip er/er-aiq from the release lineup based on this failure
+
+---
+
+**ORIGINAL (INCORRECT) HYPOTHESIS PRESERVED FOR HISTORICAL REFERENCE — DO NOT IMPLEMENT**
+
+(Below was the wrong diagnosis. Kept for transparency on what was learned.)
+
+Infra-only apply of `enterprise_rag/small` on `BM.GPU4.8` in `uk-london-1` FAILED at 18:36:01Z (~29 min into apply). OKE cluster reached ACTIVE; both BM.GPU4.8 worker nodes joined cluster as Ready with NVIDIA GPU device plugin Running. But `helm list --all-namespaces` shows ZERO Helm releases — the apply timed out before any chart could install.
+
+`kubectl get pods -n kube-system` shows:
+```
+coredns-5fb7d7c686-xx9hc               0/1     Pending   88m
+kube-dns-autoscaler-7fb69ccd99-jqf6n   0/1     Pending   88m
+```
+
+`kubectl describe pod -n kube-system coredns-5fb7d7c686-xx9hc` events:
+```
+Warning  FailedScheduling  3m42s (x11 over 53m)  default-scheduler
+0/2 nodes are available: 2 node(s) had untolerated taint {nvidia.com/gpu: present}.
+no new claims to deallocate, preemption: 0/2 nodes are available:
+2 Preemption is not helpful for scheduling.
+```
+
+**Root cause:**
+1. OKE 1.34.1 auto-applies taint `nvidia.com/gpu=present:NoSchedule` to nodes with GPUs (the BM.GPU4.8 instances).
+2. `vars.tf` `local.starter_pack_configs.enterprise_rag.small` (and `enterprise_rag_aiq.small`, `enterprise_rag_aiq.medium`) sets `cpu_worker_node_pool_size = 0`. There is NO non-GPU worker node pool — the cluster has zero untainted nodes.
+3. `coredns` and `kube-dns-autoscaler` have tolerations only for `CriticalAddonsOnly`, `oci.oraclecloud.com/oke-is-preemptible`, and `node.kubernetes.io/{not-ready,unreachable}` — they do NOT tolerate `nvidia.com/gpu=present`. So they cannot schedule.
+4. With cluster DNS broken, any chart that depends on DNS during install (cert-manager and ingress-nginx use webhook calls during chart bootstrap) fails. `helm_release.cert_manager` (or whichever runs first in `helm.tf`) timed out.
+5. Terraform aborted at the 30-min mark → APPLY FAILED → no rollback (cluster, node pool, instance pool all still RUNNING).
+
+**Affected files:**
+- `ai-accelerator-tf/vars.tf` — `local.starter_pack_configs.enterprise_rag.small`, `local.starter_pack_configs.enterprise_rag_aiq.small`, `local.starter_pack_configs.enterprise_rag_aiq.medium` all have `cpu_worker_node_pool_size = 0`
+- `ai-accelerator-tf/helm.tf` — installs cert-manager / ingress-nginx without explicit GPU-taint tolerations
+- (Possibly) `ai-accelerator-tf/oke.tf` — control-plane / system addon configuration
+
+**Affected packs / sizes:**
+- `enterprise_rag/small` (BM.GPU4.8) — confirmed FAIL
+- `enterprise_rag_aiq/small` (BM.GPU4.8) — predicted FAIL (same config)
+- `enterprise_rag_aiq/medium` (BM.GPU.A100-v2.8) — predicted FAIL (same config; A100-v2 likely has same auto-taint)
+- `cuopt/*`, `vss/*`, `paas_rag/*` — NOT affected (they have `cpu_worker_node_pool_size >= 1`)
+
+**Why it didn't surface in v0.0.7:**
+Two candidate explanations (need to verify):
+- (Likely) v0.0.7 `vars.tf` had `cpu_worker_node_pool_size > 0` for er/er-aiq, providing untainted nodes for system pods. v0.0.8 dropped it (need git blame).
+- (Possible) Earlier OKE versions did not auto-apply the `nvidia.com/gpu=present` NoSchedule taint, only the CriticalAddonsOnly / standard taints. OKE 1.34.1 may be the regression.
+
+**Repro:**
+1. Deploy `enterprise_rag/small` infra-only ORM stack (`deploy_application=false`, `skip_capacity_check=true`).
+2. Wait ~30 min — apply will fail.
+3. Connect kubectl to the OKE cluster — verify coredns Pending with `untolerated taint {nvidia.com/gpu: present}`.
+
+**Fix candidates:**
+- (Preferred) Add a small CPU worker node pool: set `cpu_worker_node_pool_size = 1` for er/er-aiq across all sizes, with `instanceShape = "VM.Standard.E5.Flex"`, ocpus 1-2, memory 8-16. Hosts coredns + Helm controllers; minimal cost. Matches the cuopt/vss design.
+- (Alternative) Patch coredns + kube-dns-autoscaler tolerations via a `kubernetes_manifest` Terraform resource to tolerate `nvidia.com/gpu=present:NoSchedule`. Smaller diff but rebuilds cluster pods after every apply; less idiomatic.
+- (Alternative) Configure node pool to NOT apply the `nvidia.com/gpu` taint via `oci_containerengine_node_pool` `node_metadata` or similar OKE setting, if such an option exists.
+
+**Workaround for in-flight test (NOT recommended for release):**
+`kubectl taint nodes --all nvidia.com/gpu-` then re-run apply. This unblocks the cluster but shouldn't ship — the GPU taint exists for a reason (it ensures only GPU-aware pods land on GPU nodes).
+
+**Stack OCID where this was observed:**
+- Stack: `ocid1.ormstack.oc1.uk-london-1.amaaaaaam3augwaa26e6ylkbdamvxavaqeqqywpdh6danfje5ivmrkv34kfa`
+- Failed job: `ocid1.ormjob.oc1.uk-london-1.amaaaaaam3augwaauyidhqyyu5owsq6xda2az5zqnhxzpcqdatclknvtmaoa`
+- OKE cluster (still ACTIVE): `ocid1.cluster.oc1.uk-london-1.aaaaaaaa6uboy4fhhp7jukim5rlh6itxawok5acd5beag43mncc6nftv7a5a`
+
+**Decision for v0.0.8 release:**
+Combined with BUG-028 + BUG-029, this confirms `enterprise_rag` and `enterprise_rag_aiq` should be SKIPPED from the v0.0.8 ship lineup. Three release-blocking bugs in those two packs.
+
+
+### BUG-031: dox_pack two-stack model fails — DAC + imported_model + endpoint not gated on `deploy_application`
+
+**Status:** Open
+**Date found:** 2026-05-05
+**Found by:** track3-cpu during v0.0.8 release re-test, code-verified by Monitor agent
+**Severity:** High (release blocker for dox_pack only)
+
+**Symptoms:**
+App-stack APPLY fails with `400-LimitExceeded` on `oci_generative_ai_dedicated_ai_cluster.dox_pack_dac` because the infra stack already claimed the H100 quota:
+
+```
+Error: 400-LimitExceeded
+Service: Generative Ai Dedicated Cluster
+Operation: CreateDedicatedAiCluster
+Endpoint: POST https://generativeai.eu-frankfurt-1.oci.oraclecloud.com/20231130/dedicatedAiClusters
+Resource: oci_generative_ai_dedicated_ai_cluster.dox_pack_dac
+Limit: dedicated-unit-h100-count
+```
+
+**Root cause:**
+`ai-accelerator-tf/genai_dac.tf` declares the DAC, the imported model, and the model serving endpoint with `count = local.needs_dac ? 1 : 0` where:
+
+```hcl
+locals {
+  needs_dac = var.starter_pack_category == "dox_pack"
+}
+```
+
+The gate is **only** on `starter_pack_category == "dox_pack"` — there is **no `&& var.deploy_application` (or `deploy_infrastructure`)** condition. Therefore both stacks (`deploy_application=false` infra and `deploy_application=true` app) try to create the same three GenAI resources. In a two-stack flow:
+
+- Phase 4 (infra apply, `deploy_application=false`): DAC `dox-pack-dac-<deploy_id>` created. Consumes 8/8 H100 cards in fra.
+- Phase 5 (app apply, `deploy_application=true`): TF tries to create a SECOND DAC instance. OCI returns `400-LimitExceeded` because the first one is still ACTIVE.
+
+The same defect applies to the imported model and endpoint resources, but they are encountered first, do their long work (model import is ~48 min), and then the apply hits the DAC step and fails.
+
+**Affected files:**
+- `ai-accelerator-tf/genai_dac.tf:9-11` — `locals.needs_dac` definition
+- `ai-accelerator-tf/genai_dac.tf:18-37` — `oci_generative_ai_imported_model.qwen3_vl` (gated only on `needs_dac`)
+- `ai-accelerator-tf/genai_dac.tf:39-59` — `oci_generative_ai_dedicated_ai_cluster.dox_pack_dac` (gated only on `needs_dac`)
+- `ai-accelerator-tf/genai_dac.tf:62-77` — `oci_generative_ai_endpoint.qwen3_vl_endpoint` (gated only on `needs_dac`)
+
+**Classification:** Code bug (count-gate defect). Will reproduce on every dox_pack two-stack run until patched. Not capacity, not transient, not a NIM/Corrino/llamastack issue.
+
+**Recommended fix:**
+Update `local.needs_dac` to gate on `deploy_application` so the DAC + model + endpoint live only in the app stack (DAC is hourly-billed → tied to app lifecycle, not long-lived infra):
+
+```hcl
+locals {
+  needs_dac = var.starter_pack_category == "dox_pack" && var.deploy_application
+}
+```
+
+Verify after patch:
+1. `terraform plan` for infra-only (deploy_application=false): plan should NOT include `oci_generative_ai_*.qwen3_vl*` or `dox_pack_dac` resources.
+2. `terraform plan` for app (deploy_application=true): plan SHOULD include all three GenAI resources.
+3. End-to-end two-stack deploy: infra completes ~12 min (no DAC/model), app completes ~50-60 min (model import + DAC + endpoint + helm).
+
+**Repro:**
+1. Deploy `dox_pack/small` infra-only ORM stack (`deploy_application=false`, `genai_region=eu-frankfurt-1`, `dac_billing_acknowledgement=true`). Apply succeeds in ~98 min (model import + DAC). DAC ends ACTIVE, holding 8/8 H100 cards.
+2. Deploy app stack (`deploy_application=true`, same `existing_cluster_id` etc.). Model re-imports successfully (~49 min), then DAC creation fails with `400-LimitExceeded`.
+
+**Stack OCIDs where this was observed (preserved per team-lead's direction):**
+- Infra (SUCCEEDED): `ocid1.ormstack.oc1.us-dallas-1.amaaaaaam3augwaaml6c6ugyz6klbsa6g3u4imw7rf3n2itnhooc6wtmzm4q`
+- App (FAILED): `ocid1.ormstack.oc1.us-dallas-1.amaaaaaam3augwaa7tx3xqqawoo4syofzsj4eioeqoutrs4dkiqjtfvpiaoa`
+- App apply job (FAILED): `ocid1.ormjob.oc1.us-dallas-1.amaaaaaam3augwaaavitjyarvn3zfoiett3vcwt7faqhcboygf4orqrcidla` (finished 2026-05-05T23:33:46Z)
+- Live ACTIVE DAC (created by infra Phase 4 at 20:19:12Z, holding all 8 cards): `ocid1.generativeaidedicatedaicluster.oc1.eu-frankfurt-1.amaaaaaam3augwaanazd7hxa6dl2j2f4nvqebvfr3pcun5d6mpy366lnbh7q`
+
+**Cost note:** the live DAC is billing hourly (H100_X8 unit, fra) until the infra stack is destroyed or the DAC is deleted manually. Coordinate with team-lead on cost vs preserve-state-for-diagnosis trade-off.
+
+**Decision for v0.0.8 release:**
+- dox_pack v0.0.8 ship lineup: BLOCKED by BUG-031 unless patch is applied and re-tested. Schema validation (BUG-025/026 regression) PASSED, infra apply PASSED, model import PASSED, but full end-to-end app apply cannot complete with the current count gate.
+- Recommend cutting v0.0.9 with BUG-031 fix and re-testing dox_pack only, OR shipping v0.0.8 with dox_pack marked as "schema-validated, deployment blocked by BUG-031 — fix in v0.0.9".
+
+---
+
+### BUG-032: enterprise_rag App apply fails — NIMCache RWO PVC Multi-Attach blocks `patch_nim_operator_resources` even though pack is functional
+
+**Status:** Open
+**Date found:** 2026-05-05
+**Found by:** Grant via track1-bmgpu4 during v0.0.8 release re-test, code-context verified by Monitor agent
+**Severity:** High (release-correctness blocker for `enterprise_rag` + `enterprise_rag_aiq`; pack is functionally usable but ORM apply state is FAILED)
+
+**TL;DR:** The `enterprise_rag/small` app stack apply fails at `terraform_data.patch_nim_operator_resources` after a 30-min timeout waiting for `nimservices/nim-llm` Ready=True. The pod IS healthy and the model IS serving requests (smoke tests PASS), but the NIMCache CR's status condition `JobCompleted` never flips True because nim-operator spawns a *retry* cache-job pod that gets stuck in `FailedAttachVolume: Multi-Attach error` against the same RWO PVC the nim-llm Deployment is holding.
+
+**This is NOT BUG-028.** BUG-028 fix (commits `01191d6` + `206773e`) is **VALIDATED** by this run — nim-llm pod scheduled fine, no `FailedScheduling: Insufficient nvidia.com/gpu` events, no PVC affinity errors at scheduling time.
+
+**Symptoms:**
+
+- `oci resource-manager job get` for app stack: `lifecycle-state: FAILED, time-finished: 2026-05-06T00:00:41Z`, op `APPLY`
+- ORM job log tail:
+  ```
+  Waiting for NIMService CRs to be Ready (up to 30m)...
+  nimservice.apps.nvidia.com/nemotron-ranking-ms condition met        ← Ready
+  nimservice.apps.nvidia.com/nemotron-embedding-ms condition met      ← Ready
+  nimservice.apps.nvidia.com/nemoretriever-ocr-v1 condition met       ← Ready
+  nimservice.apps.nvidia.com/nemoretriever-graphic-elements-v1 ...    ← Ready
+  nimservice.apps.nvidia.com/nemoretriever-page-elements-v3 ...       ← Ready
+  nimservice.apps.nvidia.com/nemoretriever-table-structure-v1 ...     ← Ready
+  error: timed out waiting for the condition on nimservices/nim-llm
+    TIMED OUT: nimservice/nim-llm
+  ERROR: the following NIMService CRs are not Ready:
+    - nim-llm
+  ```
+- `kubectl get pods -n rag -l app.kubernetes.io/name=nim-llm` — `nim-llm-599f644859-kqbhz 1/1 Running` (60+ min uptime)
+- `kubectl logs nim-llm-...` — continuous `GET /v1/health/ready HTTP/1.1 200` responses; model loaded
+- `kubectl exec ... curl -X POST /v1/chat/completions` — returns real chat completion from `nvidia/nemotron-3-super-120b-a12b`
+- `kubectl get nimservice -n rag nim-llm`:
+  ```yaml
+  status:
+    conditions:
+    - type: Ready
+      status: "False"
+      reason: NIMCacheNotReady
+      message: NIMCache nim-llm-cache not ready
+      lastTransitionTime: "2026-05-05T22:53:11Z"   ← never updated since deploy
+    state: NotReady
+  ```
+- `kubectl get nimcache -n rag nim-llm-cache`:
+  ```yaml
+  status:
+    conditions:
+    - type: NIM_CACHE_JOB_COMPLETED
+      status: "False"
+      reason: JobFailed
+      message: The Job to cache NIM has failed
+    state: InProgress
+  ```
+- `kubectl get jobs -n rag` — `nim-llm-cache-job   Running   0/1   55m+`
+- `kubectl describe pod nim-llm-cache-job-qn466` (the stuck retry pod):
+  ```
+  Events:
+    Normal  Scheduled            Successfully assigned rag/nim-llm-cache-job-qn466 to 10.0.101.80
+    Warning FailedAttachVolume   Multi-Attach error for volume "csi-d03a658e-ffd5-4546-97e9-d6725cd81952"
+                                 Volume is already used by pod(s) nim-llm-599f644859-kqbhz
+  ```
+
+**Root cause:**
+
+1. nim-operator spawns the *initial* `nim-llm-cache-job` pod, which downloads the model to PVC `nim-llm-cache-pvc` (`accessModes: [ReadWriteOnce]`), succeeds, and is reaped.
+2. The Job object's `succeeded` field never increments (the operator's controller doesn't propagate the pod completion to the Job). The Job stays `Running 0/1`.
+3. The nim-llm Deployment pod claims the same RWO PVC, mounts it, loads the model from the cache, becomes Ready 1/1, and starts serving.
+4. nim-operator (k8s-nim-operator-3.1.0) sees the Job at `0/1 Running` and spawns a *retry* cache-job pod.
+5. The retry pod tries to mount the same RWO PVC. CSI returns `Multi-Attach error: Volume is already used by pod(s) nim-llm-...`. The retry pod is stuck in `Pending → ContainerCreating` indefinitely.
+6. Operator never reconciles `NIMCache.status.conditions[NIM_CACHE_JOB_COMPLETED]` to True, never flips `NIMService.status.conditions[Ready]` to True.
+7. `terraform_data.patch_nim_operator_resources` runs `kubectl wait --for=condition=Ready nimservice/nim-llm --timeout=30m`, hits the 30-min wall, returns non-zero. Terraform marks the apply FAILED.
+
+**Functional validation (smoke tests PASS):**
+
+```
+kubectl exec -n rag nim-llm-... -- curl -sS -X POST http://localhost:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"nvidia/nemotron-3-super-120b-a12b","messages":[{"role":"user","content":"Reply with one word: hello"}],"max_tokens":10}'
+
+→ 200 OK
+{
+  "id": "chatcmpl-94675323f71ed270",
+  "object": "chat.completion",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "choices": [{
+    "index": 0,
+    "message": {"role": "assistant", ...},
+    "finish_reason": "length"
+  }],
+  "usage": {"prompt_tokens": 22, "total_tokens": 32, "completion_tokens": 10}
+}
+```
+
+Model `nvidia/nemotron-3-super-120b-a12b` at FP8 quantization (`/model-store/.../snapshots/rl-030326-fp8/`), `max_model_len: 32768`, 38167/40960 MiB GPU0 utilization. Pack works. Customer can use the cluster.
+
+**Affected files:**
+
+- `ai-accelerator-tf/helm.tf:594` — `terraform_data.patch_nim_operator_resources` (the resource that times out)
+- `ai-accelerator-tf/helm.tf:761` — `terraform_data.patch_nim_operator_resources_via_operator` (same wait condition, will hit same issue)
+- nim-operator chart `k8s-nim-operator-3.1.0` — operator's spawn-retry logic for cache jobs
+- helm-values for nim-llm (rag chart `nvidia-blueprint-rag-v2.5.0`) — PVC `accessModes` defaults to `[ReadWriteOnce]`
+
+**Affected packs / sizes:**
+
+- `enterprise_rag/small` (BM.GPU4.8) — confirmed FAIL
+- `enterprise_rag_aiq/small` (BM.GPU4.8) — predicted FAIL (same nim-operator chart, same PVC pattern)
+- `enterprise_rag_aiq/medium` (BM.GPU.A100-v2.8) — predicted FAIL (same chart)
+
+**Repro:**
+
+1. Deploy `enterprise_rag/small` end-to-end (infra + app) on a healthy OKE cluster with BM.GPU4.8 + sufficient FSS.
+2. Observe app apply timeout at `patch_nim_operator_resources` after 30 min.
+3. Verify pod is Ready 1/1 and model is serving via `curl /v1/chat/completions`.
+4. Verify `nim-llm-cache-job-*` retry pod is stuck `FailedAttachVolume: Multi-Attach`.
+
+**Fix candidates:**
+
+- **(a) Switch PVC `accessModes` to `[ReadWriteMany]`.** OKE FSS-backed PVCs support RWX. Lets the nim-llm Deployment AND the retry cache-job pod coexist mounting the same PVC. Probably the cleanest one-line helm-values fix. Risk: needs FSS not block storage; need to verify default `oke-fss` storage class is used here.
+- **(b) Suppress operator retry-spawn once NIMCache state is otherwise satisfied.** Configure nim-operator via helm values to not spawn retry jobs when the underlying NIMService pod is Ready. Less code-localized; depends on operator chart parameters.
+- **(c) Split cache PVC and serving PVC.** Cache job mounts a temp PVC, copies the cached model to a separate read-only PVC that the nim-llm Deployment mounts. More invasive chart restructuring.
+- **(d) Widen the patcher's `kubectl wait` predicate** to accept the pod being Ready 1/1 even if the NIMService.status.conditions[Ready] is still False. Would unstick apply but masks the underlying operator bug.
+
+**Workaround for in-flight test (NOT for shipping):**
+
+```
+kubectl delete pod -n rag nim-llm-cache-job-qn466
+# But the operator will respawn it, leading to the same Multi-Attach loop
+```
+
+OR
+
+```
+kubectl patch nimservice -n rag nim-llm --subresource=status --type=merge \
+  -p '{"status":{"conditions":[{"type":"Ready","status":"True","lastTransitionTime":"2026-05-06T00:00:00Z","reason":"PodReady","message":"manual override"}],"state":"Ready"}}'
+# Then re-run apply — patch_nim_operator_resources should see Ready=True and complete
+```
+
+(Manual subresource patch — NOT a release-acceptable workaround, but demonstrates the bug is purely in the CR status reconciliation layer, not the actual data path.)
+
+**Stack OCIDs where this was observed:**
+
+- App stack: `ocid1.ormstack.oc1.us-sanjose-1.amaaaaaam3augwaa34uz2j72yv65fhw5hm3izvlyzc23vjqzexog2z4qhfza`
+- Failed app job: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaljqfroyb6c3sijbif2cqrxumus47p5b5lzdsd4vfyamq`
+- Infra stack: `ocid1.ormstack.oc1.us-sanjose-1.amaaaaaam3augwaa36wqai2lpepvs3uymr2lntnotlzc4luju5itmeu52aqa`
+- OKE cluster: `ocid1.cluster.oc1.us-sanjose-1.aaaaaaaaldpn7mp443ajpejixedo6enlgp7n4vo3uo2re3fgkc7qxne25emq` (`AI-Accel-OKE-oTKAI4`)
+- Region: `us-sanjose-1`, AD: `TrcQ:US-SANJOSE-1-AD-1`
+
+**Decision for v0.0.8 release:**
+
+Two paths:
+- **Ship v0.0.8 with documented workaround:** Pack is functionally correct (smoke tests pass). Customers following docs will see "FAILED" in ORM Console — that's a poor experience but the cluster is usable. Document in known-issues that the apply will show FAILED but the pack is ready for use.
+- **Hold for v0.0.9 with fix candidate (a):** One-line PVC accessModes change (RWO → RWX), rebuild zip, retest. Tactical risk: short.
+
+Recommend **fix candidate (a)** for v0.0.9 unless ship pressure is acute, in which case ship v0.0.8 with workaround docs and fold the fix into v0.0.9.
+
+**Cross-references:**
+- BUG-028 (Open, 2026-05-04): nim-llm Pending due to `label_nim_llm_node` removal — **fix VALIDATED by this run** (no Pending, no FailedScheduling)
+- BUG-029 (Open, 2026-05-04): destroy hangs on orphan NIMCache CRs — UNTESTED in this run (no destroy yet)
+- BUG-022 (Open, 2026-04-29): NIM Operator post-deploy patcher deadlocks — different deadlock mode (helm release ordering); BUG-032 is a separate operator-side reconciliation issue

@@ -7,7 +7,7 @@
 # 3. Create endpoint binding the model to the DAC
 
 locals {
-  needs_dac = var.starter_pack_category == "dox_pack"
+  needs_dac = var.starter_pack_category == "dox_pack" && local.deploy_application
   # OpenAI-compatible inference URL for the DAC endpoint
   dac_inference_url = local.needs_dac && length(oci_generative_ai_endpoint.qwen3_vl_endpoint) > 0 ? "https://inference.generativeai.${var.genai_region}.oci.oraclecloud.com/${oci_generative_ai_endpoint.qwen3_vl_endpoint[0].id}/v1/chat/completions" : ""
   # Extract a short display name from the model ID (e.g. "Qwen3-VL-235B-A22B-Instruct" from "Qwen/Qwen3-VL-235B-A22B-Instruct")
