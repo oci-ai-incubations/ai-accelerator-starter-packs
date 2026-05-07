@@ -35,6 +35,14 @@ Anti-patterns and pitfalls discovered during real releases. Read this before sta
 
 - `/testing-pack` Phase 5b documents the cleanup command
 
+**Versioned Object Storage buckets can block app destroy.** `paas_rag` and `dox_pack` uploads can leave object versions/delete markers behind. Normal object listing can look empty while `list-object-versions` still has entries, causing app destroy to fail with `409-BucketNotEmpty`.
+
+- Before leaving a `paas_rag`/`dox_pack` app stack, record `paas_rag_bucket_name` and `object_storage_namespace`
+- After app destroy, verify the bucket is gone
+- If destroy fails, purge object versions/delete markers and retry app destroy
+- If the bucket remains after app destroy completes, delete the orphaned bucket before proceeding to infra destroy or the next CPU pack
+- `/testing-pack` Phase 7b documents the cleanup command
+
 ## Terraform Destroy Provisioners
 
 **Destroy-time provisioners cannot reference external resources in Terraform 1.5.** When adding `provisioner "local-exec" { when = destroy }` blocks:
