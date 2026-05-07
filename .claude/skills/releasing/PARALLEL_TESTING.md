@@ -83,6 +83,8 @@ After Round 1 completes:
 After Round 2, destroy both stacks and clean up.
 ```
 
+For `track3-cpu` (`paas_rag` then `dox_pack`), do NOT use the bare-metal back-to-back flow above. CPU packs should destroy both stacks between rounds. Before leaving a `paas_rag` or `dox_pack` app stack page, record `paas_rag_bucket_name` and `object_storage_namespace`. After app destroy, verify that bucket is gone. If destroy fails with `BucketNotEmpty`, run `/testing-pack` Phase 7b's Object Storage cleanup, retry app destroy, then delete any orphaned bucket that still exists. Only then destroy infra and start the next pack fresh.
+
 ## Browser Isolation
 
 Each teammate MUST use a unique, isolated browser session.

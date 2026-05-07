@@ -144,17 +144,17 @@ Group packs by GPU shape. **Back-to-back infra reuse is only for bare metal (BM.
 Check `worker_node_shape` in `vars.tf` → `local.starter_pack_configs` for each pack/size:
 - Shape starts with `BM.` → eligible for back-to-back switching (preserve infra between rounds)
 - Shape starts with `VM.` → must destroy both stacks between rounds (fresh infra each pack)
-- Shape is `none` (CPU) → single round, no switching needed
+- Shape is `none` (CPU) → destroy both stacks between packs unless the track has only one pack
 
 For the default test matrix (poc/small sizes):
 
 - **Track 1 (BM.GPU4.8):** enterprise_rag/small then enterprise_rag_aiq/small — back-to-back (destroy app, re-apply infra, new app)
 - **Track 2 (VM.GPU.A10):** vss/poc, cuopt/poc, warehouse_pick_path/small — sequential with full destroy between rounds (all use VM.GPU.A10.x shapes)
-- **Track 3 (CPU):** paas_rag/small, dox_pack/small -- sequential (CPU-only, no GPU)
+- **Track 3 (CPU):** paas_rag/small, dox_pack/small -- sequential with full destroy between rounds. After each `paas_rag`/`dox_pack` app destroy, verify the Object Storage bucket from the app stack output is gone; if destroy fails with `409-BucketNotEmpty`, purge object versions/delete markers and retry app destroy. If a bucket still remains after app destroy completes, delete that orphaned bucket before moving on.
 
 Present the track plan to the user and confirm. Adjust if they want different groupings.
 
-**Key principle:** Back-to-back switching only applies when rounds share the same BM worker_node_shape. For BM tracks, re-apply infra every round so the cluster matches the new pack's config. For VM tracks, destroy everything and create fresh stacks — VMs provision in minutes, and preserving infra risks stale container images filling ephemeral storage (BUG-012) and stale taints blocking scheduling (BUG-009).
+**Key principle:** Back-to-back switching only applies when rounds share the same BM worker_node_shape. For BM tracks, re-apply infra every round so the cluster matches the new pack's config. For VM and CPU tracks, destroy everything and create fresh stacks — these resources provision quickly enough that preserving infra is not worth stale state risk. For Object Storage packs (`paas_rag`, `dox_pack`), bucket deletion is part of the between-pack cleanup gate.
 
 ### 3c. Check resource capacity per track
 
@@ -207,7 +207,8 @@ Each teammate message should include:
 4. Instruction to invoke `/testing-pack <category> <size> --zip-path release_test_matrix/<VERSION>_<category>.zip` — this uses the pre-built release zip directly, skipping worktree creation and zip rebuilding. This ensures teammates test the exact zips that will ship to users and avoids race conditions on shared temp files.
 5. For **BM tracks** (back-to-back): instruction to destroy the app stack (preserve infra), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` for the second pack
 6. For **VM tracks** (sequential fresh): instruction to destroy both stacks (app first, then infra), clean up resources (customer secret keys, orphaned ADB), then invoke `/testing-pack <category2> <size2> --zip-path release_test_matrix/<VERSION>_<category2>.zip` fresh (creates new infra + app stacks)
-7. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
+7. For **CPU/Object Storage tracks** (`paas_rag`, `dox_pack`): instruction to destroy both stacks between packs, app first. Before leaving the app stack page, record `paas_rag_bucket_name` and `object_storage_namespace`. After app destroy, verify the bucket is deleted. If the destroy job fails with `BucketNotEmpty`, run `/testing-pack` Phase 7b's Object Storage cleanup, retry app destroy, then delete any orphaned bucket that still exists. Only then destroy infra or start the next pack.
+8. `PR_NUMBER=<number>` — the GitHub PR number for posting test progress and results
 
 ### 4c. Launch monitor teammate
 

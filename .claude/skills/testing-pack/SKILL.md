@@ -601,7 +601,89 @@ pr-<PR_NUMBER>/
 
 Skip this step if no PR number was set.
 
-### 7b. Cleanup worktree
+### 7b. Object Storage post-destroy cleanup handoff (`paas_rag` / `dox_pack`)
+
+If the tested category is `paas_rag` or `dox_pack`, record the Object Storage bucket details before closing the app stack browser page:
+
+- `paas_rag_bucket_name` from the app stack's Application Information tab
+- `object_storage_namespace` from the app stack's Application Information tab
+- app stack OCID and region
+
+When this pack is destroyed, the teardown owner MUST verify the bucket is gone before moving to the next pack or destroying infra. The app stack destroy normally deletes the bucket. If app destroy fails with `409-BucketNotEmpty`, or if the bucket still exists after destroy, purge current objects plus versioned objects/delete markers, then retry app destroy if the stack still has state.
+
+```bash
+export OCI_CLI_PROFILE=<profile>
+REGION=<region>
+APP_STACK_ID=<app_stack_ocid>
+BUCKET=<paas_rag_bucket_name_from_application_information>
+NAMESPACE=<object_storage_namespace_from_application_information>
+RETRY_APP_DESTROY=true  # set false if the app destroy job already SUCCEEDED
+
+# Nothing to do if Terraform already deleted the bucket.
+if ! oci os bucket get --bucket-name "${BUCKET}" --namespace-name "${NAMESPACE}" --region "${REGION}" >/dev/null 2>&1; then
+  echo "Bucket ${BUCKET} is already deleted."
+  exit 0
+fi
+
+# If the app destroy failed with BucketNotEmpty, purge current objects first.
+oci os object bulk-delete --bucket-name "${BUCKET}" --namespace-name "${NAMESPACE}" --region "${REGION}" --force --include '*' || true
+
+# Then purge versioned objects/delete markers. These are what normal list/bulk-delete misses.
+oci os object list-object-versions --bucket-name "${BUCKET}" --namespace-name "${NAMESPACE}" --region "${REGION}" --all --output json | python3 -c '
+import json
+import subprocess
+import sys
+
+bucket, namespace, region = sys.argv[1:4]
+payload = json.load(sys.stdin)
+data = payload.get("data") or {}
+items = data.get("items") if isinstance(data, dict) else data
+items = items or []
+
+for item in items:
+    name = item.get("name")
+    version_id = item.get("version-id") or item.get("versionId")
+    if not name or not version_id:
+        continue
+    subprocess.run([
+        "oci", "os", "object", "delete",
+        "--bucket-name", bucket,
+        "--namespace-name", namespace,
+        "--region", region,
+        "--name", name,
+        "--version-id", version_id,
+        "--force",
+    ], check=False)
+
+print(f"purged {len(items)} object versions/delete markers from {bucket}")
+' "${BUCKET}" "${NAMESPACE}" "${REGION}"
+
+# If the previous app destroy failed, retry it now before touching infra.
+if [ "${RETRY_APP_DESTROY}" = "true" ]; then
+  DESTROY_JOB_ID=$(oci resource-manager job create-destroy-job \
+    --stack-id "${APP_STACK_ID}" \
+    --region "${REGION}" \
+    --execution-plan-strategy AUTO_APPROVED \
+    --query 'data.id' \
+    --raw-output)
+  echo "Retry destroy job: ${DESTROY_JOB_ID}"
+  # Poll this job until it reaches SUCCEEDED or FAILED before continuing.
+fi
+
+# After app destroy is complete, delete any orphaned empty bucket that remains.
+if oci os bucket get --bucket-name "${BUCKET}" --namespace-name "${NAMESPACE}" --region "${REGION}" >/dev/null 2>&1; then
+  oci os bucket delete \
+    --bucket-name "${BUCKET}" \
+    --namespace-name "${NAMESPACE}" \
+    --region "${REGION}" \
+    --empty \
+    --force
+fi
+```
+
+Do NOT proceed to infra destroy or the next CPU pack until the app destroy job has `SUCCEEDED` and `oci os bucket get` returns NotFound for the recorded bucket. Include `Object Storage bucket: deleted` or `not applicable` in the final report.
+
+### 7c. Cleanup worktree
 
 ```bash
 cd /tmp
@@ -609,7 +691,7 @@ git worktree remove "${WORKTREE_PATH}" --force 2>/dev/null
 agent-browser --session $SESSION_NAME close 2>/dev/null
 ```
 
-### 7c. Report
+### 7d. Report
 
 Present a structured summary:
 
@@ -657,6 +739,9 @@ ISSUES:
 STACK IDs:
   Infra: <ocid>
   App:   <ocid>
+
+POST-DESTROY HANDOFF:
+  Object Storage bucket: <deleted / cleanup required / not applicable>
 =============================================
 ```
 
