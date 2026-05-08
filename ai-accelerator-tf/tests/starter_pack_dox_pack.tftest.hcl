@@ -83,4 +83,20 @@ run "plan_dox_pack_small" {
     condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
+
+  # dox_pack must not inherit the generic skin frontend from paas_rag.
+  assert {
+    condition     = local._dox_pack_base_deployment_names == ["llamastack"]
+    error_message = "dox_pack blueprint base should inherit only LlamaStack from paas_rag"
+  }
+
+  # The contract-backend image reads ORACLE_* settings; DB_* is retained for
+  # compatibility but is not enough to boot the current container image.
+  assert {
+    condition = alltrue([
+      for required_key in ["ORACLE_USER", "ORACLE_PASSWORD", "ORACLE_DSN"] :
+      contains([for env_pair in local._dox_pack_backend_env : env_pair.key], required_key)
+    ])
+    error_message = "dox-backend must pass ORACLE_USER, ORACLE_PASSWORD, and ORACLE_DSN to the backend image"
+  }
 }

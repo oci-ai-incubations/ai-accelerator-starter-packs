@@ -1612,7 +1612,10 @@ locals {
   # Shares one 26ai database across all services.
   # -----------------------------------
 
-  # Take paas_rag's deployments, remove the OracleNet frontend.
+  # Take paas_rag's LlamaStack deployment only. dox_pack has its own
+  # contract backend and frontend wiring.
+  _dox_pack_base_deployment_names = ["llamastack"]
+
   # Category guard inline in the if-clause keeps the result type consistent
   # (always a list of deployment objects, just empty when dox_pack isn't
   # the selected category). Pairs with the gated _dox_pack_small_blueprint
@@ -1630,7 +1633,25 @@ locals {
         ]
       })
     }) : d
-    if d.name != "frontend" && var.starter_pack_category == "dox_pack"
+    if contains(local._dox_pack_base_deployment_names, d.name) && var.starter_pack_category == "dox_pack"
+  ]
+
+  _dox_pack_backend_env = [
+    { "key" = "DB_MODE", value = "oracle" },
+    { "key" = "DB_USER", value = var.db_username },
+    { "key" = "DB_PASSWORD", value = var.db_password },
+    { "key" = "DB_DSN", value = local.oracle26ai_high_connection_string },
+    { "key" = "ORACLE_USER", value = var.db_username },
+    { "key" = "ORACLE_PASSWORD", value = var.db_password },
+    { "key" = "ORACLE_DSN", value = local.oracle26ai_high_connection_string },
+    { "key" = "GENAI_INFERENCE_ENDPOINT", value = local.dac_inference_url },
+    { "key" = "GENAI_MODEL", value = "/models/${var.dac_model_id}" },
+    { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
+    { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
+    { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
+    { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
+    { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-documents" },
+    { "key" = "PYTHONUNBUFFERED", value = "1" },
   ]
 
   _dox_pack_small_blueprint = var.starter_pack_category == "dox_pack" ? jsonencode({
@@ -1653,20 +1674,7 @@ locals {
             recipe_use_shared_node_pool           = true
             recipe_container_port                 = "8000"
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
-            recipe_container_env = [
-              { "key" = "DB_MODE", value = "oracle" },
-              { "key" = "DB_USER", value = var.db_username },
-              { "key" = "DB_PASSWORD", value = var.db_password },
-              { "key" = "DB_DSN", value = local.oracle26ai_high_connection_string },
-              { "key" = "GENAI_INFERENCE_ENDPOINT", value = local.dac_inference_url },
-              { "key" = "GENAI_MODEL", value = "/models/${var.dac_model_id}" },
-              { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
-              { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
-              { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
-              { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
-              { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-documents" },
-              { "key" = "PYTHONUNBUFFERED", value = "1" },
-            ]
+            recipe_container_env                  = local._dox_pack_backend_env
           }
         },
         {
