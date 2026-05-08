@@ -1,13 +1,11 @@
 version: 2
 distro_name: oci-blueprints
 apis:
-- agents
-- datasetio
-- eval
+- file_processors
 - files
 - inference
+- responses
 - safety
-- scoring
 - tool_runtime
 - vector_io
 providers:
@@ -24,22 +22,17 @@ providers:
   - provider_id: oci
     provider_type: remote::oci
     config:
-      conn_str: "${env.OCI26AI_CONNECTION_STRING}"
-      user: "${env.OCI26AI_USER}"
-      password: "${env.OCI26AI_PASSWORD}"
-      vector_datatype: "${env.OCI26AI_VECTOR_DATATYPE:=FLOAT32}"
-      distance_metric: "${env.OCI26AI_DISTANCE_METRIC:=COSINE}"
+      conn_str: ${env.OCI26AI_CONNECTION_STRING}
+      user: ${env.OCI26AI_USER}
+      password: ${env.OCI26AI_PASSWORD}
+      vector_datatype: ${env.OCI26AI_VECTOR_DATATYPE:=FLOAT32}
+      distance_metric: ${env.OCI26AI_DISTANCE_METRIC:=COSINE}
       persistence:
         namespace: vector_id::oci26ai
         backend: kv_default
-  # safety:
-  # - provider_id: llama-guard
-  #   provider_type: inline::llama-guard
-  #   config:
-  #     excluded_categories: []
-  agents:
-  - provider_id: meta-reference
-    provider_type: inline::meta-reference
+  responses:
+  - provider_id: builtin
+    provider_type: inline::builtin
     config:
       persistence:
         agent_state:
@@ -50,35 +43,6 @@ providers:
           backend: sql_default
           max_write_queue_size: 10000
           num_writers: 4
-  eval:
-  - provider_id: meta-reference
-    provider_type: inline::meta-reference
-    config:
-      kvstore:
-        namespace: eval
-        backend: kv_default
-  datasetio:
-  - provider_id: huggingface
-    provider_type: remote::huggingface
-    config:
-      kvstore:
-        namespace: datasetio::huggingface
-        backend: kv_default
-  - provider_id: localfs
-    provider_type: inline::localfs
-    config:
-      kvstore:
-        namespace: datasetio::localfs
-        backend: kv_default
-  scoring:
-  - provider_id: basic
-    provider_type: inline::basic
-  - provider_id: llm-as-judge
-    provider_type: inline::llm-as-judge
-  - provider_id: braintrust
-    provider_type: inline::braintrust
-    config:
-      openai_api_key: ${env.OPENAI_API_KEY:=}
   tool_runtime:
   - provider_id: brave-search
     provider_type: remote::brave-search
@@ -90,19 +54,22 @@ providers:
     config:
       api_key: ${env.TAVILY_SEARCH_API_KEY:=}
       max_results: 3
-  - provider_id: rag-runtime
-    provider_type: inline::rag-runtime
+  - provider_id: file-search
+    provider_type: inline::file-search
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
+  file_processors:
+  - provider_id: auto
+    provider_type: inline::auto
   files:
   - provider_id: oci
     provider_type: remote::s3
     config:
-      bucket_name: "${env.S3_BUCKET_NAME}"
-      region: "${env.AWS_REGION:=us-east-1}"
-      aws_access_key_id: "${env.AWS_ACCESS_KEY_ID:=}"
-      aws_secret_access_key: "${env.AWS_SECRET_ACCESS_KEY:=}"
-      endpoint_url: "${env.S3_ENDPOINT_URL:=}"
+      bucket_name: ${env.S3_BUCKET_NAME}
+      region: ${env.AWS_REGION:=us-east-1}
+      aws_access_key_id: ${env.AWS_ACCESS_KEY_ID:=}
+      aws_secret_access_key: ${env.AWS_SECRET_ACCESS_KEY:=}
+      endpoint_url: ${env.S3_ENDPOINT_URL:=}
       metadata_store:
         table_name: files_metadata
         backend: sql_default
@@ -110,10 +77,10 @@ storage:
   backends:
     kv_default:
       type: kv_sqlite
-      db_path: ${env.SQLITE_STORE_DIR:=~/.ogx/distributions/oci}/kvstore.db
+      db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/oci}/kvstore.db
     sql_default:
       type: sql_sqlite
-      db_path: ${env.SQLITE_STORE_DIR:=~/.ogx/distributions/oci}/sql_store.db
+      db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/oci}/sql_store.db
   stores:
     metadata:
       namespace: registry
@@ -139,8 +106,8 @@ registered_resources:
   tool_groups:
   - toolgroup_id: builtin::websearch
     provider_id: tavily-search
-  - toolgroup_id: builtin::rag
-    provider_id: rag-runtime
+  - toolgroup_id: builtin::file_search
+    provider_id: file-search
 server:
   port: 8321
   auth:
@@ -148,17 +115,22 @@ server:
       type: custom
       endpoint: ${env.AUTH_VALIDATE_ENDPOINT:=http://localhost:8080/auth/validate}
     access_policy:
-      - permit:
-          actions: [create, read, update, delete]
-        when: ["user is owner"]
+    - permit:
+        actions:
+        - create
+        - read
+        - update
+        - delete
+      when:
+      - user is owner
 vector_stores:
   file_search_params:
-    header_template: 'knowledge_search tool found {num_chunks} chunks:
+    header_template: 'file_search tool found {num_chunks} chunks:
 
-      BEGIN of knowledge_search tool results.
+      BEGIN of file_search tool results.
 
       '
-    footer_template: 'END of knowledge_search tool results.
+    footer_template: 'END of file_search tool results.
 
       '
   context_prompt_params:
@@ -177,9 +149,9 @@ vector_stores:
   annotation_prompt_params:
     enable_annotations: true
     annotation_instruction_template: Cite sources immediately at the end of sentences
-      before punctuation, using `<|file-id|filename|>` format like 'This is a fact <|file-Cn3MSNn72ENTiiq11Qda4A|filename.txt|>.'.
-      Do not add extra punctuation. Use only the file IDs and filenames provided, do not invent
-      new ones.
+      before punctuation, using `<|file-id|filename|>` format like 'This is a fact
+      <|file-Cn3MSNn72ENTiiq11Qda4A|filename.txt|>.'. Do not add extra punctuation.
+      Use only the file IDs and filenames provided, do not invent new ones.
     chunk_annotation_template: '[{index}] {metadata_text} cite as <|{file_id}|>
 
       {chunk_text}
