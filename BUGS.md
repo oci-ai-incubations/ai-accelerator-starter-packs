@@ -36,6 +36,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Invalid | BUG-030 | (RETRACTED 2026-05-05 19:55Z) Original hypothesis (GPU-taint blocking coredns) was wrong; actual cause was OCI Out-of-Host-Capacity for VM.Standard.E5.Flex in uk-london-1 AD-1 — capacity issue, not a code bug. Do NOT implement the proposed fix. | — | 2026-05-05 |
 | Open | BUG-031 | dox_pack two-stack model fails — DAC + imported_model + endpoint not gated on `deploy_application` | High | 2026-05-05 |
 | Open | BUG-032 | enterprise_rag App apply fails — NIMCache RWO PVC Multi-Attach when nim-operator spawns cache-job retry while nim-llm Deployment holds the PVC; pack functionally works but `terraform_data.patch_nim_operator_resources` 30m timeout marks apply FAILED | High | 2026-05-05 |
+| Open | BUG-033 | dox_pack contract-backend pod CrashLoopBackOff — ADB wallet not mounted, `TNS_ADMIN` unset → `oracledb DPY-4027: no configuration directory specified`; frontend cascades to HTTP 503 | High | 2026-05-07 |
+| Fixed | BUG-034 | warehouse_pick_path schema missing `worker_node_availability_domain` override — wizard hides field with no default, capacity_check.tf precondition fast-fails apply with empty AD value | High | 2026-05-08 |
 
 ---
 
@@ -1617,3 +1619,194 @@ Recommend **fix candidate (a)** for v0.0.9 unless ship pressure is acute, in whi
 - BUG-028 (Open, 2026-05-04): nim-llm Pending due to `label_nim_llm_node` removal — **fix VALIDATED by this run** (no Pending, no FailedScheduling)
 - BUG-029 (Open, 2026-05-04): destroy hangs on orphan NIMCache CRs — UNTESTED in this run (no destroy yet)
 - BUG-022 (Open, 2026-04-29): NIM Operator post-deploy patcher deadlocks — different deadlock mode (helm release ordering); BUG-032 is a separate operator-side reconciliation issue
+
+### BUG-033: dox_pack contract-backend pod CrashLoopBackOff — ADB wallet not mounted, TNS_ADMIN unset
+
+**Status:** Open
+**Date found:** 2026-05-07
+**Found by:** Grant via track3-cpu during v0.0.8 release re-test (dox_pack/small Round 2, us-sanjose-1), exposed by BUG-031 fix unblocking the app apply path
+**Severity:** High (release-correctness blocker for `dox_pack` — frontend serves HTTP 503 because contract-backend cannot connect to ADB)
+
+**TL;DR:** The dox_pack `recipe-contract-backend-*` pod CrashLoopBackOffs at startup with `oracledb.exceptions.DatabaseError: DPY-4027: no configuration directory specified` because the deployment uses a TCPS DSN to Autonomous Database but never mounts the ADB wallet bundle and never sets `TNS_ADMIN`. The cascading failure takes down `recipe-skin-dox-pack-core-*` (nginx upstream lookup of `contract-backend-svc` fails), which makes the public ingress respond HTTP 503. **This is NOT a BUG-031 regression** — it is a pre-existing dox_pack blueprint config gap that was masked while BUG-031 prevented the app stack from ever finishing apply.
+
+**Symptoms:**
+
+- ORM app stack apply: **SUCCEEDED** (DAC, imported model, endpoint, all helm releases, blueprint deployment all green)
+- Public ingress (`https://dox-pack.<deploy-id>.nip.io`) returns **HTTP 503 Service Temporarily Unavailable**
+- `kubectl get pods -n default`:
+  ```
+  recipe-contract-backend-dox-pa-553ee34f-98d9f7866-rfq7x    0/1   CrashLoopBackOff   13 (3m42s ago)   45m
+  recipe-dox-frontend-dox-pack-4-553ee34f-5499978dd6-shm4z   1/1   Running            0                45m
+  recipe-llamastack-dox-pack-41b-553ee34f-6495968d4f-96dpw   1/1   Running            0                45m
+  recipe-skin-dox-pack-core-dox--553ee34f-686fd9f9fc-lrdwc   0/1   CrashLoopBackOff   13 (3m38s ago)   45m
+  ```
+- `kubectl logs recipe-contract-backend-...` (tail):
+  ```
+  File "/app/database.py", line 33, in _oracle_creator
+    return oracledb.connect(...)
+  File ".../oracledb/impl/base/connect_params.pyx", line 1206, in TnsnamesFileReader.read_tnsnames
+  sqlalchemy.exc.DatabaseError: (oracledb.exceptions.DatabaseError) DPY-4027: no configuration directory specified
+  ERROR:    Application startup failed. Exiting.
+  ```
+- `kubectl logs recipe-skin-dox-pack-core-...` (tail):
+  ```
+  2026/05/07 23:22:27 [emerg] 1#1: host not found in upstream "contract-backend-svc" in /etc/nginx/conf.d/default.conf:14
+  nginx: [emerg] host not found in upstream "contract-backend-svc" in /etc/nginx/conf.d/default.conf:14
+  ```
+- `kubectl get deploy recipe-contract-backend-* -o json | jq`:
+  ```json
+  {
+    "envFrom": null,
+    "volumes": null,
+    "volumeMounts": null,
+    "has_TNS_ADMIN": false
+  }
+  ```
+- The deployment env DOES contain a TCPS DSN:
+  ```
+  DB_MODE=oracle
+  DB_USER=ADMIN
+  DB_PASSWORD=<redacted>
+  DB_DSN=tcps://aiaccel<id>.adb.us-sanjose-1.oraclecloud.com:1521/<id>_aiacceloracle26ai<id>_high.adb.oraclecloud.com
+  ```
+
+**Root cause:**
+
+`python-oracledb` in thin mode using a TCPS DSN against Autonomous Database requires either:
+1. The wallet bundle's `tnsnames.ora` + `sqlnet.ora` available in a directory pointed to by `TNS_ADMIN`, OR
+2. The wallet/connection-string parameters passed explicitly to `oracledb.connect(config_dir=..., wallet_location=..., wallet_password=...)`.
+
+The dox_pack contract-backend blueprint:
+- Sets `DB_DSN=tcps://...` (correct DSN format for ADB mTLS)
+- Does NOT set `TNS_ADMIN` env var
+- Does NOT include an `envFrom` block referencing a wallet ConfigMap/Secret
+- Does NOT include a `volumes` entry for the wallet, and therefore no `volumeMounts` either
+
+So at pod startup, `oracledb.connect(dsn=DB_DSN, ...)` triggers the TNS-names file reader, which has no `TNS_ADMIN` and no wallet to read, and raises `DPY-4027`. SQLAlchemy wraps it and FastAPI exits during application startup. K8s restarts → CrashLoopBackOff.
+
+**Why this was masked until now:**
+
+BUG-031 (dox_pack DAC double-declared) prevented the dox_pack app stack from ever completing `terraform apply`. The stack always failed at the GenAI DAC creation step (400-LimitExceeded contention with the same DAC declared in the infra stack). The contract-backend blueprint deployment never ran. The wallet/TNS_ADMIN gap therefore was never observed in any prior apply.
+
+With BUG-031 fixed (commit `215f5ee`, `genai_dac.tf:10` adds `&& local.deploy_application` gate), the app apply now goes all the way through to the blueprint deploy job, the contract-backend Deployment is created, the pod boots, and BUG-033 surfaces.
+
+**Affected files:**
+
+- `ai-accelerator-tf/blueprint_files.tf` — dox_pack blueprint payload likely missing wallet mount + `TNS_ADMIN` env in the contract-backend recipe component
+- `ai-accelerator-tf/helm-values/` — if a dox_pack-specific helm-values file backs the contract-backend chart, wallet/envFrom config belongs there too
+- ADB resource declaration (likely `app-*.tf`) — wallet bundle is currently being created/used at infra-time but no mechanism exposes it to runtime pods
+
+**Affected packs / sizes:**
+
+- `dox_pack/small` (us-sanjose-1, GenAI eu-frankfurt-1) — confirmed FAIL
+- All dox_pack sizes — predicted FAIL (same blueprint contract-backend recipe)
+
+**Repro:**
+
+1. Deploy `dox_pack/small` end-to-end (infra two-stack model + app two-stack model) on a healthy OKE cluster with adequate DAC quota in `genai_region` and BUG-031 fix applied.
+2. Wait for app apply SUCCESS.
+3. `kubectl get pods -n default | grep contract-backend` — CrashLoopBackOff.
+4. `kubectl logs <contract-backend-pod>` — `DPY-4027: no configuration directory specified`.
+5. `curl https://dox-pack.<deploy-id>.nip.io/` — HTTP 503.
+
+**Fix candidates:**
+
+- **(a) Mount the ADB wallet via Secret + set TNS_ADMIN.** Create a Kubernetes Secret containing the wallet ZIP contents (`tnsnames.ora`, `sqlnet.ora`, `cwallet.sso`, etc.). Add `volumes:` referencing the Secret, `volumeMounts: [{ mountPath: /opt/oracle/wallet, name: adb-wallet }]`, and `env: [{ name: TNS_ADMIN, value: /opt/oracle/wallet }]` to the contract-backend deployment. This mirrors how paas_rag wires its ADB wallet (verify by reading paas_rag blueprint's contract-backend equivalent — paas_rag connects to Oracle 26ai ADB the same way and works, so the wiring exists somewhere in the codebase).
+- **(b) Switch to oracledb wallet-in-DSN format.** Use `oracledb.connect(dsn=<easy-connect-with-wallet>, wallet_location=..., wallet_password=...)` with the wallet bytes pulled from a Secret at runtime. More invasive (requires changing `database.py` in the contract-backend container image).
+- **(c) Use OCI Vault Service for wallet.** Init container fetches wallet from OCI Vault, writes to emptyDir volume, sets TNS_ADMIN. Heavier; better long-term posture.
+
+Recommend **fix candidate (a)** — it matches existing patterns in the codebase (paas_rag does this), is one Terraform diff, and avoids changing the contract-backend container image.
+
+**Stack OCIDs where this was observed:**
+
+- App stack: `ocid1.ormstack.oc1.us-sanjose-1.amaaaaaam3augwaaekqpwcisf3vaexlzdci5rjrg4wlbokq6mn5a2doquglq`
+- App job (SUCCEEDED): `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaaehfhwycibl3y5vv2r6qo65m3wm4tkmuze3uqlaxzmk7q`
+- Infra stack: `ocid1.ormstack.oc1.us-sanjose-1.amaaaaaam3augwaaeqhfumfseqm6d4gypcytxhwrnhncw23vgwuptpociirq`
+- OKE cluster region: `us-sanjose-1`
+- GenAI region: `eu-frankfurt-1`
+
+**Decision for v0.0.8 release:**
+
+This is a **pre-existing config gap**, NOT a regression introduced by the v0.0.8 schema fixes (BUG-025/026/027). It was masked by BUG-031 in all prior dox_pack runs. Disposition options:
+- **Ship v0.0.8 without dox_pack:** Drop dox_pack from the v0.0.8 supported-pack matrix until BUG-033 is fixed. dox_pack was a candidate-pack anyway; cuopt/vss/paas_rag/enterprise_rag/enterprise_rag_aiq were the in-scope packs.
+- **Hold for v0.0.9 with fix candidate (a):** Add wallet Secret + volumeMount + TNS_ADMIN to dox_pack blueprint. Tactical risk: medium (need to confirm wallet bundle availability at blueprint render time).
+
+Recommend **ship v0.0.8 without dox_pack in the supported matrix**, fold fix into v0.0.9.
+
+**Cross-references:**
+- BUG-031 (Open, 2026-05-05): dox_pack DAC double-declared — **fix VALIDATED end-to-end by this run** (DAC quota fra used=8 from app stack only); BUG-033 was previously masked by BUG-031
+
+---
+
+### BUG-034: warehouse_pick_path schema missing `worker_node_availability_domain` override → ORM apply fast-fails
+
+**Status:** Fixed (commit pending on `release_v0.0.8`)
+**Date found:** 2026-05-08
+**Found by:** Grant + track2-a10 during v0.0.8 release re-test (wpp/small Round 3, us-sanjose-1)
+**Severity:** High (release-correctness blocker for `warehouse_pick_path` — apply cannot succeed via ORM wizard without manual stack-update var patch)
+
+**TL;DR:** `warehouse_pick_path_schema.yaml` did not override the common schema's `worker_node_availability_domain: visible: false` declaration, so the ORM wizard hid the field with no default. wpp uses `worker_node_shape = "VM.GPU.A10.1"` (GPU pack), and `capacity_check.tf:271` has a precondition `local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""` — empty AD value fast-fails apply in 1m17s with `Error: Resource precondition failed`. End users following the wizard cannot deploy wpp without a runtime workaround.
+
+**Symptoms:**
+
+- ORM wpp INFRA apply FAILED at 1m17s elapsed (way too fast for real apply — indicates precondition/var validation error)
+- Job log error excerpt:
+  ```
+  Error: Resource precondition failed
+    on capacity_check.tf line 271, in resource "terraform_data" "capacity_validated":
+   271:       condition     = local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""
+      ├────────────────
+      │ local.starter_pack_config.worker_node_shape is "VM.GPU.A10.1"
+      │ var.worker_node_availability_domain is ""
+  worker_node_availability_domain is required for GPU starter packs (cuopt,
+  vss, enterprise_rag). It is optional for paas_rag.
+  ```
+- ORM wizard never showed the AD field for the user to fill in
+- Comparing `cuopt_schema.yaml` / `vss_schema.yaml` / `enterprise_rag_schema.yaml` / `enterprise_rag_aiq_schema.yaml`: all four override `worker_node_availability_domain` with `visible: true, required: true` and add it to the appropriate `variableGroup`. Only `warehouse_pick_path_schema.yaml` was missing the override.
+
+**Root cause:**
+
+When the warehouse_pick_path pack was added, the schema author forgot to mirror the per-pack override pattern from cuopt/vss for the `worker_node_availability_domain` field. The common schema declares the variable as `visible: false` (defaulting to "system uses this internally, no user input"), and each GPU pack must explicitly override it to `visible: true, required: true` in its own schema file. Without the override, the ORM wizard hides the field, the variable lands as `""`, and the GPU-precondition gate triggers.
+
+**Affected files:**
+
+- `ai-accelerator-tf/schemas/warehouse_pick_path_schema.yaml` — missing the override block + `variableGroups` entry
+- `ai-accelerator-tf/capacity_check.tf` — error message at line 272 omits `warehouse_pick_path` and `enterprise_rag_aiq` from the GPU pack list (cosmetic but misleading)
+
+**Affected packs / sizes:**
+
+- `warehouse_pick_path/small` (any region) — confirmed FAIL via ORM wizard (track2-a10 fast-fail at 15:18:25Z)
+- All wpp sizes — predicted FAIL (single GPU shape across the pack)
+
+**Repro:**
+
+1. Download `release_test_matrix/v0.0.8_warehouse_pick_path.zip` (pre-fix).
+2. Create new ORM stack from zip in any region with A10 capacity.
+3. Fill the wizard's required fields (does NOT include AD — field is hidden).
+4. Run apply.
+5. Apply FAILS in ~1m17s with `Error: Resource precondition failed` on `worker_node_availability_domain != ""`.
+
+**Fix:**
+
+1. **Schema override** — `ai-accelerator-tf/schemas/warehouse_pick_path_schema.yaml`:
+   - Add `worker_node_availability_domain` to `variableGroups[1].variables` ("Deployment Configuration").
+   - Add `variables.worker_node_availability_domain` block with `title`, `description`, `required: true`, `visible: true` (mirroring cuopt/vss pattern, with A10-specific AD-discovery instructions).
+2. **Capacity check error message** — `ai-accelerator-tf/capacity_check.tf:272`:
+   - Update error message from `"required for GPU starter packs (cuopt, vss, enterprise_rag). It is optional for paas_rag."` to `"required for GPU starter packs (cuopt, vss, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path). It is optional for CPU-only packs (paas_rag, dox_pack)."` — accurate listing of which packs the precondition gates.
+
+**Verification:**
+
+- `terraform fmt -check -diff -recursive` ✓ clean
+- `terraform validate` ✓ Success
+- `terraform test -filter=tests/starter_pack_warehouse_pick_path.tftest.hcl` ✓ pass
+- `pytest ai-accelerator-tf/schemas/tests/ -v` ✓ 132 passed
+- Schema regeneration (`python create_final_schema.py -c warehouse_pick_path`) ✓ produces `schema.yaml` with the new field visible
+- Zip rebuilt at `release_test_matrix/v0.0.8_warehouse_pick_path.zip` (176889 bytes, 2026-05-08T18:30:18Z) and re-uploaded to GH release v0.0.8
+
+**Workaround validation (track 2):**
+
+Before the schema fix landed, track2-a10 patched the failed wpp INFRA stack via `oci resource-manager stack update --variables` to add `worker_node_availability_domain = TrcQ:US-SANJOSE-1-AD-1`, then re-applied. The patched apply ran cleanly and SUCCEEDED at 16:47:48Z (~16m), proving the underlying TF code is correct — only the schema was wrong. End-users without OCI CLI access could not have applied this workaround.
+
+**Cross-references:**
+
+- BUG-027 (Fixed, 2026-05-04): same shape — cuopt frontend creds visibility override missing, fixed by commit `81cc0c9`. BUG-034 is the wpp-pack equivalent of the same per-pack-override-omission class of bug.
