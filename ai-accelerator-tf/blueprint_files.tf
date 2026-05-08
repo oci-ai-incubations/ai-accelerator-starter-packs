@@ -1646,7 +1646,7 @@ locals {
     { "key" = "ORACLE_DSN", value = local.oracle26ai_high_connection_string },
     { "key" = "GENAI_INFERENCE_ENDPOINT", value = local.dac_inference_url },
     { "key" = "GENAI_MODEL", value = "/models/${var.dac_model_id}" },
-    { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:8321" },
+    { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:80" },
     { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
     { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
     { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
