@@ -38,6 +38,8 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-032 | enterprise_rag App apply fails — NIMCache RWO PVC Multi-Attach when nim-operator spawns cache-job retry while nim-llm Deployment holds the PVC; pack functionally works but `terraform_data.patch_nim_operator_resources` 30m timeout marks apply FAILED | High | 2026-05-05 |
 | Open | BUG-033 | dox_pack contract-backend pod CrashLoopBackOff — ADB wallet not mounted, `TNS_ADMIN` unset → `oracledb DPY-4027: no configuration directory specified`; frontend cascades to HTTP 503 | High | 2026-05-07 |
 | Fixed | BUG-034 | warehouse_pick_path schema missing `worker_node_availability_domain` override — wizard hides field with no default, capacity_check.tf precondition fast-fails apply with empty AD value | High | 2026-05-08 |
+| Open | BUG-035 | enterprise_rag_aiq APP apply fails — `aiq` helm release (chart `aiq2-web-2.0.0`) hits 60-min context-deadline because `aiq-postgres` Bitnami pod CrashLoopBackOff with `mkdir: cannot create directory '/bitnami/postgresql/data': Permission denied`. Pod-level `securityContext` is empty (no `fsGroup`), so `oci-bv` PVC stays root:root and the dropped-caps non-root Bitnami container can't initialize the data directory. Workload hard-broken (aiq-backend stuck Init waiting on postgres readiness gate) — not a cosmetic patcher timeout like BUG-032. | High | 2026-05-08 |
+| Open | BUG-036 | dox_pack contract-backend `LLAMASTACK_URL` env var points to pod port 8321 but llamastack k8s Service exposes port 80 → `httpx.ConnectTimeout` blocks RAG-chat-with-document path; extract path works, only `/api/chat` with `document_ids` 500s | High | 2026-05-08 |
 
 ---
 
@@ -1810,3 +1812,165 @@ Before the schema fix landed, track2-a10 patched the failed wpp INFRA stack via 
 **Cross-references:**
 
 - BUG-027 (Fixed, 2026-05-04): same shape — cuopt frontend creds visibility override missing, fixed by commit `81cc0c9`. BUG-034 is the wpp-pack equivalent of the same per-pack-override-omission class of bug.
+
+### BUG-036: dox_pack contract-backend `LLAMASTACK_URL` port mismatch — RAG-chat path 500s with `httpx.ConnectTimeout`
+
+**Status:** Open
+**Date found:** 2026-05-08
+**Found by:** Grant via track3-cpu during dox_pack/small SJC retest 2 (BUG-033 fix validation, commit `52f1b45`)
+**Severity:** High (release-correctness blocker for `dox_pack` chat-with-document RAG path; extract-only path works fine)
+
+**TL;DR:** The dox_pack contract-backend deployment env has `LLAMASTACK_URL=http://recipe-llamastack-dox-pack-4f5-<id>:8321`, pointing at the **pod-internal port** (8321). The llamastack k8s Service exposes **port 80** (which is then routed to `targetPort: 8321` inside the pod). DNS resolves the Service correctly, but TCP connect to `:8321` at the Service VIP times out because the Service only listens on `:80`. The `/api/chat` endpoint with `document_ids` triggers a vector-store lookup against llamastack via this URL, hits the timeout, and returns HTTP 500. Contract upload + Qwen3-VL extraction (which doesn't go through llamastack) is unaffected.
+
+**Symptoms:**
+
+- `POST /api/chat {message, document_ids:[1]}` → HTTP 500 "Internal Server Error"
+- `POST /api/chat {message}` (no document_ids) → HTTP 200 with app-level "select a contract" guard message (no llamastack call needed)
+- `POST /api/extract` (PDF upload + Qwen3-VL OCR via DAC) → HTTP 200, full extraction pipeline works
+- `GET /api/contracts`, `/api/health`, `/api/chat/sessions` → all HTTP 200 (ADB-only paths, no llamastack)
+
+**Direct evidence (live cluster, 2026-05-08T19:11Z):**
+
+```bash
+$ kubectl get svc recipe-llamastack-dox-pack-4f5-07620d3b -n default -o yaml | grep -A4 ports:
+  ports:
+  - name: default
+    port: 80                    ← Service port
+    protocol: TCP
+    targetPort: 8321            ← pod-internal port
+
+$ kubectl exec -n default recipe-contract-backend-dox-pa-... -- env | grep LLAMASTACK_URL
+LLAMASTACK_URL=http://recipe-llamastack-dox-pack-4f5-07620d3b:8321   ← WRONG PORT
+
+$ kubectl logs -n default recipe-contract-backend-dox-pa-... | grep -A2 ConnectTimeout
+File "/app/vector_store.py", line 34, in _ensure_vector_store
+    resp = await client.get(f"{LLAMASTACK_URL}/v1/vector_stores")
+...
+httpx.ConnectTimeout
+```
+
+**Root cause:**
+
+The blueprint env var `LLAMASTACK_URL` is built using the llamastack pod's listening port (8321) instead of the Service's exposed port (80). Inside the cluster, contract-backend resolves `recipe-llamastack-dox-pack-4f5-<id>` to the Service VIP, then attempts TCP connect to `<vip>:8321` — which silently drops because the Service is configured for `:80` only.
+
+The fix is one of:
+- **(a)** Change `LLAMASTACK_URL` to use port 80: `http://recipe-llamastack-dox-pack-4f5-<id>:80` (or omit port entirely since 80 is the HTTP default)
+- **(b)** Change the llamastack k8s Service port to `8321` to match (less invasive in app code, but breaks any other consumer that uses port 80)
+
+**Affected files (suspected):**
+
+- `ai-accelerator-tf/blueprint_files.tf` — where `_dox_pack_backend_env` (introduced in commit `52f1b45` for BUG-033 fix) is built; the LLAMASTACK_URL string template likely hardcodes `:8321`
+- (alternatively) llamastack helm chart / templated values that define the Service port
+
+**Affected packs / sizes:**
+
+- `dox_pack/small` — confirmed FAIL on RAG-chat path
+- `dox_pack` (any size) — predicted FAIL (same blueprint contract-backend env wiring)
+
+**Repro:**
+
+1. Deploy `dox_pack/small` end-to-end with BUG-031 + BUG-033 fixes applied (commit `52f1b45`).
+2. Upload a PDF: `POST /api/extract -F file=@test-contract.pdf` → HTTP 200, contract id assigned.
+3. Wait for extraction `status: completed` (`GET /api/contracts/<id>/progress`).
+4. Run RAG chat: `POST /api/chat -H 'content-type: application/json' -d '{"message":"...","document_ids":[<id>]}'`
+5. **Expected:** HTTP 200 with chat completion grounded in extracted contract.
+6. **Actual:** HTTP 500. Backend log shows `httpx.ConnectTimeout` against `LLAMASTACK_URL/v1/vector_stores`.
+
+**Workaround for in-flight test (NOT for shipping):**
+
+```bash
+kubectl set env -n default deployment/recipe-contract-backend-dox-pa-<id> \
+  LLAMASTACK_URL=http://recipe-llamastack-dox-pack-4f5-<id>:80
+```
+
+Wait for rollout, retest `/api/chat` with `document_ids`. Not release-acceptable — fix belongs in `blueprint_files.tf`.
+
+**Live observation context:**
+
+- Stack OCID: `ocid1.ormstack.oc1.us-sanjose-1.amaaaaaam3augwaannxvkk6d4ttlgzep4n3n7eb7gbqwyktnm4umugmlyxiq`
+- Cluster: `ocid1.cluster.oc1.us-sanjose-1.aaaaaaaaqfb4fwfu5q6dw62x5sffdlobss5idwhvap42gimv4coa4ltobnfa`
+- DAC: `dox-pack-dac-dbDhXZ` (H100_X8) in eu-frankfurt-1
+- Deploy id: `dbDhXZ` / `07620d3b`
+
+**Decision for v0.0.8:**
+
+User decision pending. Options:
+- **Ship v0.0.8 with caveat:** dox_pack extract path works, RAG-chat path documented as known-issue.
+- **One-line fix-and-reship:** patch `LLAMASTACK_URL` template in `blueprint_files.tf` to use port 80, rebuild zip, retest.
+- **Drop dox_pack from v0.0.8 supported matrix:** fold fix into v0.0.9.
+
+**Cross-references:**
+
+- BUG-033 (Open, 2026-05-07): the wallet/TNS_ADMIN fix that unblocked the deployment to expose this downstream issue. **BUG-033 itself is VALIDATED end-to-end by this run** — contract-backend Running, ADB connection works, Qwen3-VL extraction works. BUG-036 is a different, separate bug in the same dox_pack blueprint.
+- BUG-031 (Open, 2026-05-05): infra+app DAC double-declaration. **Also VALIDATED by this run** — DAC fra `dox-pack-dac-dbDhXZ` is owned by the app stack only.
+
+
+---
+
+### BUG-035: enterprise_rag_aiq APP apply fails — `aiq` helm release postgres CrashLoopBackOff (missing `fsGroup`)
+
+**Status:** Open (filed 2026-05-08)
+
+**Reported by:** track1-bmgpu4 during v0.0.8 release retest (back-to-back round 2 after enterprise_rag round 1 PASS)
+
+**Symptoms:**
+
+- `helm_release.aiq[0]` (chart `aiq2-web-2.0.0`, namespace `aiq`) hits the 60-min `context deadline exceeded` Terraform timeout.
+- Final ORM apply error: `Helm release "aiq" was created but has a failed status. Use the helm command to investigate the error, correct it, then run Terraform again.`
+- `helm list -n aiq` shows `aiq` revision 1 status `failed`.
+
+**Root cause (kubectl-confirmed):**
+
+```
+$ kubectl logs -n aiq deploy/aiq-postgres
+postgresql ... INFO ==> Initializing PostgreSQL database...
+mkdir: cannot create directory '/bitnami/postgresql/data': Permission denied
+```
+
+The aiq2-web helm chart's postgres deployment template:
+- pod-level `securityContext: {}` — empty, no `fsGroup`, no `runAsUser`
+- container-level `securityContext`: `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`, `readOnlyRootFilesystem: false`
+- mounts `oci-bv` block-volume PVC `aiq-postgres-data` at `/bitnami/postgresql`
+- runs `docker.io/bitnami/postgresql:latest` (Bitnami images default to UID 1001)
+
+Without a pod-level `fsGroup`, the OCI block volume CSI mounts the PV with `root:root` ownership. The dropped-caps non-root container running as 1001 cannot `mkdir` under that mount. Each restart hits the same error → CrashLoopBackOff (observed 27 restarts over 117 min before TF gave up).
+
+**Functional impact (HARD-FAILED, not cosmetic):**
+
+- `aiq-postgres`: CrashLoopBackOff
+- `aiq-backend`: stuck `Init:0/1` (postgres readiness gate)
+- `aiq-frontend`: 1/1 Running but useless without backend
+- `rag` namespace: 13/13 Running — BUG-032 fix held end-to-end (patcher completed cleanly, all 7 NIMCache + 7 NIMService Ready, nim-llm runtime probe passed). The aiq-postgres failure is downstream of that and unrelated.
+
+This is NOT a BUG-032 redux. The RAG plumbing is fine; only the aiq2-web chart's postgres deployment is broken.
+
+**Affected packs:**
+
+- `enterprise_rag_aiq` — confirmed in v0.0.8 retest on us-sanjose-1 AD-1, BM.GPU4.8 cluster reuse from preserved enterprise_rag INFRA stack.
+
+**Fix candidates:**
+
+1. **Pod-level `fsGroup` (preferred, simplest):** add `podSecurityContext: { fsGroup: 1001, runAsUser: 1001, runAsGroup: 1001 }` to the postgres deployment template in the aiq2-web helm chart. Kubernetes will then chown the PV mount to GID 1001 at attach time. Bitnami PostgreSQL images expect UID/GID 1001.
+2. **Init-container chown:** add a privileged initContainer that runs `chown -R 1001:1001 /bitnami/postgresql` before the main container starts. More invasive, but works without giving the main container any escalation.
+3. **Pin Bitnami tag:** stop using `:latest` (independent issue — `latest` is risky for a release artifact regardless).
+
+**Workaround:** none from the user's side — fix is in the chart, not in TF or schema. Until fixed, `enterprise_rag_aiq` cannot complete its APP apply.
+
+**Repro steps:**
+
+1. Deploy `enterprise_rag_aiq/small` APP stack onto a working cluster (any cluster the rag pack can deploy on).
+2. Wait ~96 min for `helm_release.aiq[0]` to time out at 60m + cleanup.
+3. `kubectl get pods -n aiq` shows postgres CrashLoopBackOff.
+4. `kubectl logs -n aiq deploy/aiq-postgres` shows the `mkdir … Permission denied` line.
+
+**Stack OCIDs (failed retest):**
+
+- APP stack: `ocid1.ormstack.oc1.us-sanjose-1.amaaaaaam3augwaavwcttviv3j6neptri37lwrmzpxobjfktucqz4pjxmy4q`
+- Apply job: `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaas3alnkylegkh7ijtcuwea3rvkoxnrpltkhzec6y74xla`
+- TF destroy job (cleanup): `ocid1.ormjob.oc1.us-sanjose-1.amaaaaaam3augwaabat7dz447rnjeka62ii5arvbmdrmrl3wroezhahrk2ba` (SUCCEEDED 19:15:20Z, ~3 min, released the 2TB ADB)
+
+**Release decision:** v0.0.8 should NOT ship enterprise_rag_aiq as supported until BUG-035 is fixed. The other packs (enterprise_rag, paas_rag, cuopt, vss, dox_pack with 52f1b45 + BUG-036, warehouse_pick_path with BUG-034 fix) are independent and unaffected.
+
+**Cross-references:**
+
+- BUG-032 (Open): different failure on the same enterprise_rag chart family — patcher timeout vs helm release timeout; that one was cosmetic, this one is hard. Distinct from BUG-035.
