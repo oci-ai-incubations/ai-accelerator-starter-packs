@@ -99,4 +99,14 @@ run "plan_dox_pack_small" {
     ])
     error_message = "dox-backend must pass ORACLE_USER, ORACLE_PASSWORD, and ORACLE_DSN to the backend image"
   }
+
+  # LlamaStack's Kubernetes Service exposes port 80, forwarding to the
+  # container's targetPort 8321. Service-to-service URLs must use port 80.
+  assert {
+    condition = contains([
+      for env_pair in local._dox_pack_backend_env :
+      "${env_pair.key}=${env_pair.value}"
+    ], "LLAMASTACK_URL=http://$${llamastack.service_name}:80")
+    error_message = "dox-backend must connect to LlamaStack through the Service port 80"
+  }
 }
