@@ -227,7 +227,11 @@ aiq:
           failureThreshold: 5
       labels:
         component: postgres
-      podSecurityContext: null
+      # OCI Block Volume mounts are root-owned by default. Bitnami PostgreSQL
+      # runs as UID/GID 1001, so fsGroup is required for /bitnami/postgresql.
+      podSecurityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
 
     frontend:
       enabled: true
