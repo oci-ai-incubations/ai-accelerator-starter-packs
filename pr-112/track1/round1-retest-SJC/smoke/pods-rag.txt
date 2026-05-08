@@ -1,0 +1,14 @@
+NAME                                                 READY   STATUS    RESTARTS   AGE
+ingestor-server-864f585455-n4vqm                     1/1     Running   0          15h
+nemoretriever-graphic-elements-v1-658c857c9b-5jt5h   1/1     Running   0          15h
+nemoretriever-ocr-v1-5f65bc4bc6-8phc7                1/1     Running   0          15h
+nemoretriever-page-elements-v3-78797d8c6-46zdn       1/1     Running   0          15h
+nemoretriever-table-structure-v1-57dffc8d44-5r4jg    1/1     Running   0          15h
+nemotron-embedding-ms-8bf4d8bb6-897jr                1/1     Running   0          15h
+nemotron-ranking-ms-6f5557dfc4-bmms7                 1/1     Running   0          15h
+nim-llm-599f644859-47ft2                             1/1     Running   0          14h
+rag-frontend-7bdd744cf9-892rz                        1/1     Running   0          15h
+rag-nv-ingest-77dbf6b98d-77x7g                       1/1     Running   0          15h
+rag-redis-master-0                                   1/1     Running   0          15h
+rag-redis-replicas-0                                 1/1     Running   0          15h
+rag-server-788796db57-nxxtk                          1/1     Running   0          15h
