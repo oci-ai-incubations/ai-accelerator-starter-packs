@@ -6,7 +6,7 @@
 # Supports self-hosted NIM inference (GPU) or cloud API providers (OpenAI, Anthropic).
 
 title: "NemoClaw Autonomous Agent Sandbox"
-description: "Deploy NVIDIA NemoClaw autonomous agent sandbox on OCI — secure, sandboxed execution of OpenClaw agents with OpenShell runtime protection."
+description: "Deploy NVIDIA NemoClaw autonomous agent sandbox on OCI. Secure, sandboxed execution of OpenClaw agents with OpenShell runtime protection."
 informationalText: |
   Deploy NemoClaw on OCI infrastructure.
 

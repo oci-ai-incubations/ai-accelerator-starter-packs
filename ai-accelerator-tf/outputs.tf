@@ -304,12 +304,12 @@ output "ai_accelerator_stack_version" {
 # NemoClaw Dashboard Token
 output "nemoclaw_dashboard_token" {
   description = "Gateway token for the NemoClaw OpenClaw dashboard (append as #token=<value> to the URL)"
-  value       = local.deploy_app_nemoclaw ? kubernetes_config_map_v1.nemoclaw_dashboard_token[0].data["token"] : null
+  value       = local.deploy_app_nemoclaw ? data.kubernetes_config_map_v1.nemoclaw_dashboard_token[0].data["token"] : null
 }
 
 output "nemoclaw_dashboard_url" {
   description = "Full tokenized URL for the NemoClaw OpenClaw dashboard"
-  value       = local.deploy_app_nemoclaw ? "https://${local.public_endpoint.starter_pack}/#token=${kubernetes_config_map_v1.nemoclaw_dashboard_token[0].data["token"]}" : null
+  value       = local.deploy_app_nemoclaw ? "https://${local.public_endpoint.starter_pack}/#token=${data.kubernetes_config_map_v1.nemoclaw_dashboard_token[0].data["token"]}" : null
 }
 
 output "nemoclaw_terminal_url" {

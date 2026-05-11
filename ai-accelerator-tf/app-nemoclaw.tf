@@ -159,7 +159,7 @@ resource "kubernetes_pod_v1" "nemoclaw" {
         echo "[3/7] Waiting for NIM inference to be ready..."
         NIM_ENDPOINT="http://$${NIM_SERVICE_NAME}.$${NEMOCLAW_NAMESPACE}.svc.cluster.local:8000/v1/models"
         NIM_ATTEMPTS=0
-        NIM_MAX=240  # 240 * 15s = 60 min (TRT-LLM engine build can take 50+ min)
+        NIM_MAX=300  # 300 * 15s = 75 min (TRT-LLM engine build + GPU load can take 70+ min)
         while [ $NIM_ATTEMPTS -lt $NIM_MAX ]; do
           NIM_ATTEMPTS=$((NIM_ATTEMPTS + 1))
           if curl -sf "$NIM_ENDPOINT" >/dev/null 2>&1; then
@@ -169,7 +169,7 @@ resource "kubernetes_pod_v1" "nemoclaw" {
           echo "NIM not ready yet (attempt $NIM_ATTEMPTS/$NIM_MAX), retrying in 15s..."
           sleep 15
         done
-        curl -sf "$NIM_ENDPOINT" >/dev/null 2>&1 || { echo "FATAL: NIM not ready after 60 minutes"; exit 1; }
+        curl -sf "$NIM_ENDPOINT" >/dev/null 2>&1 || { echo "FATAL: NIM not ready after 75 minutes"; exit 1; }
 %{else~}
         # API provider (${var.nemoclaw_provider}) -- no local NIM, connecting to cloud API
         echo "[2/7] Using ${var.nemoclaw_provider} cloud API -- no local inference setup needed"
@@ -600,5 +600,64 @@ resource "kubernetes_role_binding_v1" "nemoclaw_token_writer" {
     name      = "nemoclaw"
     namespace = local.starter_pack_config.app_namespace
   }
+}
+
+# =============================================================================
+# NemoClaw Dashboard Readiness -- wait for token
+# =============================================================================
+# The gateway token is generated asynchronously by the pod (~12 min after start).
+# The pod extracts the token from the installer logs and patches the ConfigMap
+# via the K8s API. We poll the ConfigMap via the Kubernetes Terraform provider
+# using a local-exec that reads the ConfigMap directly -- this works in ORM
+# (unlike curling the external dashboard URL which ORM can't reach).
+
+resource "null_resource" "wait_for_nemoclaw_dashboard" {
+  count = local.deploy_app_nemoclaw ? 1 : 0
+
+  triggers = {
+    pod_uid = kubernetes_pod_v1.nemoclaw[0].metadata[0].uid
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      echo "Waiting for NemoClaw dashboard to become ready..."
+      DASHBOARD_URL="https://${local.public_endpoint.starter_pack}/health"
+      MAX_ATTEMPTS=400  # 400 * 15s = 100 min
+      ATTEMPT=0
+
+      while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+        ATTEMPT=$((ATTEMPT + 1))
+        HTTP_CODE=$(curl -sk -o /dev/null -w "%%{http_code}" "$DASHBOARD_URL" 2>/dev/null || echo "000")
+
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "NemoClaw dashboard is ready (attempt $ATTEMPT)"
+          echo "Waiting 30s for token to be written to ConfigMap..."
+          sleep 30
+          exit 0
+        fi
+
+        echo "Attempt $ATTEMPT/$MAX_ATTEMPTS -- HTTP $HTTP_CODE, retrying in 15s..."
+        sleep 15
+      done
+
+      echo "NemoClaw dashboard not ready after 100 minutes. Still waiting for the installer to complete."
+    EOT
+  }
+
+  depends_on = [
+    kubernetes_pod_v1.nemoclaw,
+  ]
+}
+
+data "kubernetes_config_map_v1" "nemoclaw_dashboard_token" {
+  count = local.deploy_app_nemoclaw ? 1 : 0
+
+  metadata {
+    name      = "nemoclaw-dashboard-token"
+    namespace = local.starter_pack_config.app_namespace
+  }
+
+  depends_on = [null_resource.wait_for_nemoclaw_dashboard]
 }
 

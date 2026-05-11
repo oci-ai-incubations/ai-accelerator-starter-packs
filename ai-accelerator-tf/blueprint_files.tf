@@ -1621,7 +1621,7 @@ locals {
         timeout_seconds       = 10
         failure_threshold     = 40
         success_threshold     = 1
-        initial_delay_seconds = 1800
+        initial_delay_seconds = 4500
       }
       recipe_readiness_probe_params = {
         port                  = 8000
