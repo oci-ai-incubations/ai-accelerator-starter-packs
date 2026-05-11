@@ -13,6 +13,7 @@ providers:
   - provider_id: oci
     provider_type: remote::oci
     config:
+      refresh_models: true
       oci_auth_type: ${env.OCI_AUTH_TYPE:=instance_principal}
       oci_config_file_path: ${env.OCI_CONFIG_FILE_PATH:=~/.oci/config}
       oci_config_profile: ${env.OCI_CLI_PROFILE:=DEFAULT}
@@ -115,6 +116,9 @@ server:
       type: custom
       endpoint: ${env.AUTH_VALIDATE_ENDPOINT:=http://localhost:8080/auth/validate}
     access_policy:
+    - permit:
+        actions: [read]
+        resource: model::*
     - permit:
         actions:
         - create
