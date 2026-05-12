@@ -1470,9 +1470,9 @@ locals {
               recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool   = true
               recipe_replica_count          = 1
-              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.1.1"
-              recipe_container_command_args = ["/config/config.yaml"]
+              recipe_image_uri = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:pr-6da56a9"
               recipe_container_env = [
+                { "key" = "RUN_CONFIG_PATH", value = "/config/config.yaml" },
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
                 { "key" = "OCI26AI_PASSWORD", value = var.db_password },
@@ -1512,7 +1512,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.4.1-arbi",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:pr-e1eac37",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
