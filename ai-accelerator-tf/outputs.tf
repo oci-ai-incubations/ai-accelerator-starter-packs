@@ -355,3 +355,24 @@ output "frontend_skin_urls" {
     skin.key => "https://${skin.subdomain}.${local.fqdn.name}"
   } : {}
 }
+
+output "sso_callback_redirect_uris" {
+  description = <<-EOT
+    Expected SSO callback URLs to register in your IdP's Confidential Application
+    (OCI IAM Identity Domains "Redirect URL" field, Entra "Redirect URI" field, etc.)
+    when enable_auth_service = true. The `{slug}` placeholder is the auth-service
+    provider slug you register via POST /auth/providers — typically "oracle-idcs"
+    for IDCS, "azure-entra" for Microsoft Entra. The path lives outside /auth/* on
+    purpose: the ingress routes /auth/* unconditionally to the auth-service pod,
+    which would shadow any FE callback under that prefix. Empty when auth-service
+    is disabled or the application isn't deployed.
+  EOT
+  value = var.enable_auth_service && local.deploy_application ? (
+    local.helm_pack_selected_skin == null ? {
+      for skin in local.enabled_frontend_skins :
+      skin.key => "https://${skin.subdomain}.${local.fqdn.name}/sso/callback/{slug}"
+      } : {
+      starter_pack = "https://${local.public_endpoint.starter_pack}/sso/callback/{slug}"
+    }
+  ) : {}
+}

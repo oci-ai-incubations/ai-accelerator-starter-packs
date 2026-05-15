@@ -9,16 +9,22 @@ This document contains container image versions for each accelerator pack config
 | Container | Image | Version |
 |-----------|-------|---------|
 | cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
-| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.3 |
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-3a97a1a |
+| cuOpt Backend (FastAPI) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend | 7e621bb |
+| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-bc9a9ab |
 
 ### Vehicle Route Optimizer Medium
 
 | Container | Image | Version |
 |-----------|-------|---------|
 | cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
-| LlamaStack (with frontend) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-v0.0.3 |
+| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-3a97a1a |
+| cuOpt Backend (FastAPI) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend | 7e621bb |
+| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-bc9a9ab |
+
+The cuOpt Frontend is a static-SPA nginx image; /api/* routes through the OKE ingress to the cuopt-ev-routing-backend pod (FastAPI, HS256 JWT validation when auth-service is enabled). See the parent repo's `AUTH-INTEGRATION.md` for the pack auth-integration guide.
 
 ## Video Search and Summarization
 

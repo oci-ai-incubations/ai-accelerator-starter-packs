@@ -53,7 +53,7 @@ locals {
     for skin in local.enabled_frontend_skins : {
       name       = skin.variable_name
       exports    = ["service_name"]
-      depends_on = ["cuopt", "llamastack"]
+      depends_on = concat(["cuopt", "llamastack", "cuopt-backend"], var.enable_auth_service ? ["auth-service"] : [])
       recipe = merge(
         {
           recipe_id                            = replace(skin.variable_name, "_", "-")
@@ -76,10 +76,14 @@ locals {
             { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
             { key = "NODE_ENV", value = "production" },
           ]
-          recipe_additional_ingress_ports = [
-            { port_name = "cuopt", service_name = "$${cuopt.service_name}", port = 5000, path = "/cuopt", path_type = "Prefix" },
-            { port_name = "llamastack", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
-          ]
+          recipe_additional_ingress_ports = concat(
+            [
+              { port_name = "cuopt", service_name = "$${cuopt.service_name}", port = 5000, path = "/cuopt", path_type = "Prefix" },
+              { port_name = "llamastack", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
+            ],
+            local.cuopt_backend_ingress_route,
+            local.auth_service_ingress_route
+          )
         },
         var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
       )
@@ -95,6 +99,10 @@ locals {
           {
             name    = "llamastack",
             exports = ["service_name"],
+            # auth-service in depends_on when on so Corrino can resolve the
+            # $${auth-service.service_name} placeholder in the auth-url annotation
+            # injected by backend_ingress_annotations_corrino.
+            depends_on = var.enable_auth_service ? ["auth-service"] : [],
             recipe = {
               recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
               recipe_id                             = "llamastack",
@@ -121,6 +129,10 @@ locals {
           {
             name    = "cuopt"
             exports = ["service_name"]
+            # auth-service in depends_on when on — same reason as the llamastack
+            # block above: the auth-url annotation references $${auth-service.service_name}
+            # and Corrino's resolver needs auth-service exports collected first.
+            depends_on = var.enable_auth_service ? ["auth-service"] : []
             recipe = {
               recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
               recipe_id                                    = "cuopt"
@@ -173,7 +185,9 @@ locals {
             }
           },
         ],
-        local._cuopt_frontend_deployments
+        local.cuopt_backend_recipe,
+        local._cuopt_frontend_deployments,
+        local.auth_service_recipe
       )
     }
   })

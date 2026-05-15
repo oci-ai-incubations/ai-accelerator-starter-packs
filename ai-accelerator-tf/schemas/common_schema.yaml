@@ -102,14 +102,24 @@ variableGroups:
     variables:
       - starter_pack_size
 
-  - title: "Administrator Account"
+  - title: "OCI Blueprints Administrator Account"
     variables:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
 
-  - title: "Ingress Security"
+  - title: "Authentication"
     variables:
+      - enable_auth_service
+      - auth_service_extra_trusted_issuers
+      - enable_oracle_oidc_idcs
+      - auth_oidc_oracle_idcs_issuer_url
+      - auth_oidc_oracle_idcs_client_id
+      - auth_oidc_oracle_idcs_client_secret
+      - enable_microsoft_entra_oidc
+      - auth_oidc_microsoft_entra_tenant_id
+      - auth_oidc_microsoft_entra_client_id
+      - auth_oidc_microsoft_entra_client_secret
       - add_api_key_to_ingress
       - ingress_api_key
 
@@ -146,11 +156,182 @@ variables:
     type: string
     visible: false
 
-  # Ingress API Key Authentication
+  # ---------------------------------
+  # Authentication
+  # ---------------------------------
+  # Two independent mechanisms, can be enabled separately or together:
+  #
+  # 1. Auth Service (enable_auth_service) — full per-user JWT auth via
+  #    accelerator-pack-auth-service. Protects FE + BE, supports RBAC,
+  #    OIDC SSO (Oracle IDCS + Microsoft Entra), admin panel + audit log.
+  #    Tokens are RS256-signed; the auth-service pod generates and rotates its
+  #    own RSA keypair, and pack BEs fetch its JWKS to verify tokens locally
+  #    without a per-request /auth/me call. Use this when the pack has
+  #    end-user-facing UIs.
+  #
+  # 2. Ingress API Key (add_api_key_to_ingress) — static shared bearer
+  #    token validated by a small nginx-ingress auth-url validator pod.
+  #    Protects backend nginx ingresses only (cuopt, llamastack, vss
+  #    paths); frontends stay open. Use this for low-effort programmatic
+  #    API access (CI/CD, simple integrations) without per-user identity.
+  #
+  # Both can run simultaneously — auth-service handles user-driven traffic
+  # via the FE, the API key handles direct backend access.
+
+  enable_auth_service:
+    type: boolean
+    title: "Enable Auth Service (per-user JWT auth)"
+    description: "Deploy <code>accelerator-pack-auth-service</code> alongside the pack and route <code>/auth/*</code> through the frontend ingress. Per-user JWT auth (RS256) with RBAC, OIDC SSO, admin panel + audit log. Pack frontends gain a login screen; pack backends fetch the auth-service JWKS to verify tokens locally."
+    default: false
+    required: false
+
+  auth_service_extra_trusted_issuers:
+    type: string
+    title: "Extra Trusted Token Issuers (comma-separated)"
+    description: "Optional extra issuer URLs (Oracle IDCS, Microsoft Entra, or a customer-controlled auth-service instance) whose RS256 tokens pack backends will accept in addition to the bundled auth-service. Each issuer must publish a JWKS document at <code>{issuer}/.well-known/jwks.json</code>. Leave blank for standalone deployments."
+    default: ""
+    required: false
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  enable_oracle_oidc_idcs:
+    type: boolean
+    title: "Enable Oracle IDCS SSO"
+    description: "Enable Oracle Identity Cloud Service as an OIDC provider for the auth-service. Reveals the IDCS issuer URL / client ID / client secret fields when checked. Provider records are not auto-seeded — an admin must call <code>POST /auth/providers</code> via the auth-service admin panel after deploy."
+    default: false
+    required: false
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  auth_oidc_oracle_idcs_issuer_url:
+    type: string
+    title: "Oracle IDCS Issuer URL"
+    description: "Oracle Identity Cloud Service OIDC discovery endpoint (e.g., <code>https://idcs-tenant.identity.oraclecloud.com:443/.well-known/openid-configuration</code>)."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_oracle_oidc_idcs}
+            - true
+
+  auth_oidc_oracle_idcs_client_id:
+    type: string
+    title: "Oracle IDCS Client ID"
+    description: "Oracle IDCS OIDC client ID."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_oracle_oidc_idcs}
+            - true
+
+  auth_oidc_oracle_idcs_client_secret:
+    type: password
+    title: "Oracle IDCS Client Secret"
+    description: "Oracle IDCS OIDC client secret."
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_oracle_oidc_idcs}
+            - true
+
+  enable_microsoft_entra_oidc:
+    type: boolean
+    title: "Enable Microsoft Entra SSO"
+    description: "Enable Microsoft Entra (Azure AD) as an OIDC provider for the auth-service. Reveals the Entra tenant ID / client ID / client secret fields when checked. Provider records are not auto-seeded — an admin must call <code>POST /auth/providers</code> via the auth-service admin panel after deploy."
+    default: false
+    required: false
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  auth_oidc_microsoft_entra_tenant_id:
+    type: string
+    title: "Microsoft Entra Tenant ID"
+    description: "Microsoft Entra (Azure AD) tenant ID."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_microsoft_entra_oidc}
+            - true
+
+  auth_oidc_microsoft_entra_client_id:
+    type: string
+    title: "Microsoft Entra Client ID"
+    description: "Microsoft Entra OIDC client ID."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_microsoft_entra_oidc}
+            - true
+
+  auth_oidc_microsoft_entra_client_secret:
+    type: password
+    title: "Microsoft Entra Client Secret"
+    description: "Microsoft Entra OIDC client secret."
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_microsoft_entra_oidc}
+            - true
+
+  # Image versions are pinned in vars.tf and hidden from the UI. A pack ships
+  # a fully-versioned stack — operators should not override individual image
+  # tags from the ORM Resource Manager UI.
+  auth_service_image_version:
+    type: string
+    visible: false
+
+  # JWKS cache TTL is an incident-response knob, not a UI-tunable field.
+  # Operators override via tfvars when rotating keys; the default is fine for
+  # normal operation.
+  auth_service_jwks_cache_ttl_seconds:
+    type: number
+    visible: false
+
+  # OAuth2 client_credentials master switch is an incident-response containment
+  # lever, not a UI-tunable field. Operators override via tfvars when revoking
+  # service-account credentials cluster-wide; the default is fine for normal
+  # operation.
+  enable_client_credentials_grant:
+    type: boolean
+    visible: false
+
   add_api_key_to_ingress:
     type: boolean
-    title: "Protect Backend Ingresses With API Key"
-    description: "When enabled, requests to backend nginx ingresses (blueprint-injected cuopt, llamastack, vss paths) require an <code>Authorization: Bearer &lt;key&gt;</code> header. Frontend UIs and in-cluster traffic are unaffected. Toggling this flag requires redeploying affected blueprints."
+    title: "Protect Backend Ingresses With API Key (alternative to Auth Service)"
+    description: "Deploy a static-bearer-token nginx validator that gates backend nginx ingresses (cuopt, llamastack, vss paths). Frontend UIs and in-cluster traffic are unaffected. Suitable for programmatic API access without per-user identity; for end-user-facing protection use Auth Service above. Toggling this flag requires redeploying affected blueprints."
     default: false
     required: false
 
@@ -481,6 +662,23 @@ variables:
 
   google_maps_api_key:
     type: string
+    visible: false
+
+  # cuopt-only fallbacks. The cuopt_schema.yaml does not override these
+  # (they stay hidden across packs); cuopt-locals.tf consumes them when
+  # starter_pack_category == "cuopt". They are pinned in TF rather than
+  # surfaced in the ORM UI — see the "Image versions are pinned in vars.tf"
+  # comment block above for the rationale.
+  cuopt_backend_image_version:
+    type: string
+    visible: false
+
+  cuopt_openweathermap_api_key:
+    type: password
+    visible: false
+
+  cuopt_tls_verify:
+    type: boolean
     visible: false
 
   # DAC variables are dox_pack-only. Keep hidden fallbacks here so ORM does

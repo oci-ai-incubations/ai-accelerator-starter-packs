@@ -19,17 +19,44 @@ locals {
     var.ingress_api_key != "" ? var.ingress_api_key : try(random_password.ingress_api_key[0].result, "")
   ) : ""
 
-  # Service address for the validator — referenced from the auth-url annotation
-  # on every backend ingress.
+  # Service address for the static-key validator pod (deployed by this file).
   ingress_api_key_validator_url = "http://ingress-api-key-validator.cluster-tools.svc.cluster.local/auth"
 
-  # Annotation map merged into backend ingresses when the feature is enabled.
-  # Applied via `merge(existing_annotations, local.backend_ingress_annotations)` on
-  # kubernetes_ingress_v1 resources.
-  backend_ingress_annotations = var.add_api_key_to_ingress ? {
+  # Annotation maps for the two backend-ingress gates. Both target nginx-ingress's
+  # auth-url mechanism but point at different validators:
+  #   add_api_key_to_ingress  → static-shared-bearer-token nginx validator pod
+  #   enable_auth_service     → auth-service /auth/me (RS256 JWT)
+  # auth-service takes precedence on the auth-url key when both flags are on
+  # (merge order = last wins). The auth-service URL uses Corrino's templating
+  # $${auth-service.service_name} so it resolves to the deployment-suffixed
+  # k8s service name at blueprint-apply time.
+  _backend_annotations_ingress_api_key = var.add_api_key_to_ingress ? {
     "nginx.ingress.kubernetes.io/auth-url"    = local.ingress_api_key_validator_url
     "nginx.ingress.kubernetes.io/auth-method" = "GET"
   } : {}
+
+  # Corrino's resolve_recipe_placeholders walks the recipe and substitutes
+  # $${...} from the resolved_exports map of the deployment group at activation
+  # time. The key wrinkle: a recipe's placeholders only resolve cleanly if the
+  # referenced deployment has been activated and its exports collected first.
+  # Cuopt-blueprint backends (cuopt, llamastack, cuopt-backend) all reference
+  # $${auth-service.service_name} here, so each of them lists "auth-service"
+  # in its depends_on — see blueprint_files.tf (cuopt + llamastack) and
+  # cuopt-locals.tf (cuopt-backend).
+  _backend_annotations_auth_service = var.enable_auth_service ? {
+    # FQDN required — ingress-nginx runs in the ingress-nginx namespace and
+    # has no default search domain for `default`; short service names fail to
+    # resolve from there and nginx returns 500 on the auth subrequest.
+    "nginx.ingress.kubernetes.io/auth-url"    = "http://$${auth-service.service_name}.default.svc.cluster.local/auth/me"
+    "nginx.ingress.kubernetes.io/auth-method" = "GET"
+  } : {}
+
+  # Merged map consumed by every backend recipe via
+  # recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino.
+  backend_ingress_annotations = merge(
+    local._backend_annotations_ingress_api_key,
+    local._backend_annotations_auth_service,
+  )
 
   # Same map, shaped for corrino's recipe_additional_ingress_annotations (list of {key,value}).
   backend_ingress_annotations_corrino = [

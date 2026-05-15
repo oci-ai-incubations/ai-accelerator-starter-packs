@@ -127,3 +127,7 @@ resource "random_password" "ingress_api_key" {
   length  = 48
   special = false
 }
+
+# Token signing migrated to RS256; pack BEs verify via JWKS — no shared secret
+# remains in TF. The auth-service pod generates and persists its own RSA-2048
+# keypair on first start (signing_keys table).

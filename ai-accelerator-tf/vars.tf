@@ -394,6 +394,141 @@ variable "ingress_api_key" {
     error_message = "ingress_api_key must be empty (auto-generate) or at least 32 characters."
   }
 }
+
+# Auth-service integration (per-user JWT)
+# Distinct from add_api_key_to_ingress (static API key on backend nginx ingresses).
+# When enabled, deploys accelerator-pack-auth-service alongside the pack and routes
+# /auth/* through the frontend ingress. Pack backends verify JWTs locally (RS256)
+# by fetching the auth-service JWKS document.
+variable "enable_auth_service" {
+  type        = bool
+  default     = false
+  description = "When true, deploy accelerator-pack-auth-service alongside the pack and route /auth/* through the frontend ingress. Per-user JWT auth (RS256). The auth-service pod generates and rotates its own RSA signing keypair; pack backends fetch its JWKS and verify tokens locally."
+}
+
+variable "auth_service_extra_trusted_issuers" {
+  type        = string
+  default     = ""
+  description = "Optional comma-separated extra trusted token issuer URLs (integration mode — e.g. an Oracle IDCS, Microsoft Entra, or customer auth-service issuer URL). Pack BEs accept tokens from any issuer on this list in addition to the bundled auth-service. Each issuer must publish a JWKS at {issuer}/.well-known/jwks.json. Ignored when enable_auth_service is false."
+  validation {
+    condition = var.auth_service_extra_trusted_issuers == "" || alltrue([
+      for s in split(",", var.auth_service_extra_trusted_issuers) :
+      trimspace(s) == "" || (can(regex("^https://", trimspace(s))) && !can(regex("[[:space:]]", trimspace(s))))
+    ])
+    error_message = "Each trusted issuer URL must start with https:// and contain no internal whitespace."
+  }
+}
+
+variable "auth_service_jwks_cache_ttl_seconds" {
+  type        = number
+  default     = 3600
+  description = "JWKS public-key cache TTL on pack backends. Lower values speed up incident-response key rotation; higher values reduce JWKS fetch volume."
+  validation {
+    condition     = var.auth_service_jwks_cache_ttl_seconds >= 60 && var.auth_service_jwks_cache_ttl_seconds <= 86400
+    error_message = "JWKS cache TTL must be between 60 and 86400 seconds."
+  }
+}
+
+variable "enable_client_credentials_grant" {
+  type        = bool
+  default     = true
+  description = "Master switch for OAuth2 client_credentials grant (service-account tokens). Set to false to disable issuance of new service-account tokens cluster-wide; existing tokens remain valid until their natural expiry. Use as an incident-response containment lever when service-account credentials are compromised. Ignored when enable_auth_service=false."
+}
+
+# OIDC SSO provider toggles. Each enables a single provider; both can be on at
+# once. The provider's URL / client_id / client_secret vars are only consumed
+# when its toggle is true. The auth-service container receives the env vars
+# regardless (empty when off) for forward compatibility with env-driven seeding.
+variable "enable_oracle_oidc_idcs" {
+  type        = bool
+  default     = false
+  description = "Enable Oracle Identity Cloud Service as an OIDC provider for the auth-service. Requires auth_oidc_oracle_idcs_issuer_url + auth_oidc_oracle_idcs_client_id + auth_oidc_oracle_idcs_client_secret. Ignored when enable_auth_service is false."
+}
+
+variable "enable_microsoft_entra_oidc" {
+  type        = bool
+  default     = false
+  description = "Enable Microsoft Entra (Azure AD) as an OIDC provider for the auth-service. Requires auth_oidc_microsoft_entra_tenant_id + auth_oidc_microsoft_entra_client_id + auth_oidc_microsoft_entra_client_secret. Ignored when enable_auth_service is false."
+}
+
+variable "auth_service_image_version" {
+  type        = string
+  default     = "v1.1.0-3461aef"
+  description = "Image tag for accelerator-pack-auth-service. Image: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service. Pinned in TF (hidden from the ORM Resource Manager UI) so the pack ships fully-versioned across the stack; bump the default in vars.tf to roll forward. Never set to 'latest'."
+  validation {
+    condition     = var.auth_service_image_version != "latest" && var.auth_service_image_version != ""
+    error_message = "auth_service_image_version must be a pinned tag (semver or commit SHA), never 'latest' or empty."
+  }
+}
+
+# cuOpt EV-routing backend (cuopt-ev-routing-backend) — FastAPI service that
+# powers the cuopt frontend's /api/* routes. Pinned in TF (hidden from the
+# ORM Resource Manager UI) so the pack ships fully-versioned across the
+# stack; bump the default here to roll forward.
+variable "cuopt_backend_image_version" {
+  type        = string
+  default     = "17728f4"
+  description = "Image tag for cuopt-ev-routing-backend. Image: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend. Never set to 'latest'."
+  validation {
+    condition     = var.cuopt_backend_image_version != "latest" && var.cuopt_backend_image_version != ""
+    error_message = "cuopt_backend_image_version must be a pinned tag (semver or commit SHA), never 'latest' or empty."
+  }
+}
+
+variable "cuopt_openweathermap_api_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "OpenWeatherMap API key for the cuOpt backend's /api/weather/* routes. Empty triggers mock-data fallback in the backend."
+}
+
+variable "cuopt_tls_verify" {
+  type        = bool
+  default     = true
+  description = "When true, the cuopt-backend's httpx clients verify TLS on calls to in-cluster cuopt + llamastack. Default true (production-safe). Set false only when the in-cluster upstreams present self-signed certs (common on first deploy)."
+}
+
+# OIDC providers (Oracle IDCS + Microsoft Entra). Provider records are NOT seeded
+# from env vars at boot; they must be registered post-deploy via the auth-service
+# admin API (POST /auth/providers). The variables below are plumbed into the
+# auth-service container for future env-driven seeding and for documentation.
+variable "auth_oidc_oracle_idcs_issuer_url" {
+  type        = string
+  default     = ""
+  description = "Oracle IDCS OIDC issuer URL — the bare identity-domain base (e.g., https://idcs-tenant.identity.oraclecloud.com). Do NOT include /.well-known/openid-configuration; auth-service appends that path itself when fetching the discovery doc. Empty disables this provider."
+}
+
+variable "auth_oidc_oracle_idcs_client_id" {
+  type        = string
+  default     = ""
+  description = "Oracle IDCS OIDC client ID. Empty disables this provider."
+}
+
+variable "auth_oidc_oracle_idcs_client_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Oracle IDCS OIDC client secret. Required when auth_oidc_oracle_idcs_client_id is set."
+}
+
+variable "auth_oidc_microsoft_entra_tenant_id" {
+  type        = string
+  default     = ""
+  description = "Microsoft Entra (Azure AD) tenant ID. Empty disables this provider."
+}
+
+variable "auth_oidc_microsoft_entra_client_id" {
+  type        = string
+  default     = ""
+  description = "Microsoft Entra (Azure AD) OIDC client ID. Empty disables this provider."
+}
+
+variable "auth_oidc_microsoft_entra_client_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Microsoft Entra (Azure AD) OIDC client secret. Required when auth_oidc_microsoft_entra_client_id is set."
+}
 # tflint-ignore: terraform_unused_declarations
 variable "cluster_load_balancer_visibility" {
   type        = string
@@ -1107,8 +1242,13 @@ locals {
 }
 
 locals {
-  # 26ai database needed for paas_rag, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path, and dox_pack categories
-  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category)
+  # 26ai database needed for paas_rag, enterprise_rag, enterprise_rag_aiq,
+  # warehouse_pick_path, dox_pack, and cuopt (when enable_auth_service=true,
+  # the auth-service backs onto 26ai).
+  # Packs that natively need 26ai for their own workload, plus any pack that
+  # has enable_auth_service=true (auth-service is backed by 26ai). cuopt only
+  # provisions 26ai when auth-service is on.
+  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category) || var.enable_auth_service
 }
 
 # ---------------------------------------------------------------------------
