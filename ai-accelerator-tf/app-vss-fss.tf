@@ -49,58 +49,10 @@ resource "oci_file_storage_export" "vss_export" {
   }
 }
 
-# Kubernetes PersistentVolume
-resource "kubernetes_persistent_volume_v1" "vss_fss_pv" {
-  count = local.deploy_app_vss ? 1 : 0
-
-  metadata {
-    name = "vss-fss-pv-${lower(local.deploy_id)}"
-  }
-
-  spec {
-    capacity = {
-      storage = "1Ti" # FSS is elastic, this is nominal
-    }
-
-    access_modes       = ["ReadWriteMany"]
-    storage_class_name = ""
-
-    persistent_volume_source {
-      nfs {
-        server = oci_file_storage_mount_target.vss_mount_target[0].ip_address
-        path   = oci_file_storage_export.vss_export[0].path
-      }
-    }
-
-    persistent_volume_reclaim_policy = "Retain"
-  }
-
-  depends_on = [oci_file_storage_export.vss_export]
-}
-
-# Kubernetes PersistentVolumeClaim
-resource "kubernetes_persistent_volume_claim_v1" "vss_fss_pvc" {
-  count = local.deploy_app_vss ? 1 : 0
-
-  metadata {
-    name = "vss-fss-pvc"
-    annotations = {
-      "volume.beta.kubernetes.io/storage-class" = ""
-    }
-  }
-
-  spec {
-    access_modes       = ["ReadWriteMany"]
-    storage_class_name = ""
-
-    resources {
-      requests = {
-        storage = "1Ti"
-      }
-    }
-
-    volume_name = kubernetes_persistent_volume_v1.vss_fss_pv[0].metadata[0].name
-  }
-
-  depends_on = [kubernetes_persistent_volume_v1.vss_fss_pv]
-}
+# NOTE: the Kubernetes PersistentVolume + PersistentVolumeClaim that used to
+# bridge the OCI FSS into the cluster were removed when vss-oracle-ux,
+# vss-download-service, and the vss engine itself moved under Corrino. Each
+# recipe now references the FSS directly via `input_file_system = [{
+# file_system_ocid, mount_target_ocid, mount_location, volume_size_in_gbs }]`
+# — Corrino provisions its own per-recipe PV/PVC pair under the hood, so the
+# native-TF objects became redundant.
