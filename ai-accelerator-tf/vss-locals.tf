@@ -44,9 +44,13 @@ locals {
     exports    = ["service_name"]
     depends_on = []
     recipe = {
-      recipe_id                            = "vss-postgres"
-      deployment_name                      = "vss-postgres"
-      recipe_mode                          = "service"
+      recipe_id       = "vss-postgres"
+      deployment_name = "vss-postgres"
+      recipe_mode     = "service"
+      # Cluster-internal only: the vss-oracle-ux FE connects via the
+      # corrino-managed Service (resolved as $${vss-postgres.service_name}).
+      # No external client should reach the DB directly.
+      recipe_disable_ingress               = true
       recipe_image_uri                     = "docker.io/library/postgres:14"
       recipe_replica_count                 = 1
       recipe_flex_shape_ocpu_count         = 1
@@ -101,9 +105,14 @@ locals {
     exports    = ["service_name"]
     depends_on = ["vss"]
     recipe = {
-      recipe_id                            = "vss-download-service"
-      deployment_name                      = "vss-download-service"
-      recipe_mode                          = "service"
+      recipe_id       = "vss-download-service"
+      deployment_name = "vss-download-service"
+      recipe_mode     = "service"
+      # Cluster-internal only: the FE talks to it as
+      # $${vss-download-service.service_name}:8080 via cluster DNS, and the
+      # downloader calls back to the FE via cluster DNS. No external client
+      # has business hitting this Python downloader directly.
+      recipe_disable_ingress               = true
       recipe_image_uri                     = local.vss_download_service_image_uri
       recipe_replica_count                 = 1
       recipe_flex_shape_ocpu_count         = 1

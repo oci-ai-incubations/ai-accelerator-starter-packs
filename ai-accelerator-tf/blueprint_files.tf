@@ -481,10 +481,11 @@ locals {
                   volume_size_in_gbs = 1000
                 }
               ] : []
-              deployment_name  = "vss-deployment-group"
-              recipe_mode      = "service"
-              recipe_host_port = "9000"
-              recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom"
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              deployment_name                       = "vss-deployment-group"
+              recipe_mode                           = "service"
+              recipe_host_port                      = "9000"
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom"
               recipe_configmaps = [
                 {
                   data = {
