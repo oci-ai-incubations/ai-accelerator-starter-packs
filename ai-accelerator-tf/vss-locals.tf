@@ -54,7 +54,12 @@ locals {
       recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
       recipe_use_shared_node_pool          = true
       recipe_container_port                = "5432"
-      recipe_container_command_args        = ["/opt/scripts/start.sh"]
+      # Without recipe_host_port Corrino defaults the Service port to 80 and
+      # routes 80 → recipe_container_port. The vss-oracle-ux DATABASE_URL
+      # connects literally on :5432, so we set recipe_host_port to match —
+      # Service exposes 5432 → 5432 directly.
+      recipe_host_port              = "5432"
+      recipe_container_command_args = ["/opt/scripts/start.sh"]
       pvcs = {
         volumes = [
           { name = "vss-postgresdata", mount_location = "/var/lib/postgresql/data", volume_size_in_gbs = 20 }
