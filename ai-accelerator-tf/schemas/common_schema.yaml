@@ -33,6 +33,15 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
+  - title: "Auth Service"
+    outputs:
+      - auth_service_curl_example
+      - sso_callback_redirect_uris
+    visible:
+      eq:
+        - enable_auth_service
+        - "true"
+
   - title: "Frontend"
     outputs:
       - frontend_skin_urls
@@ -853,6 +862,16 @@ outputs:
   autonomous_database_id:
     type: ocid
     title: "Database OCID"
+    visible: true
+
+  auth_service_curl_example:
+    type: copyableString
+    title: "Auth Service: login + protected-backend curl example"
+    visible: true
+
+  sso_callback_redirect_uris:
+    type: map
+    title: "SSO Callback Redirect URIs (paste into IdP)"
     visible: true
 
   frontend_skin_urls:
