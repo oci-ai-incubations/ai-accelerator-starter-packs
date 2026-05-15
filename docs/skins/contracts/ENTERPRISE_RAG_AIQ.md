@@ -223,8 +223,8 @@ A FastAPI app built on NVIDIA's NeMo Agent Toolkit (NAT).
   (FastAPI auto-generated). These are developer introspection endpoints
   and are reachable only from inside the cluster.
 - **Auth, CORS, and bearer-token handling:** not part of this contract.
-  See `docs/API_TOKENS.md` for the starter pack's overall
-  bearer-token story; the `aiq` repo's
+  See `docs/integrations/oci-idcs.md` for the starter pack's overall
+  auth story; the `aiq` repo's
   `frontends/aiq_api/src/aiq_api/auth/middleware.py` owns backend
   middleware behavior.
 - **Job-store database (new in v2.0.0):** the backend persists NAT job
@@ -283,8 +283,8 @@ NAT message types (`WebSocketSystemResponseTokenMessage`,
 
 **Ownership.** Job-ownership enforcement (write on submit, check on
 subsequent calls) is driven by the backend's auth configuration. See
-`docs/API_TOKENS.md` for the starter pack's overall auth story; the
-backend-side implementation lives in the `aiq` repo under
+`docs/integrations/oci-idcs.md` for the starter pack's overall auth
+story; the backend-side implementation lives in the `aiq` repo under
 `frontends/aiq_api/src/aiq_api/auth/` and `jobs/access.py`.
 
 ### 3.3 Knowledge management (AI-Q's own wrappers around `ingestor-server`)
@@ -790,7 +790,7 @@ a chart issue upstream (NVIDIA `aiq2-web` / `aiq` repo) or extend
 | `aiq-backend` external path allowlist                          | `aiq` repo — `frontends/aiq_api/src/aiq_api/auth/middleware.py` (TODO: re-verify against v2.0.0)                |
 | `aiq-backend` deploy docs                                      | `aiq` repo — `docs/source/deployment/kubernetes.md`, `docs/source/deployment/docker-compose.md`                  |
 | `rag-server` / `ingestor-server` route reference               | [`ENTERPRISE_RAG.md`](ENTERPRISE_RAG.md) §3–§4                                                                   |
-| Bearer-token auth story across the pack                        | `docs/API_TOKENS.md`                                                                                              |
+| Pack-wide auth story (RS256 + JWKS + SSO)                      | `docs/integrations/oci-idcs.md`                                                                                  |
 | Swagger UIs (reachable only via port-forward into the cluster) | `aiq-backend` `/docs`, `/openapi.json`; `rag-server` `/v1/docs`, `/v2/docs`; `ingestor-server` `/v1/docs`        |
 
 ---

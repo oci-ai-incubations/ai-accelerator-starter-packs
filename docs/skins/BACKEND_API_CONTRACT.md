@@ -177,8 +177,8 @@ Two pytest structural checks lock claims that this doc depends on:
   entry to `RELEASES_REQUIRING_SKIN_OVERRIDE` (release name → expected
   key tuple) at the top of the test file.
 - `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation`
-  — keeps every backend recipe carrying the bearer-token annotation
-  (see `docs/API_TOKENS.md`).
+  — keeps every backend recipe carrying the auth-service-gate annotation
+  (`local.backend_ingress_annotations_corrino` in `auth-locals.tf`).
 
 ### "When in doubt" rule
 

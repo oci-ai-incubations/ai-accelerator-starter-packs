@@ -122,12 +122,6 @@ resource "random_password" "minio_secret_key" {
   special = false
 }
 
-resource "random_password" "ingress_api_key" {
-  count   = var.add_api_key_to_ingress && var.ingress_api_key == "" ? 1 : 0
-  length  = 48
-  special = false
-}
-
 # Token signing migrated to RS256; pack BEs verify via JWKS — no shared secret
 # remains in TF. The auth-service pod generates and persists its own RSA-2048
 # keypair on first start (signing_keys table).
