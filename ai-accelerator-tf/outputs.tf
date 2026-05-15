@@ -328,6 +328,26 @@ output "frontend_skins_learn_more" {
   value       = local.frontend_skins_catalog.learn_more_url
 }
 
+output "auth_service_curl_example" {
+  description = <<-EOT
+    Worked curl example for obtaining a JWT from auth-service and using
+    it to call a protected backend endpoint. Replace
+    <admin@example.com> / <password> with credentials registered in the
+    auth-service. The first registered user is auto-promoted to admin
+    via AUTH_AUTO_ADMIN_FIRST_USER=true; subsequent users default to
+    "pending" and must be granted a role by an admin. Access tokens are
+    short-lived (default 15 min — refresh via POST /auth/refresh with
+    the paired refresh token). For machine-to-machine traffic see
+    POST /auth/oauth/token (Client Credentials grant) — register the
+    service account first with POST /auth/clients.
+  EOT
+  value = var.enable_auth_service && local.deploy_application ? format(
+    "# 1. Log in and capture the access token:\nTOKEN=$(curl -sk -X POST https://%s/auth/login \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"<admin@example.com>\",\"password\":\"<password>\"}' \\\n  | jq -r .access_token)\n\n# 2. Call a protected backend endpoint with the bearer:\ncurl -sk -H \"Authorization: Bearer $TOKEN\" https://%s/api/<endpoint>",
+    local.public_endpoint.starter_pack,
+    local.public_endpoint.starter_pack,
+  ) : "Auth service is disabled."
+}
+
 output "frontend_skin_urls" {
   description = "Map of enabled frontend skin keys to their URLs. For blueprint packs, one entry per enabled skin. Empty for Helm packs (which use starter_pack_url for their single skin) and for deploy_application=false. ORM renders map keys alphabetically."
   # The `helm_pack_selected_skin == null` guard is an intentional product choice, NOT
