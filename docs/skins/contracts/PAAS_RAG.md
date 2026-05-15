@@ -401,30 +401,27 @@ recipe, `deployment_name = "llamastack"`
 so the backend's standalone HTTPS host is
 **`https://llamastack.<fqdn>/`** in addition to its in-cluster ClusterIP.
 
-When `var.add_api_key_to_ingress = true`, the `llamastack` recipe inherits
+When `var.enable_auth_service = true`, the `llamastack` recipe inherits
 two nginx annotations threaded in via
-`local.backend_ingress_annotations_corrino`
-(`blueprint_files.tf:1472`):
+`local.backend_ingress_annotations_corrino` (defined in `auth-locals.tf`):
 
 | Annotation                                   | Value                                                                                     |
 |----------------------------------------------|-------------------------------------------------------------------------------------------|
-| `nginx.ingress.kubernetes.io/auth-url`       | `http://ingress-api-key-validator.cluster-tools.svc.cluster.local/auth`                   |
+| `nginx.ingress.kubernetes.io/auth-url`       | `http://<auth-service>.default.svc.cluster.local/auth/me`                                 |
 | `nginx.ingress.kubernetes.io/auth-method`    | `GET`                                                                                     |
 
-The validator (`ai-accelerator-tf/app-ingress-auth.tf`) is a minimal
-nginx pod that returns 200 when the inbound request carries
-`Authorization: Bearer <var.ingress_api_key>` and 401 otherwise. The
+The auth-service validates the inbound `Authorization: Bearer <RS256-JWT>`
+on `/auth/me` and returns 200 for a valid token, 401 otherwise. The
 `auth-url` applies to every path on the ingress, including `/v1/health`.
 
 Notes for integrators:
 
 - **The frontend ingress stays open.** `frontend-paas.<fqdn>` is
-  classified as "open" in `app-ingress-auth.tf:6-13`, so the stitched
-  `/v1/*` paths (§5.1) carry **no** API-key requirement even when the
-  flag is on. A skin's browser calls do not need to supply a Bearer
-  token.
+  excluded from the auth gate so the stitched `/v1/*` paths (§5.1) and
+  the login page itself stay reachable. A skin's browser calls inherit
+  the user's token from the authStore.
 - **llama-stack's own auth is off in paas_rag** (§2.0). Once the
-  ingress validator (if enabled) lets a request through, the backend
+  auth-service gate lets a request through, the backend
   serves it without any further auth check.
 - **Do not cross-origin the backend hostname from a browser.** CORS
   middleware is disabled server-side (§2.0), so a browser call from
@@ -432,7 +429,7 @@ Notes for integrators:
   Same-origin calls via §5.1 are the only supported browser path;
   cross-origin access is a server-side / CLI use case.
 
-See `docs/API_TOKENS.md` for the token model.
+See `docs/integrations/oci-idcs.md` for the SSO token model.
 
 ---
 
@@ -600,19 +597,20 @@ const res = await client.vectorStores.search(storeId, {
 
 ### 6.6 curl — verify from outside the cluster via the backend's own hostname
 
-Assumes `var.add_api_key_to_ingress = true` and the deployer has the
-effective key. The ingress validator gates every path; once it lets the
+Assumes `var.enable_auth_service = true` and the caller has a valid pack
+access token (obtained via `POST /auth/login` or an SSO round-trip). The
+auth-service gate on `/auth/me` checks every request; once it lets the
 request through, llama-stack itself does no further auth check (§2.0).
 
 ```bash
 LLAMA=https://llamastack.<fqdn>
-KEY=<effective ingress_api_key>
+TOKEN=<RS256 access token from /auth/login>
 
-curl -s -H "Authorization: Bearer $KEY" $LLAMA/v1/health
-curl -s -H "Authorization: Bearer $KEY" $LLAMA/v1/models | jq .
+curl -s -H "Authorization: Bearer $TOKEN" $LLAMA/v1/health
+curl -s -H "Authorization: Bearer $TOKEN" $LLAMA/v1/models | jq .
 ```
 
-When `var.add_api_key_to_ingress = false` the `Authorization` header is
+When `var.enable_auth_service = false` the `Authorization` header is
 unnecessary; the backend hostname is then open (within network ACLs).
 
 ---
@@ -661,7 +659,7 @@ not to call the internal service directly.
 | Oracle 26ai provisioning                              | `ai-accelerator-tf/26ai.tf`                                                                                                  |
 | OCI Object Storage bucket                             | `ai-accelerator-tf/object_storage.tf`                                                                                        |
 | Skin catalog                                          | `ai-accelerator-tf/schemas/frontend_skins.yaml:33-42`                                                                        |
-| Backend ingress API-key annotations                   | `ai-accelerator-tf/app-ingress-auth.tf`                                                                                      |
+| Backend ingress auth-service annotations              | `ai-accelerator-tf/auth-locals.tf` — `local.backend_ingress_annotations_corrino`                                             |
 | Pack schema (ORM form)                                | `ai-accelerator-tf/schemas/paas_rag_schema.yaml`                                                                             |
 | Llama-stack container image source                    | `oracle/oraclenet-llama-stack` — `Dockerfile`, `src/llama_stack/distributions/oci/config.yaml` (baked default, overridden at deploy) |
 | Container build pipeline                              | `oracle/oraclenet-llama-stack` — `.github/workflows/build-push-main.yml` (main → `:VERSION`), `build-push-pr.yml` (PR → `:pr-<shortsha>`) |

@@ -183,29 +183,25 @@ auto-generated Ingress with a dedicated hostname separate from the skin
 subdomain. Exact host format depends on the per-deploy canonical name
 (see §5 Open Questions); pattern is `wpp-backend-<id>.<lb-ip>.nip.io`.
 
-**Bearer-token gate (opt-in).** When the stack is deployed with
-`add_api_key_to_ingress = true`, the backend recipe's ingress carries:
+**Auth-service gate.** When the stack is deployed with
+`enable_auth_service = true`, the backend recipe's ingress carries:
 
 ```
-nginx.ingress.kubernetes.io/auth-url:    http://ingress-api-key-validator.cluster-tools.svc.cluster.local/auth
+nginx.ingress.kubernetes.io/auth-url:    http://<auth-service>.default.svc.cluster.local/auth/me
 nginx.ingress.kubernetes.io/auth-method: GET
 ```
 
-…and external calls must send `Authorization: Bearer <token>`. The token
-appears in the ORM stack outputs as **"Ingress API Key"**. Note that
-this gate is *in addition to* the backend's own JWT auth — external
-clients must pass both the bearer token (ingress layer) and have a
-valid `access_token` cookie (application layer).
-
-The gate applies **only** to the dedicated backend hostname. It does
-**not** apply to `/api` paths on a skin subdomain (the skin ingress is
-unprotected by design — the backend's own JWT auth handles access
-control) or to in-cluster pod-to-pod traffic.
+…and external calls must send `Authorization: Bearer <RS256-JWT>`. The
+auth-service issues tokens via `/auth/login` or `/auth/sso/{slug}/token`.
+The gate applies **only** to the dedicated backend hostname; the skin
+subdomain serves the login page and the auth-service `/auth/*` routes
+unauthenticated by design, and in-cluster pod-to-pod traffic bypasses
+ingress entirely.
 
 Injection is done by the blueprint — the `backend` recipe sets
 `recipe_additional_ingress_annotations =
 local.backend_ingress_annotations_corrino`
-(`ai-accelerator-tf/app-ingress-auth.tf` builds the annotation list, and
+(`ai-accelerator-tf/auth-locals.tf` builds the annotation list, and
 `test_every_backend_recipe_has_annotation` keeps every backend recipe
 from drifting).
 
@@ -303,7 +299,7 @@ the source not present in this repo to resolve; until then they are
 flagged rather than guessed.
 
 - **Exact hostname format of the dedicated backend ingress.**
-  `docs/API_TOKENS.md` gives the shape `<deployment_name>-<id>.<lb-ip>.nip.io`,
+  Shape is `<deployment_name>-<id>.<lb-ip>.nip.io`,
   but the `<id>` suffix is derived from the Corrino canonical name
   (`deployment_name` post-`DEPLOY_NAME` substitution, truncated to 32
   chars). The authoritative list is `kubectl get ingress -n default`
@@ -328,8 +324,8 @@ flagged rather than guessed.
 | Deployment group JSON (backend recipe)                       | `ai-accelerator-tf/blueprint_files.tf` — `local._warehouse_pick_path_small_blueprint`|
 | Skin deployments, ingress path-prefix rules                  | `ai-accelerator-tf/blueprint_files.tf` — `local._wpp_frontend_deployments`           |
 | Skin catalog (image URI, port, subdomain)                    | `ai-accelerator-tf/schemas/frontend_skins.yaml`                                      |
-| Bearer-token gate annotations + validator                    | `ai-accelerator-tf/app-ingress-auth.tf`, `docs/API_TOKENS.md`                        |
-| Bearer-token-annotation invariant test                       | `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation` |
+| Auth-service gate annotations                                | `ai-accelerator-tf/auth-locals.tf` — `local.backend_ingress_annotations_corrino`     |
+| Backend-annotation invariant test                            | `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation` |
 | `DEPLOY_NAME` placeholder + deployment immutability          | `docs/BLUEPRINT_LIFECYCLE.md`, `ai-accelerator-tf/vars.tf`                           |
 | Backend API implementation (routes, auth, optimizer)         | `oci-ai-incubations/oci-warehouse-pick-path-optimizer` — `backend/app/`              |
 | Frontend SPA + proxy config                                  | `oci-ai-incubations/oci-warehouse-pick-path-optimizer` — `frontend/`                 |
@@ -347,7 +343,7 @@ Manually maintained; no drift-check test. Update whenever:
   `local._wpp_frontend_deployments` (ingress path rules, `container_port`).
 - `ai-accelerator-tf/schemas/frontend_skins.yaml` changes the
   warehouse_pick_path skin catalog (subdomain, container_port, new skins).
-- `ai-accelerator-tf/app-ingress-auth.tf` changes the bearer-token
+- `ai-accelerator-tf/auth-locals.tf` changes the auth-service-gate
   annotation shape.
 - `recipe_image_uri` bumps the backend or frontend to a new release —
   spot-check `backend/app/api/routes/*.py` against §2's endpoint tables.

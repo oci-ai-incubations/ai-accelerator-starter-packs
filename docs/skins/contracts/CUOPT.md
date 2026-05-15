@@ -249,34 +249,28 @@ tokens in Terraform become literal names at blueprint deploy time).
 
 Every Corrino `recipe_mode = service` deployment gets its own auto-
 generated Ingress. For this pack that means `cuopt` and `llamastack` each
-have a dedicated hostname separate from the skin subdomain. Exact host
-format depends on the per-deploy canonical name (see §6 Open Questions);
-`docs/API_TOKENS.md` gives the shapes `cuopt-<id>.<lb-ip>.nip.io` and
-`llamastack-<id>.<lb-ip>.nip.io`.
+have a dedicated hostname separate from the skin subdomain. The shapes
+are `cuopt-<id>.<lb-ip>.nip.io` and `llamastack-<id>.<lb-ip>.nip.io`.
 
-**Bearer-token gate (opt-in).** When the stack is deployed with
-`add_api_key_to_ingress = true`, every backend-recipe ingress carries:
+**Auth-service gate.** When the stack is deployed with
+`enable_auth_service = true`, every backend-recipe ingress carries:
 
 ```
-nginx.ingress.kubernetes.io/auth-url:    http://ingress-api-key-validator.cluster-tools.svc.cluster.local/auth
+nginx.ingress.kubernetes.io/auth-url:    http://<auth-service>.default.svc.cluster.local/auth/me
 nginx.ingress.kubernetes.io/auth-method: GET
 ```
 
-…and external calls must send `Authorization: Bearer <token>`. The token
-appears in the ORM stack outputs as **"Ingress API Key"**. Rotate by
-changing `var.ingress_api_key`; toggle on/off by flipping
-`var.add_api_key_to_ingress` (toggling requires a blueprint redeploy, per
-`docs/API_TOKENS.md`).
-
-The gate applies **only** to the dedicated backend hostnames. It does
-**not** apply to `/cuopt` or `/v1` paths on a skin subdomain (the skin
-ingress is unprotected by design) or to in-cluster pod-to-pod traffic via
-the env-var URLs.
+…and external calls must send `Authorization: Bearer <RS256-JWT>`. The
+auth-service issues those tokens via `/auth/login` or
+`/auth/sso/{slug}/token`. The gate applies **only** to the dedicated
+backend hostnames; the skin subdomain serves the login page and the
+auth-service `/auth/*` routes unauthenticated by design, and in-cluster
+pod-to-pod traffic via env-var URLs bypasses ingress entirely.
 
 Injection is done by the blueprint — both the `cuopt` and `llamastack`
 recipes set `recipe_additional_ingress_annotations =
 local.backend_ingress_annotations_corrino`
-(`ai-accelerator-tf/app-ingress-auth.tf` builds the annotation list, and
+(`ai-accelerator-tf/auth-locals.tf` builds the annotation list, and
 `test_every_backend_recipe_has_annotation` keeps every backend recipe
 from drifting).
 
@@ -349,7 +343,7 @@ the source not present in this repo to resolve; until then they are
 flagged rather than guessed.
 
 - **Exact hostname format of the dedicated backend ingresses.**
-  `docs/API_TOKENS.md` gives the shapes `cuopt-<id>.<lb-ip>.nip.io` and
+  Shapes are `cuopt-<id>.<lb-ip>.nip.io` and
   `llamastack-<id>.<lb-ip>.nip.io`, but the `<id>` suffix is derived from
   the Corrino canonical name (`deployment_name` post-`DEPLOY_NAME`
   substitution, truncated to 32 chars). The authoritative list is
@@ -377,8 +371,8 @@ flagged rather than guessed.
 | Skin deployments, env vars, ingress path-prefix rules | `ai-accelerator-tf/blueprint_files.tf` — `local._cuopt_frontend_deployments`         |
 | Skin catalog (image URI, port, subdomain)             | `ai-accelerator-tf/schemas/frontend_skins.yaml`                                      |
 | Llama Stack provider config                           | `ai-accelerator-tf/files/llamastack_inference_config.yaml`                           |
-| Bearer-token gate annotations + validator             | `ai-accelerator-tf/app-ingress-auth.tf`, `docs/API_TOKENS.md`                        |
-| Bearer-token-annotation invariant test                | `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation` |
+| Auth-service gate annotations                         | `ai-accelerator-tf/auth-locals.tf` — `local.backend_ingress_annotations_corrino`     |
+| Backend-annotation invariant test                     | `ai-accelerator-tf/schemas/tests/test_blueprint_structure.py::test_every_backend_recipe_has_annotation` |
 | `DEPLOY_NAME` placeholder + deployment immutability   | `docs/BLUEPRINT_LIFECYCLE.md`, `ai-accelerator-tf/vars.tf`                           |
 | cuopt REST route implementation                       | `NVIDIA/cuopt` — `python/cuopt_server/cuopt_server/webserver.py`                     |
 | cuopt CLIENT-VERSION handling                         | `NVIDIA/cuopt` — `python/cuopt_server/cuopt_server/utils/job_queue.py`               |
@@ -399,7 +393,7 @@ Manually maintained; no drift-check test. Update whenever:
   catalog (subdomain, container_port, new skins).
 - `ai-accelerator-tf/files/llamastack_inference_config.yaml` changes the
   `apis:` list, providers, or server port.
-- `ai-accelerator-tf/app-ingress-auth.tf` changes the bearer-token
+- `ai-accelerator-tf/auth-locals.tf` changes the auth-service-gate
   annotation shape.
 - `recipe_image_uri` bumps cuopt to a new NIM release — spot-check
   `webserver.py` against §2's endpoint tables.

@@ -33,15 +33,6 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
-  - title: "Ingress API Key"
-    outputs:
-      - ingress_api_key
-      - ingress_api_key_curl_example
-    visible:
-      eq:
-        - add_api_key_to_ingress
-        - "true"
-
   - title: "Frontend"
     outputs:
       - frontend_skin_urls
@@ -120,8 +111,6 @@ variableGroups:
       - auth_oidc_microsoft_entra_tenant_id
       - auth_oidc_microsoft_entra_client_id
       - auth_oidc_microsoft_entra_client_secret
-      - add_api_key_to_ingress
-      - ingress_api_key
 
   - title: "Advanced Options"
     variables:
@@ -159,24 +148,11 @@ variables:
   # ---------------------------------
   # Authentication
   # ---------------------------------
-  # Two independent mechanisms, can be enabled separately or together:
-  #
-  # 1. Auth Service (enable_auth_service) — full per-user JWT auth via
-  #    accelerator-pack-auth-service. Protects FE + BE, supports RBAC,
-  #    OIDC SSO (Oracle IDCS + Microsoft Entra), admin panel + audit log.
-  #    Tokens are RS256-signed; the auth-service pod generates and rotates its
-  #    own RSA keypair, and pack BEs fetch its JWKS to verify tokens locally
-  #    without a per-request /auth/me call. Use this when the pack has
-  #    end-user-facing UIs.
-  #
-  # 2. Ingress API Key (add_api_key_to_ingress) — static shared bearer
-  #    token validated by a small nginx-ingress auth-url validator pod.
-  #    Protects backend nginx ingresses only (cuopt, llamastack, vss
-  #    paths); frontends stay open. Use this for low-effort programmatic
-  #    API access (CI/CD, simple integrations) without per-user identity.
-  #
-  # Both can run simultaneously — auth-service handles user-driven traffic
-  # via the FE, the API key handles direct backend access.
+  # Per-user JWT auth via accelerator-pack-auth-service. Protects FE + BE,
+  # supports RBAC, OIDC SSO (Oracle IDCS + Microsoft Entra), admin panel
+  # + audit log. Tokens are RS256-signed; the auth-service pod generates
+  # and rotates its own RSA keypair, and pack BEs fetch its JWKS to verify
+  # tokens locally without a per-request /auth/me call.
 
   enable_auth_service:
     type: boolean
@@ -327,23 +303,6 @@ variables:
   enable_client_credentials_grant:
     type: boolean
     visible: false
-
-  add_api_key_to_ingress:
-    type: boolean
-    title: "Protect Backend Ingresses With API Key (alternative to Auth Service)"
-    description: "Deploy a static-bearer-token nginx validator that gates backend nginx ingresses (cuopt, llamastack, vss paths). Frontend UIs and in-cluster traffic are unaffected. Suitable for programmatic API access without per-user identity; for end-user-facing protection use Auth Service above. Toggling this flag requires redeploying affected blueprints."
-    default: false
-    required: false
-
-  ingress_api_key:
-    type: password
-    title: "Ingress API Key (leave blank to auto-generate)"
-    description: "Optional bearer token. Leave blank to auto-generate a 48-character key surfaced via the sensitive Terraform output. Must be at least 32 characters when provided."
-    required: false
-    visible:
-      eq:
-        - add_api_key_to_ingress
-        - "true"
 
   # Capacity Check Option
   skip_capacity_check:
@@ -915,18 +874,6 @@ outputs:
     type: link
     title: "Frontend Skin Details"
     displayText: "Learn More"
-    visible: true
-
-  ingress_api_key:
-    type: string
-    title: "Ingress API Key"
-    description: "Copy this token and pass it as 'Authorization: Bearer <token>' when calling protected backend endpoints."
-    sensitive: true
-    visible: true
-
-  ingress_api_key_curl_example:
-    type: copyableString
-    title: "Backend Curl Example"
     visible: true
 
   # Hidden outputs

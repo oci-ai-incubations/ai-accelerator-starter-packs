@@ -1,5 +1,4 @@
 # Auth-service integration (per-user JWT) — RS256 + JWKS.
-# Distinct from ingress_api_key (static-API-key validator nginx pod).
 #
 # When enable_auth_service is true:
 #   - The auth-service pod generates its own RSA-2048 signing keypair on first
@@ -150,6 +149,26 @@ locals {
   auth_service_ingress_route = var.enable_auth_service ? [
     { port_name = "auth", service_name = "$${auth-service.service_name}", port = 8080, path = "/auth", path_type = "Prefix" },
   ] : []
+
+  # Per-backend-ingress annotations that gate non-frontend recipes behind the
+  # auth-service /auth/me check. Corrino's resolve_recipe_placeholders walks
+  # the recipe and substitutes $${...} from the resolved_exports map of the
+  # deployment group at activation time, so each recipe that references
+  # $${auth-service.service_name} here lists "auth-service" in its depends_on
+  # — see blueprint_files.tf (cuopt + llamastack) and cuopt-locals.tf
+  # (cuopt-backend). The FQDN form is required: ingress-nginx runs in its own
+  # namespace and short service names fail to resolve from there (nginx
+  # returns 500 on the auth subrequest).
+  backend_ingress_annotations = var.enable_auth_service ? {
+    "nginx.ingress.kubernetes.io/auth-url"    = "http://$${auth-service.service_name}.default.svc.cluster.local/auth/me"
+    "nginx.ingress.kubernetes.io/auth-method" = "GET"
+  } : {}
+
+  # Same map shaped for corrino's recipe_additional_ingress_annotations
+  # (list of {key, value}).
+  backend_ingress_annotations_corrino = [
+    for k, v in local.backend_ingress_annotations : { key = k, value = v }
+  ]
 
   # In-cluster JWKS fetch URL for the cuopt backend. The auth-service has no
   # ingress (recipe_disable_ingress=true above); pack BEs reach it via the

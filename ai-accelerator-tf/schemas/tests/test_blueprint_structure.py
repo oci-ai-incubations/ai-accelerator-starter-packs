@@ -10,11 +10,11 @@ from pathlib import Path
 import pytest
 
 
-# Pack-level list comprehensions that build FRONTEND recipes. The recipes
-# inside these comprehensions are classified as "frontends (stay open)" in
-# app-ingress-auth.tf — they MUST NOT carry the backend bearer-token
-# annotation. Add new frontend list-comprehension locals here when the
-# catalog grows to Helm-pack multi-skin or similar.
+# Pack-level list comprehensions that build FRONTEND recipes. Frontends
+# serve the auth-service-aware login UI directly to unauthenticated
+# browsers — they MUST NOT carry the backend auth-service-gate annotation
+# (`local.backend_ingress_annotations_corrino` in auth-locals.tf). Add new
+# frontend list-comprehension locals here when the catalog grows.
 FRONTEND_LIST_COMPREHENSION_LOCALS = [
     "_cuopt_frontend_deployments",
     "_paas_rag_frontend_deployments",
@@ -133,15 +133,16 @@ def _block_contains_annotation(lines: list[str], start: int, end: int) -> bool:
 class TestBlueprintAnnotations:
     """Every backend recipe must declare the backend-ingress-auth annotation.
 
-    Rationale: main's PR #102 introduced `add_api_key_to_ingress` as a feature
-    flag that requires the `recipe_additional_ingress_annotations =
-    local.backend_ingress_annotations_corrino` line on every backend recipe.
-    Without the line, that recipe's ingress stays open even when the flag is
-    on. Easy to miss when adding a new recipe — this test makes the invariant
-    a hard check.
+    Rationale: backend recipes that need the auth-service /auth/me ingress
+    gate must include the `recipe_additional_ingress_annotations =
+    local.backend_ingress_annotations_corrino` line. Without the line, that
+    recipe's ingress stays open even when `enable_auth_service = true`. Easy
+    to miss when adding a new recipe — this test makes the invariant a hard
+    check.
 
     Frontend recipes (in the allowlisted list comprehensions) are exempt:
-    they are explicitly "public" and must NOT have the annotation.
+    they are explicitly "public" and must NOT have the annotation (the
+    frontend serves the login page, which must be reachable unauthenticated).
     """
 
     def test_every_backend_recipe_has_annotation(self):
