@@ -52,12 +52,6 @@ variableGroups:
       - starter_pack_size
       - worker_node_availability_domain
 
-  - title: "Administrator Account"
-    variables:
-      - corrino_admin_username
-      - corrino_admin_password
-      - corrino_admin_email
-
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
