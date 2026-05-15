@@ -195,11 +195,11 @@ locals {
   _vss_poc_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
+      deployments = concat([
         {
           name       = "llamastack"
           exports    = ["service_name"]
-          depends_on = []
+          depends_on = var.enable_auth_service ? ["auth-service"] : []
           recipe = {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             recipe_id                             = "llamastack"
@@ -228,7 +228,7 @@ locals {
         {
           name       = "elasticsearch"
           exports    = ["internal_dns_name"]
-          depends_on = []
+          depends_on = var.enable_auth_service ? ["auth-service"] : []
           recipe = {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             recipe_id                             = "elasticsearch-standalone"
@@ -256,7 +256,7 @@ locals {
         {
           name       = "neo4j"
           exports    = ["internal_dns_name"]
-          depends_on = ["elasticsearch"]
+          depends_on = concat(["elasticsearch"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             recipe_mode                           = "service"
@@ -330,7 +330,7 @@ locals {
         {
           name       = "embedding"
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = concat(["neo4j"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
@@ -372,7 +372,7 @@ locals {
         {
           name       = "rerank"
           exports    = ["internal_dns_name"]
-          depends_on = ["embedding"]
+          depends_on = concat(["embedding"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
@@ -413,7 +413,7 @@ locals {
         {
           name       = "riva"
           exports    = ["internal_dns_name"]
-          depends_on = ["rerank"]
+          depends_on = concat(["rerank"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
@@ -458,9 +458,12 @@ locals {
           }
         },
         {
-          name       = "vss"
-          exports    = []
-          depends_on = ["llamastack", "embedding", "rerank", "riva", "elasticsearch", "neo4j"]
+          name    = "vss"
+          exports = ["service_name"]
+          depends_on = concat(
+            ["llamastack", "embedding", "rerank", "riva", "elasticsearch", "neo4j"],
+            var.enable_auth_service ? ["auth-service"] : [],
+          )
           recipe = merge(
             {
               recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
@@ -593,14 +596,19 @@ locals {
             }
           )
         }
-      ]
+        ],
+        local.vss_postgres_recipe,
+        local.vss_download_service_recipe,
+        local.vss_oracle_ux_recipes,
+        local.auth_service_recipe
+      )
     }
   })
 
   _vss_small_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
+      deployments = concat([
         {
           name = "elasticsearch"
           recipe = {
@@ -697,7 +705,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["elasticsearch"]
+          depends_on = concat(["elasticsearch"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "embedding"
@@ -739,7 +747,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = concat(["neo4j"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "rerank"
@@ -780,7 +788,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["embedding"]
+          depends_on = concat(["embedding"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "nim-llm"
@@ -847,7 +855,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["rerank"]
+          depends_on = concat(["rerank"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "vss"
@@ -986,22 +994,27 @@ locals {
               }
             }
           )
-          depends_on = [
+          depends_on = concat([
             "elasticsearch",
             "neo4j",
             "embedding",
             "rerank",
             "nim-llm"
-          ]
+          ], var.enable_auth_service ? ["auth-service"] : [])
         }
-      ]
+        ],
+        local.vss_postgres_recipe,
+        local.vss_download_service_recipe,
+        local.vss_oracle_ux_recipes,
+        local.auth_service_recipe
+      )
     }
   })
 
   _vss_medium_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
+      deployments = concat([
         {
           name = "elasticsearch"
           recipe = {
@@ -1098,7 +1111,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["elasticsearch"]
+          depends_on = concat(["elasticsearch"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "embedding"
@@ -1140,7 +1153,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["nim-llm"]
+          depends_on = concat(["nim-llm"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "rerank"
@@ -1181,7 +1194,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["embedding"]
+          depends_on = concat(["embedding"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "riva"
@@ -1228,7 +1241,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"],
-          depends_on = ["rerank"]
+          depends_on = concat(["rerank"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "nim-llm"
@@ -1295,7 +1308,7 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = concat(["neo4j"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "vss"
@@ -1437,16 +1450,21 @@ locals {
               }
             }
           )
-          depends_on = [
+          depends_on = concat([
             "nim-llm",
             "embedding",
             "rerank",
             "riva",
             "elasticsearch",
             "neo4j"
-          ]
+          ], var.enable_auth_service ? ["auth-service"] : [])
         }
-      ]
+        ],
+        local.vss_postgres_recipe,
+        local.vss_download_service_recipe,
+        local.vss_oracle_ux_recipes,
+        local.auth_service_recipe
+      )
     }
   })
   _wpp_frontend_deployments = [
