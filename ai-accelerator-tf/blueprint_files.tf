@@ -1463,14 +1463,14 @@ locals {
           depends_on = ["auth-service"]
           recipe = merge(
             {
-              recipe_id                     = "llamastack"
-              recipe_mode                   = "service"
-              deployment_name               = "llamastack"
-              recipe_node_shape             = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-              recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
-              recipe_use_shared_node_pool   = true
-              recipe_replica_count          = 1
-              recipe_image_uri = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:pr-6da56a9"
+              recipe_id                   = "llamastack"
+              recipe_mode                 = "service"
+              deployment_name             = "llamastack"
+              recipe_node_shape           = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+              recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
+              recipe_use_shared_node_pool = true
+              recipe_replica_count        = 1
+              recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:pr-52e4d25"
               recipe_container_env = [
                 { "key" = "RUN_CONFIG_PATH", value = "/config/config.yaml" },
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
@@ -1512,7 +1512,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:pr-e1eac37",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:pr-accc4a1",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
@@ -1603,12 +1603,12 @@ locals {
         },
         {
           name       = "rag-ingestor-migrate",
-          depends_on = [],
+          depends_on = ["auth-service"],
           recipe = {
             recipe_id                            = "rag-ingestor-migrate",
             deployment_name                      = "rag-ingestor-migrate",
             recipe_mode                          = "job",
-            recipe_image_uri                     = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10",
+            recipe_image_uri                     = local.rag_ingestor_image_uri,
             recipe_flex_shape_ocpu_count         = 2,
             recipe_flex_shape_memory_size_in_gbs = 8,
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
@@ -1617,8 +1617,13 @@ locals {
             recipe_container_command_args        = ["db", "migrate", "--ini", "/app/alembic.ini"],
             recipe_container_env = [
               { key = "LOG_LEVEL", value = "INFO" },
-              { key = "DATABASE_URL", value = local.oracle26ai_sqlalchemy_url },
-              { key = "OCI_AUTH_METHOD", value = "instance_principal" }
+              { key = "LLAMA_STACK_USERNAME", value = "robert.riley@oracle.com" },
+              { key = "AUTH_SERVICE_URL", value = "http://$${auth-service.service_name}" }
+            ],
+            recipe_environment_secrets = [
+              { envvar_name = "DATABASE_URL", secret_name = "etl-secrets", secret_key = "DATABASE_URL" },
+              { envvar_name = "OCI_AUTH_METHOD", secret_name = "etl-secrets", secret_key = "OCI_AUTH_METHOD" },
+              { envvar_name = "LLAMA_STACK_PASSWORD", secret_name = "etl-secrets", secret_key = "LLAMA_STACK_PASSWORD" }
             ]
           }
         },
@@ -1630,7 +1635,7 @@ locals {
             recipe_id                            = "rag-ingestor",
             deployment_name                      = "rag-ingestor",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10",
+            recipe_image_uri                     = local.rag_ingestor_image_uri,
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 2,
             recipe_flex_shape_memory_size_in_gbs = 8,
@@ -1642,12 +1647,17 @@ locals {
               { key = "LOG_LEVEL", value = "INFO" },
               { key = "MAX_OBJECT_BYTES", value = "104857600" },
               { key = "K8S_NAMESPACE", value = local.starter_pack_config.app_namespace },
-              { key = "WORKER_IMAGE", value = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10" },
-              { key = "DATABASE_URL", value = local.oracle26ai_sqlalchemy_url },
+              { key = "WORKER_IMAGE", value = local.rag_ingestor_image_uri },
               { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}:8321" },
-              { key = "OCI_AUTH_METHOD", value = "instance_principal" },
+              { key = "LLAMA_STACK_USERNAME", value = "robert.riley@oracle.com" },
+              { key = "AUTH_SERVICE_URL", value = "http://$${auth-service.service_name}" },
               { key = "ETL_API_HOST", value = "0.0.0.0" },
               { key = "ETL_API_PORT", value = "8080" }
+            ],
+            recipe_environment_secrets = [
+              { envvar_name = "DATABASE_URL", secret_name = "etl-secrets", secret_key = "DATABASE_URL" },
+              { envvar_name = "OCI_AUTH_METHOD", secret_name = "etl-secrets", secret_key = "OCI_AUTH_METHOD" },
+              { envvar_name = "LLAMA_STACK_PASSWORD", secret_name = "etl-secrets", secret_key = "LLAMA_STACK_PASSWORD" }
             ]
           }
         }

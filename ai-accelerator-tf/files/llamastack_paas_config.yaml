@@ -116,15 +116,27 @@ server:
       type: custom
       endpoint: ${env.AUTH_VALIDATE_ENDPOINT:=http://localhost:8080/auth/validate}
     access_policy:
+    - forbid:
+        actions: [create, read, update, delete]
+        resource: "regex:^sql_record::(openai_conversations|conversation_items|conversation_messages)::"
+      unless:
+      - user is owner
+      description: conversations are private to their owner, even for admins
+    - permit:
+        actions: [create, read, update, delete]
+      when:
+      - user with admin in roles
+      description: admins have full access (except conversations, see forbid above)
     - permit:
         actions: [read]
         resource: model::*
     - permit:
-        actions:
-        - create
-        - read
-        - update
-        - delete
+        actions: [create]
+      when:
+      - resource is unowned
+      description: permit create on new resources; ownership is assigned after this check passes
+    - permit:
+        actions: [create, read, update, delete]
       when:
       - user is owner
 vector_stores:
