@@ -120,6 +120,12 @@ locals {
       recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
       recipe_use_shared_node_pool          = true
       recipe_container_port                = "8080"
+      # Without recipe_host_port Corrino defaults the Service to expose 80
+      # and routes 80 -> recipe_container_port. The vss-oracle-ux skin's
+      # DOWNLOAD_SERVICE_URL connects literally on :8080, so we set
+      # recipe_host_port to match -- Service exposes 8080 -> 8080 directly.
+      # (Same fix as vss-postgres recipe_host_port = 5432.)
+      recipe_host_port = "8080"
       input_file_system = [
         {
           file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
