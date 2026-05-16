@@ -24,7 +24,7 @@ vss:
   default: "Oracle Custom - Enhanced search (Core App)"
   skins:
     - key: "Oracle Custom - Enhanced search (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-4f7d584"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-635ae56"
       provider: "Oracle"
       container_port: "3000"
       subdomain: "vss-frontend"
