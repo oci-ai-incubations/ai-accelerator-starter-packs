@@ -94,6 +94,12 @@ resource "random_id" "blueprint_deploy_id" {
 
   keepers = {
     blueprint_hash = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? sha256(local.canonical_blueprint_content) : "enterprise_rag"
+    # Manual override knob for forcing a fresh correlation_id when the
+    # blueprint content hash hasn't changed but the cluster state has
+    # drifted (e.g. zombie Corrino deployments blocking a redeploy). Bump
+    # this string to invalidate the random_id and re-run the blueprint
+    # deployment job with a brand-new suffix.
+    recovery_revision = "1"
   }
 }
 
