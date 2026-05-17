@@ -485,7 +485,7 @@ locals {
               deployment_name                       = "vss-deployment-group"
               recipe_mode                           = "service"
               recipe_host_port                      = "9000"
-              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom"
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom-c105566"
               recipe_configmaps = [
                 {
                   data = {
