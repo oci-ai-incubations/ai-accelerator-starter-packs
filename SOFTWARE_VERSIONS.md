@@ -12,7 +12,7 @@ This document contains container image versions for each accelerator pack config
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
 | cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-3a97a1a |
 | cuOpt Backend (FastAPI) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend | 7e621bb |
-| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-bc9a9ab |
+| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-a7121c7 |
 
 ### Vehicle Route Optimizer Medium
 
@@ -22,7 +22,7 @@ This document contains container image versions for each accelerator pack config
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
 | cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-3a97a1a |
 | cuOpt Backend (FastAPI) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend | 7e621bb |
-| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-bc9a9ab |
+| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-a7121c7 |
 
 The cuOpt Frontend is a static-SPA nginx image; /api/* routes through the OKE ingress to the cuopt-ev-routing-backend pod (FastAPI, HS256 JWT validation when auth-service is enabled). See the parent repo's `AUTH-INTEGRATION.md` for the pack auth-integration guide.
 
@@ -32,9 +32,10 @@ The cuOpt Frontend is a static-SPA nginx image; /api/* routes through the OKE in
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| VSS Engine | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine | 2.4.0-poc-custom |
-| VSS Oracle UX | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-oracle-ux-dev-0.0.4 |
-| Download Service | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-download-service-prod-0.0.4 |
+| VSS Engine | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine | 2.4.0-poc-custom-c105566 |
+| VSS Oracle UX | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-oracle-ux-090468e |
+| Download Service | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | vss-download-service-090468e |
+| Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-a7121c7 |
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
 | Elasticsearch | docker.io/elasticsearch | 9.1.2 |
 | Neo4j | docker.io/neo4j | 5.26.4 |
