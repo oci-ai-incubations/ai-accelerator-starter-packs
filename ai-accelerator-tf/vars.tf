@@ -434,7 +434,7 @@ variable "enable_microsoft_entra_oidc" {
 
 variable "auth_service_image_version" {
   type        = string
-  default     = "v1.1.0-d1abbf8"
+  default     = "v1.1.0-2af8eb3"
   description = "Image tag for accelerator-pack-auth-service. Image: iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service. Pinned in TF (hidden from the ORM Resource Manager UI) so the pack ships fully-versioned across the stack; bump the default in vars.tf to roll forward. Never set to 'latest'."
   validation {
     condition     = var.auth_service_image_version != "latest" && var.auth_service_image_version != ""
