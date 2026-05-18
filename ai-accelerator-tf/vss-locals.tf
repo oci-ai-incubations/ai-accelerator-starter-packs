@@ -98,7 +98,7 @@ locals {
   # mounts the same FSS, and pre-creates /mnt/fss/cache). depends_on = ["vss"]
   # enforces the ordering — the download-service only starts after VSS has
   # successfully run its init.
-  vss_download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-635ae56"
+  vss_download_service_image_uri = "${local.ocir.base_uri}:vss-download-service-ef6382b"
 
   vss_download_service_recipe = local.deploy_app_vss ? [{
     name       = "vss-download-service"
