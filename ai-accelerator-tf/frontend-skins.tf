@@ -66,9 +66,9 @@ locals {
   # Catalog-default correctness (the top-level `default:` key must match some skin.key)
   # is enforced by pytest: test_default_enabled_matches_top_level_default covers blueprint
   # packs, test_helm_packs_expose_single_skin_enum covers Helm packs. We intentionally
-  # don't carry a plan-time `tobool(...)` assertion here because tflint (rightly) flags
-  # it as an unused local, and the pytest coverage fires earlier in CI.
-
+  # don't carry a plan-time `tobool(...)` assertion here; pytest coverage fires earlier
+  # in CI. The local below is kept for future schema-introspection consumers.
+  # tflint-ignore: terraform_unused_declarations
   default_skin_variable_name = try(local._catalog_default_skin.variable_name, null)
 
   # Back-compat locals used by helm.tf split(":", image_uri), VSS locals, and outputs.

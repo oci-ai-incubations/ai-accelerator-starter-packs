@@ -466,7 +466,6 @@ locals {
           )
           recipe = merge(
             {
-              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
               pvcs = {
                 volumes = [
                   { name = "vss-ngc-model-cache", mount_location = "/tmp/via-ngc-model-cache", volume_size_in_gbs = 1000 }

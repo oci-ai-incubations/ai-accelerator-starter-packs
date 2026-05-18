@@ -149,7 +149,10 @@ locals {
     !local.readiness_via_operator ? try(jsondecode(data.http.starter_pack_workspace[0].response_body), null) : try(jsondecode(null_resource.fetch_workspace_via_operator[0].triggers.workspace_json), null)
   ) : null
 
-  # Get recipes from the workspace data (directly at root, not nested under digest)
+  # WIP: workspace_data → recipes pipeline is set up but no consumer yet (the
+  # downstream introspection that reads recipe deployment_uuids hasn't landed).
+  # Keep the local so the half-built pipeline doesn't bit-rot.
+  # tflint-ignore: terraform_unused_declarations
   recipes = local.workspace_data != null ? try(local.workspace_data.recipes, {}) : {}
 
 }
