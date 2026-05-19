@@ -64,6 +64,8 @@ curl -sk "${PACK_URL}/auth/health"
 
 ## The chicken-and-egg bootstrap (first-time deploy)
 
+If you are deploying with a custom DNS which is already registered, you can skip this step. 
+
 IDCS's Confidential Application registration needs the pack's public URL
 (for Primary Audience + Redirect URL). The pack's public URL doesn't
 exist until the pack is deployed. So the very first time you bring a
