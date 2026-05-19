@@ -171,6 +171,7 @@ then client (defines how the app *authenticates*: grant types + redirect URLs).
    - **Post-logout redirect URL:** `https://demo-cuopt-partner.161-153-59-50.nip.io/login`
    - **Logout URL:** leave blank (optional).
    - **Client type:** **Confidential**.
+   - **Allowed operations:** Check "on behalf of".
    - **Bypass consent:** check this so users aren't prompted at every login (see
      "Why" rationale in the Resource Server section above).
    - **Client IP Address:** **Anywhere**. Restricting by Network Perimeter is for
