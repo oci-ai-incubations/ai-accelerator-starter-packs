@@ -151,4 +151,26 @@ locals {
   # Get recipes from the workspace data (directly at root, not nested under digest)
   recipes = local.workspace_data != null ? try(local.workspace_data.recipes, {}) : {}
 
+  # paas_rag recipe canonical names discovered from Corrino workspace data.
+  # Empty during plan; consumers depend on null_resource.wait_for_deployment
+  # so workspace data is available at apply time.
+  llamastack_recipe_canonical = var.starter_pack_category == "paas_rag" ? try([
+    for name, info in local.recipes : try(info["canonical-name"], name)
+    if startswith(name, "llamastack-paas-")
+  ][0], "") : ""
+
+  rag_ingestor_recipe_canonical = var.starter_pack_category == "paas_rag" ? try([
+    for name, info in local.recipes : try(info["canonical-name"], name)
+    if startswith(name, "rag-ingestor-paas-")
+  ][0], "") : ""
+
+  frontend_recipe_canonical = var.starter_pack_category == "paas_rag" ? try([
+    for name, info in local.recipes : try(info["canonical-name"], name)
+    if startswith(name, "frontend-paas-")
+  ][0], "") : ""
+
+  auth_service_recipe_canonical = var.starter_pack_category == "paas_rag" ? try([
+    for name, info in local.recipes : try(info["canonical-name"], name)
+    if startswith(name, "auth-service-paas-")
+  ][0], "") : ""
 }

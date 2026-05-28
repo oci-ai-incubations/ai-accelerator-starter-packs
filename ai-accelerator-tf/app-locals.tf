@@ -448,6 +448,12 @@ locals {
     },
   ]
 
+  # Single source of truth for the rag-ingestor image. Referenced by the
+  # rag-ingestor recipes in blueprint_files.tf (recipe_image_uri +
+  # WORKER_IMAGE env) and by the etl-config ConfigMap in app-configmap.tf
+  # (WORKER_IMAGE the etl-api uses when rendering per-feed worker CronJobs).
+  rag_ingestor_image_uri = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:v0.1.16"
+
 }
 
 

@@ -45,3 +45,33 @@ resource "kubernetes_config_map_v1" "corrino-configmap" {
     POSTGRES_PASSWORD                              = local.postgres_db.password
   }
 }
+
+# =============================================================================
+# etl-config — non-secret runtime knobs the etl-api injects into per-feed
+# worker CronJobs via envFrom. Mirrors blueprints-etl-worker/k8s/base/
+# configmap.yaml from the application repo; provisioned from terraform
+# because this deploy doesn't run kustomize.
+# =============================================================================
+resource "kubernetes_config_map_v1" "etl_config" {
+  metadata {
+    name      = "etl-config"
+    namespace = "default"
+  }
+
+  data = {
+    LOG_LEVEL        = "INFO"
+    MAX_OBJECT_BYTES = "104857600"
+    K8S_NAMESPACE    = local.starter_pack_config.app_namespace
+    WORKER_IMAGE     = local.rag_ingestor_image_uri
+    # Service exposes port 80 → targetPort 8321; hit the Service on :80, not :8321.
+    LLAMA_STACK_URL      = "http://recipe-${local.llamastack_recipe_canonical}"
+    LLAMA_STACK_USERNAME = "robert.riley@oracle.com"
+    AUTH_SERVICE_URL     = "http://recipe-${local.auth_service_recipe_canonical}"
+  }
+
+  count = var.starter_pack_category == "paas_rag" ? 1 : 0
+  depends_on = [
+    oci_containerengine_node_pool.oke_node_pool,
+    null_resource.wait_for_deployment,
+  ]
+}

@@ -243,3 +243,58 @@ data "kubernetes_service_v1" "ingress" {
 locals {
   ingress_controller_load_balancer_ip = try(data.kubernetes_service_v1.ingress.status[0].load_balancer[0].ingress[0].ip, "")
 }
+
+# =============================================================================
+# rag-ingestor /api/etl/* Ingress — separate Ingress so the SPA at
+# frontend-paas can call the ETL API at /api/etl/<path> without CORS. Can't
+# reuse the frontend ingress because nginx's rewrite-target annotation is
+# ingress-scoped — adding it there would break the other paths (/v1/models,
+# /v1/health) that proxy unchanged to llamastack. rewrite-target /$2 strips
+# the /api/etl prefix so /api/etl/v1/feeds reaches the rag-ingestor pod as
+# /v1/feeds.
+# =============================================================================
+resource "kubernetes_ingress_v1" "rag_ingestor_etl_ingress" {
+  # count uses only var (plan-time known) so terraform test can evaluate it;
+  # workspace-data-derived locals tolerate empty values during plan.
+  count = var.starter_pack_category == "paas_rag" ? 1 : 0
+
+  metadata {
+    name      = "rag-ingestor-etl-ingress"
+    namespace = local.starter_pack_config.app_namespace
+    annotations = {
+      "cert-manager.io/cluster-issuer"              = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/use-regex"       = "true"
+      "nginx.ingress.kubernetes.io/rewrite-target"  = "/$2"
+      "nginx.ingress.kubernetes.io/proxy-body-size" = "2000m"
+    }
+  }
+
+  spec {
+    ingress_class_name = "nginx"
+
+    tls {
+      hosts       = [local.public_endpoint.starter_pack]
+      secret_name = "recipe-${local.frontend_recipe_canonical}-tls"
+    }
+
+    rule {
+      host = local.public_endpoint.starter_pack
+      http {
+        path {
+          path      = "/api/etl(/|$)(.*)"
+          path_type = "ImplementationSpecific"
+          backend {
+            service {
+              name = "recipe-${local.rag_ingestor_recipe_canonical}"
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [null_resource.wait_for_deployment]
+}
