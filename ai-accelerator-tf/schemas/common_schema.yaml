@@ -752,8 +752,8 @@ variables:
     title: "Corrino Image Version"
     type: enum
     enum:
-      - "1.0.12"
-    default: "1.0.12"
+      - "v1.0.12"
+    default: "v1.0.12"
     required: true
     visible: false
 

@@ -22,14 +22,7 @@ locals {
     backend_service_name         = "corrino-cp"
     backend_service_name_origin  = "http://corrino-cp"
     backend_service_name_ingress = "corrino-cp-ingress"
-    #    backend_image_uri_base                       = join(":", [local.ocir.base_uri, local.ocir.backend_image])
-    # corrino-cp backend pinned to the build that supports recipe_disable_ingress.
-    # The blueprint portal image (line below) tracks var.corrino_image_version
-    # because that build doesn't ship a "-ingress" tag; keeping the portal on
-    # the standard release version is intentional. Revert this pin to the
-    # format() expression once the ingress-disable feature lands in a tagged
-    # release.
-    backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-v1.0.12-ingress"
+    backend_image_uri            = format("${local.ocir.base_uri}/${local.ocir.backend_image}:${var.corrino_image_version}")
     #frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
     blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.corrino_image_version}")
     deploy_blueprint_image_uri                     = format("${local.ocir.base_uri}:corrino_deployment_scripts-latest")

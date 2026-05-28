@@ -540,7 +540,7 @@ variable "accelerator_pack_stack_version" {
 
 variable "corrino_image_version" {
   type        = string
-  default     = "v1.0.12-hotfix1"
+  default     = "v1.0.12"
   description = "Corrino backend image version"
 }
 
