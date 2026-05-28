@@ -6,7 +6,7 @@ locals {
   # rag-ingestor recipes in blueprint_files.tf (recipe_image_uri +
   # WORKER_IMAGE env) and by the etl-config ConfigMap below (WORKER_IMAGE
   # the etl-api uses when rendering per-feed worker CronJobs).
-  rag_ingestor_image_uri = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:pr-41f28f2"
+  rag_ingestor_image_uri = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:v0.1.16"
 
   # Recipe canonical names discovered from Corrino workspace data (populated
   # via blueprint-readiness.tf). Empty during plan; consumers in this file

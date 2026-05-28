@@ -1470,7 +1470,7 @@ locals {
               recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool = true
               recipe_replica_count        = 1
-              recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:pr-52e4d25"
+              recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.1.3"
               recipe_container_env = [
                 { "key" = "RUN_CONFIG_PATH", value = "/config/config.yaml" },
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
@@ -1490,7 +1490,7 @@ locals {
                 { "key" = "AUTH_VALIDATE_ENDPOINT", value = "http://$${auth-service.service_name}/auth/validate" }
               ],
               pvcs = {
-                retain_after_undeploy = false
+                retain_after_undeploy = true
                 volumes = [
                   { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
                 ]
@@ -1512,7 +1512,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:pr-accc4a1",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.4.3-arbi",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
@@ -1648,7 +1648,7 @@ locals {
               { key = "MAX_OBJECT_BYTES", value = "104857600" },
               { key = "K8S_NAMESPACE", value = local.starter_pack_config.app_namespace },
               { key = "WORKER_IMAGE", value = local.rag_ingestor_image_uri },
-              { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}:8321" },
+              { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}" },
               { key = "LLAMA_STACK_USERNAME", value = "robert.riley@oracle.com" },
               { key = "AUTH_SERVICE_URL", value = "http://$${auth-service.service_name}" },
               { key = "ETL_API_HOST", value = "0.0.0.0" },
