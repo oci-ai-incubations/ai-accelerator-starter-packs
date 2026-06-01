@@ -52,6 +52,9 @@ variables {
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
   tavily_api_key                  = ""
+  # enterprise_rag_aiq provisions the 26ai database (same as paas_rag + enterprise_rag),
+  # so the db_password precondition in 26ai.tf applies here.
+  db_password = "TestDBP@ssw0rd123!"
 }
 
 # Test: enterprise_rag_aiq starter pack plans successfully with correct deployment name and registration triggers
@@ -64,12 +67,12 @@ run "plan_enterprise_rag_aiq_small" {
   }
 
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "enterprise_rag_aiq"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "enterprise_rag_aiq"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 }

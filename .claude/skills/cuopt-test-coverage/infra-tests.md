@@ -29,7 +29,7 @@
 - **Command:** `kubectl get pods | grep demo`
 - **Verify:** At least one pod matching `recipe-cuopt-*-demo-*` with STATUS = `Running`, READY = `1/1`
 - **Note:** The frontend pod is the `demo` service in the blueprint deployment group. It's a CPU-only pod (1 OCPU, 8GB RAM).
-- **Failure hint:** If not found, check if `cuopt_frontend_enabled = true` in terraform.tfvars. Without this flag, no frontend is deployed (only the cuopt solver).
+- **Failure hint:** If not found, check that at least one frontend skin is enabled in terraform.tfvars (e.g. `cuopt_delivery_optimizer_enabled = true`). Check `frontend_skin_urls` in the Terraform outputs to see which skins were deployed.
 
 ### CI-2: cuOpt Solver Pod Running (P0 smoke)
 
@@ -45,7 +45,7 @@
 - **Verify:** At least one pod matching `recipe-cuopt-*-llamastack-*` with STATUS = `Running`, READY = `1/1`
 - **Note:** LlamaStack is a CPU-only pod (1 OCPU, 8GB RAM). It provides the OpenAI-compatible LLM endpoint.
 - **Startup time:** 2-5 minutes.
-- **Failure hint:** If not found, check if `cuopt_frontend_enabled = true`. LlamaStack is only deployed when the frontend is enabled.
+- **Failure hint:** If not found, check that at least one frontend skin is enabled in terraform.tfvars. LlamaStack is only deployed when at least one frontend skin is enabled.
 
 ### CI-4: All Blueprint Pods Running (P0 smoke)
 
@@ -54,8 +54,8 @@
   - `recipe-cuopt-*-cuopt-*` — cuOpt solver (GPU, 5-15 min startup)
   - `recipe-cuopt-*-llamastack-*` — LlamaStack LLM (CPU, 2-5 min startup)
   - `recipe-cuopt-*-demo-*` — Frontend (CPU, 1-2 min startup)
-- **Total expected:** 3 pods (when `cuopt_frontend_enabled = true`)
-- **Note:** If `cuopt_frontend_enabled = false`, only the cuopt solver pod is expected (1 pod).
+- **Total expected:** cuopt solver + llamastack + one `demo` pod per enabled frontend skin. With one skin enabled, expect 3 pods; with multiple skins, expect 2 + N pods.
+- **Note:** Consult `frontend_skin_urls` in the Terraform outputs to confirm which skins were deployed.
 - **Failure hint:** If any pod is in `Init` or `ContainerCreating`, wait and recheck every 2 minutes. NIM/GPU pods take longer. If pods are in `CrashLoopBackOff` or `Error`, check logs and report.
 
 ### CI-5: Ingress Routes Configured (P1 regression)

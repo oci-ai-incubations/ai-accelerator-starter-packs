@@ -1,4 +1,5 @@
 resource "kubernetes_service_v1" "oci_ai_blueprints_portal_service" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "oci-ai-blueprints-portal"
     annotations = {
@@ -19,6 +20,7 @@ resource "kubernetes_service_v1" "oci_ai_blueprints_portal_service" {
 }
 
 resource "kubernetes_deployment_v1" "oci_ai_blueprints_portal_deployment" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "oci-ai-blueprints-portal"
     labels = {

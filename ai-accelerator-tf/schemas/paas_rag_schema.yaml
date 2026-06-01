@@ -80,6 +80,12 @@ variableGroups:
 # Variables - RAG specific
 # =============================================================================
 variables:
+  # paas_rag is CPU-only — no GPU worker pool, so AD is not needed
+  worker_node_availability_domain:
+    required: false
+    visible: false
+
+
   starter_pack_size:
     type: enum
     enum:

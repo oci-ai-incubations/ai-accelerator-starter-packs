@@ -17,7 +17,7 @@ Generate the OCI Resource Manager UI schema by merging common base with category
 ## Command
 
 ```bash
-cd /Users/dkennetz/code/ai-accelerator
+cd "$(git rev-parse --show-toplevel)"
 source venv/bin/activate
 python3 create_final_schema.py -c $0
 ```

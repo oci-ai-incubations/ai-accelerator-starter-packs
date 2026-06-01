@@ -59,10 +59,10 @@ variables {
 run "plan_paas_rag_small" {
   command = plan
 
-  # Deployment name should start with the short form of the starter pack category (suffixed with random_id hex)
+  # Config deployment name should be the base name (output includes random_id hex suffix, unknown at plan time)
   assert {
-    condition     = startswith(output.starter_pack_deployment_name, "paas-")
-    error_message = "paas_rag deployment name should start with 'paas-'"
+    condition     = local.starter_pack_config.deployment_name == "paas"
+    error_message = "paas_rag config deployment name should be 'paas'"
   }
 
   # Database username should default to ADMIN when not explicitly set
@@ -73,13 +73,13 @@ run "plan_paas_rag_small" {
 
   # Postflight registration trigger should record the selected starter pack category
   assert {
-    condition     = null_resource.postflight_registration.triggers.starter_pack_category == "paas_rag"
+    condition     = null_resource.postflight_registration[0].triggers.starter_pack_category == "paas_rag"
     error_message = "postflight trigger should capture starter pack category"
   }
 
   # Postflight registration trigger should record the deployment region
   assert {
-    condition     = null_resource.postflight_registration.triggers.region == "us-ashburn-1"
+    condition     = null_resource.postflight_registration[0].triggers.region == "us-ashburn-1"
     error_message = "postflight trigger should capture region"
   }
 

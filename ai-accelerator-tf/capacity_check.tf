@@ -11,7 +11,7 @@
 
 # GPU Worker Node Capacity Check (BM.GPU4.8 for cuopt/vss) - Check all ADs
 resource "oci_core_compute_capacity_report" "gpu_worker_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
+  for_each = !local.run_capacity_checks ? {} : (
     local.starter_pack_config.worker_node_shape != "none" ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
@@ -26,7 +26,7 @@ resource "oci_core_compute_capacity_report" "gpu_worker_capacity" {
 
 # Control Plane Node Pool Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "control_plane_capacity" {
-  for_each = var.skip_capacity_check ? {} : {
+  for_each = !local.run_capacity_checks ? {} : {
     for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad
   }
 
@@ -45,7 +45,7 @@ resource "oci_core_compute_capacity_report" "control_plane_capacity" {
 
 # CPU Worker Node Pool Capacity Check (VM.Standard.E5.Flex - only when needed) - Check all ADs
 resource "oci_core_compute_capacity_report" "cpu_worker_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
+  for_each = !local.run_capacity_checks ? {} : (
     local.starter_pack_config.cpu_worker_node_pool_size > 0 ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
@@ -65,8 +65,8 @@ resource "oci_core_compute_capacity_report" "cpu_worker_capacity" {
 
 # Bastion Instance Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "bastion_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
-    var.create_bastion ?
+  for_each = !local.run_capacity_checks ? {} : (
+    local.create_bastion_effective ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
 
@@ -85,8 +85,8 @@ resource "oci_core_compute_capacity_report" "bastion_capacity" {
 
 # Operator Instance Capacity Check (VM.Standard.E5.Flex) - Check all ADs
 resource "oci_core_compute_capacity_report" "operator_capacity" {
-  for_each = var.skip_capacity_check ? {} : (
-    var.create_bastion ?
+  for_each = !local.run_capacity_checks ? {} : (
+    local.create_bastion_effective ?
     { for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name => ad } : {}
   )
 
@@ -138,7 +138,7 @@ locals {
   )
 
   bastion_available = var.skip_capacity_check ? true : (
-    !var.create_bastion ? true : (
+    !local.create_bastion_effective ? true : (
       length(oci_core_compute_capacity_report.bastion_capacity) > 0 ?
       anytrue([
         for report in oci_core_compute_capacity_report.bastion_capacity :
@@ -148,7 +148,7 @@ locals {
   )
 
   operator_available = var.skip_capacity_check ? true : (
-    !var.create_bastion ? true : (
+    !local.create_bastion_effective ? true : (
       length(oci_core_compute_capacity_report.operator_capacity) > 0 ?
       anytrue([
         for report in oci_core_compute_capacity_report.operator_capacity :
@@ -226,7 +226,7 @@ Required Capacity Status:
 %{endfor~}
 %{endif~}
 %{endif~}
-%{if var.create_bastion~}
+%{if local.create_bastion_effective~}
   Bastion Instance:
     Shape: ${var.bastion_instance_shape.instanceShape}
     Status: ${local.bastion_available ? "AVAILABLE in at least one AD" : "NOT AVAILABLE in any AD"}
@@ -261,13 +261,15 @@ EOT
 # Validation Resource - This is what other resources depend on
 # -----------------------------------------------------------------------------
 resource "terraform_data" "capacity_validated" {
+  count = local.deploy_infrastructure ? 1 : 0
+
   # This resource validates capacity and acts as a dependency gate
 
   lifecycle {
     # Require worker_node_availability_domain for GPU starter packs (when worker_node_shape != "none")
     precondition {
       condition     = local.starter_pack_config.worker_node_shape == "none" || var.worker_node_availability_domain != ""
-      error_message = "worker_node_availability_domain is required for GPU starter packs (cuopt, vss, enterprise_rag). It is optional for paas_rag."
+      error_message = "worker_node_availability_domain is required for GPU starter packs (cuopt, vss, enterprise_rag, enterprise_rag_aiq, warehouse_pick_path). It is optional for CPU-only packs (paas_rag, dox_pack)."
     }
 
     # Validate that the provided AD exists in the region (only if provided)

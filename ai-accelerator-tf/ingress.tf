@@ -1,5 +1,6 @@
 ## Grafana Ingress
 resource "kubernetes_ingress_v1" "grafana_ingress" {
+  count                  = local.deploy_application ? 1 : 0
   wait_for_load_balancer = true
   metadata {
     name      = "grafana-ingress"
@@ -36,6 +37,7 @@ resource "kubernetes_ingress_v1" "grafana_ingress" {
 }
 
 resource "kubernetes_ingress_v1" "prometheus_ingress" {
+  count                  = local.deploy_application ? 1 : 0
   wait_for_load_balancer = true
   metadata {
     name      = "prometheus-ingress"
@@ -93,7 +95,7 @@ resource "kubernetes_ingress_v1" "corrino_cp_ingress" {
           path = "/"
           backend {
             service {
-              name = kubernetes_service_v1.corrino_cp_service.metadata[0].name
+              name = kubernetes_service_v1.corrino_cp_service[0].metadata[0].name
               port {
                 number = 80
               }
@@ -104,7 +106,7 @@ resource "kubernetes_ingress_v1" "corrino_cp_ingress" {
     }
   }
   depends_on = [helm_release.ingress_nginx]
-  count      = var.ingress_nginx_enabled ? 1 : 0
+  count      = local.deploy_application && var.ingress_nginx_enabled ? 1 : 0
 }
 
 resource "kubernetes_ingress_v1" "oci_ai_blueprints_portal_ingress" {
@@ -129,7 +131,7 @@ resource "kubernetes_ingress_v1" "oci_ai_blueprints_portal_ingress" {
           path = "/"
           backend {
             service {
-              name = kubernetes_service_v1.oci_ai_blueprints_portal_service.metadata[0].name
+              name = kubernetes_service_v1.oci_ai_blueprints_portal_service[0].metadata[0].name
               port {
                 number = 80
               }
@@ -140,13 +142,13 @@ resource "kubernetes_ingress_v1" "oci_ai_blueprints_portal_ingress" {
     }
   }
   depends_on = [helm_release.ingress_nginx]
-  count      = var.ingress_nginx_enabled ? 1 : 0
+  count      = local.deploy_application && var.ingress_nginx_enabled ? 1 : 0
 }
 
 ## Enterprise RAG Frontend Ingress
 ## Only created when starter_pack_category is enterprise_rag
 resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
-  count = var.starter_pack_category == "enterprise_rag" ? 1 : 0
+  count = local.deploy_application && var.starter_pack_category == "enterprise_rag" ? 1 : 0
 
   wait_for_load_balancer = true
   metadata {
@@ -185,11 +187,11 @@ resource "kubernetes_ingress_v1" "enterprise_rag_frontend_ingress" {
       }
     }
   }
-  depends_on = [helm_release.ingress_nginx, helm_release.rag, terraform_data.patch_nim_llm_service_selector]
+  depends_on = [helm_release.ingress_nginx, helm_release.rag, terraform_data.patch_nim_operator_resources]
 }
 
 resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
-  count = var.starter_pack_category == "enterprise_rag_aiq" ? 1 : 0
+  count = local.deploy_app_rag_aiq ? 1 : 0
 
   wait_for_load_balancer = true
   metadata {
@@ -218,7 +220,7 @@ resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
           path_type = "Prefix"
           backend {
             service {
-              name = "aiq-aira-aira-frontend"
+              name = "aiq-frontend"
               port {
                 number = 3000
               }
@@ -233,15 +235,16 @@ resource "kubernetes_ingress_v1" "enterprise_rag_aiq_frontend_ingress" {
 
 ## Data source for ingress controller service
 data "kubernetes_service_v1" "ingress" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name      = "ingress-nginx-controller"
-    namespace = kubernetes_namespace_v1.cluster_tools.id
+    namespace = kubernetes_namespace_v1.cluster_tools[0].id
   }
   depends_on = [helm_release.ingress_nginx]
 }
 
 locals {
-  ingress_controller_load_balancer_ip = try(data.kubernetes_service_v1.ingress.status[0].load_balancer[0].ingress[0].ip, "")
+  ingress_controller_load_balancer_ip = local.deploy_application ? try(data.kubernetes_service_v1.ingress[0].status[0].load_balancer[0].ingress[0].ip, "") : ""
 }
 
 # =============================================================================

@@ -24,6 +24,7 @@ resource "random_string" "generated_deployment_name" {
 }
 
 resource "random_string" "corrino_django_secret" {
+  count            = local.deploy_application ? 1 : 0
   length           = 32
   special          = true
   min_upper        = 3
@@ -34,6 +35,7 @@ resource "random_string" "corrino_django_secret" {
 }
 
 resource "random_string" "postgres_db_password" {
+  count            = local.deploy_application ? 1 : 0
   length           = 16
   special          = true
   min_upper        = 3
@@ -44,6 +46,7 @@ resource "random_string" "postgres_db_password" {
 }
 
 resource "random_string" "postgres_db_username" {
+  count     = local.deploy_application ? 1 : 0
   length    = 8
   special   = false
   min_upper = 2
@@ -51,6 +54,7 @@ resource "random_string" "postgres_db_username" {
 }
 
 resource "random_string" "postgres_db_name" {
+  count     = local.deploy_application ? 1 : 0
   length    = 4
   special   = false
   min_upper = 2
@@ -59,6 +63,7 @@ resource "random_string" "postgres_db_name" {
 
 # VSS Oracle UX dedicated Postgres
 resource "random_string" "vss_postgres_db_password" {
+  count       = local.deploy_application ? 1 : 0
   length      = 24
   special     = false
   min_upper   = 2
@@ -67,6 +72,7 @@ resource "random_string" "vss_postgres_db_password" {
 }
 
 resource "random_string" "vss_postgres_db_username" {
+  count     = local.deploy_application ? 1 : 0
   length    = 8
   special   = false
   min_upper = 2
@@ -74,6 +80,7 @@ resource "random_string" "vss_postgres_db_username" {
 }
 
 resource "random_string" "vss_postgres_db_name" {
+  count     = local.deploy_application ? 1 : 0
   length    = 4
   special   = false
   min_upper = 2
@@ -114,3 +121,7 @@ resource "random_password" "minio_secret_key" {
   length  = 40
   special = false
 }
+
+# Token signing migrated to RS256; pack BEs verify via JWKS — no shared secret
+# remains in TF. The auth-service pod generates and persists its own RSA-2048
+# keypair on first start (signing_keys table).

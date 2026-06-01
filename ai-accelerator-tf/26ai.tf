@@ -4,14 +4,18 @@
 
 # Autonomous Database
 resource "oci_database_autonomous_database" "oracle_26ai" {
-  compartment_id                                 = var.compartment_ocid
-  db_name                                        = "AIAccel${var.db_name}${random_string.deploy_id.result}"
-  display_name                                   = "AIAccel${var.db_display_name}${random_string.deploy_id.result}"
-  admin_password                                 = var.db_password
-  compute_count                                  = local.starter_pack_config.database_compute_count
-  db_version                                     = "26ai"
-  compute_model                                  = "ECPU"
-  data_storage_size_in_tbs                       = local.starter_pack_config.database_storage_size_in_tbs
+  compartment_id = var.compartment_ocid
+  db_name        = "AIAccel${var.db_name}${random_string.deploy_id.result}"
+  display_name   = "AIAccel${var.db_display_name}${random_string.deploy_id.result}"
+  admin_password = var.db_password
+  compute_count  = max(local.starter_pack_config.database_compute_count, 2)
+  db_version     = "26ai"
+  compute_model  = "ECPU"
+  # Floor at 1 TB — Autonomous AI Database minimum. Packs that don't otherwise
+  # need 26ai (cuopt, vss) set database_storage_size_in_tbs = 0; when they're
+  # in needs_26ai (e.g. cuopt with enable_auth_service=true), the auth-service
+  # is the only consumer and 1 TB is plenty.
+  data_storage_size_in_tbs                       = max(local.starter_pack_config.database_storage_size_in_tbs, 1)
   db_workload                                    = var.db_workload_type
   license_model                                  = var.db_license_model
   is_auto_scaling_enabled                        = true
@@ -24,14 +28,15 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
   backup_retention_period_in_days                = 60
   character_set                                  = "AL32UTF8"
   ncharacter_set                                 = "AL16UTF16"
-  subnet_id                                      = local.db_subnet_id
+  subnet_id                                      = local.autonomous_db_subnet_id
+  private_endpoint_label                         = "aiaccel${random_string.deploy_id.result}"
 
-  count = local.needs_26ai ? 1 : 0
+  count = local.deploy_app_26ai ? 1 : 0
 
   lifecycle {
     precondition {
       condition     = var.db_password != null
-      error_message = "db_password is required when using the paas_rag starter pack category."
+      error_message = "db_password is required when the 26ai database is provisioned — that is the paas_rag / enterprise_rag / enterprise_rag_aiq / warehouse_pick_path / dox_pack packs, OR any pack with enable_auth_service=true (auth-service is backed by 26ai)."
     }
   }
 
@@ -50,7 +55,7 @@ resource "kubernetes_secret_v1" "oadb-admin" {
   }
   type = "Opaque"
 
-  count      = local.needs_26ai ? 1 : 0
+  count      = local.deploy_app_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -64,7 +69,7 @@ resource "kubernetes_secret_v1" "oadb-connection" {
   }
   type = "Opaque"
 
-  count      = local.needs_26ai ? 1 : 0
+  count      = local.deploy_app_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }
 
@@ -88,6 +93,6 @@ resource "kubernetes_secret_v1" "oadb_high_connection" {
   }
   type = "Opaque"
 
-  count      = local.needs_26ai ? 1 : 0
+  count      = local.deploy_app_26ai ? 1 : 0
   depends_on = [oci_database_autonomous_database.oracle_26ai, oci_containerengine_node_pool.oke_node_pool]
 }

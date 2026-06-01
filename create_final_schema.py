@@ -108,7 +108,153 @@ def represent_str(dumper, data):
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq"]
+def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more_url):
+    """Inject per-skin selection variables into the merged schema.
+
+    Two shapes, chosen by the catalog:
+      - Blueprint packs (cuopt/vss/paas_rag): catalog entries declare a
+        `variable_name` and `default_enabled`. We inject one boolean variable
+        per skin; users can enable any combination (multi-select).
+      - Helm packs (enterprise_rag/enterprise_rag_aiq): catalog entries have
+        no `variable_name`. We inject a single enum variable named
+        `skin_<category>` whose enum list is every skin key in the catalog and
+        whose default is the catalog's top-level `default:`. Users pick one
+        (single-select).
+
+    Both shapes land in a dedicated 'Frontend Skins' variableGroup inserted
+    after 'Deployment Configuration' so the skin selection is a discoverable
+    section in the ORM UI.
+    """
+    if skins_data is None or category not in skins_data:
+        return
+    skins = skins_data[category].get("skins", [])
+    if not skins:
+        return
+
+    per_skin_variable_names = [s.get("variable_name") for s in skins if s.get("variable_name")]
+    # Helm pack indicator: no per-skin variable_names in the catalog.
+    is_helm_pack = len(per_skin_variable_names) == 0
+
+    # Variable names to place in the group (in catalog order).
+    group_var_names = []
+
+    if is_helm_pack:
+        # Single enum var for Helm packs.
+        enum_var_name = f"skin_{category}"
+        default_key = skins_data[category].get("default", skins[0]["key"])
+        # Catch catalog typos where `default:` doesn't match any `key:`. Without this
+        # the ORM wizard renders an out-of-range default that users can't select.
+        available_keys = [s["key"] for s in skins]
+        if default_key not in available_keys:
+            raise ValueError(
+                f"Catalog default {default_key!r} for {category} is not in the skin keys "
+                f"{available_keys!r}. Fix schemas/frontend_skins.yaml."
+            )
+        merged_schema.setdefault("variables", {})[enum_var_name] = {
+            "type": "enum",
+            "title": "Frontend Skin",
+            "description": (
+                "Choose which frontend UI to deploy for this Helm-based pack. "
+                f"Only one skin can be active at a time. <a href='{learn_more_url}'>Learn more</a>"
+            ),
+            "enum": [skin["key"] for skin in skins],
+            "default": default_key,
+            "required": True,
+            "visible": True,
+        }
+        group_var_names.append(enum_var_name)
+    else:
+        # Blueprint packs: one boolean per skin.
+        for skin in skins:
+            var_name = skin.get("variable_name")
+            if not var_name:
+                continue
+            merged_schema.setdefault("variables", {})[var_name] = {
+                "type": "boolean",
+                "title": skin["key"],
+                "description": f"Enable this frontend skin. <a href='{learn_more_url}'>Learn more</a>",
+                "default": skin.get("default_enabled", False),
+                "required": True,
+                "visible": True,
+            }
+            group_var_names.append(var_name)
+
+    if not group_var_names:
+        return  # Nothing to inject (shouldn't happen given the guards above).
+
+    variable_groups = merged_schema.setdefault("variableGroups", [])
+
+    # Group description explains the selection semantics for the current pack type.
+    # ORM Redwood UI does not render variableGroup descriptions today, but we keep
+    # the field populated for parity with the schema spec.
+    if is_helm_pack:
+        group_description = (
+            "Choose which frontend UI to deploy. Helm-based packs support a single "
+            f"skin at a time. <a href='{learn_more_url}'>Learn more about available skins</a>."
+        )
+    else:
+        group_description = (
+            "Select one or more frontend UIs to deploy. You can enable multiple "
+            "skins simultaneously — each runs as its own container with its own "
+            f"URL. <a href='{learn_more_url}'>Learn more about available skins</a>."
+        )
+
+    # Find or create the "Frontend Skins" group.
+    skin_group = None
+    for group in variable_groups:
+        if group.get("title") == "Frontend Skins":
+            skin_group = group
+            break
+    if skin_group is None:
+        skin_group = {
+            "title": "Frontend Skins",
+            "description": group_description,
+            "variables": [],
+        }
+        # Insert right after "Deployment Configuration" if present, else append.
+        insert_at = len(variable_groups)
+        for idx, group in enumerate(variable_groups):
+            if group.get("title") == "Deployment Configuration":
+                insert_at = idx + 1
+                break
+        variable_groups.insert(insert_at, skin_group)
+    else:
+        # Keep the description fresh if the group already exists.
+        skin_group["description"] = group_description
+
+    # Populate in catalog order.
+    for var_name in group_var_names:
+        if var_name not in skin_group["variables"]:
+            skin_group["variables"].append(var_name)
+        # Also make sure the variable is NOT in Deployment Configuration (older
+        # generations may have placed it there).
+        for group in variable_groups:
+            if group.get("title") == "Deployment Configuration" and var_name in group.get("variables", []):
+                group["variables"].remove(var_name)
+
+
+def inject_frontend_skin_url_map_output(merged_schema, skins_data):
+    """Declare frontend_skin_urls as a map output and add to the Frontend group."""
+    if skins_data is None:
+        return
+    merged_schema.setdefault("outputs", {})["frontend_skin_urls"] = {
+        "type": "map",
+        "title": "Frontend URLs",
+        "visible": True,
+    }
+    target_group = None
+    for group in merged_schema.get("outputGroups", []):
+        if group.get("title") in ("Frontend", "Frontend Skin"):
+            target_group = group
+            break
+    if target_group is not None:
+        target_group["title"] = "Frontend"
+        if "frontend_skin_urls" not in target_group["outputs"]:
+            target_group["outputs"].insert(0, "frontend_skin_urls")
+        target_group["outputs"] = [o for o in target_group["outputs"] if o != "frontend_skin_image_uri"]
+
+
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"]
 
 
 def get_args():
@@ -119,7 +265,7 @@ def get_args():
     return parser.parse_args()
 
 
-def generate_schema_for_category(common: dict, category: str, schemas_dir: Path, output_path: Path) -> None:
+def generate_schema_for_category(common: dict, category: str, schemas_dir: Path, output_path: Path, skins_data: dict = None) -> None:
     """Generate merged schema for a single category and write to output_path."""
     category_path = schemas_dir / f"{category}_schema.yaml"
     if category_path.exists():
@@ -127,7 +273,13 @@ def generate_schema_for_category(common: dict, category: str, schemas_dir: Path,
             category_schema = yaml.safe_load(f)
         final = deep_merge(common, category_schema)
     else:
-        final = common
+        final = deepcopy(common)
+
+    # Inject per-skin boolean toggles and frontend_skin_urls map output after merge
+    if skins_data:
+        learn_more_url = skins_data.get("learn_more_url", "")
+        inject_frontend_skin_toggles(final, skins_data, category, learn_more_url)
+        inject_frontend_skin_url_map_output(final, skins_data)
 
     with open(output_path, 'w') as f:
         f.write("# AUTO-GENERATED - Do not edit directly!\n")
@@ -154,6 +306,13 @@ def main():
     with open(common_path) as f:
         common = yaml.safe_load(f)
 
+    # Load frontend skins catalog
+    skins_path = schemas_dir / "frontend_skins.yaml"
+    skins_data = None
+    if skins_path.exists():
+        with open(skins_path) as f:
+            skins_data = yaml.safe_load(f)
+
     yaml.add_representer(str, represent_str)
 
     if args.all:
@@ -162,7 +321,7 @@ def main():
         for category in CATEGORIES:
             print(f"Building schema for category: {category}")
             output_path = generated_dir / f"{category}_schema.yaml"
-            generate_schema_for_category(common, category, schemas_dir, output_path)
+            generate_schema_for_category(common, category, schemas_dir, output_path, skins_data)
             print(f"  Generated: {output_path}")
         print("Done!")
     else:
@@ -178,7 +337,7 @@ def main():
             print(f"Warning: {tfvars_path} not found, skipping update")
 
         output_path = tf_dir / "schema.yaml"
-        generate_schema_for_category(common, category, schemas_dir, output_path)
+        generate_schema_for_category(common, category, schemas_dir, output_path, skins_data)
         print(f"Generated: {output_path}")
         print("Done!")
 

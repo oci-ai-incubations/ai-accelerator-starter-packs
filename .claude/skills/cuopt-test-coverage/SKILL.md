@@ -1,12 +1,12 @@
 ---
 name: cuopt-test-coverage
-description: Authoritative test specification for the cuOpt (Vehicle Route Optimizer) starter pack. Documents API endpoints, UI interactions, chat flows, and infrastructure components. Split into phase-specific files.
+description: Authoritative test specification for the cuOpt (Vehicle Delivery Route Optimizer) starter pack. Documents API endpoints, UI interactions, chat flows, and infrastructure components. Split into phase-specific files.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
-argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
+argument-hint: [section] (optional — "api", "ui", "infra", or omit to run all three)
 ---
 
-# cuOpt Starter Pack — Test Coverage Specification
+# Vehicle Delivery Route Optimizer — Test Coverage Specification
 
 Source of truth for what to test on a deployed cuOpt stack. Covers the cuOpt interactive frontend (React SPA), the NVIDIA cuOpt solver backend, LlamaStack LLM service, and OCI infrastructure.
 
@@ -24,10 +24,19 @@ Each file is **self-contained** — it has everything needed to execute its test
 | File | Tests | Count | Executor |
 |---|---|---|---|
 | `api-tests.md` | CA-1 through CA-7 | 7 | Main agent via `curl` |
-| `ui-tests.md` | CU-1 through CU-20 | 18 | Playwright sub-agent |
+| `ui-tests.md` | CU-1 through CU-20 | 18 | agent-browser |
 | `infra-tests.md` | CI-1 through CI-7 | 7 | Main agent via `kubectl` / OCI CLI |
 
 **Total: 32 tests** (7 API + 18 UI + 7 Infra)
+
+---
+
+## Invocation Behavior
+
+- **`/cuopt-test-coverage infra`** — Read and execute `infra-tests.md` only.
+- **`/cuopt-test-coverage api`** — Read and execute `api-tests.md` only.
+- **`/cuopt-test-coverage ui`** — Read and execute `ui-tests.md` only.
+- **`/cuopt-test-coverage`** (no argument) — Execute ALL three in order: `infra-tests.md`, then `api-tests.md`, then `ui-tests.md`.
 
 ---
 

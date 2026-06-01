@@ -51,6 +51,7 @@ variables {
   starter_pack_category           = "enterprise_rag"
   worker_node_availability_domain = "US-ASHBURN-AD-1"
   skip_capacity_check             = true
+  db_password                     = "TestDBP@ssw0rd123!"
 }
 
 # Test: default configuration plans successfully and deterministic outputs resolve to expected values

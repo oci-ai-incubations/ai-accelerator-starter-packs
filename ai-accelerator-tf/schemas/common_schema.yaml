@@ -33,6 +33,22 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
+  - title: "Auth Service"
+    outputs:
+      - auth_service_curl_example
+      - sso_callback_redirect_uris
+    visible:
+      eq:
+        - enable_auth_service
+        - "true"
+
+  - title: "Frontend"
+    outputs:
+      - frontend_skin_urls
+      - frontend_skin_name
+      - frontend_skin_provider
+      - frontend_skins_learn_more
+
   - title: "Bastion Access"
     outputs:
       - bastion_ssh_target
@@ -63,6 +79,14 @@ outputGroups:
     outputs:
       - ai_accelerator_stack_version
 
+  - title: "Infrastructure (for App-Only Stack)"
+    outputs:
+      - cluster_id
+      - autonomous_db_subnet_id
+      - node_subnet_id
+      - node_pool_id
+      - vcn_id
+
 # =============================================================================
 # Variable Groups - Common structure
 # =============================================================================
@@ -78,20 +102,38 @@ variableGroups:
     variables:
       - starter_pack_size
 
-  - title: "Administrator Account"
+  - title: "OCI Blueprints Administrator Account"
     variables:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
 
+  - title: "Authentication"
+    variables:
+      - enable_auth_service
+      - auth_service_extra_trusted_issuers
+      - enable_oracle_oidc_idcs
+      - auth_oidc_oracle_idcs_issuer_url
+      - auth_oidc_oracle_idcs_client_id
+      - auth_oidc_oracle_idcs_client_secret
+      - enable_microsoft_entra_oidc
+      - auth_oidc_microsoft_entra_tenant_id
+      - auth_oidc_microsoft_entra_client_id
+      - auth_oidc_microsoft_entra_client_secret
+
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
+      - deploy_private_k8s_and_loadbalancer
       - create_bastion
       - skip_capacity_check
       - use_custom_dns
       - fqdn_custom_domain
       - create_policies
+      - deploy_application
+      - existing_cluster_id
+      - existing_node_subnet_id
+      - existing_autonomous_db_subnet_id
 
 # =============================================================================
 # Variables - Common definitions
@@ -110,6 +152,165 @@ variables:
   # Category is set via starter_pack_category.auto.tfvars
   starter_pack_category:
     type: string
+    visible: false
+
+  # ---------------------------------
+  # Authentication
+  # ---------------------------------
+  # Per-user JWT auth via accelerator-pack-auth-service. Protects FE + BE,
+  # supports RBAC, OIDC SSO (Oracle IDCS + Microsoft Entra), admin panel
+  # + audit log. Tokens are RS256-signed; the auth-service pod generates
+  # and rotates its own RSA keypair, and pack BEs fetch its JWKS to verify
+  # tokens locally without a per-request /auth/me call.
+
+  enable_auth_service:
+    type: boolean
+    title: "Enable Auth Service (per-user JWT auth)"
+    description: "Deploy <code>accelerator-pack-auth-service</code> alongside the pack and route <code>/auth/*</code> through the frontend ingress. Per-user JWT auth (RS256) with RBAC, OIDC SSO, admin panel + audit log. Pack frontends gain a login screen; pack backends fetch the auth-service JWKS to verify tokens locally."
+    default: false
+    required: false
+
+  auth_service_extra_trusted_issuers:
+    type: string
+    title: "Extra Trusted Token Issuers (comma-separated)"
+    description: "Optional extra issuer URLs (Oracle IDCS, Microsoft Entra, or a customer-controlled auth-service instance) whose RS256 tokens pack backends will accept in addition to the bundled auth-service. Each issuer must publish a JWKS document at <code>{issuer}/.well-known/jwks.json</code>. Leave blank for standalone deployments."
+    default: ""
+    required: false
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  enable_oracle_oidc_idcs:
+    type: boolean
+    title: "Enable Oracle IDCS SSO"
+    description: "Enable Oracle Identity Cloud Service as an OIDC provider for the auth-service. Reveals the IDCS issuer URL / client ID / client secret fields when checked. Provider records are not auto-seeded — an admin must call <code>POST /auth/providers</code> via the auth-service admin panel after deploy."
+    default: false
+    required: false
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  auth_oidc_oracle_idcs_issuer_url:
+    type: string
+    title: "Oracle IDCS Issuer URL"
+    description: "Oracle Identity Cloud Service OIDC discovery endpoint (e.g., <code>https://idcs-tenant.identity.oraclecloud.com:443/.well-known/openid-configuration</code>)."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_oracle_oidc_idcs}
+            - true
+
+  auth_oidc_oracle_idcs_client_id:
+    type: string
+    title: "Oracle IDCS Client ID"
+    description: "Oracle IDCS OIDC client ID."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_oracle_oidc_idcs}
+            - true
+
+  auth_oidc_oracle_idcs_client_secret:
+    type: password
+    title: "Oracle IDCS Client Secret"
+    description: "Oracle IDCS OIDC client secret."
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_oracle_oidc_idcs}
+            - true
+
+  enable_microsoft_entra_oidc:
+    type: boolean
+    title: "Enable Microsoft Entra SSO"
+    description: "Enable Microsoft Entra (Azure AD) as an OIDC provider for the auth-service. Reveals the Entra tenant ID / client ID / client secret fields when checked. Provider records are not auto-seeded — an admin must call <code>POST /auth/providers</code> via the auth-service admin panel after deploy."
+    default: false
+    required: false
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  auth_oidc_microsoft_entra_tenant_id:
+    type: string
+    title: "Microsoft Entra Tenant ID"
+    description: "Microsoft Entra (Azure AD) tenant ID."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_microsoft_entra_oidc}
+            - true
+
+  auth_oidc_microsoft_entra_client_id:
+    type: string
+    title: "Microsoft Entra Client ID"
+    description: "Microsoft Entra OIDC client ID."
+    default: ""
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_microsoft_entra_oidc}
+            - true
+
+  auth_oidc_microsoft_entra_client_secret:
+    type: password
+    title: "Microsoft Entra Client Secret"
+    description: "Microsoft Entra OIDC client secret."
+    required: true
+    visible:
+      and:
+        - eq:
+            - ${enable_auth_service}
+            - true
+        - eq:
+            - ${enable_microsoft_entra_oidc}
+            - true
+
+  # Image versions are pinned in vars.tf and hidden from the UI. A pack ships
+  # a fully-versioned stack — operators should not override individual image
+  # tags from the ORM Resource Manager UI.
+  auth_service_image_version:
+    type: string
+    visible: false
+
+  # JWKS cache TTL is an incident-response knob, not a UI-tunable field.
+  # Operators override via tfvars when rotating keys; the default is fine for
+  # normal operation.
+  auth_service_jwks_cache_ttl_seconds:
+    type: number
+    visible: false
+
+  # OAuth2 client_credentials master switch is an incident-response containment
+  # lever, not a UI-tunable field. Operators override via tfvars when revoking
+  # service-account credentials cluster-wide; the default is fine for normal
+  # operation.
+  enable_client_credentials_grant:
+    type: boolean
     visible: false
 
   # Capacity Check Option
@@ -206,13 +407,33 @@ variables:
     type: string
     visible: false
 
+  deploy_private_k8s_and_loadbalancer:
+    type: boolean
+    title: "Deploy Private K8s and Load Balancer"
+    description: "Deploys a completely private stack not accessible via internet. More secure, but the final URL will not be accessible from the public internet without first port forwarding. Suitable for production deployments."
+    default: false
+    required: false
+
   create_policies:
     type: boolean
     title: "Create IAM Policies"
     description: "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
     default: true
     required: false
-    visible: true
+
+  deploy_application:
+    type: boolean
+    title: "Deploy Application"
+    description: "When unchecked, only infrastructure (VCN, OKE cluster, node pools) is created. Use this to create an infrastructure-only stack for node reuse."
+    default: true
+    required: false
+
+  existing_cluster_id:
+    type: string
+    title: "Existing Cluster OCID"
+    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE, node pools) is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   # ---------------------------------
   # Hidden Variables
@@ -325,7 +546,10 @@ variables:
 
   existing_node_subnet_id:
     type: string
-    visible: false
+    title: "Existing Node Subnet OCID"
+    description: "Subnet OCID for the worker node pool. Required when using an existing cluster. Get this value from the node_subnet_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   existing_pods_subnet_id:
     type: string
@@ -334,6 +558,13 @@ variables:
   existing_services_subnet_id:
     type: string
     visible: false
+
+  existing_autonomous_db_subnet_id:
+    type: string
+    title: "Existing Autonomous DB Subnet OCID"
+    description: "Subnet OCID for the Autonomous Database private endpoint. Required when using an existing cluster. Get this value from the autonomous_db_subnet_id output of an infrastructure-only stack."
+    default: ""
+    required: false
 
   ingress_nginx_enabled:
     type: boolean
@@ -389,16 +620,89 @@ variables:
         - use_custom_dns
         - "true"
 
-  cuopt_frontend_enabled:
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+
+  cuopt_frontend_admin_password:
+    type: password
+    visible: false
+
+  google_maps_api_key:
+    type: string
+    visible: false
+
+  # cuopt-only fallbacks. The cuopt_schema.yaml does not override these
+  # (they stay hidden across packs); cuopt-locals.tf consumes them when
+  # starter_pack_category == "cuopt". They are pinned in TF rather than
+  # surfaced in the ORM UI — see the "Image versions are pinned in vars.tf"
+  # comment block above for the rationale.
+  cuopt_backend_image_version:
+    type: string
+    visible: false
+
+  cuopt_openweathermap_api_key:
+    type: password
+    visible: false
+
+  cuopt_tls_verify:
     type: boolean
     visible: false
 
-  ngc_secret:
-    type: password
+  # DAC variables are dox_pack-only. Keep hidden fallbacks here so ORM does
+  # not render Terraform-only fields in every other pack.
+  dac_model_id:
+    type: string
     visible: false
 
-  ngc_api_secret:
-    type: password
+  dac_unit_shape:
+    type: string
+    visible: false
+
+  dac_billing_acknowledgement:
+    type: boolean
+    default: false
+    visible: false
+
+  # Per-skin boolean fallbacks. create_final_schema.py's inject_frontend_skin_toggles
+  # overrides the entry for the current category's skins with visible=true and full
+  # metadata; skins for OTHER categories stay hidden via these defaults.
+  skin_cuopt_core:
+    type: boolean
+    default: false
+    visible: false
+
+  skin_cuopt_partner:
+    type: boolean
+    default: false
+    visible: false
+
+  skin_vss_core:
+    type: boolean
+    default: false
+    visible: false
+
+  skin_paas_rag_core:
+    type: boolean
+    default: false
+    visible: false
+
+  skin_wpp_core:
+    type: boolean
+    default: false
+    visible: false
+
+  skin_dox_pack_core:
+    type: boolean
+    default: false
+    visible: false
+
+  skin_enterprise_rag:
+    type: enum
+    visible: false
+
+  skin_enterprise_rag_aiq:
+    type: enum
     visible: false
 
   nip_io_domain:
@@ -433,19 +737,23 @@ variables:
     title: "Accelerator Pack Stack Version"
     type: enum
     enum:
+      - "v0.0.8"
+      - "v0.0.7"
+      - "v0.0.6"
+      - "v0.0.5"
+      - "v0.0.4"
       - "v0.0.3"
       - "v0.0.2"
       - "v0.0.1"
-    default: "v0.0.3"
+    default: "v0.0.8"
     required: true
-    visible: true
 
   corrino_image_version:
     title: "Corrino Image Version"
     type: enum
     enum:
-      - "1.0.12"
-    default: "1.0.12"
+      - "v1.0.12"
+    default: "v1.0.12"
     required: true
     visible: false
 
@@ -455,6 +763,10 @@ variables:
     visible: false
 
   genai_region:
+    type: string
+    visible: false
+
+  llamastack_region:
     type: string
     visible: false
 
@@ -552,10 +864,43 @@ outputs:
     title: "Database OCID"
     visible: true
 
+  auth_service_curl_example:
+    type: copyableString
+    title: "Auth Service: login + protected-backend curl example"
+    visible: true
+
+  sso_callback_redirect_uris:
+    type: map
+    title: "SSO Callback Redirect URIs (paste into IdP)"
+    visible: true
+
+  frontend_skin_urls:
+    type: map
+    title: "Frontend URLs"
+    visible: true
+
+  frontend_skin_name:
+    type: string
+    title: "Frontend Skin"
+    visible: true
+
+  frontend_skin_provider:
+    type: string
+    title: "Frontend Provider"
+    visible: true
+
+  frontend_skins_learn_more:
+    type: link
+    title: "Frontend Skin Details"
+    displayText: "Learn More"
+    visible: true
+
   # Hidden outputs
   cluster_id:
     type: string
-    visible: false
+    title: "OKE Cluster OCID"
+    description: "Use as existing_cluster_id when deploying an app-only stack."
+    visible: true
 
   cluster_name:
     type: string
@@ -588,6 +933,18 @@ outputs:
   vcn_cidr:
     type: string
     visible: false
+
+  autonomous_db_subnet_id:
+    type: string
+    title: "Autonomous DB Subnet OCID"
+    description: "Use as existing_autonomous_db_subnet_id when deploying an app-only stack."
+    visible: true
+
+  node_subnet_id:
+    type: string
+    title: "Node Subnet OCID"
+    description: "Use as existing_node_subnet_id when deploying an app-only stack."
+    visible: true
 
   node_pool_id:
     type: string

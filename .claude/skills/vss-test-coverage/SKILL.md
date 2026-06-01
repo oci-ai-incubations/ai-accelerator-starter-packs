@@ -1,18 +1,27 @@
 ---
 name: vss-test-coverage
-description: Authoritative test specification for the VSS (Video Summary Service) starter pack. Split into phase-specific files for optimal agent execution.
+description: Authoritative test specification for the Video Search and Summarization (vss) starter pack. Split into phase-specific files for optimal agent execution.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebFetch, Write, Edit
-argument-hint: [section] (optional — "api", "ui", "infra", or omit for overview)
+argument-hint: [section] (optional — "api", "ui", "infra", or omit to run all three)
 ---
 
-# VSS Starter Pack — Test Coverage Specification
+# Video Search and Summarization — Test Coverage Specification
 
 Source of truth for what to test on a deployed VSS stack. Covers the VSS Oracle UX frontend (Next.js), the VSS engine backend (NVIDIA Blueprint), supporting services (download-service, PostgreSQL, FSS), and OCI infrastructure.
 
 **Frontend repo:** `grantneumanoracle/vss-oracle-ux` (Next.js 16, React 19, Prisma, Radix UI, Tailwind)
 **Backend:** NVIDIA VSS Engine 2.4.0 — multi-NIM pipeline (embedding, reranking, LLM) + Elasticsearch + Neo4j
 **Deployment:** Terraform → OKE → Corrino Blueprint + Kubernetes resources in `app-vss-oracle-ux.tf`
+
+---
+
+## Invocation Behavior
+
+- **`/vss-test-coverage infra`** — Read and execute `infra-tests.md` only.
+- **`/vss-test-coverage api`** — Read and execute `api-tests.md` only.
+- **`/vss-test-coverage ui`** — Read and execute `ui-tests.md` only.
+- **`/vss-test-coverage`** (no argument) — Execute ALL three in order: `infra-tests.md`, then `api-tests.md`, then `ui-tests.md`.
 
 ---
 
@@ -255,23 +264,6 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 > The bucket name is configured in the **Settings page** (`/settings`) and persisted to `localStorage` key `vss-bucket`. When the Home page loads, it **automatically reads the bucket from localStorage and lists files** — there is no manual "enter bucket name → click List Files" step needed. If the bucket is already set in Settings (which it is for deployed stacks), the Home page will show the file list immediately on load.
 >
 > The Home page is **not for configuring the bucket** — it is for **browsing and processing files** that are already in the configured bucket. The bucket name input (VU-3) and "List Files" button (VU-4) exist as a fallback but are typically pre-populated and auto-triggered.
-<<<<<<< HEAD
-> | ID | Element | Selector Hint | Interaction | Verification |
-> |---|---|---|---|---|
-> | VU-1 | Page title / header | `text="AI Broadcast Compliance"` or Oracle logo | None (visual) | Text or image visible after load |
-> | VU-2 | Navigation sidebar | Links: Home, Content Review, Analytics, Settings | Click each link | URL changes to correct route |
-> | VU-3 | Bucket name in Settings | Navigate to `/settings` | Check bucket field | Verify the bucket name field on the Settings page is populated. This confirms the bucket is configured. **No interaction needed on the Home page for this check.** |
-> | VU-4 | File list loads on Home | Navigate to `/`, click refresh button | Verify file list | Click the **refresh button** on the Home page. Verify the file list populates with files from the configured bucket. If an error appears saying "bucket does not exist in compartment" or similar, **stop and ask the user** to create the bucket — do not continue. |
-> | VU-5 | File search input | `input` with placeholder containing "Search" or "Filter" | Type filename | Filters displayed file list |
-> | VU-6 | File list table/grid | Table rows or cards showing file names, sizes, dates | Click row to select | Selected file highlighted; enables action buttons |
-> | VU-7 | Parameter sections (collapsible) | Accordion/collapsible sections for VLM, RAG, Summarize params | Expand/collapse | Section content toggles visibility. **Note:** Current UI may show a simplified batch mode without exposed parameter accordion — mark N/A if no collapsible parameter sections are visible. |
-> | VU-8 | Prompt text areas (3) | `textarea` elements for caption, summarization, aggregation prompts | Edit text | Values persist to localStorage key `vss-params` |
-> | VU-9 | "Upload & Summarize" button | `button` with text containing "Summarize" | Click after selecting file | Triggers download-and-upload → summarize chain; shows progress; auto-navigates to /content-review on success |
-> | VU-10 | Batch "Upload & Analyze" button | `button` with text containing "Analyze" | Click with multiple files selected (checkboxes) | Enqueues jobs via POST `/api/jobs`; shows queue progress |
-> | VU-11 | Model selector | Dropdown/select for model (default: `cosmos-reason1`) | Change selection | Updates summarization params |
-> | VU-12 | Chunk duration input | Number input for chunk_duration | Enter value | Updates summarization params |
-> | VU-13 | Audio/CV toggles | Checkbox/toggle for `enable_audio` and `enable_cv_metadata` | Toggle | Only shown when backend capabilities are enabled (from `/api/vss/config`) |
-=======
 
 | ID    | Element                          | Selector Hint                                                       | Interaction                                     | Verification                                                                                                                                                                                                                                                         |
 | ----- | -------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -288,7 +280,6 @@ These are the VSS engine's own endpoints, NOT proxied through the Next.js fronte
 | VU-11 | Model selector                   | Dropdown/select for model (default: `cosmos-reason1`)               | Change selection                                | Updates summarization params                                                                                                                                                                                                                                         |
 | VU-12 | Chunk duration input             | Number input for chunk_duration                                     | Enter value                                     | Updates summarization params                                                                                                                                                                                                                                         |
 | VU-13 | Audio/CV toggles                 | Checkbox/toggle for `enable_audio` and `enable_cv_metadata`         | Toggle                                          | Only shown when backend capabilities are enabled (from `/api/vss/config`)                                                                                                                                                                                            |
->>>>>>> f851ea1 (rebase conflicts)
 
 ### 4.2 Content Review Page (`/content-review`)
 

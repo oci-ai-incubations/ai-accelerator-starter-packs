@@ -1,4 +1,5 @@
 resource "kubernetes_job_v1" "corrino_user_job" {
+  count = local.deploy_application ? 1 : 0
   metadata {
     name = "corrino-user-job"
   }
@@ -100,6 +101,4 @@ resource "kubernetes_job_v1" "corrino_user_job" {
   }
 
   depends_on = [kubernetes_job_v1.corrino_migration_job]
-
-  #  count = var.mushop_mock_mode_all ? 0 : 1
 }

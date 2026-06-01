@@ -52,17 +52,26 @@ variableGroups:
       - starter_pack_size
       - worker_node_availability_domain
 
-  - title: "Administrator Account"
-    variables:
-      - corrino_admin_username
-      - corrino_admin_password
-      - corrino_admin_email
-
   - title: "Advanced Options"
     variables:
+      - accelerator_pack_stack_version
+      - deploy_private_k8s_and_loadbalancer
+      - create_bastion
       - skip_capacity_check
       - use_custom_dns
       - fqdn_custom_domain
+      - create_policies
+      - deploy_application
+      - existing_cluster_id
+
+  - title: "Oracle 26ai Database (required when auth-service is enabled)"
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+    variables:
+      - db_username
+      - db_password
 
 # =============================================================================
 # Variables - VSS specific
@@ -83,15 +92,30 @@ variables:
   genai_region:
     visible: false
 
-  cuopt_frontend_enabled:
-    visible: false
-
-  # Hide database variables
+  # 26ai database credentials. Hidden unless enable_auth_service is on; vss
+  # only provisions 26ai when auth-service is on (auth-service is backed by
+  # 26ai). When visible, both are required — db_password feeds the ADB admin
+  # password and is null-checked by a precondition in 26ai.tf.
   db_username:
-    visible: false
+    type: string
+    title: "Database Admin Username"
+    description: "Admin username for the Oracle 26ai Autonomous Database (used by the auth-service)."
+    default: "ADMIN"
+    required: true
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
 
   db_password:
-    visible: false
+    type: password
+    title: "Database Admin Password"
+    description: "Admin password for the Oracle 26ai Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character."
+    required: true
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
 
   # Hide object storage secret keys
   aws_access_key_id:

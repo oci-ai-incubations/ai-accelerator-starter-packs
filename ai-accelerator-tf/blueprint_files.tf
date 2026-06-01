@@ -6,9 +6,9 @@
 locals {
   starter_pack_blueprints = {
     "cuopt" = {
-      "poc"    = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
-      "small"  = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
-      "medium" = var.cuopt_frontend_enabled ? local._cuopt_with_frontend_blueprint : local._cuopt_small_blueprint
+      "poc"    = local._cuopt_blueprint
+      "small"  = local._cuopt_blueprint
+      "medium" = local._cuopt_blueprint
       # Add "large" here when implemented
     }
     "vss" = {
@@ -22,6 +22,9 @@ locals {
       "medium" = local._paas_rag_small_blueprint
       # Add "large" here when implemented
     }
+    "dox_pack" = {
+      "small" = local._dox_pack_small_blueprint
+    }
     # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
     "enterprise_rag" = {
       "small" = ""
@@ -33,6 +36,9 @@ locals {
       "medium" = ""
       # Helm-managed deployment; no blueprint artefact required
     }
+    "warehouse_pick_path" = {
+      "small" = local._warehouse_pick_path_small_blueprint
+    }
   }
 }
 
@@ -40,204 +46,175 @@ locals {
 # Individual Blueprint Definitions
 # -----------------------------------
 locals {
-  _cuopt_small_blueprint = jsonencode(merge(
-    {
-      recipe_id                                    = "cuopt"
-      recipe_mode                                  = "service"
-      deployment_name                              = "DEPLOY_NAME"
-      recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
-      recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
-      recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-      recipe_replica_count                         = 1
-      recipe_container_port                        = "5000"
-      recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
-      recipe_use_shared_node_pool                  = true
-      recipe_ephemeral_storage_size                = 200
-      recipe_shared_memory_volume_size_limit_in_mb = 16384
-      service_endpoint_subdomain                   = local.starter_pack_config.frontend_url
-      recipe_environment_secrets = [
+  # Filter out Helm-pack entries (no variable_name). These locals are always
+  # evaluated; without the filter, switching to a Helm pack would crash on
+  # skin.variable_name access even though nothing reads the result for that pack.
+  _cuopt_frontend_deployments = [
+    for skin in local.enabled_frontend_skins : {
+      name       = skin.variable_name
+      exports    = ["service_name"]
+      depends_on = concat(["cuopt", "llamastack", "cuopt-backend"], var.enable_auth_service ? ["auth-service"] : [])
+      recipe = merge(
         {
-          envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
-          secret_name = local.ngc_secrets.nvidia_api_key_secret_name
-          secret_key  = local.ngc_secrets.nvidia_api_key_secret_key
-        }
-      ]
-      recipe_container_command_args = [
-        "python",
-        "-m",
-        "cuopt_server.cuopt_service",
-        "-p",
-        "5000",
-        "-g",
-        var.starter_pack_size == "poc" ? "2" : "8"
-      ]
-      recipe_liveness_probe_params = {
-        port                  = 5000
-        scheme                = "HTTP"
-        endpoint_path         = "/v2/health/live"
-        period_seconds        = 60
-        timeout_seconds       = 10
-        failure_threshold     = 3
-        success_threshold     = 1
-        initial_delay_seconds = 1200
-      }
-      recipe_readiness_probe_params = {
-        port                  = 5000
-        scheme                = "HTTP"
-        endpoint_path         = "/v2/health/ready"
-        period_seconds        = 30
-        timeout_seconds       = 10
-        success_threshold     = 1
-        initial_delay_seconds = 20
-      }
-    },
-    var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-  ))
-  _cuopt_with_frontend_blueprint = jsonencode({
+          recipe_id                            = replace(skin.variable_name, "_", "-")
+          deployment_name                      = replace(skin.variable_name, "_", "-")
+          recipe_mode                          = "service"
+          recipe_image_uri                     = skin.image_uri
+          recipe_replica_count                 = 1
+          recipe_flex_shape_ocpu_count         = 1
+          recipe_flex_shape_memory_size_in_gbs = 8
+          recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+          recipe_use_shared_node_pool          = true
+          recipe_container_port                = skin.container_port
+          service_endpoint_subdomain           = skin.subdomain
+          recipe_container_env = [
+            { key = "CUOPT_ENDPOINT", value = "http://$${cuopt.service_name}:80" },
+            { key = "LLAMASTACK_ENDPOINT", value = "http://$${llamastack.service_name}:80" },
+            { key = "LLAMASTACK_MODEL", value = "" },
+            { key = "GOOGLE_MAPS_API_KEY", value = var.google_maps_api_key },
+            { key = "ADMIN_USERNAME", value = var.cuopt_frontend_admin_username },
+            { key = "ADMIN_PASSWORD", value = var.cuopt_frontend_admin_password },
+            { key = "NODE_ENV", value = "production" },
+          ]
+          recipe_additional_ingress_ports = concat(
+            [
+              { port_name = "cuopt", service_name = "$${cuopt.service_name}", port = 5000, path = "/cuopt", path_type = "Prefix" },
+              { port_name = "llamastack", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
+            ],
+            local.cuopt_backend_ingress_route,
+            local.auth_service_ingress_route
+          )
+        },
+        var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+      )
+    }
+    if try(skin.variable_name, "") != ""
+  ]
+
+  _cuopt_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
-        {
-          name    = "llamastack",
-          exports = ["service_name"],
-          recipe = {
-            recipe_id                            = "llamastack",
-            deployment_name                      = "llamastack",
-            recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
-            recipe_replica_count                 = 1,
-            recipe_flex_shape_ocpu_count         = 1,
-            recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-            recipe_use_shared_node_pool          = true,
-            recipe_container_port                = "8321",
-            recipe_container_command_args        = ["/config/config.yaml"],
-            recipe_container_env = [
-              { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
-              { key = "OCI_REGION", value = var.genai_region },
-              { key = "OCI_AUTH_TYPE", value = "instance_principal" },
-            ]
-            recipe_secret_mounts = [
-              { "name" = "llamastack-inference-config", "mount_location" = "/config" }
-            ]
-          }
-        },
-        {
-          name    = "cuopt"
-          exports = ["service_name"]
-          recipe = {
-            recipe_id                                    = "cuopt"
-            recipe_mode                                  = "service"
-            deployment_name                              = "DEPLOY_NAME-2"
-            recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
-            recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
-            recipe_node_shape                            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count                         = 1
-            recipe_container_port                        = "5000"
-            recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
-            recipe_use_shared_node_pool                  = true
-            recipe_ephemeral_storage_size                = 200
-            recipe_shared_memory_volume_size_limit_in_mb = 16384
-            recipe_environment_secrets = [
-              {
-                envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
-                secret_name = local.ngc_secrets.nvidia_api_key_secret_name
-                secret_key  = local.ngc_secrets.nvidia_api_key_secret_key
-              }
-            ]
-            recipe_container_command_args = [
-              "python",
-              "-m",
-              "cuopt_server.cuopt_service",
-              "-p",
-              "5000",
-              "-g",
-              var.starter_pack_size == "poc" ? "2" : "8"
-            ]
-            recipe_liveness_probe_params = {
-              port                  = 5000
-              scheme                = "HTTP"
-              endpoint_path         = "/v2/health/live"
-              period_seconds        = 60
-              timeout_seconds       = 10
-              failure_threshold     = 3
-              success_threshold     = 1
-              initial_delay_seconds = 1200
+      deployments = concat(
+        [
+          {
+            name    = "llamastack",
+            exports = ["service_name"],
+            # auth-service in depends_on when on so Corrino can resolve the
+            # $${auth-service.service_name} placeholder in the auth-url annotation
+            # injected by backend_ingress_annotations_corrino.
+            depends_on = var.enable_auth_service ? ["auth-service"] : [],
+            recipe = {
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              recipe_id                             = "llamastack",
+              deployment_name                       = "llamastack",
+              recipe_mode                           = "service",
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3",
+              recipe_replica_count                  = 1,
+              recipe_flex_shape_ocpu_count          = 1,
+              recipe_flex_shape_memory_size_in_gbs  = 8,
+              recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+              recipe_use_shared_node_pool           = true,
+              recipe_container_port                 = "8321",
+              recipe_container_command_args         = ["/config/config.yaml"],
+              recipe_container_env = [
+                { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
+                { key = "OCI_REGION", value = var.genai_region },
+                { key = "OCI_AUTH_TYPE", value = "instance_principal" },
+              ]
+              recipe_secret_mounts = [
+                { "name" = "llamastack-inference-config", "mount_location" = "/config" }
+              ]
             }
-            recipe_readiness_probe_params = {
-              port                  = 5000
-              scheme                = "HTTP"
-              endpoint_path         = "/v2/health/ready"
-              period_seconds        = 30
-              timeout_seconds       = 10
-              success_threshold     = 1
-              initial_delay_seconds = 20
-            }
-          }
-        },
-        {
-          name       = "demo",
-          exports    = ["service_name"],
-          depends_on = ["cuopt", "llamastack"],
-          recipe = merge(
-            {
-              recipe_id                            = "demo",
-              deployment_name                      = "demo",
-              recipe_mode                          = "service",
-              recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-v0.0.2",
-              recipe_replica_count                 = 1,
-              recipe_flex_shape_ocpu_count         = 1,
-              recipe_flex_shape_memory_size_in_gbs = 8,
-              recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-              recipe_use_shared_node_pool          = true,
-              recipe_container_port                = "3000",
-              service_endpoint_subdomain           = local.starter_pack_config.frontend_url
-              recipe_additional_ingress_ports = [
+          },
+          {
+            name    = "cuopt"
+            exports = ["service_name"]
+            # auth-service in depends_on when on — same reason as the llamastack
+            # block above: the auth-url annotation references $${auth-service.service_name}
+            # and Corrino's resolver needs auth-service exports collected first.
+            depends_on = var.enable_auth_service ? ["auth-service"] : []
+            recipe = {
+              recipe_additional_ingress_annotations        = local.backend_ingress_annotations_corrino
+              recipe_id                                    = "cuopt"
+              recipe_mode                                  = "service"
+              deployment_name                              = "DEPLOY_NAME-2"
+              recipe_image_uri                             = "nvcr.io/nvidia/cuopt/cuopt:25.10.0-cuda12.9-py3.13"
+              recipe_container_secret_name                 = local.ngc_secrets.docker_secret_name
+              recipe_node_shape                            = local.starter_pack_config.worker_node_shape
+              recipe_replica_count                         = 1
+              recipe_container_port                        = "5000"
+              recipe_nvidia_gpu_count                      = var.starter_pack_size == "poc" ? 2 : 8
+              recipe_use_shared_node_pool                  = true
+              recipe_ephemeral_storage_size                = 200
+              recipe_shared_memory_volume_size_limit_in_mb = 16384
+              recipe_environment_secrets = [
                 {
-                  port_name    = "cuopt"
-                  service_name = "$${cuopt.service_name}"
-                  port         = 5000
-                  path         = "/cuopt"
-                  path_type    = "Prefix"
-                },
-                {
-                  port_name    = "llamastack"
-                  service_name = "$${llamastack.service_name}"
-                  port         = 8321
-                  path         = "/v1"
-                  path_type    = "Prefix"
+                  envvar_name = local.ngc_secrets.nvidia_api_key_envvar_name
+                  secret_name = local.ngc_secrets.nvidia_api_key_secret_name
+                  secret_key  = local.ngc_secrets.nvidia_api_key_secret_key
                 }
               ]
-            },
-            var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
-          )
-        }
-      ]
+              recipe_container_command_args = [
+                "python",
+                "-m",
+                "cuopt_server.cuopt_service",
+                "-p",
+                "5000",
+                "-g",
+                var.starter_pack_size == "poc" ? "2" : "8"
+              ]
+              recipe_liveness_probe_params = {
+                port                  = 5000
+                scheme                = "HTTP"
+                endpoint_path         = "/v2/health/live"
+                period_seconds        = 60
+                timeout_seconds       = 10
+                failure_threshold     = 3
+                success_threshold     = 1
+                initial_delay_seconds = 1200
+              }
+              recipe_readiness_probe_params = {
+                port                  = 5000
+                scheme                = "HTTP"
+                endpoint_path         = "/v2/health/ready"
+                period_seconds        = 30
+                timeout_seconds       = 10
+                success_threshold     = 1
+                initial_delay_seconds = 20
+              }
+            }
+          },
+        ],
+        local.cuopt_backend_recipe,
+        local._cuopt_frontend_deployments,
+        local.auth_service_recipe
+      )
     }
   })
 
   _vss_poc_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
+      deployments = concat([
         {
           name       = "llamastack"
           exports    = ["service_name"]
-          depends_on = []
+          depends_on = var.enable_auth_service ? ["auth-service"] : []
           recipe = {
-            recipe_id                            = "llamastack"
-            deployment_name                      = "llamastack"
-            recipe_mode                          = "service"
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
-            recipe_node_pool_size                = 1
-            recipe_replica_count                 = 1
-            recipe_flex_shape_ocpu_count         = 1
-            recipe_flex_shape_memory_size_in_gbs = 8
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_container_port                = "8321"
-            recipe_container_command_args        = ["/config/config.yaml"]
-            recipe_use_shared_node_pool          = true
-            service_endpoint_subdomain           = "llamastack"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "llamastack"
+            deployment_name                       = "llamastack"
+            recipe_mode                           = "service"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
+            recipe_node_pool_size                 = 1
+            recipe_replica_count                  = 1
+            recipe_flex_shape_ocpu_count          = 1
+            recipe_flex_shape_memory_size_in_gbs  = 8
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_container_port                 = "8321"
+            recipe_container_command_args         = ["/config/config.yaml"]
+            recipe_use_shared_node_pool           = true
+            service_endpoint_subdomain            = "llamastack"
             recipe_container_env = [
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
@@ -251,17 +228,18 @@ locals {
         {
           name       = "elasticsearch"
           exports    = ["internal_dns_name"]
-          depends_on = []
+          depends_on = var.enable_auth_service ? ["auth-service"] : []
           recipe = {
-            recipe_id                            = "elasticsearch-standalone"
-            recipe_mode                          = "service"
-            deployment_name                      = "elasticsearch-deployment-group"
-            recipe_host_port                     = "9200"
-            recipe_image_uri                     = "docker.io/elasticsearch:9.1.2"
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_node_pool_size                = 1
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 64
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "elasticsearch-standalone"
+            recipe_mode                           = "service"
+            deployment_name                       = "elasticsearch-deployment-group"
+            recipe_host_port                      = "9200"
+            recipe_image_uri                      = "docker.io/elasticsearch:9.1.2"
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size                 = 1
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 64
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -278,15 +256,16 @@ locals {
         {
           name       = "neo4j"
           exports    = ["internal_dns_name"]
-          depends_on = ["elasticsearch"]
+          depends_on = concat(["elasticsearch"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
-            recipe_mode                          = "service"
-            deployment_name                      = "neo4j-deployment-group"
-            recipe_host_port                     = "7687"
-            recipe_image_uri                     = "docker.io/neo4j:5.26.4"
-            recipe_flex_shape_ocpu_count         = 4
-            recipe_flex_shape_memory_size_in_gbs = 64
-            recipe_node_pool_size                = 1
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_mode                           = "service"
+            deployment_name                       = "neo4j-deployment-group"
+            recipe_host_port                      = "7687"
+            recipe_image_uri                      = "docker.io/neo4j:5.26.4"
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 64
+            recipe_node_pool_size                 = 1
             recipe_configmaps = [
               {
                 data = {
@@ -351,8 +330,9 @@ locals {
         {
           name       = "embedding"
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = concat(["neo4j"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
               volumes = [
                 { name = "nemo-embed-cache", mount_location = "/mnt/nim-cache", volume_size_in_gbs = 50 }
@@ -392,8 +372,9 @@ locals {
         {
           name       = "rerank"
           exports    = ["internal_dns_name"]
-          depends_on = ["embedding"]
+          depends_on = concat(["embedding"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
               volumes = [
                 { name = "nemo-rerank-cache", mount_location = "/mnt/nim-cache", volume_size_in_gbs = 50 }
@@ -432,8 +413,9 @@ locals {
         {
           name       = "riva"
           exports    = ["internal_dns_name"]
-          depends_on = ["rerank"]
+          depends_on = concat(["rerank"], var.enable_auth_service ? ["auth-service"] : [])
           recipe = {
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
             pvcs = {
               volumes = [
                 { name = "riva-cache", mount_location = "/mnt/nim-cache", volume_size_in_gbs = 100 }
@@ -476,9 +458,12 @@ locals {
           }
         },
         {
-          name       = "vss"
-          exports    = []
-          depends_on = ["llamastack", "embedding", "rerank", "riva", "elasticsearch", "neo4j"]
+          name    = "vss"
+          exports = ["service_name"]
+          depends_on = concat(
+            ["llamastack", "embedding", "rerank", "riva", "elasticsearch", "neo4j"],
+            var.enable_auth_service ? ["auth-service"] : [],
+          )
           recipe = merge(
             {
               pvcs = {
@@ -487,7 +472,7 @@ locals {
                 ]
                 retain_after_undeploy = false
               }
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -495,14 +480,15 @@ locals {
                   volume_size_in_gbs = 1000
                 }
               ] : []
-              deployment_name  = "vss-deployment-group"
-              recipe_mode      = "service"
-              recipe_host_port = "9000"
-              recipe_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom"
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              deployment_name                       = "vss-deployment-group"
+              recipe_mode                           = "service"
+              recipe_host_port                      = "9000"
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-poc-custom-c105566"
               recipe_configmaps = [
                 {
                   data = {
-                    "start.sh" = "#!/bin/bash\nset -e\n\n# Check Riva specific environment variables and set them if not set.\nif [ -z \"$${RIVA_ASR_SERVER_URI}\" ]; then\n    export RIVA_ASR_SERVER_URI=\"riva-service\"\n    echo \"RIVA_ASR_SERVER_URI was not set. Using default value: $RIVA_ASR_SERVER_URI\"\nfi\n\nif [ -z \"$${RIVA_ASR_GRPC_PORT}\" ]; then\n    export RIVA_ASR_GRPC_PORT=\"50051\"\nfi\n\nif [ -z \"$${RIVA_ASR_HTTP_PORT}\" ]; then\n    export RIVA_ASR_HTTP_PORT=\"9000\"\nfi\n\nif [ -z \"$${ENABLE_RIVA_SERVER_READINESS_CHECK}\" ]; then\n    export ENABLE_RIVA_SERVER_READINESS_CHECK=\"false\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_IS_NIM}\" ]; then\n    export RIVA_ASR_SERVER_IS_NIM=\"true\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_USE_SSL}\" ]; then\n    export RIVA_ASR_SERVER_USE_SSL=\"false\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_API_KEY}\" ]; then\n    export RIVA_ASR_SERVER_API_KEY=\"\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_FUNC_ID}\" ]; then\n    export RIVA_ASR_SERVER_FUNC_ID=\"\"\nfi\n\nif [ -z \"$${INSTALL_PROPRIETARY_CODECS}\" ]; then\n    export INSTALL_PROPRIETARY_CODECS=\"false\"\nfi\n\nif [ -z \"$${OPENAI_API_KEY_NAME}\" ]; then\n    export OPENAI_API_KEY_NAME=\"openai-api-key\"\nfi\n\nif [ -z \"$${NVIDIA_API_KEY_NAME}\" ]; then\n    export NVIDIA_API_KEY_NAME=\"nvidia-api-key\"\nfi\n\nif [ -z \"$${NGC_API_KEY_NAME}\" ]; then\n    export NGC_API_KEY_NAME=\"ngc-api-key\"\nfi\n\nif [ -f \"/var/secrets/secrets.json\" ]; then\n    if grep -q \"$${OPENAI_API_KEY_NAME}\" \"/var/secrets/secrets.json\"; then\n        export OPENAI_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$${OPENAI_API_KEY_NAME}\\\"]\" -r)\n    fi\n    if grep -q \"$${NVIDIA_API_KEY_NAME}\" \"/var/secrets/secrets.json\"; then\n        export NVIDIA_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$${NVIDIA_API_KEY_NAME}\\\"]\" -r)\n    fi\n    if grep -q \"$${NGC_API_KEY_NAME}\" \"/var/secrets/secrets.json\"; then\n        export NGC_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$${NGC_API_KEY_NAME}\\\"]\" -r)\n    fi\nfi\n\nmkdir -p /tmp/via\ncp /opt/configs/guardrails_config.yaml /opt/nvidia/via/guardrails_config/config.yml\ncp /opt/configs/ca_rag_config.yaml /tmp/via/default_config.yaml\nexport CA_RAG_CONFIG=\"/tmp/via/default_config.yaml\"\ncp /opt/configs/cv_pipeline_tracker_config.yml /tmp/default_tracker_config.yml\nexport CV_PIPELINE_TRACKER_CONFIG=\"/tmp/default_tracker_config.yml\"\n\nmkdir -p /tmp/huggingface-via\nexport HF_HOME=/tmp/huggingface-via\nexport NGC_MODEL_CACHE=/tmp/via-ngc-model-cache\nexport CUPY_CACHE_DIR=/tmp/cupy_cache\nmkdir -p /tmp/via/triton-cache\nexport TRITON_CACHE_DIR=/tmp/via/triton-cache\ncd /tmp/via\nln -s /opt/nvidia/via/via-engine via-engine\nln -s /opt/nvidia/via/config config\n\nif [ -z \"$${LLM_MODEL}\" ]; then\n    export LLM_MODEL=\"$${LLM_MODEL}\"\nfi\n\nCONFIG_FILE=\"/tmp/via/default_config.yaml\"\ncontent=$(cat \"$CONFIG_FILE\")\nwhile IFS= read -r var; do\n    [[ -z \"$var\" ]] && continue\n    [[ \"$var\" == egress.* ]] && continue\n    if [[ -n \"$${!var:-}\" ]]; then\n        value=\"$${!var}\"\n        escaped_value=$(printf '%s\\n' \"$value\" | sed -e 's/[\\/&]/\\\\&/g')\n        if echo \"$content\" | grep -q \"port:.*\\$${$var}\"; then\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/\\\"$escaped_value\\\"/g\")\n        else\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/$escaped_value/g\")\n        fi\n    else\n        echo \"Warning: Environment variable '$var' is not set\" >&2\n    fi\ndone < <(grep -oE '\\$\\{[^}]+\\}' \"$CONFIG_FILE\" | sed 's/\\$${\\([^}]*\\)}/\\1/' | sort -u)\necho \"$content\" > \"$CONFIG_FILE\"\n\nsed -i 's|^FILE_NAME_PATTERN = .*|FILE_NAME_PATTERN = r\"^[A-Za-z0-9_.\\\\-/ ]*$\"|' /opt/nvidia/via/via-engine/vss_api_models.py\n/opt/nvidia/via/start_via.sh\n"
+                    "start.sh" = "#!/bin/bash\nset -e\n\n# Pre-create the shared FSS cache dir that vss-download-service (uid 1001)\n# writes into. vss runs with recipe_storage_group_id=1000 so it has write\n# access to /mnt/fss; chmod 0777 lets the downloader's uid use the same\n# dir without remounting or shifting gids.\nmkdir -p /mnt/fss/cache\nchmod 0777 /mnt/fss/cache\n\n# Check Riva specific environment variables and set them if not set.\nif [ -z \"$${RIVA_ASR_SERVER_URI}\" ]; then\n    export RIVA_ASR_SERVER_URI=\"riva-service\"\n    echo \"RIVA_ASR_SERVER_URI was not set. Using default value: $RIVA_ASR_SERVER_URI\"\nfi\n\nif [ -z \"$${RIVA_ASR_GRPC_PORT}\" ]; then\n    export RIVA_ASR_GRPC_PORT=\"50051\"\nfi\n\nif [ -z \"$${RIVA_ASR_HTTP_PORT}\" ]; then\n    export RIVA_ASR_HTTP_PORT=\"9000\"\nfi\n\nif [ -z \"$${ENABLE_RIVA_SERVER_READINESS_CHECK}\" ]; then\n    export ENABLE_RIVA_SERVER_READINESS_CHECK=\"false\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_IS_NIM}\" ]; then\n    export RIVA_ASR_SERVER_IS_NIM=\"true\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_USE_SSL}\" ]; then\n    export RIVA_ASR_SERVER_USE_SSL=\"false\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_API_KEY}\" ]; then\n    export RIVA_ASR_SERVER_API_KEY=\"\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_FUNC_ID}\" ]; then\n    export RIVA_ASR_SERVER_FUNC_ID=\"\"\nfi\n\nif [ -z \"$${INSTALL_PROPRIETARY_CODECS}\" ]; then\n    export INSTALL_PROPRIETARY_CODECS=\"false\"\nfi\n\nif [ -z \"$${OPENAI_API_KEY_NAME}\" ]; then\n    export OPENAI_API_KEY_NAME=\"openai-api-key\"\nfi\n\nif [ -z \"$${NVIDIA_API_KEY_NAME}\" ]; then\n    export NVIDIA_API_KEY_NAME=\"nvidia-api-key\"\nfi\n\nif [ -z \"$${NGC_API_KEY_NAME}\" ]; then\n    export NGC_API_KEY_NAME=\"ngc-api-key\"\nfi\n\nif [ -f \"/var/secrets/secrets.json\" ]; then\n    if grep -q \"$${OPENAI_API_KEY_NAME}\" \"/var/secrets/secrets.json\"; then\n        export OPENAI_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$${OPENAI_API_KEY_NAME}\\\"]\" -r)\n    fi\n    if grep -q \"$${NVIDIA_API_KEY_NAME}\" \"/var/secrets/secrets.json\"; then\n        export NVIDIA_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$${NVIDIA_API_KEY_NAME}\\\"]\" -r)\n    fi\n    if grep -q \"$${NGC_API_KEY_NAME}\" \"/var/secrets/secrets.json\"; then\n        export NGC_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$${NGC_API_KEY_NAME}\\\"]\" -r)\n    fi\nfi\n\nmkdir -p /tmp/via\ncp /opt/configs/guardrails_config.yaml /opt/nvidia/via/guardrails_config/config.yml\ncp /opt/configs/ca_rag_config.yaml /tmp/via/default_config.yaml\nexport CA_RAG_CONFIG=\"/tmp/via/default_config.yaml\"\ncp /opt/configs/cv_pipeline_tracker_config.yml /tmp/default_tracker_config.yml\nexport CV_PIPELINE_TRACKER_CONFIG=\"/tmp/default_tracker_config.yml\"\n\nmkdir -p /tmp/huggingface-via\nexport HF_HOME=/tmp/huggingface-via\nexport NGC_MODEL_CACHE=/tmp/via-ngc-model-cache\nexport CUPY_CACHE_DIR=/tmp/cupy_cache\nmkdir -p /tmp/via/triton-cache\nexport TRITON_CACHE_DIR=/tmp/via/triton-cache\ncd /tmp/via\nln -s /opt/nvidia/via/via-engine via-engine\nln -s /opt/nvidia/via/config config\n\nif [ -z \"$${LLM_MODEL}\" ]; then\n    export LLM_MODEL=\"$${LLM_MODEL}\"\nfi\n\nCONFIG_FILE=\"/tmp/via/default_config.yaml\"\ncontent=$(cat \"$CONFIG_FILE\")\nwhile IFS= read -r var; do\n    [[ -z \"$var\" ]] && continue\n    [[ \"$var\" == egress.* ]] && continue\n    if [[ -n \"$${!var:-}\" ]]; then\n        value=\"$${!var}\"\n        escaped_value=$(printf '%s\\n' \"$value\" | sed -e 's/[\\/&]/\\\\&/g')\n        if echo \"$content\" | grep -q \"port:.*\\$${$var}\"; then\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/\\\"$escaped_value\\\"/g\")\n        else\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/$escaped_value/g\")\n        fi\n    else\n        echo \"Warning: Environment variable '$var' is not set\" >&2\n    fi\ndone < <(grep -oE '\\$\\{[^}]+\\}' \"$CONFIG_FILE\" | sed 's/\\$${\\([^}]*\\)}/\\1/' | sort -u)\necho \"$content\" > \"$CONFIG_FILE\"\n\nsed -i 's|^FILE_NAME_PATTERN = .*|FILE_NAME_PATTERN = r\"^[A-Za-z0-9_.\\\\-/ ]*$\"|' /opt/nvidia/via/via-engine/vss_api_models.py\n/opt/nvidia/via/start_via.sh\n"
                   }
                   name           = "scripts"
                   default_mode   = 493
@@ -610,25 +596,31 @@ locals {
             }
           )
         }
-      ]
+        ],
+        local.vss_postgres_recipe,
+        local.vss_download_service_recipe,
+        local.vss_oracle_ux_recipes,
+        local.auth_service_recipe
+      )
     }
   })
 
   _vss_small_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
+      deployments = concat([
         {
           name = "elasticsearch"
           recipe = {
-            recipe_id                   = "elasticsearch-standalone"
-            deployment_name             = "elasticsearch-deployment-group"
-            recipe_mode                 = "service"
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_node_pool_size       = 1
-            recipe_use_shared_node_pool = true
-            recipe_replica_count        = 1
-            recipe_image_uri            = "docker.io/elasticsearch:9.1.2"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "elasticsearch-standalone"
+            deployment_name                       = "elasticsearch-deployment-group"
+            recipe_mode                           = "service"
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size                 = 1
+            recipe_use_shared_node_pool           = true
+            recipe_replica_count                  = 1
+            recipe_image_uri                      = "docker.io/elasticsearch:9.1.2"
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -645,14 +637,15 @@ locals {
         {
           name = "neo4j"
           recipe = {
-            deployment_name             = "neo4j-deployment-group"
-            recipe_mode                 = "service"
-            recipe_image_uri            = "docker.io/neo4j:5.26.4"
-            recipe_replica_count        = 1
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool = true
-            recipe_container_port       = "7687"
-            recipe_host_port            = "7687"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            deployment_name                       = "neo4j-deployment-group"
+            recipe_mode                           = "service"
+            recipe_image_uri                      = "docker.io/neo4j:5.26.4"
+            recipe_replica_count                  = 1
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "7687"
+            recipe_host_port                      = "7687"
             recipe_additional_ingress_ports = [
               { port_name = "http", port = 7474, path = "/" }
             ]
@@ -712,23 +705,24 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["elasticsearch"]
+          depends_on = concat(["elasticsearch"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "embedding"
           recipe = {
-            recipe_id                    = "nemo-embedding-nim"
-            deployment_name              = "nemo-embedding-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-embedding-nim"
+            deployment_name                       = "nemo-embedding-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_TRT_ENGINE_HOST_CODE_ALLOWED", value = "1" },
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
@@ -753,23 +747,24 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = concat(["neo4j"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "rerank"
           recipe = {
-            recipe_id                    = "nemo-rerank-nim"
-            deployment_name              = "nemo-rerank-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-rerank-nim"
+            deployment_name                       = "nemo-rerank-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
             ]
@@ -793,20 +788,21 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["embedding"]
+          depends_on = concat(["embedding"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "nim-llm"
           recipe = {
-            recipe_id                   = "nim-llm-llama3-8b"
-            deployment_name             = "nim-llm-deployment-group"
-            recipe_mode                 = "service"
-            recipe_use_shared_node_pool = true
-            recipe_node_shape           = local.starter_pack_config.worker_node_shape
-            recipe_node_pool_size       = 1
-            recipe_replica_count        = 1
-            recipe_nvidia_gpu_count     = 4
-            recipe_image_uri            = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nim-llm-llama3-8b"
+            deployment_name                       = "nim-llm-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_node_pool_size                 = 1
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 4
+            recipe_image_uri                      = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/model-store" },
               { key = "OUTLINES_CACHE_DIR", value = "/tmp/outlines" },
@@ -859,23 +855,24 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["rerank"]
+          depends_on = concat(["rerank"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "vss"
           recipe = merge(
             {
-              deployment_name              = "vss-deployment-group"
-              recipe_mode                  = "service"
-              recipe_image_uri             = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
-              recipe_container_secret_name = "ngc-secret"
-              recipe_replica_count         = 1
-              recipe_node_shape            = local.starter_pack_config.worker_node_shape
-              recipe_use_shared_node_pool  = true
-              recipe_nvidia_gpu_count      = 2
-              recipe_storage_group_id      = 1000
-              recipe_container_port        = "9000"
-              recipe_host_port             = "9000"
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              deployment_name                       = "vss-deployment-group"
+              recipe_mode                           = "service"
+              recipe_image_uri                      = "nvcr.io/nvidia/blueprint/vss-engine:2.4.0"
+              recipe_container_secret_name          = "ngc-secret"
+              recipe_replica_count                  = 1
+              recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool           = true
+              recipe_nvidia_gpu_count               = 2
+              recipe_storage_group_id               = 1000
+              recipe_container_port                 = "9000"
+              recipe_host_port                      = "9000"
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -889,7 +886,7 @@ locals {
                 ]
               }
 
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -904,7 +901,7 @@ locals {
                   mount_location = "/opt/scripts"
                   default_mode   = 493
                   data = {
-                    "start.sh" = "#!/bin/bash\nset -e\n\n# Check Riva specific environment variables and set them if not set.\nif [ -z \"$${RIVA_ASR_SERVER_URI}\" ]; then\n    export RIVA_ASR_SERVER_URI=\"riva-service\"\n    echo \"RIVA_ASR_SERVER_URI was not set. Using default value: $RIVA_ASR_SERVER_URI\"\nfi\n\nif [ -z \"$${RIVA_ASR_GRPC_PORT}\" ]; then\n    export RIVA_ASR_GRPC_PORT=\"50051\"\n    echo \"RIVA_ASR_GRPC_PORT was not set. Using default value: $RIVA_ASR_GRPC_PORT\"\nfi\n\nif [ -z \"$${RIVA_ASR_HTTP_PORT}\" ]; then\n    export RIVA_ASR_HTTP_PORT=\"9000\"\n    echo \"RIVA_ASR_HTTP_PORT was not set. Using default value: $RIVA_ASR_HTTP_PORT\"\nfi\n\nif [ -z \"$${ENABLE_RIVA_SERVER_READINESS_CHECK}\" ]; then\n    export ENABLE_RIVA_SERVER_READINESS_CHECK=\"false\"\n    echo \"ENABLE_RIVA_SERVER_READINESS_CHECK was not set. Using default value: $ENABLE_RIVA_SERVER_READINESS_CHECK\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_IS_NIM}\" ]; then\n    export RIVA_ASR_SERVER_IS_NIM=\"true\"\n    echo \"RIVA_ASR_SERVER_IS_NIM was not set. Using default value: $RIVA_ASR_SERVER_IS_NIM\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_USE_SSL}\" ]; then\n    export RIVA_ASR_SERVER_USE_SSL=\"false\"\n    echo \"RIVA_ASR_SERVER_USE_SSL was not set. Using default value: $RIVA_ASR_SERVER_USE_SSL\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_API_KEY}\" ]; then\n    export RIVA_ASR_SERVER_API_KEY=\"\"\n    echo \"RIVA_ASR_SERVER_API_KEY was not set. Using default value: $RIVA_ASR_SERVER_API_KEY\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_FUNC_ID}\" ]; then\n    export RIVA_ASR_SERVER_FUNC_ID=\"\"\n    echo \"RIVA_ASR_SERVER_FUNC_ID was not set. Using default value: $RIVA_ASR_SERVER_FUNC_ID\"\nfi\n\nif [ -z \"$${INSTALL_PROPRIETARY_CODECS}\" ]; then\n    export INSTALL_PROPRIETARY_CODECS=\"false\"\n    echo \"INSTALL_PROPRIETARY_CODECS was not set. Using default value: $INSTALL_PROPRIETARY_CODECS\"\nfi\n\n# Check and set environment variables with default values if not set\nif [ -z \"$${OPENAI_API_KEY_NAME}\" ]; then\n    export OPENAI_API_KEY_NAME=\"openai-api-key\"\n    echo \"OPENAI_API_KEY_NAME was not set. Using default value: $OPENAI_API_KEY_NAME\"\nelse\n    echo \"OPENAI_API_KEY_NAME is already set to: $OPENAI_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NVIDIA_API_KEY_NAME}\" ]; then\n    export NVIDIA_API_KEY_NAME=\"nvidia-api-key\"\n    echo \"NVIDIA_API_KEY_NAME was not set. Using default value: $NVIDIA_API_KEY_NAME\"\nelse\n    echo \"NVIDIA_API_KEY_NAME is already set to: $NVIDIA_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NGC_API_KEY_NAME}\" ]; then\n    export NGC_API_KEY_NAME=\"ngc-api-key\"\n    echo \"NGC_API_KEY_NAME was not set. Using default value: $NGC_API_KEY_NAME\"\nelse\n    echo \"NGC_API_KEY_NAME is already set to: $NGC_API_KEY_NAME\"\nfi\n\n# NVCF will mount secrets to /var/secrets/secrets.json, check and update accordingly\nif [ -f \"/var/secrets/secrets.json\" ]; then\n    echo \"Contents of /var/secrets/secrets.json:\"\n    jq -r 'keys[]' /var/secrets/secrets.json\n\n    if grep -q \"$OPENAI_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$OPENAI_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$OPENAI_API_KEY\n        export OPENAI_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$OPENAI_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$OPENAI_API_KEY\" ]; then\n            echo \"OPENAI_API_KEY updated from secrets.json\"\n        else\n            echo \"OPENAI_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$OPENAI_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NVIDIA_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NVIDIA_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NVIDIA_API_KEY\n        export NVIDIA_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NVIDIA_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NVIDIA_API_KEY\" ]; then\n            echo \"NVIDIA_API_KEY updated from secrets.json\"\n        else\n            echo \"NVIDIA_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NVIDIA_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NGC_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NGC_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NGC_API_KEY\n        export NGC_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NGC_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NGC_API_KEY\" ]; then\n            echo \"NGC_API_KEY updated from secrets.json\"\n        else\n            echo \"NGC_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NGC_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\nelse\n    echo \"/var/secrets/secrets.json file does not exist\"\nfi\n\n# Overwrite default CA RAG in container:\nmkdir -p /tmp/via\ncp /opt/configs/guardrails_config.yaml /opt/nvidia/via/guardrails_config/config.yml\ncp /opt/configs/ca_rag_config.yaml /tmp/via/default_config.yaml\nexport CA_RAG_CONFIG=\"/tmp/via/default_config.yaml\"\ncp /opt/configs/cv_pipeline_tracker_config.yml /tmp/default_tracker_config.yml\nexport CV_PIPELINE_TRACKER_CONFIG=\"/tmp/default_tracker_config.yml\"\n\nmkdir -p /tmp/huggingface-via\nexport HF_HOME=/tmp/huggingface-via\n\nexport NGC_MODEL_CACHE=/tmp/via-ngc-model-cache\n\nexport CUPY_CACHE_DIR=/tmp/cupy_cache\n\nmkdir -p /tmp/via/triton-cache\nexport TRITON_CACHE_DIR=/tmp/via/triton-cache\n\ncd /tmp/via\nln -s /opt/nvidia/via/via-engine via-engine\nln -s /opt/nvidia/via/config config\n\nif [ -z \"$${LLM_MODEL}\" ]; then\n    export LLM_MODEL=\"meta/llama-3.1-70b-instruct\"\n    echo \"LLM_MODEL was not set. Using default value: $LLM_MODEL\"\nfi\n\nCONFIG_FILE=\"/tmp/via/default_config.yaml\"\n\ncontent=$(cat \"$CONFIG_FILE\")\n\nwhile IFS= read -r var; do\n    [[ -z \"$var\" ]] && continue\n    [[ \"$var\" == egress.* ]] && continue\n    \n    if [[ -n \"$${!var:-}\" ]]; then\n        value=\"$${!var}\"\n        escaped_value=$(printf '%s\\n' \"$value\" | sed -e 's/[\\/&]/\\\\&/g')\n\n        if echo \"$content\" | grep -q \"port:.*\\$${$var}\"; then\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/\\\"$escaped_value\\\"/g\")\n        else\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/$escaped_value/g\")\n        fi\n    else\n        echo \"Warning: Environment variable '$var' is not set\" >&2\n    fi\ndone < <(grep -oE '\\$\\{[^}]+\\}' \"$CONFIG_FILE\" | sed 's/\\$${\\([^}]*\\)}/\\1/' | sort -u)\n\necho \"$content\" > \"$CONFIG_FILE\"\n\n/opt/nvidia/via/start_via.sh\n"
+                    "start.sh" = "#!/bin/bash\nset -e\n\n# Pre-create the shared FSS cache dir that vss-download-service (uid 1001)\n# writes into. vss runs with recipe_storage_group_id=1000 so it has write\n# access to /mnt/fss; chmod 0777 lets the downloader's uid use the same\n# dir without remounting or shifting gids.\nmkdir -p /mnt/fss/cache\nchmod 0777 /mnt/fss/cache\n\n# Check Riva specific environment variables and set them if not set.\nif [ -z \"$${RIVA_ASR_SERVER_URI}\" ]; then\n    export RIVA_ASR_SERVER_URI=\"riva-service\"\n    echo \"RIVA_ASR_SERVER_URI was not set. Using default value: $RIVA_ASR_SERVER_URI\"\nfi\n\nif [ -z \"$${RIVA_ASR_GRPC_PORT}\" ]; then\n    export RIVA_ASR_GRPC_PORT=\"50051\"\n    echo \"RIVA_ASR_GRPC_PORT was not set. Using default value: $RIVA_ASR_GRPC_PORT\"\nfi\n\nif [ -z \"$${RIVA_ASR_HTTP_PORT}\" ]; then\n    export RIVA_ASR_HTTP_PORT=\"9000\"\n    echo \"RIVA_ASR_HTTP_PORT was not set. Using default value: $RIVA_ASR_HTTP_PORT\"\nfi\n\nif [ -z \"$${ENABLE_RIVA_SERVER_READINESS_CHECK}\" ]; then\n    export ENABLE_RIVA_SERVER_READINESS_CHECK=\"false\"\n    echo \"ENABLE_RIVA_SERVER_READINESS_CHECK was not set. Using default value: $ENABLE_RIVA_SERVER_READINESS_CHECK\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_IS_NIM}\" ]; then\n    export RIVA_ASR_SERVER_IS_NIM=\"true\"\n    echo \"RIVA_ASR_SERVER_IS_NIM was not set. Using default value: $RIVA_ASR_SERVER_IS_NIM\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_USE_SSL}\" ]; then\n    export RIVA_ASR_SERVER_USE_SSL=\"false\"\n    echo \"RIVA_ASR_SERVER_USE_SSL was not set. Using default value: $RIVA_ASR_SERVER_USE_SSL\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_API_KEY}\" ]; then\n    export RIVA_ASR_SERVER_API_KEY=\"\"\n    echo \"RIVA_ASR_SERVER_API_KEY was not set. Using default value: $RIVA_ASR_SERVER_API_KEY\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_FUNC_ID}\" ]; then\n    export RIVA_ASR_SERVER_FUNC_ID=\"\"\n    echo \"RIVA_ASR_SERVER_FUNC_ID was not set. Using default value: $RIVA_ASR_SERVER_FUNC_ID\"\nfi\n\nif [ -z \"$${INSTALL_PROPRIETARY_CODECS}\" ]; then\n    export INSTALL_PROPRIETARY_CODECS=\"false\"\n    echo \"INSTALL_PROPRIETARY_CODECS was not set. Using default value: $INSTALL_PROPRIETARY_CODECS\"\nfi\n\n# Check and set environment variables with default values if not set\nif [ -z \"$${OPENAI_API_KEY_NAME}\" ]; then\n    export OPENAI_API_KEY_NAME=\"openai-api-key\"\n    echo \"OPENAI_API_KEY_NAME was not set. Using default value: $OPENAI_API_KEY_NAME\"\nelse\n    echo \"OPENAI_API_KEY_NAME is already set to: $OPENAI_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NVIDIA_API_KEY_NAME}\" ]; then\n    export NVIDIA_API_KEY_NAME=\"nvidia-api-key\"\n    echo \"NVIDIA_API_KEY_NAME was not set. Using default value: $NVIDIA_API_KEY_NAME\"\nelse\n    echo \"NVIDIA_API_KEY_NAME is already set to: $NVIDIA_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NGC_API_KEY_NAME}\" ]; then\n    export NGC_API_KEY_NAME=\"ngc-api-key\"\n    echo \"NGC_API_KEY_NAME was not set. Using default value: $NGC_API_KEY_NAME\"\nelse\n    echo \"NGC_API_KEY_NAME is already set to: $NGC_API_KEY_NAME\"\nfi\n\n# NVCF will mount secrets to /var/secrets/secrets.json, check and update accordingly\nif [ -f \"/var/secrets/secrets.json\" ]; then\n    echo \"Contents of /var/secrets/secrets.json:\"\n    jq -r 'keys[]' /var/secrets/secrets.json\n\n    if grep -q \"$OPENAI_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$OPENAI_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$OPENAI_API_KEY\n        export OPENAI_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$OPENAI_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$OPENAI_API_KEY\" ]; then\n            echo \"OPENAI_API_KEY updated from secrets.json\"\n        else\n            echo \"OPENAI_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$OPENAI_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NVIDIA_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NVIDIA_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NVIDIA_API_KEY\n        export NVIDIA_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NVIDIA_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NVIDIA_API_KEY\" ]; then\n            echo \"NVIDIA_API_KEY updated from secrets.json\"\n        else\n            echo \"NVIDIA_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NVIDIA_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NGC_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NGC_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NGC_API_KEY\n        export NGC_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NGC_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NGC_API_KEY\" ]; then\n            echo \"NGC_API_KEY updated from secrets.json\"\n        else\n            echo \"NGC_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NGC_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\nelse\n    echo \"/var/secrets/secrets.json file does not exist\"\nfi\n\n# Overwrite default CA RAG in container:\nmkdir -p /tmp/via\ncp /opt/configs/guardrails_config.yaml /opt/nvidia/via/guardrails_config/config.yml\ncp /opt/configs/ca_rag_config.yaml /tmp/via/default_config.yaml\nexport CA_RAG_CONFIG=\"/tmp/via/default_config.yaml\"\ncp /opt/configs/cv_pipeline_tracker_config.yml /tmp/default_tracker_config.yml\nexport CV_PIPELINE_TRACKER_CONFIG=\"/tmp/default_tracker_config.yml\"\n\nmkdir -p /tmp/huggingface-via\nexport HF_HOME=/tmp/huggingface-via\n\nexport NGC_MODEL_CACHE=/tmp/via-ngc-model-cache\n\nexport CUPY_CACHE_DIR=/tmp/cupy_cache\n\nmkdir -p /tmp/via/triton-cache\nexport TRITON_CACHE_DIR=/tmp/via/triton-cache\n\ncd /tmp/via\nln -s /opt/nvidia/via/via-engine via-engine\nln -s /opt/nvidia/via/config config\n\nif [ -z \"$${LLM_MODEL}\" ]; then\n    export LLM_MODEL=\"meta/llama-3.1-70b-instruct\"\n    echo \"LLM_MODEL was not set. Using default value: $LLM_MODEL\"\nfi\n\nCONFIG_FILE=\"/tmp/via/default_config.yaml\"\n\ncontent=$(cat \"$CONFIG_FILE\")\n\nwhile IFS= read -r var; do\n    [[ -z \"$var\" ]] && continue\n    [[ \"$var\" == egress.* ]] && continue\n    \n    if [[ -n \"$${!var:-}\" ]]; then\n        value=\"$${!var}\"\n        escaped_value=$(printf '%s\\n' \"$value\" | sed -e 's/[\\/&]/\\\\&/g')\n\n        if echo \"$content\" | grep -q \"port:.*\\$${$var}\"; then\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/\\\"$escaped_value\\\"/g\")\n        else\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/$escaped_value/g\")\n        fi\n    else\n        echo \"Warning: Environment variable '$var' is not set\" >&2\n    fi\ndone < <(grep -oE '\\$\\{[^}]+\\}' \"$CONFIG_FILE\" | sed 's/\\$${\\([^}]*\\)}/\\1/' | sort -u)\n\necho \"$content\" > \"$CONFIG_FILE\"\n\n/opt/nvidia/via/start_via.sh\n"
                   }
                 },
                 {
@@ -997,33 +994,39 @@ locals {
               }
             }
           )
-          depends_on = [
+          depends_on = concat([
             "elasticsearch",
             "neo4j",
             "embedding",
             "rerank",
             "nim-llm"
-          ]
+          ], var.enable_auth_service ? ["auth-service"] : [])
         }
-      ]
+        ],
+        local.vss_postgres_recipe,
+        local.vss_download_service_recipe,
+        local.vss_oracle_ux_recipes,
+        local.auth_service_recipe
+      )
     }
   })
 
   _vss_medium_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
-      deployments = [
+      deployments = concat([
         {
           name = "elasticsearch"
           recipe = {
-            recipe_id                   = "elasticsearch-standalone"
-            deployment_name             = "elasticsearch-deployment-group"
-            recipe_mode                 = "service"
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_node_pool_size       = 1
-            recipe_use_shared_node_pool = true
-            recipe_replica_count        = 1
-            recipe_image_uri            = "docker.io/elasticsearch:9.1.2"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "elasticsearch-standalone"
+            deployment_name                       = "elasticsearch-deployment-group"
+            recipe_mode                           = "service"
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_node_pool_size                 = 1
+            recipe_use_shared_node_pool           = true
+            recipe_replica_count                  = 1
+            recipe_image_uri                      = "docker.io/elasticsearch:9.1.2"
             recipe_container_env = [
               { key = "discovery.type", value = "single-node" },
               { key = "xpack.security.enabled", value = "false" },
@@ -1040,14 +1043,15 @@ locals {
         {
           name = "neo4j"
           recipe = {
-            deployment_name             = "neo4j-deployment-group"
-            recipe_mode                 = "service"
-            recipe_image_uri            = "docker.io/neo4j:5.26.4"
-            recipe_replica_count        = 1
-            recipe_node_shape           = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool = true
-            recipe_container_port       = "7687"
-            recipe_host_port            = "7687"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            deployment_name                       = "neo4j-deployment-group"
+            recipe_mode                           = "service"
+            recipe_image_uri                      = "docker.io/neo4j:5.26.4"
+            recipe_replica_count                  = 1
+            recipe_node_shape                     = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "7687"
+            recipe_host_port                      = "7687"
             recipe_additional_ingress_ports = [
               { port_name = "http", port = 7474, path = "/" }
             ]
@@ -1107,23 +1111,24 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["elasticsearch"]
+          depends_on = concat(["elasticsearch"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "embedding"
           recipe = {
-            recipe_id                    = "nemo-embedding-nim"
-            deployment_name              = "nemo-embedding-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-embedding-nim"
+            deployment_name                       = "nemo-embedding-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-embedqa-1b-v2:1.9.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_TRT_ENGINE_HOST_CODE_ALLOWED", value = "1" },
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
@@ -1148,23 +1153,24 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["nim-llm"]
+          depends_on = concat(["nim-llm"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "rerank"
           recipe = {
-            recipe_id                    = "nemo-rerank-nim"
-            deployment_name              = "nemo-rerank-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "8000"
-            recipe_host_port             = "8000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nemo-rerank-nim"
+            deployment_name                       = "nemo-rerank-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/llama-3.2-nv-rerankqa-1b-v2:1.7.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "8000"
+            recipe_host_port                      = "8000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/mnt/nim-cache" }
             ]
@@ -1188,23 +1194,24 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["embedding"]
+          depends_on = concat(["embedding"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "riva"
           recipe = {
-            recipe_id                    = "riva-nim"
-            deployment_name              = "riva-deployment-group"
-            recipe_mode                  = "service"
-            recipe_use_shared_node_pool  = true
-            recipe_node_shape            = local.starter_pack_config.worker_node_shape
-            recipe_replica_count         = 1
-            recipe_nvidia_gpu_count      = 1
-            recipe_image_uri             = "nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us:2.0.0"
-            recipe_container_secret_name = "ngc-secret"
-            recipe_container_port        = "9000"
-            recipe_host_port             = "9000"
-            recipe_storage_group_id      = 1000
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "riva-nim"
+            deployment_name                       = "riva-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 1
+            recipe_image_uri                      = "nvcr.io/nim/nvidia/parakeet-0-6b-ctc-en-us:2.0.0"
+            recipe_container_secret_name          = "ngc-secret"
+            recipe_container_port                 = "9000"
+            recipe_host_port                      = "9000"
+            recipe_storage_group_id               = 1000
             recipe_container_env = [
               { key = "NIM_HTTP_API_PORT", value = "9000" },
               { key = "NIM_GRPC_API_PORT", value = "50051" },
@@ -1234,20 +1241,21 @@ locals {
             }
           }
           exports    = ["internal_dns_name"],
-          depends_on = ["rerank"]
+          depends_on = concat(["rerank"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "nim-llm"
           recipe = {
-            recipe_id                   = "nim-llm-llama3-8b"
-            deployment_name             = "nim-llm-deployment-group"
-            recipe_mode                 = "service"
-            recipe_use_shared_node_pool = true
-            recipe_node_shape           = local.starter_pack_config.worker_node_shape
-            recipe_node_pool_size       = 1
-            recipe_replica_count        = 1
-            recipe_nvidia_gpu_count     = 3
-            recipe_image_uri            = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_id                             = "nim-llm-llama3-8b"
+            deployment_name                       = "nim-llm-deployment-group"
+            recipe_mode                           = "service"
+            recipe_use_shared_node_pool           = true
+            recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+            recipe_node_pool_size                 = 1
+            recipe_replica_count                  = 1
+            recipe_nvidia_gpu_count               = 3
+            recipe_image_uri                      = "nvcr.io/nim/meta/llama-3.1-8b-instruct:1.13.1"
             recipe_container_env = [
               { key = "NIM_CACHE_PATH", value = "/model-store" },
               { key = "OUTLINES_CACHE_DIR", value = "/tmp/outlines" },
@@ -1300,22 +1308,23 @@ locals {
             }
           }
           exports    = ["internal_dns_name"]
-          depends_on = ["neo4j"]
+          depends_on = concat(["neo4j"], var.enable_auth_service ? ["auth-service"] : [])
         },
         {
           name = "vss"
           recipe = merge(
             {
-              deployment_name             = "vss-deployment-group"
-              recipe_mode                 = "service"
-              recipe_image_uri            = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
-              recipe_replica_count        = 1
-              recipe_node_shape           = local.starter_pack_config.worker_node_shape
-              recipe_use_shared_node_pool = true
-              recipe_nvidia_gpu_count     = 2
-              recipe_storage_group_id     = 1000
-              recipe_container_port       = "9000"
-              recipe_host_port            = "9000"
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              deployment_name                       = "vss-deployment-group"
+              recipe_mode                           = "service"
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/vss-engine:2.4.0-custom"
+              recipe_replica_count                  = 1
+              recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+              recipe_use_shared_node_pool           = true
+              recipe_nvidia_gpu_count               = 2
+              recipe_storage_group_id               = 1000
+              recipe_container_port                 = "9000"
+              recipe_host_port                      = "9000"
               recipe_additional_ingress_ports = [
                 { port_name = "api", port = 8000, path = "/" }
               ]
@@ -1329,7 +1338,7 @@ locals {
                 ]
               }
 
-              input_file_system = var.starter_pack_category == "vss" ? [
+              input_file_system = local.deploy_app_vss ? [
                 {
                   file_system_ocid   = oci_file_storage_file_system.vss_fss[0].id
                   mount_target_ocid  = oci_file_storage_mount_target.vss_mount_target[0].id
@@ -1344,7 +1353,7 @@ locals {
                   mount_location = "/opt/scripts"
                   default_mode   = 493
                   data = {
-                    "start.sh" = "#!/bin/bash\nset -e\n\n# Check Riva specific environment variables and set them if not set.\nif [ -z \"$${RIVA_ASR_SERVER_URI}\" ]; then\n    export RIVA_ASR_SERVER_URI=\"riva-service\"\n    echo \"RIVA_ASR_SERVER_URI was not set. Using default value: $RIVA_ASR_SERVER_URI\"\nfi\n\nif [ -z \"$${RIVA_ASR_GRPC_PORT}\" ]; then\n    export RIVA_ASR_GRPC_PORT=\"50051\"\n    echo \"RIVA_ASR_GRPC_PORT was not set. Using default value: $RIVA_ASR_GRPC_PORT\"\nfi\n\nif [ -z \"$${RIVA_ASR_HTTP_PORT}\" ]; then\n    export RIVA_ASR_HTTP_PORT=\"9000\"\n    echo \"RIVA_ASR_HTTP_PORT was not set. Using default value: $RIVA_ASR_HTTP_PORT\"\nfi\n\nif [ -z \"$${ENABLE_RIVA_SERVER_READINESS_CHECK}\" ]; then\n    export ENABLE_RIVA_SERVER_READINESS_CHECK=\"false\"\n    echo \"ENABLE_RIVA_SERVER_READINESS_CHECK was not set. Using default value: $ENABLE_RIVA_SERVER_READINESS_CHECK\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_IS_NIM}\" ]; then\n    export RIVA_ASR_SERVER_IS_NIM=\"true\"\n    echo \"RIVA_ASR_SERVER_IS_NIM was not set. Using default value: $RIVA_ASR_SERVER_IS_NIM\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_USE_SSL}\" ]; then\n    export RIVA_ASR_SERVER_USE_SSL=\"false\"\n    echo \"RIVA_ASR_SERVER_USE_SSL was not set. Using default value: $RIVA_ASR_SERVER_USE_SSL\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_API_KEY}\" ]; then\n    export RIVA_ASR_SERVER_API_KEY=\"\"\n    echo \"RIVA_ASR_SERVER_API_KEY was not set. Using default value: $RIVA_ASR_SERVER_API_KEY\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_FUNC_ID}\" ]; then\n    export RIVA_ASR_SERVER_FUNC_ID=\"\"\n    echo \"RIVA_ASR_SERVER_FUNC_ID was not set. Using default value: $RIVA_ASR_SERVER_FUNC_ID\"\nfi\n\nif [ -z \"$${INSTALL_PROPRIETARY_CODECS}\" ]; then\n    export INSTALL_PROPRIETARY_CODECS=\"false\"\n    echo \"INSTALL_PROPRIETARY_CODECS was not set. Using default value: $INSTALL_PROPRIETARY_CODECS\"\nfi\n\n# Check and set environment variables with default values if not set\nif [ -z \"$${OPENAI_API_KEY_NAME}\" ]; then\n    export OPENAI_API_KEY_NAME=\"openai-api-key\"\n    echo \"OPENAI_API_KEY_NAME was not set. Using default value: $OPENAI_API_KEY_NAME\"\nelse\n    echo \"OPENAI_API_KEY_NAME is already set to: $OPENAI_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NVIDIA_API_KEY_NAME}\" ]; then\n    export NVIDIA_API_KEY_NAME=\"nvidia-api-key\"\n    echo \"NVIDIA_API_KEY_NAME was not set. Using default value: $NVIDIA_API_KEY_NAME\"\nelse\n    echo \"NVIDIA_API_KEY_NAME is already set to: $NVIDIA_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NGC_API_KEY_NAME}\" ]; then\n    export NGC_API_KEY_NAME=\"ngc-api-key\"\n    echo \"NGC_API_KEY_NAME was not set. Using default value: $NGC_API_KEY_NAME\"\nelse\n    echo \"NGC_API_KEY_NAME is already set to: $NGC_API_KEY_NAME\"\nfi\n\n# NVCF will mount secrets to /var/secrets/secrets.json, check and update accordingly\nif [ -f \"/var/secrets/secrets.json\" ]; then\n    echo \"Contents of /var/secrets/secrets.json:\"\n    jq -r 'keys[]' /var/secrets/secrets.json\n\n    if grep -q \"$OPENAI_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$OPENAI_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$OPENAI_API_KEY\n        export OPENAI_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$OPENAI_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$OPENAI_API_KEY\" ]; then\n            echo \"OPENAI_API_KEY updated from secrets.json\"\n        else\n            echo \"OPENAI_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$OPENAI_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NVIDIA_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NVIDIA_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NVIDIA_API_KEY\n        export NVIDIA_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NVIDIA_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NVIDIA_API_KEY\" ]; then\n            echo \"NVIDIA_API_KEY updated from secrets.json\"\n        else\n            echo \"NVIDIA_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NVIDIA_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NGC_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NGC_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NGC_API_KEY\n        export NGC_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NGC_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NGC_API_KEY\" ]; then\n            echo \"NGC_API_KEY updated from secrets.json\"\n        else\n            echo \"NGC_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NGC_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\nelse\n    echo \"/var/secrets/secrets.json file does not exist\"\nfi\n\n# Overwrite default CA RAG in container:\nmkdir -p /tmp/via\ncp /opt/configs/guardrails_config.yaml /opt/nvidia/via/guardrails_config/config.yml\ncp /opt/configs/ca_rag_config.yaml /tmp/via/default_config.yaml\nexport CA_RAG_CONFIG=\"/tmp/via/default_config.yaml\"\ncp /opt/configs/cv_pipeline_tracker_config.yml /tmp/default_tracker_config.yml\nexport CV_PIPELINE_TRACKER_CONFIG=\"/tmp/default_tracker_config.yml\"\n\nmkdir -p /tmp/huggingface-via\nexport HF_HOME=/tmp/huggingface-via\n\nexport NGC_MODEL_CACHE=/tmp/via-ngc-model-cache\n\nexport CUPY_CACHE_DIR=/tmp/cupy_cache\n\nmkdir -p /tmp/via/triton-cache\nexport TRITON_CACHE_DIR=/tmp/via/triton-cache\n\ncd /tmp/via\nln -s /opt/nvidia/via/via-engine via-engine\nln -s /opt/nvidia/via/config config\n\nif [ -z \"$${LLM_MODEL}\" ]; then\n    export LLM_MODEL=\"meta/llama-3.1-70b-instruct\"\n    echo \"LLM_MODEL was not set. Using default value: $LLM_MODEL\"\nfi\n\nCONFIG_FILE=\"/tmp/via/default_config.yaml\"\n\ncontent=$(cat \"$CONFIG_FILE\")\n\nwhile IFS= read -r var; do\n    [[ -z \"$var\" ]] && continue\n    [[ \"$var\" == egress.* ]] && continue\n    \n    if [[ -n \"$${!var:-}\" ]]; then\n        value=\"$${!var}\"\n        escaped_value=$(printf '%s\\n' \"$value\" | sed -e 's/[\\/&]/\\\\&/g')\n\n        if echo \"$content\" | grep -q \"port:.*\\$${$var}\"; then\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/\\\"$escaped_value\\\"/g\")\n        else\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/$escaped_value/g\")\n        fi\n    else\n        echo \"Warning: Environment variable '$var' is not set\" >&2\n    fi\ndone < <(grep -oE '\\$\\{[^}]+\\}' \"$CONFIG_FILE\" | sed 's/\\$${\\([^}]*\\)}/\\1/' | sort -u)\n\necho \"$content\" > \"$CONFIG_FILE\"\n\n/opt/nvidia/via/start_via.sh\n"
+                    "start.sh" = "#!/bin/bash\nset -e\n\n# Pre-create the shared FSS cache dir that vss-download-service (uid 1001)\n# writes into. vss runs with recipe_storage_group_id=1000 so it has write\n# access to /mnt/fss; chmod 0777 lets the downloader's uid use the same\n# dir without remounting or shifting gids.\nmkdir -p /mnt/fss/cache\nchmod 0777 /mnt/fss/cache\n\n# Check Riva specific environment variables and set them if not set.\nif [ -z \"$${RIVA_ASR_SERVER_URI}\" ]; then\n    export RIVA_ASR_SERVER_URI=\"riva-service\"\n    echo \"RIVA_ASR_SERVER_URI was not set. Using default value: $RIVA_ASR_SERVER_URI\"\nfi\n\nif [ -z \"$${RIVA_ASR_GRPC_PORT}\" ]; then\n    export RIVA_ASR_GRPC_PORT=\"50051\"\n    echo \"RIVA_ASR_GRPC_PORT was not set. Using default value: $RIVA_ASR_GRPC_PORT\"\nfi\n\nif [ -z \"$${RIVA_ASR_HTTP_PORT}\" ]; then\n    export RIVA_ASR_HTTP_PORT=\"9000\"\n    echo \"RIVA_ASR_HTTP_PORT was not set. Using default value: $RIVA_ASR_HTTP_PORT\"\nfi\n\nif [ -z \"$${ENABLE_RIVA_SERVER_READINESS_CHECK}\" ]; then\n    export ENABLE_RIVA_SERVER_READINESS_CHECK=\"false\"\n    echo \"ENABLE_RIVA_SERVER_READINESS_CHECK was not set. Using default value: $ENABLE_RIVA_SERVER_READINESS_CHECK\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_IS_NIM}\" ]; then\n    export RIVA_ASR_SERVER_IS_NIM=\"true\"\n    echo \"RIVA_ASR_SERVER_IS_NIM was not set. Using default value: $RIVA_ASR_SERVER_IS_NIM\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_USE_SSL}\" ]; then\n    export RIVA_ASR_SERVER_USE_SSL=\"false\"\n    echo \"RIVA_ASR_SERVER_USE_SSL was not set. Using default value: $RIVA_ASR_SERVER_USE_SSL\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_API_KEY}\" ]; then\n    export RIVA_ASR_SERVER_API_KEY=\"\"\n    echo \"RIVA_ASR_SERVER_API_KEY was not set. Using default value: $RIVA_ASR_SERVER_API_KEY\"\nfi\n\nif [ -z \"$${RIVA_ASR_SERVER_FUNC_ID}\" ]; then\n    export RIVA_ASR_SERVER_FUNC_ID=\"\"\n    echo \"RIVA_ASR_SERVER_FUNC_ID was not set. Using default value: $RIVA_ASR_SERVER_FUNC_ID\"\nfi\n\nif [ -z \"$${INSTALL_PROPRIETARY_CODECS}\" ]; then\n    export INSTALL_PROPRIETARY_CODECS=\"false\"\n    echo \"INSTALL_PROPRIETARY_CODECS was not set. Using default value: $INSTALL_PROPRIETARY_CODECS\"\nfi\n\n# Check and set environment variables with default values if not set\nif [ -z \"$${OPENAI_API_KEY_NAME}\" ]; then\n    export OPENAI_API_KEY_NAME=\"openai-api-key\"\n    echo \"OPENAI_API_KEY_NAME was not set. Using default value: $OPENAI_API_KEY_NAME\"\nelse\n    echo \"OPENAI_API_KEY_NAME is already set to: $OPENAI_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NVIDIA_API_KEY_NAME}\" ]; then\n    export NVIDIA_API_KEY_NAME=\"nvidia-api-key\"\n    echo \"NVIDIA_API_KEY_NAME was not set. Using default value: $NVIDIA_API_KEY_NAME\"\nelse\n    echo \"NVIDIA_API_KEY_NAME is already set to: $NVIDIA_API_KEY_NAME\"\nfi\n\nif [ -z \"$${NGC_API_KEY_NAME}\" ]; then\n    export NGC_API_KEY_NAME=\"ngc-api-key\"\n    echo \"NGC_API_KEY_NAME was not set. Using default value: $NGC_API_KEY_NAME\"\nelse\n    echo \"NGC_API_KEY_NAME is already set to: $NGC_API_KEY_NAME\"\nfi\n\n# NVCF will mount secrets to /var/secrets/secrets.json, check and update accordingly\nif [ -f \"/var/secrets/secrets.json\" ]; then\n    echo \"Contents of /var/secrets/secrets.json:\"\n    jq -r 'keys[]' /var/secrets/secrets.json\n\n    if grep -q \"$OPENAI_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$OPENAI_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$OPENAI_API_KEY\n        export OPENAI_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$OPENAI_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$OPENAI_API_KEY\" ]; then\n            echo \"OPENAI_API_KEY updated from secrets.json\"\n        else\n            echo \"OPENAI_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$OPENAI_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NVIDIA_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NVIDIA_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NVIDIA_API_KEY\n        export NVIDIA_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NVIDIA_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NVIDIA_API_KEY\" ]; then\n            echo \"NVIDIA_API_KEY updated from secrets.json\"\n        else\n            echo \"NVIDIA_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NVIDIA_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\n\n    if grep -q \"$NGC_API_KEY_NAME\" \"/var/secrets/secrets.json\"; then\n        echo \"$NGC_API_KEY_NAME is present in /var/secrets/secrets.json\"\n        old_key=$NGC_API_KEY\n        export NGC_API_KEY=$(cat \"/var/secrets/secrets.json\" | jq \".[\\\"$NGC_API_KEY_NAME\\\"]\" -r)\n        if [ \"$old_key\" != \"$NGC_API_KEY\" ]; then\n            echo \"NGC_API_KEY updated from secrets.json\"\n        else\n            echo \"NGC_API_KEY remains unchanged from Kubernetes secret\"\n        fi\n    else\n        echo \"$NGC_API_KEY_NAME is not present in /var/secrets/secrets.json\"\n    fi\nelse\n    echo \"/var/secrets/secrets.json file does not exist\"\nfi\n\n# Overwrite default CA RAG in container:\nmkdir -p /tmp/via\ncp /opt/configs/guardrails_config.yaml /opt/nvidia/via/guardrails_config/config.yml\ncp /opt/configs/ca_rag_config.yaml /tmp/via/default_config.yaml\nexport CA_RAG_CONFIG=\"/tmp/via/default_config.yaml\"\ncp /opt/configs/cv_pipeline_tracker_config.yml /tmp/default_tracker_config.yml\nexport CV_PIPELINE_TRACKER_CONFIG=\"/tmp/default_tracker_config.yml\"\n\nmkdir -p /tmp/huggingface-via\nexport HF_HOME=/tmp/huggingface-via\n\nexport NGC_MODEL_CACHE=/tmp/via-ngc-model-cache\n\nexport CUPY_CACHE_DIR=/tmp/cupy_cache\n\nmkdir -p /tmp/via/triton-cache\nexport TRITON_CACHE_DIR=/tmp/via/triton-cache\n\ncd /tmp/via\nln -s /opt/nvidia/via/via-engine via-engine\nln -s /opt/nvidia/via/config config\n\nif [ -z \"$${LLM_MODEL}\" ]; then\n    export LLM_MODEL=\"meta/llama-3.1-70b-instruct\"\n    echo \"LLM_MODEL was not set. Using default value: $LLM_MODEL\"\nfi\n\nCONFIG_FILE=\"/tmp/via/default_config.yaml\"\n\ncontent=$(cat \"$CONFIG_FILE\")\n\nwhile IFS= read -r var; do\n    [[ -z \"$var\" ]] && continue\n    [[ \"$var\" == egress.* ]] && continue\n    \n    if [[ -n \"$${!var:-}\" ]]; then\n        value=\"$${!var}\"\n        escaped_value=$(printf '%s\\n' \"$value\" | sed -e 's/[\\/&]/\\\\&/g')\n\n        if echo \"$content\" | grep -q \"port:.*\\$${$var}\"; then\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/\\\"$escaped_value\\\"/g\")\n        else\n            content=$(echo \"$content\" | sed \"s/\\$${$var}/$escaped_value/g\")\n        fi\n    else\n        echo \"Warning: Environment variable '$var' is not set\" >&2\n    fi\ndone < <(grep -oE '\\$\\{[^}]+\\}' \"$CONFIG_FILE\" | sed 's/\\$${\\([^}]*\\)}/\\1/' | sort -u)\n\necho \"$content\" > \"$CONFIG_FILE\"\n\n/opt/nvidia/via/start_via.sh\n"
                   }
                 },
                 {
@@ -1441,18 +1450,135 @@ locals {
               }
             }
           )
-          depends_on = [
+          depends_on = concat([
             "nim-llm",
             "embedding",
             "rerank",
             "riva",
             "elasticsearch",
             "neo4j"
-          ]
+          ], var.enable_auth_service ? ["auth-service"] : [])
         }
-      ]
+        ],
+        local.vss_postgres_recipe,
+        local.vss_download_service_recipe,
+        local.vss_oracle_ux_recipes,
+        local.auth_service_recipe
+      )
     }
   })
+  _wpp_frontend_deployments = [
+    for skin in local.enabled_frontend_skins : {
+      name       = skin.variable_name
+      depends_on = ["backend"]
+      recipe = merge(
+        {
+          recipe_id                            = replace(skin.variable_name, "_", "-")
+          deployment_name                      = replace(skin.variable_name, "_", "-")
+          recipe_mode                          = "service"
+          recipe_image_uri                     = skin.image_uri
+          recipe_replica_count                 = 1
+          recipe_flex_shape_ocpu_count         = 2
+          recipe_flex_shape_memory_size_in_gbs = 16
+          recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+          recipe_use_shared_node_pool          = true
+          recipe_container_port                = skin.container_port
+          service_endpoint_subdomain           = skin.subdomain
+          recipe_additional_ingress_ports = [
+            {
+              port_name    = "api"
+              service_name = "$${backend.service_name}"
+              port         = 8000
+              path         = "/api"
+              path_type    = "Prefix"
+            }
+          ]
+        },
+        var.use_custom_dns ? { service_endpoint_domain = local.public_endpoint.starter_pack } : {}
+      )
+    }
+    if try(skin.variable_name, "") != ""
+  ]
+
+  _warehouse_pick_path_small_blueprint = jsonencode({
+    deployment_group = {
+      name = "DEPLOY_NAME"
+      deployments = concat(
+        [
+          {
+            name    = "backend"
+            exports = ["service_name"]
+            recipe = {
+              recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+              recipe_id                             = "wpp-backend"
+              recipe_mode                           = "service"
+              deployment_name                       = "wpp-backend"
+              recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-be:2d2a008"
+              recipe_replica_count                  = 1
+              recipe_node_shape                     = local.starter_pack_config.worker_node_shape
+              recipe_nvidia_gpu_count               = 1
+              recipe_use_shared_node_pool           = true
+              recipe_container_port                 = "8000"
+              recipe_container_env = [
+                { key = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
+                { key = "OCI26AI_USER", value = var.db_username },
+                { key = "OCI26AI_PASSWORD", value = var.db_password },
+              ]
+              recipe_liveness_probe_params = {
+                port                  = 8000
+                scheme                = "HTTP"
+                endpoint_path         = "/healthz"
+                period_seconds        = 30
+                timeout_seconds       = 10
+                failure_threshold     = 3
+                success_threshold     = 1
+                initial_delay_seconds = 60
+              }
+              recipe_readiness_probe_params = {
+                port                  = 8000
+                scheme                = "HTTP"
+                endpoint_path         = "/readyz"
+                period_seconds        = 15
+                timeout_seconds       = 10
+                success_threshold     = 1
+                initial_delay_seconds = 30
+              }
+            }
+          },
+        ],
+        local._wpp_frontend_deployments
+      )
+    }
+  })
+  _paas_rag_frontend_deployments = [
+    for skin in local.enabled_frontend_skins : {
+      name       = skin.variable_name
+      depends_on = ["llamastack"]
+      recipe = {
+        recipe_id                            = replace(skin.variable_name, "_", "-")
+        deployment_name                      = replace(skin.variable_name, "_", "-")
+        recipe_mode                          = "service"
+        recipe_image_uri                     = skin.image_uri
+        recipe_replica_count                 = 1
+        recipe_flex_shape_ocpu_count         = 4
+        recipe_flex_shape_memory_size_in_gbs = 32
+        recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+        recipe_use_shared_node_pool          = true
+        recipe_container_port                = skin.container_port
+        service_endpoint_subdomain           = skin.subdomain
+        recipe_additional_ingress_ports = [
+          { port_name = "models", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/models", path_type = "Prefix" },
+          { port_name = "health", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/health", path_type = "Prefix" },
+          { port_name = "responses", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/responses", path_type = "Prefix" },
+          { port_name = "vectorstores", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/vector_stores", path_type = "Prefix" },
+          { port_name = "files", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/files", path_type = "Prefix" },
+          { port_name = "base", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
+        ]
+      }
+    }
+    if try(skin.variable_name, "") != ""
+  ]
+
   _paas_rag_small_blueprint = jsonencode({
     deployment_group = {
       name = "DEPLOY_NAME"
@@ -1519,7 +1645,10 @@ locals {
             recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
             recipe_use_shared_node_pool          = true,
             recipe_container_port                = "3000",
-            service_endpoint_subdomain           = local.starter_pack_config.frontend_url
+            # try() default keeps this local evaluable for non-paas_rag categories
+            # (the blueprint map is always materialized); main dropped frontend_url
+            # from the vss/cuopt configs when those frontends moved to skins.
+            service_endpoint_subdomain = try(local.starter_pack_config.frontend_url, "frontend-paas")
             recipe_additional_ingress_ports = [
               {
                 port_name    = "models"
@@ -1664,4 +1793,101 @@ locals {
       ]
     }
   })
+
+  # -----------------------------------
+  # Document Extractor Blueprint
+  # Inherits paas_rag deployments (LlamaStack), removes OracleNet frontend,
+  # adds dox-backend and dox-frontend + DAC.
+  # Shares one 26ai database across all services.
+  # -----------------------------------
+
+  # Take paas_rag's LlamaStack deployment only. dox_pack has its own
+  # contract backend and frontend wiring.
+  _dox_pack_base_deployment_names = ["llamastack"]
+
+  # Category guard inline in the if-clause keeps the result type consistent
+  # (always a list of deployment objects, just empty when dox_pack isn't
+  # the selected category). Pairs with the gated _dox_pack_small_blueprint
+  # below so the frontend_url lookup never evaluates for other packs.
+  # Override the inherited llamastack's OCI_REGION so it reads the model
+  # catalog from llamastack_region (Chicago by default — where Llama-4 lives)
+  # while the DAC stays in genai_region (where H100 capacity is).
+  _paas_rag_base_for_dox_pack = [
+    for d in jsondecode(local._paas_rag_small_blueprint).deployment_group.deployments :
+    d.name == "llamastack" ? merge(d, {
+      recipe = merge(d.recipe, {
+        recipe_container_env = [
+          for e in d.recipe.recipe_container_env :
+          e.key == "OCI_REGION" ? { key = "OCI_REGION", value = var.llamastack_region } : e
+        ]
+      })
+    }) : d
+    if contains(local._dox_pack_base_deployment_names, d.name) && var.starter_pack_category == "dox_pack"
+  ]
+
+  _dox_pack_backend_env = [
+    { "key" = "DB_MODE", value = "oracle" },
+    { "key" = "DB_USER", value = var.db_username },
+    { "key" = "DB_PASSWORD", value = var.db_password },
+    { "key" = "DB_DSN", value = local.oracle26ai_high_connection_string },
+    { "key" = "ORACLE_USER", value = var.db_username },
+    { "key" = "ORACLE_PASSWORD", value = var.db_password },
+    { "key" = "ORACLE_DSN", value = local.oracle26ai_high_connection_string },
+    { "key" = "GENAI_INFERENCE_ENDPOINT", value = local.dac_inference_url },
+    { "key" = "GENAI_MODEL", value = "/models/${var.dac_model_id}" },
+    { "key" = "LLAMASTACK_URL", value = "http://$${llamastack.service_name}:80" },
+    { "key" = "LLAMASTACK_CHAT_MODEL", value = "oci/meta.llama-4-maverick-17b-128e-instruct-fp8" },
+    { "key" = "LLAMASTACK_EMBEDDING_MODEL", value = "oci/cohere.embed-english-v3.0" },
+    { "key" = "LLAMASTACK_EMBEDDING_DIMENSION", value = "1024" },
+    { "key" = "DOX_VECTOR_STORE_NAME", value = "dox-documents" },
+    { "key" = "PYTHONUNBUFFERED", value = "1" },
+  ]
+
+  _dox_pack_small_blueprint = var.starter_pack_category == "dox_pack" ? jsonencode({
+    deployment_group = {
+      name = "DEPLOY_NAME"
+      deployments = concat(local._paas_rag_base_for_dox_pack, [
+        {
+          name       = "dox-backend"
+          exports    = ["service_name"]
+          depends_on = ["llamastack"]
+          recipe = {
+            recipe_id                             = "dox-backend"
+            recipe_mode                           = "service"
+            deployment_name                       = "contract-backend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-backend:v1.0.3"
+            recipe_replica_count                  = 1
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 32
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "8000"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            recipe_container_env                  = local._dox_pack_backend_env
+          }
+        },
+        {
+          name       = "dox-frontend"
+          depends_on = ["dox-backend"]
+          recipe = {
+            recipe_id                             = "dox-frontend"
+            recipe_mode                           = "service"
+            deployment_name                       = "dox-frontend"
+            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:v1.0.1"
+            recipe_replica_count                  = 1
+            recipe_flex_shape_ocpu_count          = 4
+            recipe_flex_shape_memory_size_in_gbs  = 32
+            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool           = true
+            recipe_container_port                 = "80"
+            recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
+            service_endpoint_subdomain            = local.starter_pack_config.frontend_url
+            recipe_container_env = [
+              { "key" = "BACKEND_SVC", value = "$${dox-backend.service_name}" },
+            ]
+          }
+        }
+      ])
+    }
+  }) : ""
 }

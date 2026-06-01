@@ -6,9 +6,10 @@ This guide covers deploying the AI Accelerator stack into a private network — 
 
 ## Overview
 
-By default, the stack creates a new VCN with a public Kubernetes API endpoint and public load balancers, making the deployment accessible from the internet. For environments requiring network isolation, you can deploy into a VCN you already control, enabling peering, FastConnect, or VPN connectivity.
+By default, the stack creates a new VCN with a public Kubernetes API endpoint and public load balancers, making the deployment accessible from the internet. For environments requiring network isolation, you have two options:
 
-> **Note:** Creating a new private VCN from scratch via the stack is not yet supported. See [Coming Soon](#coming-soon--new-private-vcn) for details.
+1. **New Private VCN** — let the stack create a fully private VCN from scratch using the `deploy_private_k8s_and_loadbalancer` toggle. The stack automatically provisions an ORM Private Endpoint so Terraform can reach the private Kubernetes API during deployment.
+2. **Bring Your Own VCN** — deploy into a VCN you already control, enabling peering, FastConnect, or VPN connectivity.
 
 ---
 
@@ -82,6 +83,94 @@ On-Premises / Second OCI VCN          AI Accelerator VCN
                               │  - Load Balancers       │
                               └─────────────────────────┘
 ```
+
+---
+
+## New Private VCN
+
+Use this option to deploy a fully private stack from scratch — no pre-existing VCN required. The stack creates a private VCN, a private OKE API endpoint, private load balancers, and automatically provisions an ORM Private Endpoint so that Terraform can communicate with the private Kubernetes API during deployment.
+
+### How It Works
+
+The bootstrapping problem (Terraform cannot reach a private OKE endpoint it just created) is solved by the **ORM Private Endpoint**:
+
+1. The stack creates a new VCN with all subnets (endpoint, nodes, load balancer, pods, services, bastion, operator, database).
+2. The OKE cluster is created with a **private** API endpoint — no public IP on the control plane.
+3. An **ORM Private Endpoint** (`oci_resourcemanager_private_endpoint`) is created in the endpoint subnet, giving the OCI Resource Manager runner a network path into the private VCN.
+4. The Kubernetes and Helm providers use the ORM Private Endpoint's reachable IP to connect to the private OKE API, allowing Terraform to deploy cluster resources (Helm charts, configmaps, jobs, etc.) without any public exposure.
+
+```
+OCI Resource Manager
+    │
+    │  ORM Private Endpoint
+    ▼
+┌──────────────────────────────────────┐
+│  VCN (created by stack)              │
+│                                      │
+│  ┌─────────────────┐                 │
+│  │ Bastion Subnet  │ ◄── SSH entry   │
+│  │ (Public)        │     point       │
+│  └────────┬────────┘                 │
+│           │                          │
+│  ┌────────▼────────┐                 │
+│  │ Endpoint Subnet │                 │
+│  │ (Private)       │ ◄── K8s API     │
+│  └────────┬────────┘                 │
+│           │                          │
+│  ┌────────▼────────┐                 │
+│  │ Nodes Subnet    │                 │
+│  │ (Private)       │ ◄── Workers     │
+│  └────────┬────────┘                 │
+│           │                          │
+│  ┌────────▼────────┐                 │
+│  │ LB Subnet       │                 │
+│  │ (Private)       │ ◄── Apps/UI     │
+│  └─────────────────┘                 │
+│                                      │
+│  NAT GW ──► outbound internet        │
+│  Service GW ──► OCI services         │
+└──────────────────────────────────────┘
+```
+
+### Configuration
+
+In the OCI Resource Manager UI, enable **Deploy Private K8s and Load Balancer** under Advanced Options. This single toggle sets up the entire private deployment.
+
+For `terraform.tfvars` (CLI or automation), set:
+
+```hcl
+network_configuration_mode              = "create_new"
+deploy_private_k8s_and_loadbalancer     = true
+ssh_public_key                          = "ssh-rsa AAAAB3NzaC1yc2EAAAA..."
+```
+
+Setting `deploy_private_k8s_and_loadbalancer = true` triggers the following cascade:
+
+| Derived Setting | Value | Effect |
+|---|---|---|
+| `cluster_endpoint_visibility_new_vcn` | `"Private"` | OKE API has no public IP |
+| `blueprints_endpoint_visibility` | `"Private"` | Blueprints LB has no public IP |
+| `apps_endpoint_visibility` | `"Private"` | App LB has no public IP |
+| `create_orm_private_endpoint` | `true` | ORM PE created for Terraform access |
+| `create_bastion_effective` | `true` | Bastion + operator instances created |
+
+> **Note:** `ssh_public_key` is required when deploying privately so you can SSH into the bastion to access the cluster and application UIs.
+
+### What Gets Created
+
+In addition to the standard stack resources, a private deployment creates:
+
+- **ORM Private Endpoint** — allows OCI Resource Manager to reach the private OKE API during `terraform apply`. This is the key resource that makes the deployment self-contained.
+- **Bastion instance** — a publicly accessible jump host in the bastion subnet for SSH access into the private network.
+- **Operator instance** — a private instance within the VCN used for readiness checks and cluster operations.
+
+### Network Routing
+
+All private subnets route through:
+- **NAT Gateway** — outbound internet access (e.g., pulling container images) without inbound exposure.
+- **Service Gateway** — direct access to OCI services (Object Storage, Container Registry, etc.) without traversing the public internet.
+
+The bastion subnet is the only subnet with a public route table (via the Internet Gateway).
 
 ---
 
@@ -215,6 +304,15 @@ KUBECONFIG=~/.kube/ai-accelerator-config kubectl get pods -A
 
 ## Checklist
 
+### New Private VCN
+
+- [ ] `deploy_private_k8s_and_loadbalancer` set to `true`
+- [ ] `ssh_public_key` provided for bastion access
+- [ ] After deployment: verify bastion instance is reachable via SSH
+- [ ] After deployment: verify kubectl works through the bastion SSH tunnel
+
+### Bring Your Own VCN
+
 - [ ] Non-overlapping CIDRs between AI Accelerator VCN and peered networks
 - [ ] Route tables updated in both VCNs (or VPN/FastConnect routes propagated)
 - [ ] Security lists / NSGs allow traffic between peered CIDRs
@@ -222,30 +320,3 @@ KUBECONFIG=~/.kube/ai-accelerator-config kubectl get pods -A
 - [ ] `bring_your_own` subnet OCIDs entered correctly in `terraform.tfvars`
 - [ ] If using a private OKE endpoint: bastion or operator instance is available for kubectl access
 - [ ] IAM policies use "bring_your_own" variants (read-only network permissions)
-
----
-
-## Coming Soon — New Private VCN
-
-> **Not currently supported.** Deploying a fully private network from scratch using `network_configuration_mode = "create_new"` with a private OKE endpoint is not yet functional.
-
-The root cause is a bootstrapping problem: when Terraform creates a new VCN and sets the OKE API endpoint to private, the machine running `terraform apply` (whether a local workstation or an OCI Resource Manager runner) is not included in the security rules that allow access to the newly created private endpoint. As a result, the Kubernetes and Helm providers — which must connect to the OKE API to deploy cluster resources — cannot reach it, and the apply fails.
-
-Resolving this requires one of:
-- Automatically adding the deployer's IP to the endpoint subnet security list during apply.
-- Running the apply from within the same VCN (e.g., from an operator instance bootstrapped in a first pass).
-- A two-phase deployment (network + OKE in one apply, cluster resources in a second apply from inside the VCN).
-
-Until this is implemented, **private network deployments require `bring_your_own`** with a pre-existing VCN whose security rules already permit access from the deploying machine or ORM runner.
-
-When this feature ships, the configuration will look like:
-
-```hcl
-# Coming soon — not yet functional
-network_configuration_mode          = "create_new"
-cluster_endpoint_visibility_new_vcn = "Private"
-blueprints_endpoint_visibility      = "Private"
-apps_endpoint_visibility            = "Private"
-create_bastion                      = true
-ssh_public_key                      = "ssh-rsa AAAAB3NzaC1yc2EAAAA..."
-```

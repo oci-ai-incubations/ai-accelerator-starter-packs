@@ -12,7 +12,7 @@ resource "oci_core_image" "nvidia_image" {
     source_type              = "objectStorageUri"
     source_uri               = local.nvidia_image_url
   }
-  count = local.should_import_nvidia_gpu_image ? 1 : 0
+  count = local.deploy_infrastructure && local.should_import_nvidia_gpu_image ? 1 : 0
 
   # Ensure capacity is validated before starting slow image import
   depends_on = [terraform_data.capacity_validated]
@@ -27,7 +27,7 @@ resource "oci_core_image" "amd_image" {
     source_type              = "objectStorageUri"
     source_uri               = local.amd_image_url
   }
-  count = local.should_import_amd_gpu_image ? 1 : 0
+  count = local.deploy_infrastructure && local.should_import_amd_gpu_image ? 1 : 0
 
   # Ensure capacity is validated before starting slow image import
   depends_on = [terraform_data.capacity_validated]

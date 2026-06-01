@@ -154,8 +154,8 @@ definitions:
       eq:
         type: array
         items:
-          - type: [string, number]
-          - type: [string, number]
+          - type: [string, number, boolean]
+          - type: [string, number, boolean]
         additionalItems: false
     additionalProperties: false
 
@@ -165,8 +165,8 @@ definitions:
       ge:
         type: array
         items:
-          - type: [string, number]
-          - type: [string, number]
+          - type: [string, number, boolean]
+          - type: [string, number, boolean]
         additionalItems: false
     additionalProperties: false
 
@@ -176,8 +176,8 @@ definitions:
       le:
         type: array
         items:
-          - type: [string, number]
-          - type: [string, number]
+          - type: [string, number, boolean]
+          - type: [string, number, boolean]
         additionalItems: false
     additionalProperties: false
 
@@ -187,8 +187,8 @@ definitions:
       gt:
         type: array
         items:
-          - type: [string, number]
-          - type: [string, number]
+          - type: [string, number, boolean]
+          - type: [string, number, boolean]
         additionalItems: false
     additionalProperties: false
 
@@ -198,8 +198,8 @@ definitions:
       lt:
         type: array
         items:
-          - type: [string, number]
-          - type: [string, number]
+          - type: [string, number, boolean]
+          - type: [string, number, boolean]
         additionalItems: false
     additionalProperties: false
 

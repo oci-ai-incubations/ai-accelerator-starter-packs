@@ -5,18 +5,26 @@ on:
     branches: [main, master]
     paths:
       - "ai-accelerator-tf/schemas/**"
+      - "ai-accelerator-tf/vars.tf"
+      - "ai-accelerator-tf/frontend-skins.tf"
       - "create_final_schema.py"
+      - "NAMING.md"
+      - "docs/skins/contracts/**"
       - ".github/workflows/schema-tests.yml"
   pull_request:
     branches: [main, master]
     paths:
       - "ai-accelerator-tf/schemas/**"
+      - "ai-accelerator-tf/vars.tf"
+      - "ai-accelerator-tf/frontend-skins.tf"
       - "create_final_schema.py"
+      - "NAMING.md"
+      - "docs/skins/contracts/**"
       - ".github/workflows/schema-tests.yml"
 
 jobs:
   schema-tests:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 

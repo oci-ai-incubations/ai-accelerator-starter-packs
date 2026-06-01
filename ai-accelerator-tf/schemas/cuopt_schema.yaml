@@ -50,8 +50,6 @@ variableGroups:
   - title: "Deployment Configuration"
     variables:
       - starter_pack_size
-      - cuopt_frontend_enabled
-      - genai_region
       - worker_node_availability_domain
 
   - title: "Administrator Account"
@@ -59,6 +57,25 @@ variableGroups:
       - corrino_admin_username
       - corrino_admin_password
       - corrino_admin_email
+
+  - title: "cuOpt Pack Configuration"
+    visible:
+      or:
+        - skin_cuopt_core
+        - skin_cuopt_partner
+    variables:
+      - google_maps_api_key
+      - cuopt_openweathermap_api_key
+      - genai_region
+
+  - title: "Oracle 26ai Database (required when auth-service is enabled)"
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+    variables:
+      - db_username
+      - db_password
 
 # =============================================================================
 # Variables - cuOpt specific
@@ -75,19 +92,30 @@ variables:
     default: small
     required: true
 
-  cuopt_frontend_enabled:
-    type: boolean
-    title: "Enable cuOpt Frontend"
-    description: "Enable cuOpt frontend"
-    default: false
+  google_maps_api_key:
+    type: string
+    title: "Google Maps API Key"
+    description: "API key for Google Maps visualization in the cuOpt frontend. Leave empty to use the default Leaflet map."
+    default: ""
     visible: true
-    required: true
+
+  # cuopt_frontend_admin_* are legacy: the Express server in the cuopt FE used
+  # them for /api/auth/login. That server was retired in phase 5; auth-service
+  # handles user login now. Hide them and stop asking operators to set them.
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+
+  cuopt_frontend_admin_password:
+    type: password
+    visible: false
 
   genai_region:
     title: "OCI GenAI Services Region"
     description: "Region for OCI GenAI Services. Note: Does not have to match the region of the cluster."
     type: enum
     default: us-ashburn-1
+    visible: true
     enum:
       - uk-london-1
       - eu-frankfurt-1
@@ -100,16 +128,51 @@ variables:
       - ap-osaka-1
       - ap-hyderbad-1
       - sa-saopaulo-1
-    visible:
-      and:
-        - cuopt_frontend_enabled
 
-  # Hide database variables
+  # 26ai database credentials. Hidden unless enable_auth_service is on; cuopt
+  # only provisions 26ai when auth-service is on (auth-service is backed by
+  # 26ai). When visible, both are required (admin_password feeds the ADB
+  # resource and is null-checked by a precondition in 26ai.tf).
   db_username:
-    visible: false
+    type: string
+    title: "Database Admin Username"
+    description: "Admin username for the Oracle 26ai Autonomous Database (used by the auth-service)."
+    default: "ADMIN"
+    required: true
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
 
   db_password:
+    type: password
+    title: "Database Admin Password"
+    description: "Admin password for the Oracle 26ai Autonomous Database. Must be at least 12 characters, contain at least 1 uppercase letter, and at least 1 special character."
+    required: true
+    visible:
+      eq:
+        - ${enable_auth_service}
+        - true
+
+  # Image version pinned in vars.tf. The pack ships fully-versioned and the
+  # ORM Resource Manager UI must not surface per-image overrides.
+  cuopt_backend_image_version:
+    type: string
     visible: false
+
+  # cuopt-backend operational knobs. cuopt_tls_verify is the recovery lever
+  # when in-cluster upstreams present self-signed certs (default true =
+  # production-safe).
+  cuopt_tls_verify:
+    type: boolean
+    visible: false
+
+  cuopt_openweathermap_api_key:
+    type: password
+    title: "OpenWeatherMap API Key"
+    description: "Optional API key for live weather data via the cuopt-backend's /api/weather/* routes. When blank, the backend falls back to a deterministic mock weather generator (still useful for routing demos)."
+    required: false
+    visible: true
 
   # Make AD required for cuOpt (GPU starter pack)
   worker_node_availability_domain:
@@ -125,10 +188,6 @@ outputs:
   starter_pack_url:
     type: string
     title: "cuOpt API URL"
-  
-  starter_pack_frontend_url:
-    type: string
-    title: "cuOpt Frontend Service URL"
 
   db_username:
     visible: false

@@ -444,8 +444,9 @@ Based on the `STARTER_PACK_CATEGORY` from Step 1, ask for additional variables t
 | Variable | Required? | Description |
 |---|---|---|
 | `worker_node_availability_domain` | Yes | AD with GPU capacity |
-| `cuopt_frontend_enabled` | Yes (default: false) | Enable cuOpt demo frontend UI |
-| `genai_region` | If `cuopt_frontend_enabled=true` | OCI GenAI services region |
+| `genai_region` | If a frontend skin is enabled | OCI GenAI services region |
+
+> **Note:** For blueprint packs (`cuopt`, `vss`, `paas_rag`), per-skin boolean variables (e.g., `skin_cuopt_core`) control which frontends deploy. Ask the user which skins they want to enable for the chosen pack.
 
 **`enterprise_rag`:**
 

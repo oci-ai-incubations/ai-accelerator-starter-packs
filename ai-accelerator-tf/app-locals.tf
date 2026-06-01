@@ -4,13 +4,25 @@ locals {
 
   deploy_id = random_string.generated_deployment_name.result
 
+  deploy_application    = var.deploy_application
+  use_existing_cluster  = var.existing_cluster_id != ""
+  deploy_infrastructure = !local.use_existing_cluster
+  effective_cluster_id  = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
+
+  # Compound gating locals — single source of truth for repeated count/for_each conditions
+  deploy_app_vss      = local.deploy_application && var.starter_pack_category == "vss"
+  deploy_app_rag      = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_rag_aiq  = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq"
+  deploy_app_non_rag  = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  deploy_app_26ai     = local.deploy_application && local.needs_26ai
+  run_capacity_checks = local.deploy_infrastructure && !var.skip_capacity_check
+  uses_gpu            = local.should_import_nvidia_gpu_image
+
   app = {
     backend_service_name         = "corrino-cp"
     backend_service_name_origin  = "http://corrino-cp"
     backend_service_name_ingress = "corrino-cp-ingress"
-    #    backend_image_uri_base                       = join(":", [local.ocir.base_uri, local.ocir.backend_image])
-    backend_image_uri = format("${local.ocir.base_uri}:${local.ocir.backend_image}-${var.corrino_image_version}")
-    #backend_image_uri = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:oci-corrino-cp-latest"
+    backend_image_uri            = format("${local.ocir.base_uri}/${local.ocir.backend_image}:${var.corrino_image_version}")
     #frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
     blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.corrino_image_version}")
     deploy_blueprint_image_uri                     = format("${local.ocir.base_uri}:corrino_deployment_scripts-latest")
@@ -28,9 +40,9 @@ locals {
   postgres_db = {
     host     = "bp-postgres"
     port     = "5432"
-    db_name  = format("%s_db", random_string.postgres_db_name.result)
-    user     = format("%s_user", random_string.postgres_db_username.result)
-    password = random_string.postgres_db_password.result
+    db_name  = try(format("%s_db", random_string.postgres_db_name[0].result), "")
+    user     = try(format("%s_user", random_string.postgres_db_username[0].result), "")
+    password = try(random_string.postgres_db_password[0].result, "")
   }
 
   ngc_secrets = {
@@ -80,8 +92,8 @@ locals {
       service_gateway_ocid  = try(oci_core_service_gateway.oke_service_gateway[0].id, null)
 
       # OKE
-      oke_cluster_ocid     = local.oke_cluster.id
-      node_pool_ocid       = oci_containerengine_node_pool.oke_node_pool.id
+      oke_cluster_ocid     = local.effective_cluster_id
+      node_pool_ocid       = local.deploy_infrastructure ? oci_containerengine_node_pool.oke_node_pool[0].id : null
       worker_cpu_pool_ocid = try(oci_containerengine_node_pool.worker_cpu_pool[0].id, null)
 
       # Compute
@@ -127,7 +139,7 @@ locals {
 
   django = {
     logging_level        = "DEBUG"
-    secret               = random_string.corrino_django_secret.result
+    secret               = try(random_string.corrino_django_secret[0].result, "")
     allowed_hosts        = join(",", [local.network.localhost, local.network.loopback, local.public_endpoint.api, local.app.backend_service_name])
     csrf_trusted_origins = join(",", [local.network.localhost_origin, local.network.loopback_origin, local.public_endpoint.api_origin_secure, local.public_endpoint.api_origin_insecure, local.app.backend_service_name_origin])
   }
@@ -137,7 +149,7 @@ locals {
     tenancy_namespace = data.oci_objectstorage_namespace.ns.namespace
     namespace_name    = data.oci_objectstorage_namespace.ns.namespace
     compartment_id    = var.compartment_ocid
-    oke_cluster_id    = local.oke_cluster.id
+    oke_cluster_id    = local.effective_cluster_id
     region_name       = var.region
   }
 
@@ -196,12 +208,17 @@ locals {
     mlflow           = join(".", ["mlflow", local.fqdn.name])
     prometheus       = join(".", ["prometheus", local.fqdn.name])
     grafana          = join(".", ["grafana", local.fqdn.name])
-    starter_pack     = join(".", [local.starter_pack_config.frontend_url, local.fqdn.name])
-    aiq_frontend     = join(".", ["aiq", local.fqdn.name])
+    starter_pack = join(".", [
+      local.primary_skin != null
+      ? local.primary_skin.subdomain
+      : try(local.starter_pack_config.frontend_url, ""),
+      local.fqdn.name
+    ])
+    aiq_frontend = join(".", ["aiq", local.fqdn.name])
   }
 
   third_party_namespaces = {
-    prometheus_namespace = kubernetes_namespace_v1.cluster_tools.id
+    prometheus_namespace = try(kubernetes_namespace_v1.cluster_tools[0].id, "cluster-tools")
   }
 
   env_universal = [

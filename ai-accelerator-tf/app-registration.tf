@@ -5,11 +5,13 @@
 # Captures all resource OCIDs after successful deployment
 
 resource "local_file" "registration" {
+  count    = local.deploy_application ? 1 : 0
   content  = local.registration.object_content
   filename = local.registration.object_filepath
 }
 
 resource "null_resource" "success_registration" {
+  count = local.deploy_application ? 1 : 0
   depends_on = [
     kubernetes_deployment_v1.corrino_cp_deployment,
     local_file.registration,

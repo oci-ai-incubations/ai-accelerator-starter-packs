@@ -17,7 +17,7 @@ Run Terraform unit tests from the `ai-accelerator-tf/` directory.
 ## Commands
 
 ```bash
-cd /Users/dkennetz/code/ai-accelerator/ai-accelerator-tf
+cd "$(git rev-parse --show-toplevel)/ai-accelerator-tf"
 terraform init -backend=false
 ```
 
@@ -35,7 +35,7 @@ terraform test
 
 - All providers are mocked — no cloud credentials needed
 - Tests are plan-only (`command = plan`)
-- Requires Terraform >= 1.7
+- **Terraform version split:** ORM runs 1.5.7, but tests require >= 1.7 (for `mock_provider`). All Terraform code must stay 1.5-compatible — only the test harness uses 1.7+ features. The language constructs under test behave identically across versions.
 - Test files must be flat in `tests/` (Terraform does not recurse subdirectories)
 - Three OCI data sources (`home_region`, `ads`, `oracle_linux`) require `override_data` blocks in every test file
 - See `tests/RULES.md` for test writing guidelines
