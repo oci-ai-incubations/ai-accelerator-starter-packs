@@ -1600,6 +1600,56 @@ locals {
               { key = "AUTH_REFRESH_TOKEN_EXPIRE_DAYS", value = "7" }
             ]
           }
+        },
+        {
+          name       = "rag-ingestor-migrate",
+          depends_on = [],
+          recipe = {
+            recipe_id                            = "rag-ingestor-migrate",
+            deployment_name                      = "rag-ingestor-migrate",
+            recipe_mode                          = "job",
+            recipe_image_uri                     = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10",
+            recipe_flex_shape_ocpu_count         = 2,
+            recipe_flex_shape_memory_size_in_gbs = 8,
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_command             = ["python", "-m", "etl.admin"],
+            recipe_container_command_args        = ["db", "migrate", "--ini", "/app/alembic.ini"],
+            recipe_container_env = [
+              { key = "LOG_LEVEL", value = "INFO" },
+              { key = "DATABASE_URL", value = local.oracle26ai_sqlalchemy_url },
+              { key = "OCI_AUTH_METHOD", value = "instance_principal" }
+            ]
+          }
+        },
+        {
+          name       = "rag-ingestor",
+          exports    = ["service_name"],
+          depends_on = ["rag-ingestor-migrate", "llamastack", "auth-service"],
+          recipe = {
+            recipe_id                            = "rag-ingestor",
+            deployment_name                      = "rag-ingestor",
+            recipe_mode                          = "service",
+            recipe_image_uri                     = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10",
+            recipe_replica_count                 = 1,
+            recipe_flex_shape_ocpu_count         = 2,
+            recipe_flex_shape_memory_size_in_gbs = 8,
+            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
+            recipe_use_shared_node_pool          = true,
+            recipe_container_port                = "8080",
+            recipe_container_command             = ["python", "-m", "etl.api"],
+            recipe_container_env = [
+              { key = "LOG_LEVEL", value = "INFO" },
+              { key = "MAX_OBJECT_BYTES", value = "104857600" },
+              { key = "K8S_NAMESPACE", value = local.starter_pack_config.app_namespace },
+              { key = "WORKER_IMAGE", value = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10" },
+              { key = "DATABASE_URL", value = local.oracle26ai_sqlalchemy_url },
+              { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}:8321" },
+              { key = "OCI_AUTH_METHOD", value = "instance_principal" },
+              { key = "ETL_API_HOST", value = "0.0.0.0" },
+              { key = "ETL_API_PORT", value = "8080" }
+            ]
+          }
         }
       ]
     }

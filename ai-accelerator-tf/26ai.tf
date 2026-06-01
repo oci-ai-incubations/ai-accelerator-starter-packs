@@ -70,6 +70,11 @@ resource "kubernetes_secret_v1" "oadb-connection" {
 
 locals {
   oracle26ai_high_connection_string = local.needs_26ai && length(oci_database_autonomous_database.oracle_26ai) > 0 ? "tcps://${oci_database_autonomous_database.oracle_26ai[0].private_endpoint}:1521/${regex("[^/]+$", oci_database_autonomous_database.oracle_26ai[0].connection_strings[0].high)}" : ""
+
+  # SQLAlchemy-style URL consumed by the python-oracledb thin driver. Used by paas-rag-ingestor (DATABASE_URL).
+  # Password is embedded literally (not urlencoded). OCI's allowed special chars (!$*) are URL-safe in userinfo,
+  # and alembic's configparser rejects '%' in interpolated values, so urlencoded forms like '%21' break migration.
+  oracle26ai_sqlalchemy_url = local.needs_26ai && length(oci_database_autonomous_database.oracle_26ai) > 0 ? "oracle+oracledb://${var.db_username}:${var.db_password}@${oci_database_autonomous_database.oracle_26ai[0].private_endpoint}:1521/?service_name=${regex("[^/]+$", oci_database_autonomous_database.oracle_26ai[0].connection_strings[0].high)}&protocol=tcps" : ""
 }
 
 # Secret containing the oracle26ai_high connection string
