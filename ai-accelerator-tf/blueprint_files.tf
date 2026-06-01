@@ -1550,34 +1550,6 @@ locals {
       )
     }
   })
-  _paas_rag_frontend_deployments = [
-    for skin in local.enabled_frontend_skins : {
-      name       = skin.variable_name
-      depends_on = ["llamastack"]
-      recipe = {
-        recipe_id                            = replace(skin.variable_name, "_", "-")
-        deployment_name                      = replace(skin.variable_name, "_", "-")
-        recipe_mode                          = "service"
-        recipe_image_uri                     = skin.image_uri
-        recipe_replica_count                 = 1
-        recipe_flex_shape_ocpu_count         = 4
-        recipe_flex_shape_memory_size_in_gbs = 32
-        recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-        recipe_use_shared_node_pool          = true
-        recipe_container_port                = skin.container_port
-        service_endpoint_subdomain           = skin.subdomain
-        recipe_additional_ingress_ports = [
-          { port_name = "models", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/models", path_type = "Prefix" },
-          { port_name = "health", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/health", path_type = "Prefix" },
-          { port_name = "responses", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/responses", path_type = "Prefix" },
-          { port_name = "vectorstores", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/vector_stores", path_type = "Prefix" },
-          { port_name = "files", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/files", path_type = "Prefix" },
-          { port_name = "base", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
-        ]
-      }
-    }
-    if try(skin.variable_name, "") != ""
-  ]
 
   _paas_rag_small_blueprint = jsonencode({
     deployment_group = {
