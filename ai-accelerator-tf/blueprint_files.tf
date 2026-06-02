@@ -1470,7 +1470,7 @@ locals {
               recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
               recipe_use_shared_node_pool = true
               recipe_replica_count        = 1
-              recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.1.3"
+              recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.1.4"
               # OGX v0.1.x image entrypoint (ogx-entrypoint.sh) runs
               # `ogx stack run "$RUN_CONFIG_PATH"` when RUN_CONFIG_PATH points at an existing
               # file; otherwise it falls back to the baked-in DISTRO_NAME=oci. The custom
@@ -1591,7 +1591,7 @@ locals {
             recipe_id                            = "auth-service",
             deployment_name                      = "auth-service",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:6d86572-1",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:v1.1.5",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 2,
             recipe_flex_shape_memory_size_in_gbs = 8,
