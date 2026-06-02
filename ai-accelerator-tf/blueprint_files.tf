@@ -1463,16 +1463,23 @@ locals {
           depends_on = ["auth-service"]
           recipe = merge(
             {
-              recipe_id                     = "llamastack"
-              recipe_mode                   = "service"
-              deployment_name               = "llamastack"
-              recipe_node_shape             = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-              recipe_node_pool_size         = local.starter_pack_config.cpu_worker_node_pool_size
-              recipe_use_shared_node_pool   = true
-              recipe_replica_count          = 1
-              recipe_image_uri              = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.5"
-              recipe_container_command_args = ["/config/config.yaml"]
+              recipe_id                   = "llamastack"
+              recipe_mode                 = "service"
+              deployment_name             = "llamastack"
+              recipe_node_shape           = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+              recipe_node_pool_size       = local.starter_pack_config.cpu_worker_node_pool_size
+              recipe_use_shared_node_pool = true
+              recipe_replica_count        = 1
+              recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.1.3"
+              # OGX v0.1.x image entrypoint (ogx-entrypoint.sh) runs
+              # `ogx stack run "$RUN_CONFIG_PATH"` when RUN_CONFIG_PATH points at an existing
+              # file; otherwise it falls back to the baked-in DISTRO_NAME=oci. The custom
+              # config is secret-mounted at /config (see recipe_secret_mounts below), so we
+              # point RUN_CONFIG_PATH there and pass NO command args. Passing the config as a
+              # positional arg lands it AFTER the entrypoint's distro arg and fails as
+              # "unrecognized arguments" (v0.0.x took a bare positional; v0.1.x does not).
               recipe_container_env = [
+                { "key" = "RUN_CONFIG_PATH", value = "/config/config.yaml" },
                 { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                 { "key" = "OCI26AI_USER", value = var.db_username },
                 { "key" = "OCI26AI_PASSWORD", value = var.db_password },
@@ -1490,7 +1497,10 @@ locals {
                 { "key" = "AUTH_VALIDATE_ENDPOINT", value = "http://$${auth-service.service_name}/auth/validate" }
               ],
               pvcs = {
-                retain_after_undeploy = false
+                # Retain the llama-stack sqlite store (vector-store registry + metadata)
+                # across redeploys so created vector stores / ingested corpora survive
+                # a blueprint redeploy instead of being wiped each time.
+                retain_after_undeploy = true
                 volumes = [
                   { name = "ls-sqlite", mount_location = "/sqlite-store", volume_size_in_gbs = 500 }
                 ]
@@ -1512,7 +1522,7 @@ locals {
             recipe_id                            = "frontend",
             deployment_name                      = "frontend",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.4.0-arbi",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.4.3-arbi",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 4,
             recipe_flex_shape_memory_size_in_gbs = 32,
@@ -1581,7 +1591,7 @@ locals {
             recipe_id                            = "auth-service",
             deployment_name                      = "auth-service",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:v1.0.0",
+            recipe_image_uri                     = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service:6d86572-1",
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 2,
             recipe_flex_shape_memory_size_in_gbs = 8,
@@ -1597,40 +1607,34 @@ locals {
               { key = "AUTH_AUTO_ADMIN_FIRST_USER", value = "true" },
               { key = "AUTH_BCRYPT_ROUNDS", value = "12" },
               { key = "AUTH_ACCESS_TOKEN_EXPIRE_MINUTES", value = "15" },
-              { key = "AUTH_REFRESH_TOKEN_EXPIRE_DAYS", value = "7" }
+              { key = "AUTH_REFRESH_TOKEN_EXPIRE_DAYS", value = "7" },
+              # v1.1.0 requires a public issuer origin for token issuance (iss claim + OIDC discovery)
+              { key = "AUTH_ISSUER_URL", value = "https://${local.public_endpoint.starter_pack}/auth" },
+              # v1.1.0 pack-extensible RBAC: select the paas_rag auth model (reader/pending roles + collection perms)
+              { key = "AUTH_PACK", value = var.starter_pack_category },
+              # v1.1.2 env-seed a service account on startup for the rag-ingestor
+              # (machine identity via client_credentials) — no human login needed.
+              { key = "AUTH_BOOTSTRAP_CLIENT_ID", value = local.rag_ingestor_client_id },
+              { key = "AUTH_BOOTSTRAP_CLIENT_SECRET", value = random_password.rag_ingestor_client_secret.result },
+              { key = "AUTH_BOOTSTRAP_CLIENT_SCOPES", value = "admin" }
             ]
           }
         },
-        {
-          name       = "rag-ingestor-migrate",
-          depends_on = [],
-          recipe = {
-            recipe_id                            = "rag-ingestor-migrate",
-            deployment_name                      = "rag-ingestor-migrate",
-            recipe_mode                          = "job",
-            recipe_image_uri                     = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10",
-            recipe_flex_shape_ocpu_count         = 2,
-            recipe_flex_shape_memory_size_in_gbs = 8,
-            recipe_node_shape                    = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape,
-            recipe_use_shared_node_pool          = true,
-            recipe_container_command             = ["python", "-m", "etl.admin"],
-            recipe_container_command_args        = ["db", "migrate", "--ini", "/app/alembic.ini"],
-            recipe_container_env = [
-              { key = "LOG_LEVEL", value = "INFO" },
-              { key = "DATABASE_URL", value = local.oracle26ai_sqlalchemy_url },
-              { key = "OCI_AUTH_METHOD", value = "instance_principal" }
-            ]
-          }
-        },
+        # NOTE: the rag-ingestor-migrate Job recipe was removed. corrino-cp
+        # (v1.0.12) never promotes a completed job-mode dependency to a terminal
+        # state, so a migrate Job in rag-ingestor's depends_on hangs the deploy
+        # forever. Schema migration now runs in the rag-ingestor service's own
+        # startup lifespan (etl.api -> db_cmds.upgrade_head), keeping ordering
+        # self-contained and removing the cross-recipe job dependency.
         {
           name       = "rag-ingestor",
           exports    = ["service_name"],
-          depends_on = ["rag-ingestor-migrate", "llamastack", "auth-service"],
+          depends_on = ["llamastack", "auth-service"],
           recipe = {
             recipe_id                            = "rag-ingestor",
             deployment_name                      = "rag-ingestor",
             recipe_mode                          = "service",
-            recipe_image_uri                     = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10",
+            recipe_image_uri                     = local.rag_ingestor_image_uri,
             recipe_replica_count                 = 1,
             recipe_flex_shape_ocpu_count         = 2,
             recipe_flex_shape_memory_size_in_gbs = 8,
@@ -1642,12 +1646,17 @@ locals {
               { key = "LOG_LEVEL", value = "INFO" },
               { key = "MAX_OBJECT_BYTES", value = "104857600" },
               { key = "K8S_NAMESPACE", value = local.starter_pack_config.app_namespace },
-              { key = "WORKER_IMAGE", value = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/paas-rag-ingestor:0.1.10" },
-              { key = "DATABASE_URL", value = local.oracle26ai_sqlalchemy_url },
+              { key = "WORKER_IMAGE", value = local.rag_ingestor_image_uri },
               { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}:8321" },
-              { key = "OCI_AUTH_METHOD", value = "instance_principal" },
+              { key = "AUTH_CLIENT_ID", value = local.rag_ingestor_client_id },
+              { key = "AUTH_SERVICE_URL", value = "http://$${auth-service.service_name}" },
               { key = "ETL_API_HOST", value = "0.0.0.0" },
               { key = "ETL_API_PORT", value = "8080" }
+            ],
+            recipe_environment_secrets = [
+              { envvar_name = "DATABASE_URL", secret_name = "etl-secrets", secret_key = "DATABASE_URL" },
+              { envvar_name = "OCI_AUTH_METHOD", secret_name = "etl-secrets", secret_key = "OCI_AUTH_METHOD" },
+              { envvar_name = "AUTH_CLIENT_SECRET", secret_name = "etl-secrets", secret_key = "AUTH_CLIENT_SECRET" }
             ]
           }
         }
