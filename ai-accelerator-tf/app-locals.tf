@@ -5,10 +5,11 @@ locals {
   deploy_id = random_string.generated_deployment_name.result
 
   app = {
-    backend_service_name                           = "corrino-cp"
-    backend_service_name_origin                    = "http://corrino-cp"
-    backend_service_name_ingress                   = "corrino-cp-ingress"
-    ackend_image_uri                               = format("${local.ocir.base_uri}/${local.ocir.backend_image}:${var.corrino_image_version}")#frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
+    backend_service_name         = "corrino-cp"
+    backend_service_name_origin  = "http://corrino-cp"
+    backend_service_name_ingress = "corrino-cp-ingress"
+    backend_image_uri            = format("${local.ocir.base_uri}/${local.ocir.backend_image}:${var.corrino_image_version}")
+    #frontend_image_uri                           = join(":", [local.ocir.base_uri, local.ocir.frontend_image])
     blueprint_portal_image_uri                     = format("${local.ocir.base_uri}:${local.ocir.blueprint_portal_image}-${var.corrino_image_version}")
     deploy_blueprint_image_uri                     = format("${local.ocir.base_uri}:corrino_deployment_scripts-latest")
     recipe_bucket_name                             = "corrino-recipes"
