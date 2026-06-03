@@ -1647,7 +1647,7 @@ locals {
               { key = "MAX_OBJECT_BYTES", value = "104857600" },
               { key = "K8S_NAMESPACE", value = local.starter_pack_config.app_namespace },
               { key = "WORKER_IMAGE", value = local.rag_ingestor_image_uri },
-              { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}:8321" },
+              { key = "LLAMA_STACK_URL", value = "http://$${llamastack.service_name}" },
               { key = "AUTH_CLIENT_ID", value = local.rag_ingestor_client_id },
               { key = "AUTH_SERVICE_URL", value = "http://$${auth-service.service_name}" },
               { key = "ETL_API_HOST", value = "0.0.0.0" },
