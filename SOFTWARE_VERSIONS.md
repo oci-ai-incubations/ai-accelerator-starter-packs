@@ -10,7 +10,7 @@ This document contains container image versions for each accelerator pack config
 |-----------|-------|---------|
 | cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-3a97a1a |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-04caab9 |
 | cuOpt Backend (FastAPI) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend | 7e621bb |
 | Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-a7121c7 |
 
@@ -20,7 +20,7 @@ This document contains container image versions for each accelerator pack config
 |-----------|-------|---------|
 | cuOpt | nvcr.io/nvidia/cuopt/cuopt | 25.10.0-cuda12.9-py3.13 |
 | LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
-| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-3a97a1a |
+| cuOpt Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository | cuopt-interactive-frontend-04caab9 |
 | cuOpt Backend (FastAPI) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/cuopt-ev-routing-backend | 7e621bb |
 | Auth Service (when enable_auth_service=true) | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/accelerator-pack-auth-service | v1.1.0-a7121c7 |
 
