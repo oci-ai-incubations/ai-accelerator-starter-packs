@@ -184,24 +184,30 @@ run "plan_auth_on_adds_cuopt_auth_envs" {
   }
 }
 
-# When auth is off, the local-override env vars must NOT be present.
-run "plan_auth_off_omits_local_override_envs" {
+# Auth is hard-coded on for this pack (local.enable_auth_service = true in
+# livelabs.tf). Setting var.enable_auth_service = false must NOT disable it —
+# the local-override env vars are still present. There is no "auth off" mode.
+run "plan_auth_forced_on_ignores_var_false" {
   command = plan
+
+  variables {
+    enable_auth_service = false
+  }
 
   assert {
     condition = length([
       for env in local.cuopt_backend_recipe[0].recipe.recipe_container_env : env
       if env.key == "CUOPT_AUTH_LOCAL_ISSUER_URL"
-    ]) == 0
-    error_message = "cuopt-backend env must NOT include CUOPT_AUTH_LOCAL_ISSUER_URL when auth is off"
+    ]) == 1
+    error_message = "auth is hard-coded on: cuopt-backend env must still include CUOPT_AUTH_LOCAL_ISSUER_URL even when var.enable_auth_service=false"
   }
 
   assert {
     condition = length([
       for env in local.cuopt_backend_recipe[0].recipe.recipe_container_env : env
       if env.key == "CUOPT_AUTH_LOCAL_JWKS_URL"
-    ]) == 0
-    error_message = "cuopt-backend env must NOT include CUOPT_AUTH_LOCAL_JWKS_URL when auth is off"
+    ]) == 1
+    error_message = "auth is hard-coded on: cuopt-backend env must still include CUOPT_AUTH_LOCAL_JWKS_URL even when var.enable_auth_service=false"
   }
 }
 

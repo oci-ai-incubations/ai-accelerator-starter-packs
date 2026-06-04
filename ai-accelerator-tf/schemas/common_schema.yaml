@@ -157,8 +157,13 @@ variables:
     type: boolean
     title: "Enable Auth Service (per-user JWT auth)"
     description: "Deploy <code>accelerator-pack-auth-service</code> alongside the pack and route <code>/auth/*</code> through the frontend ingress. Per-user JWT auth (RS256) with RBAC, OIDC SSO, admin panel + audit log. Pack frontends gain a login screen; pack backends fetch the auth-service JWKS to verify tokens locally."
+    # Auth is mandatory for this workshop pack — hard-coded on in livelabs.tf
+    # (local.enable_auth_service = true), so hide it: not operator-changeable.
+    # Default stays true so the schema's ${enable_auth_service} conditions
+    # (e.g. the 26ai db_password group) resolve correctly.
     default: true
     required: false
+    visible: false
 
   auth_service_extra_trusted_issuers:
     type: string
@@ -307,10 +312,12 @@ variables:
   skip_capacity_check:
     type: boolean
     visible: false
+    default: false
 
   worker_node_availability_domain:
     type: string
     visible: false
+    default: "muKY:US-ASHBURN-AD-3"
 
   # OCI Identity (Hidden)
   compartment_ocid:
@@ -415,6 +422,10 @@ variables:
   # ---------------------------------
   use_instance_principal:
     type: boolean
+    visible: false
+
+  principal_auth_mode:
+    type: string
     visible: false
 
   fingerprint:

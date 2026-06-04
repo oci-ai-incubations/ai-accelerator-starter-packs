@@ -80,7 +80,7 @@ variables:
     enum:
       - poc
     title: "cuOpt Deployment Size"
-    description: "<strong>POC</strong> - 1x VM.GPU.A10.2 (2x A10), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required)"
+    description: "<strong>POC</strong> - 1x BM.GPU.T1.2, 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required)"
     default: poc
     required: true
 
@@ -163,7 +163,8 @@ variables:
   # Make AD required for cuOpt (GPU starter pack)
   worker_node_availability_domain:
     title: "Worker Node Availability Domain where GPU capacity is available (EX: TrcQ:US-ASHBURN-AD-2)"
-    description: "To find ADs, go to Governance & Administration -> Limits, quotas and usage -> Edit Filters -> Service = Compute, Scope = Selected AD -> In Search, type: 'gpu4' or 'a100' depending on pack size."
+    description: "Defaults to OSPATRAINING008 IAD AD3, where BM.GPU.T1.2 capacity was checked. To change it, go to Governance & Administration -> Limits, quotas and usage -> Edit Filters -> Service = Compute, Scope = Selected AD."
+    default: "muKY:US-ASHBURN-AD-3"
     required: true
     visible: true
 

@@ -12,8 +12,13 @@ current_user_ocid        = "ocid1.user.oc1..aaaaaaaa..."
 fingerprint      = "aa:bb:cc:dd:ee:ff:gg:hh:ii:jj:kk:ll:mm:nn:oo:pp"
 private_key_path = "~/.oci/oci_api_key.pem"
 
-# Method 2: Instance Principal (uncomment if using)
+# Method 2: OCI Resource Manager / principal-based auth (uncomment if using)
 # use_instance_principal = true
+# principal_auth_mode    = "ResourcePrincipal"
+
+# Method 3: Instance Principal on an OCI compute instance
+# use_instance_principal = true
+# principal_auth_mode    = "InstancePrincipal"
 
 # SSH Configuration
 # Provide your SSH public key, or leave empty to auto-generate

@@ -5,7 +5,7 @@
 provider "oci" {
   tenancy_ocid = local.tenancy_ocid
   region       = local.region
-  auth         = local.use_instance_principal ? "InstancePrincipal" : null
+  auth         = local.use_instance_principal ? var.principal_auth_mode : null
 
   user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
   fingerprint      = local.use_instance_principal ? null : var.fingerprint
@@ -16,7 +16,7 @@ provider "oci" {
   alias        = "home_region"
   tenancy_ocid = local.tenancy_ocid
   region       = data.oci_identity_regions.home_region.regions[0]["name"]
-  auth         = local.use_instance_principal ? "InstancePrincipal" : null
+  auth         = local.use_instance_principal ? var.principal_auth_mode : null
 
   user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
   fingerprint      = local.use_instance_principal ? null : var.fingerprint
@@ -28,7 +28,7 @@ provider "oci" {
   alias        = "current_region"
   tenancy_ocid = local.tenancy_ocid
   region       = local.region
-  auth         = local.use_instance_principal ? "InstancePrincipal" : null
+  auth         = local.use_instance_principal ? var.principal_auth_mode : null
 
   user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
   fingerprint      = local.use_instance_principal ? null : var.fingerprint
@@ -39,7 +39,7 @@ provider "oci" {
   alias        = "genai_region"
   tenancy_ocid = local.tenancy_ocid
   region       = var.genai_region
-  auth         = local.use_instance_principal ? "InstancePrincipal" : null
+  auth         = local.use_instance_principal ? var.principal_auth_mode : null
 
   user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
   fingerprint      = local.use_instance_principal ? null : var.fingerprint

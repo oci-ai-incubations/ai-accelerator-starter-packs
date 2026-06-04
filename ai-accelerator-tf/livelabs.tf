@@ -12,8 +12,9 @@
 #   - public subnet  -> Kubernetes API endpoint + ingress load balancer
 #   - private subnet -> worker nodes + 26ai Autonomous DB private endpoint
 #
-# Authentication is Instance Principal (var.use_instance_principal defaults true);
-# LiveLabs runs Terraform with an instance principal, so no API key is needed.
+# Authentication is principal-based when LiveLabs inputs are supplied. OCI
+# Resource Manager uses Resource Principal; set principal_auth_mode to
+# InstancePrincipal only when Terraform runs directly on an OCI compute instance.
 # =============================================================================
 
 variable "ociTenancyOcid" {
@@ -76,16 +77,17 @@ locals {
   # A LiveLabs VCN being supplied forces bring-your-own-network mode.
   livelabs_mode = var.ociVcnOcid != ""
 
-  # LiveLabs runs Terraform on an OCI instance with an instance principal, so
-  # force instance-principal auth in LiveLabs mode. Outside LiveLabs (e.g. local
-  # plans, mocked unit tests, ORM with API-key/user auth) honor the var default
-  # (false) so the OCI provider doesn't eagerly hit the instance-metadata endpoint.
+  # LiveLabs/ORM-style deployments should use principal auth without API keys.
+  # principal_auth_mode selects ResourcePrincipal (default for OCI Resource
+  # Manager) or InstancePrincipal (OCI compute-hosted Terraform).
   use_instance_principal = local.livelabs_mode ? true : var.use_instance_principal
 
-  # The workshop ships with the auth-service (and its backing 26ai DB) on. Forced
-  # on in LiveLabs mode; outside LiveLabs honor the var default (false) so the
-  # ORM path and unit tests keep their existing behavior.
-  enable_auth_service = local.livelabs_mode ? true : var.enable_auth_service
+  # Auth-service (and its backing 26ai DB) is MANDATORY for this workshop pack —
+  # hard-coded on. It is not a toggle: the cuopt frontend login page and the
+  # cuopt backend both require it, so there is no supported "auth off" mode here.
+  # var.enable_auth_service is intentionally ignored (and the schema hides it) so
+  # it cannot be turned off or fall back to a disabled state.
+  enable_auth_service = true
 
   # --- Identity precedence ----------------------------------------------------
   tenancy_ocid      = var.ociTenancyOcid != "" ? var.ociTenancyOcid : var.tenancy_ocid

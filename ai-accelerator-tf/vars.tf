@@ -6,7 +6,18 @@
 variable "use_instance_principal" {
   type        = bool
   default     = false
-  description = "Whether to use Instance Principal for authentication. If false, user credentials will be used. In LiveLabs mode (a LiveLabs VCN is supplied) this is forced on via local.use_instance_principal regardless of this default."
+  description = "Whether to use principal-based authentication. If false, user API-key credentials will be used. In LiveLabs mode (a LiveLabs VCN is supplied) this is forced on via local.use_instance_principal regardless of this default."
+}
+
+variable "principal_auth_mode" {
+  type        = string
+  default     = "ResourcePrincipal"
+  description = "Principal auth mode used when use_instance_principal is true. Use ResourcePrincipal for OCI Resource Manager stacks and InstancePrincipal only when Terraform runs on an OCI compute instance with instance-principal permissions."
+
+  validation {
+    condition     = contains(["ResourcePrincipal", "InstancePrincipal"], var.principal_auth_mode)
+    error_message = "principal_auth_mode must be either ResourcePrincipal or InstancePrincipal."
+  }
 }
 
 variable "fingerprint" {
@@ -265,7 +276,7 @@ variable "compartment_ocid" {
 }
 variable "region" {
   type    = string
-  default = ""
+  default = "us-ashburn-1"
 }
 variable "current_user_ocid" {
   type    = string
@@ -639,13 +650,13 @@ variable "starter_pack_size" {
 variable "skip_capacity_check" {
   description = "Skip the compute capacity pre-validation. Enable this only if you are certain capacity exists or want to bypass the pre-check. Note: Deployment may still fail later if capacity is unavailable."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "worker_node_availability_domain" {
   description = "Availability domain to use for worker nodes. Required for GPU starter packs (cuopt, vss, enterprise_rag). Optional for paas_rag. When skip_capacity_check is false, capacity will be validated for this AD. When skip_capacity_check is true, capacity validation is skipped."
   type        = string
-  default     = ""
+  default     = "muKY:US-ASHBURN-AD-3"
 }
 
 variable "deploy_application" {
@@ -783,7 +794,7 @@ locals {
         app_namespace                                = "default"
         nvaie_enabled                                = false
         create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "VM.GPU.A10.2"
+        worker_node_shape                            = "BM.GPU.T1.2"
         worker_node_pool_size                        = 1
         cpu_worker_node_pool_size                    = 1
         control_plane_node_pool_size                 = 2

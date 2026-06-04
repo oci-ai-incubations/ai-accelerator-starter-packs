@@ -56,35 +56,37 @@ variables {
   db_password                     = "TestDBP@ssw0rd123!"
 }
 
-# Default: flag off => no auth-service deployment in the cuopt blueprint,
-# no auth env, no /auth ingress route.
+# Auth is MANDATORY for this workshop pack — hard-coded on via
+# local.enable_auth_service = true (livelabs.tf). It is not a toggle: even
+# setting var.enable_auth_service = false must NOT disable it. The
+# auth-service deployment, its /auth ingress route, and the cuopt-backend auth
+# env are always present. There is no supported "auth off" mode.
 #
 # Plan-time-safe assertions only — values that depend on apply-time resources
 # (the 26ai connection string baked into the jsonencoded blueprint) cannot be
-# evaluated here. The "no auth-service when flag off" guarantee comes from
-# the three list-length checks below.
-run "plan_default_no_auth_service" {
+# evaluated here. The "auth-service always on" guarantee comes from the three
+# list-length checks below.
+run "plan_auth_forced_on_ignores_var_false" {
   command = plan
 
-  # Explicit override — terraform.tfvars in this repo sets enable_auth_service=true
-  # for local cuopt deploys, and test runs inherit that auto-loaded value.
+  # Try to turn auth off — the hard-coded local must ignore this.
   variables {
     enable_auth_service = false
   }
 
   assert {
-    condition     = length(local.auth_service_recipe) == 0
-    error_message = "auth_service_recipe should be empty when enable_auth_service is false"
+    condition     = length(local.auth_service_recipe) == 1
+    error_message = "auth is hard-coded on: auth_service_recipe must be present even when var.enable_auth_service=false"
   }
 
   assert {
-    condition     = length(local.auth_service_ingress_route) == 0
-    error_message = "auth_service_ingress_route should be empty when enable_auth_service is false"
+    condition     = length(local.auth_service_ingress_route) == 1
+    error_message = "auth is hard-coded on: auth_service_ingress_route must be present even when var.enable_auth_service=false"
   }
 
   assert {
-    condition     = length(local.cuopt_backend_auth_env) == 0
-    error_message = "cuopt_backend_auth_env should be empty when enable_auth_service is false"
+    condition     = length(local.cuopt_backend_auth_env) > 0
+    error_message = "auth is hard-coded on: cuopt_backend_auth_env must be populated even when var.enable_auth_service=false"
   }
 }
 
