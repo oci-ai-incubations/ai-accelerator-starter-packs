@@ -86,14 +86,15 @@ variables:
     default: poc
     required: true
 
-  # The cuOpt pack (frontend + backend) requires per-user JWT auth to function,
-  # so auth-service is always deployed. Enabled by default and hidden from the
-  # ORM UI — operators cannot turn it off. Enabling it also makes the Oracle
-  # 26ai Database group visible (auth-service is backed by 26ai).
+  # The cuOpt pack ships with per-user JWT auth on by default. Shown in the ORM
+  # UI (visible) and defaulted true so operators get auth out of the box but can
+  # opt out. When on, the Oracle 26ai Database group becomes visible
+  # (auth-service is backed by 26ai). NOTE: the cuopt backend requires auth and
+  # fails closed at startup if this is turned off — disabling is unsupported.
   enable_auth_service:
     type: boolean
     default: true
-    visible: false
+    visible: true
 
   google_maps_api_key:
     type: string

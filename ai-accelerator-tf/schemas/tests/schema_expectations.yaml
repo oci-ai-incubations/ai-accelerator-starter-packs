@@ -54,6 +54,11 @@ category_specific:
     absent_outputs: []
     absent_variables: []
     variable_properties:
+      # cuopt ships auth on by default but the toggle is shown (operators can opt out).
+      enable_auth_service:
+        type: boolean
+        default: true
+        visible: true
       db_password:
         visible: false
       skin_cuopt_core:
@@ -86,6 +91,11 @@ category_specific:
     absent_outputs: []
     absent_variables: []
     variable_properties:
+      # vss ships auth on by default but the toggle is shown (operators can opt out).
+      enable_auth_service:
+        type: boolean
+        default: true
+        visible: true
       db_password:
         visible: false
       db_username:

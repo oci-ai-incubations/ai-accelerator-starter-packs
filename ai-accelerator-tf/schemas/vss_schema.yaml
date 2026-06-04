@@ -77,6 +77,16 @@ variableGroups:
 # Variables - VSS specific
 # =============================================================================
 variables:
+  # VSS ships with per-user JWT auth on by default. Shown in the ORM UI
+  # (visible) and defaulted true so operators get auth out of the box but can
+  # opt out. When on, the Oracle 26ai Database group becomes visible
+  # (auth-service is backed by 26ai). The shared default (common_schema.yaml)
+  # stays false for packs whose auth integration is still opt-in.
+  enable_auth_service:
+    type: boolean
+    default: true
+    visible: true
+
   starter_pack_size:
     type: enum
     enum:

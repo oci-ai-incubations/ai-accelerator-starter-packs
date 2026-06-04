@@ -42,6 +42,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-035 | enterprise_rag_aiq APP apply fails — `aiq` helm release (chart `aiq2-web-2.0.0`) hits 60-min context-deadline because `aiq-postgres` Bitnami pod CrashLoopBackOff with `mkdir: cannot create directory '/bitnami/postgresql/data': Permission denied`. Pod-level `securityContext` is empty (no `fsGroup`), so `oci-bv` PVC stays root:root and the dropped-caps non-root Bitnami container can't initialize the data directory. Workload hard-broken (aiq-backend stuck Init waiting on postgres readiness gate) — not a cosmetic patcher timeout like BUG-032. | High | 2026-05-08 |
 | Open | BUG-036 | dox_pack contract-backend `LLAMASTACK_URL` env var points to pod port 8321 but llamastack k8s Service exposes port 80 → `httpx.ConnectTimeout` blocks RAG-chat-with-document path; extract path works, only `/api/chat` with `document_ids` 500s | High | 2026-05-08 |
 | Open | BUG-037 | `tests/starter_pack_frontend_skins.tftest.hcl::cuopt_multi_skin` fails — asserts `enabled_frontend_skins[0].container_port == "3000"` but actual is `"80"`. Either the skin ordering changed (partner@80 now at index 0 instead of core@3000) or the cuopt core skin's container_port was updated 3000→80. Pre-existing on `feature/integrate-auth-service` before this session's auth changes; unrelated to auth integration. | Low | 2026-05-14 |
+| Fixed | BUG-039 | cuopt-backend CrashLoopBackOff — auth was off on deploy so no `CUOPT_AUTH_*` env reached the pod; backend image defaults `auth_require_auth=true` + empty trusted-issuers and `_validate_safety()` refuses to boot. Auth was off because `enable_auth_service`'s schema default wasn't reaching the stack (hidden default not injected into stored vars; TF default is `false`). Fixed by making the cuopt + vss schema override a *visible* toggle defaulting `true`, plus setting the var explicitly on existing stacks. | High | 2026-06-04 |
 
 ---
 
@@ -1997,3 +1998,47 @@ updated from the old `3000`.
 
 **Resolution:** Updated the assertion to `== "80"` to match the catalog and the image's
 actual listener. Full suite green (66 passed). No production code change — test-only.
+
+## BUG-039 — cuopt-backend CrashLoopBackOff when `enable_auth_service=false`
+
+**Status:** Fixed | **Severity:** High | **Date:** 2026-06-04
+
+**Symptoms:** On a cuopt deploy with auth disabled, `recipe-cuopt-backend-*` is in
+CrashLoopBackOff. Pod logs show `uvicorn` failing at import time:
+`RuntimeError: CUOPT_AUTH_REQUIRE_AUTH=true requires CUOPT_AUTH_TRUSTED_ISSUERS to be set.`
+Inspecting the deployed pod shows **no `CUOPT_AUTH_*` env vars at all** and no `CUOPT_DEBUG`.
+
+**Root cause:** A contract mismatch between the blueprint and the backend image's
+fail-closed defaults. `local.cuopt_backend_auth_env` (auth-locals.tf) only emitted the
+`CUOPT_AUTH_*` block when `var.enable_auth_service` was true; the else-branch was `[]`.
+The `cuopt-ev-routing-backend` image (`config.py`) defaults `auth_require_auth=true`,
+`auth_trusted_issuers=""`, `debug=false`, and `main._validate_safety()` runs two guards at
+import: (1) refuse if `require_auth=false & debug=false`, (2) refuse if
+`require_auth=true & trusted_issuers` empty. With auth disabled the TF set nothing, the
+image fell back to its defaults, and guard #2 fired — the no-auth path had no bootable
+configuration (you can't satisfy guard #2 without issuers, and you can't disable auth
+without tripping guard #1 unless debug is also on).
+
+**Affected files:** `schemas/cuopt_schema.yaml`, `schemas/vss_schema.yaml`,
+`schemas/tests/schema_expectations.yaml`
+
+**Resolution:** Auth is intended **on by default** for cuopt (and vss). The reliable
+mechanism is the per-pack **schema default** of a *visible* toggle — not a hidden default
+(OCI ORM does not inject a `visible:false` variable's default into an existing stack's
+stored variables, and Terraform never reads `schema.yaml`, so a hidden default silently
+fell back to the `vars.tf` default of `false` → auth off → backend crashloop). Fix:
+`schemas/cuopt_schema.yaml` and `schemas/vss_schema.yaml` override `enable_auth_service` to
+`default: true, visible: true` — operators see the toggle, get auth out of the box, and can
+opt out. The shared `common_schema.yaml` default stays `false`/visible for packs whose auth
+integration is still opt-in. The `vars.tf` default stays `false` (so `terraform test` and
+CLI applies that don't pass the var, plus the `auth_service`/`cuopt_backend` tftests that
+deliberately exercise `cuopt + auth=false`, keep working). For an **existing** stack, also
+set `enable_auth_service=true` explicitly in the stack variables — the schema default only
+applies when the wizard resolves variables (fresh stack / re-run), not on a config-source
+update. Note: a `visible:false` hidden default was tried first but reverted because it
+didn't reach the stack's variables; forcing it in TF was rejected because it breaks the
+auth-off tests. Verified: full `terraform test` (66/0), schema tests (132/0), `tflint`
+green; schemas regenerated. **Edge case:** because the toggle is now operator-visible, a
+deploy that unchecks it will crashloop the cuopt backend (it requires auth, fails closed) —
+disabling auth on cuopt is unsupported; tracked separately if a no-auth cuopt mode is ever
+wanted.
