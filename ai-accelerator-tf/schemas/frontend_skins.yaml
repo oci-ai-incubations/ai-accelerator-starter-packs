@@ -5,7 +5,7 @@ cuopt:
   default: "Oracle Interactive - Route visualization (Partner Contributed)"
   skins:
     - key: "Vehicle Route Optimizer Frontend (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-6855f8b"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-04caab9"
       provider: "Oracle"
       # nginx-only image (post-phase-5 cuopt-ev-routing-frontend) listens on port 80, not 3000.
       container_port: "80"
@@ -13,7 +13,7 @@ cuopt:
       variable_name: "skin_cuopt_core"
       default_enabled: false
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-6855f8b"
+      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-04caab9"
       provider: "Oracle"
       container_port: "80"
       subdomain: "demo-cuopt-partner"
