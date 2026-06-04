@@ -58,10 +58,10 @@ category_specific:
         visible: false
       skin_cuopt_core:
         type: boolean
-        default: true
+        default: false
       skin_cuopt_partner:
         type: boolean
-        default: false
+        default: true
     output_properties:
       starter_pack_url:
         type: string

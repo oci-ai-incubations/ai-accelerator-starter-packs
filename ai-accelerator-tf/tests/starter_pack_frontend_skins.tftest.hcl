@@ -70,8 +70,8 @@ run "cuopt_multi_skin" {
     error_message = "primary = first enabled = Core"
   }
   assert {
-    condition     = local.enabled_frontend_skins[0].container_port == "3000"
-    error_message = "cuopt core skin should expose the image's default listener on 3000"
+    condition     = local.enabled_frontend_skins[0].container_port == "80"
+    error_message = "cuopt core skin should expose the nginx image's default listener on 80"
   }
   assert {
     condition     = local.enabled_frontend_skins[1].container_port == "80"

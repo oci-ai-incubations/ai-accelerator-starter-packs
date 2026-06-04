@@ -52,12 +52,6 @@ variableGroups:
       - starter_pack_size
       - worker_node_availability_domain
 
-  - title: "Administrator Account"
-    variables:
-      - corrino_admin_username
-      - corrino_admin_password
-      - corrino_admin_email
-
   - title: "cuOpt Pack Configuration"
     visible:
       or:
@@ -88,9 +82,18 @@ variables:
       - small
       - medium
     title: "cuOpt Deployment Size"
-    description: "<strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required) | <strong>MEDIUM</strong> - 1x BM.GPU.A100-v2.8 (8x A100 80GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required)"
-    default: small
+    description: "<strong>SMALL</strong> - 1x VM.GPU.A10.2 (2x A10 24GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required), 1 Autonomous Database 2 ECPU 2 TB | <strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required), 1 Autonomous Database 2 ECPU 2 TB | <strong>MEDIUM</strong> - 1x BM.GPU.A100-v2.8 (8x A100 80GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required), 1 Autonomous Database 2 ECPU 2 TB"
+    default: poc
     required: true
+
+  # The cuOpt pack (frontend + backend) requires per-user JWT auth to function,
+  # so auth-service is always deployed. Enabled by default and hidden from the
+  # ORM UI — operators cannot turn it off. Enabling it also makes the Oracle
+  # 26ai Database group visible (auth-service is backed by 26ai).
+  enable_auth_service:
+    type: boolean
+    default: true
+    visible: false
 
   google_maps_api_key:
     type: string
