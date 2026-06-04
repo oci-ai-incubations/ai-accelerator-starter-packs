@@ -15,30 +15,33 @@ Table with a list of sizes and supported packs.
 
 | Deployment Size | Component                               | Requirements                        | SKU                                | Specs              | Quantity |
 | --------------- | --------------------------------------- | ----------------------------------- | ---------------------------------- | ------------------ | -------- |
-| **POC**         | OCI Core Compute                        | Nvidia A10 24 GB GPU                | VM.GPU.A10.2                       | 2 GPUs             | 1        |
-|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64 | 2        |
-|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=4, memory=32 | 1        |
-|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 300 GB             | 1        |
+| **POC**         | OCI Core Compute                        | Nvidia A10 24 GB GPU                | VM.GPU.A10.2                       | 2 GPUs               | 1        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64   | 2        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=4, memory=32   | 1        |
+|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 300 GB               | 1        |
 |                 | OCI Services                            | OCI Gen AI Services Shared EndPoint | Consumption based license          |
-|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                 | 1        |
-|                 | NVIDIA AI Enterprise License & Software | cuOPT Libraries & NIM Containers    | OCI Billed (attached to # of GPUs) | NA                 | 8        |
-|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                  | NA       |
-| **SMALL**       | OCI Core Compute                        | Nvidia A100 40 GB GPU               | BM.GPU4.8                          | 8 GPUs             | 1        |
-|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64 | 2        |
-|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=4, memory=32 | 1        |
-|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 300 GB             | 1        |
+|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                   | 1        |
+|                 | OCI Services                            | Oracle 26 AI Autonomous Database    | NA                                 | 2 ECPU, 2 TB storage | 1        |
+|                 | NVIDIA AI Enterprise License & Software | cuOPT Libraries & NIM Containers    | OCI Billed (attached to # of GPUs) | NA                   | 8        |
+|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                    | NA       |
+| **SMALL**       | OCI Core Compute                        | Nvidia A100 40 GB GPU               | BM.GPU4.8                          | 8 GPUs               | 1        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64   | 2        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=4, memory=32   | 1        |
+|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 300 GB               | 1        |
 |                 | OCI Services                            | OCI Gen AI Services Shared EndPoint | Consumption based license          |
-|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                 | 1        |
-|                 | NVIDIA AI Enterprise License & Software | cuOPT Libraries & NIM Containers    | OCI Billed (attached to # of GPUs) | NA                 | 8        |
-|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                  | NA       |
-| **MEDIUM**      | OCI Core Compute                        | Nvidia A100 80 GB GPU               | BM.GPU.A100-v2.8                   | 8 GPUs             | 1        |
-|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64 | 2        |
-|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=4, memory=32 | 1        |
-|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 300 GB             | 1        |
+|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                   | 1        |
+|                 | OCI Services                            | Oracle 26 AI Autonomous Database    | NA                                 | 2 ECPU, 2 TB storage | 1        |
+|                 | NVIDIA AI Enterprise License & Software | cuOPT Libraries & NIM Containers    | OCI Billed (attached to # of GPUs) | NA                   | 8        |
+|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                    | NA       |
+| **MEDIUM**      | OCI Core Compute                        | Nvidia A100 80 GB GPU               | BM.GPU.A100-v2.8                   | 8 GPUs               | 1        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=3, memory=64   | 2        |
+|                 |                                         | CPU VM Flex                         | VM.Standard.E5.Flex                | ocpus=4, memory=32   | 1        |
+|                 | OCI Boot Volume                         | Boot Block Volume                   | NA                                 | 300 GB               | 1        |
 |                 | OCI Services                            | OCI Gen AI Services Shared EndPoint | Consumption based license          |
-|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                 | 1        |
-|                 | NVIDIA AI Enterprise License & Software | cuOPT Libraries & NIM Containers    | OCI Billed (attached to # of GPUs) | NA                 | 8        |
-|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                  | NA       |
+|                 | OCI Services                            | Oracle Kubernetes Engine (OKE)      | NA                                 | NA                   | 1        |
+|                 | OCI Services                            | Oracle 26 AI Autonomous Database    | NA                                 | 2 ECPU, 2 TB storage | 1        |
+|                 | NVIDIA AI Enterprise License & Software | cuOPT Libraries & NIM Containers    | OCI Billed (attached to # of GPUs) | NA                   | 8        |
+|                 | OCI Software                            | OCI AI Blueprints                   | Free                               | 1                    | NA       |
 
 Other necessary VNET , public IP, load balancers and subnets are required.
 

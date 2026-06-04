@@ -38,6 +38,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-032 | enterprise_rag App apply fails — NIMCache RWO PVC Multi-Attach when nim-operator spawns cache-job retry while nim-llm Deployment holds the PVC; pack functionally works but `terraform_data.patch_nim_operator_resources` 30m timeout marks apply FAILED | High | 2026-05-05 |
 | Open | BUG-033 | dox_pack contract-backend pod CrashLoopBackOff — ADB wallet not mounted, `TNS_ADMIN` unset → `oracledb DPY-4027: no configuration directory specified`; frontend cascades to HTTP 503 | High | 2026-05-07 |
 | Fixed | BUG-034 | warehouse_pick_path schema missing `worker_node_availability_domain` override — wizard hides field with no default, capacity_check.tf precondition fast-fails apply with empty AD value | High | 2026-05-08 |
+| Fixed | BUG-038 | `cuopt_multi_skin` unit test asserts core skin `container_port == "3000"` — stale; post-phase-5 nginx core image listens on 80, so the assertion was already failing on a clean tree | Low | 2026-06-04 |
 | Open | BUG-035 | enterprise_rag_aiq APP apply fails — `aiq` helm release (chart `aiq2-web-2.0.0`) hits 60-min context-deadline because `aiq-postgres` Bitnami pod CrashLoopBackOff with `mkdir: cannot create directory '/bitnami/postgresql/data': Permission denied`. Pod-level `securityContext` is empty (no `fsGroup`), so `oci-bv` PVC stays root:root and the dropped-caps non-root Bitnami container can't initialize the data directory. Workload hard-broken (aiq-backend stuck Init waiting on postgres readiness gate) — not a cosmetic patcher timeout like BUG-032. | High | 2026-05-08 |
 | Open | BUG-036 | dox_pack contract-backend `LLAMASTACK_URL` env var points to pod port 8321 but llamastack k8s Service exposes port 80 → `httpx.ConnectTimeout` blocks RAG-chat-with-document path; extract path works, only `/api/chat` with `document_ids` 500s | High | 2026-05-08 |
 | Open | BUG-037 | `tests/starter_pack_frontend_skins.tftest.hcl::cuopt_multi_skin` fails — asserts `enabled_frontend_skins[0].container_port == "3000"` but actual is `"80"`. Either the skin ordering changed (partner@80 now at index 0 instead of core@3000) or the cuopt core skin's container_port was updated 3000→80. Pre-existing on `feature/integrate-auth-service` before this session's auth changes; unrelated to auth integration. | Low | 2026-05-14 |
@@ -1975,3 +1976,24 @@ This is NOT a BUG-032 redux. The RAG plumbing is fine; only the aiq2-web chart's
 **Cross-references:**
 
 - BUG-032 (Open): different failure on the same enterprise_rag chart family — patcher timeout vs helm release timeout; that one was cosmetic, this one is hard. Distinct from BUG-035.
+
+---
+
+## BUG-038 — `cuopt_multi_skin` unit test asserts stale container_port 3000
+
+**Status:** Fixed | **Severity:** Low | **Date:** 2026-06-04
+
+**Symptoms:** `terraform test` fails on `tests/starter_pack_frontend_skins.tftest.hcl` →
+`cuopt_multi_skin`, line 73: `local.enabled_frontend_skins[0].container_port is "80"`,
+expected `"3000"`. Confirmed pre-existing — fails on a clean tree, independent of the
+cuopt schema/skin-default changes made in the same session.
+
+**Root cause:** The cuopt core skin image was migrated to an nginx-only build
+(`cuopt-ev-routing-frontend`) that listens on port 80, and `frontend_skins.yaml` was updated
+to `container_port: "80"` (with an explanatory comment), but the test assertion was never
+updated from the old `3000`.
+
+**Affected files:** `ai-accelerator-tf/tests/starter_pack_frontend_skins.tftest.hcl`
+
+**Resolution:** Updated the assertion to `== "80"` to match the catalog and the image's
+actual listener. Full suite green (66 passed). No production code change — test-only.

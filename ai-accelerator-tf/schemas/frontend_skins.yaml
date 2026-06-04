@@ -2,7 +2,7 @@
 learn_more_url: "https://github.com/oci-ai-incubations/ai-accelerator-starter-packs/blob/main/docs/skins/README.md"
 
 cuopt:
-  default: "Vehicle Route Optimizer Frontend (Core App)"
+  default: "Oracle Interactive - Route visualization (Partner Contributed)"
   skins:
     - key: "Vehicle Route Optimizer Frontend (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-6855f8b"
@@ -11,14 +11,14 @@ cuopt:
       container_port: "80"
       subdomain: "demo-cuopt"
       variable_name: "skin_cuopt_core"
-      default_enabled: true
+      default_enabled: false
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-6855f8b"
       provider: "Oracle"
       container_port: "80"
       subdomain: "demo-cuopt-partner"
       variable_name: "skin_cuopt_partner"
-      default_enabled: false
+      default_enabled: true
 
 vss:
   default: "Oracle Custom - Enhanced search (Core App)"
