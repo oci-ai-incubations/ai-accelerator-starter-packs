@@ -4,7 +4,7 @@
 
 # OKE Cluster
 resource "oci_containerengine_cluster" "oke_cluster" {
-  compartment_id     = var.compartment_ocid
+  compartment_id     = local.compartment_ocid
   kubernetes_version = var.k8s_version
   name               = "AI-Accel-OKE-${random_string.deploy_id.result}"
   vcn_id             = local.vcn_id
@@ -37,7 +37,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
     }
   }
   type  = "ENHANCED_CLUSTER"
-  count = local.deploy_infrastructure && var.network_configuration_mode == "create_new" ? 1 : 0
+  count = local.deploy_infrastructure && local.network_configuration_mode == "create_new" ? 1 : 0
 
   depends_on = [
     oci_core_subnet.oke_k8s_endpoint_subnet,
@@ -48,7 +48,7 @@ resource "oci_containerengine_cluster" "oke_cluster" {
 
 # OKE Cluster for existing VCN
 resource "oci_containerengine_cluster" "oke_cluster_existing_vcn" {
-  compartment_id     = var.compartment_ocid
+  compartment_id     = local.compartment_ocid
   kubernetes_version = var.k8s_version
   name               = "AI-Accel-OKE-${random_string.deploy_id.result}"
   vcn_id             = local.vcn_id
@@ -81,13 +81,13 @@ resource "oci_containerengine_cluster" "oke_cluster_existing_vcn" {
     }
   }
 
-  count = local.deploy_infrastructure && var.network_configuration_mode == "bring_your_own" ? 1 : 0
+  count = local.deploy_infrastructure && local.network_configuration_mode == "bring_your_own" ? 1 : 0
 }
 
 # Local to get the correct cluster based on configuration mode
 locals {
   oke_cluster = local.deploy_infrastructure ? (
-    var.network_configuration_mode == "create_new" ?
+    local.network_configuration_mode == "create_new" ?
     oci_containerengine_cluster.oke_cluster[0] :
     oci_containerengine_cluster.oke_cluster_existing_vcn[0]
   ) : null
@@ -98,7 +98,7 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
   count = local.deploy_infrastructure ? 1 : 0
 
   cluster_id         = local.oke_cluster.id
-  compartment_id     = var.compartment_ocid
+  compartment_id     = local.compartment_ocid
   kubernetes_version = var.k8s_version
   name               = var.node_pool_name
 
@@ -152,7 +152,7 @@ resource "oci_containerengine_node_pool" "worker_cpu_pool" {
   count = local.deploy_infrastructure && local.starter_pack_config.cpu_worker_node_pool_size > 0 ? 1 : 0
 
   cluster_id         = local.oke_cluster.id
-  compartment_id     = var.compartment_ocid
+  compartment_id     = local.compartment_ocid
   kubernetes_version = var.k8s_version
   name               = "AI-Accel-Worker-CPU-Pool-${random_string.deploy_id.result}"
 

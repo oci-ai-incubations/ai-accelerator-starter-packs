@@ -124,16 +124,6 @@ variableGroups:
   - title: "Advanced Options"
     variables:
       - accelerator_pack_stack_version
-      - deploy_private_k8s_and_loadbalancer
-      - create_bastion
-      - skip_capacity_check
-      - use_custom_dns
-      - fqdn_custom_domain
-      - create_policies
-      - deploy_application
-      - existing_cluster_id
-      - existing_node_subnet_id
-      - existing_autonomous_db_subnet_id
 
 # =============================================================================
 # Variables - Common definitions
@@ -167,7 +157,7 @@ variables:
     type: boolean
     title: "Enable Auth Service (per-user JWT auth)"
     description: "Deploy <code>accelerator-pack-auth-service</code> alongside the pack and route <code>/auth/*</code> through the frontend ingress. Per-user JWT auth (RS256) with RBAC, OIDC SSO, admin panel + audit log. Pack frontends gain a login screen; pack backends fetch the auth-service JWKS to verify tokens locally."
-    default: false
+    default: true
     required: false
 
   auth_service_extra_trusted_issuers:
@@ -313,13 +303,10 @@ variables:
     type: boolean
     visible: false
 
-  # Capacity Check Option
+  # Capacity Check Option (hidden for LiveLabs — Terraform default skips it)
   skip_capacity_check:
     type: boolean
-    title: "Skip Capacity Check"
-    description: "Skip the compute capacity pre-validation that runs before deployment. Enable this only if you are certain capacity exists in your region or want to bypass the pre-check. <strong>Warning:</strong> If capacity is unavailable, the deployment will fail later during resource provisioning."
-    default: false
-    required: false
+    visible: false
 
   worker_node_availability_domain:
     type: string
@@ -409,31 +396,19 @@ variables:
 
   deploy_private_k8s_and_loadbalancer:
     type: boolean
-    title: "Deploy Private K8s and Load Balancer"
-    description: "Deploys a completely private stack not accessible via internet. More secure, but the final URL will not be accessible from the public internet without first port forwarding. Suitable for production deployments."
-    default: false
-    required: false
+    visible: false
 
   create_policies:
     type: boolean
-    title: "Create IAM Policies"
-    description: "Unchecking box will not create IAM policies with stack. Requires an admin to create policies."
-    default: true
-    required: false
+    visible: false
 
   deploy_application:
     type: boolean
-    title: "Deploy Application"
-    description: "When unchecked, only infrastructure (VCN, OKE cluster, node pools) is created. Use this to create an infrastructure-only stack for node reuse."
-    default: true
-    required: false
+    visible: false
 
   existing_cluster_id:
     type: string
-    title: "Existing Cluster OCID"
-    description: "OCID of an existing OKE cluster to deploy onto. When provided, all infrastructure creation (VCN, OKE, node pools) is skipped. Get this value from the cluster_id output of an infrastructure-only stack."
-    default: ""
-    required: false
+    visible: false
 
   # ---------------------------------
   # Hidden Variables
@@ -484,10 +459,7 @@ variables:
 
   create_bastion:
     type: boolean
-    title: "Enable Bastion Host"
-    description: "Create a bastion host and operator instance for SSH access to the cluster. When enabled, the private SSH key (if auto-generated) is available as a downloadable output."
-    default: false
-    required: false
+    visible: false
 
   bastion_boot_volume_size_in_gbs:
     type: string
@@ -546,10 +518,7 @@ variables:
 
   existing_node_subnet_id:
     type: string
-    title: "Existing Node Subnet OCID"
-    description: "Subnet OCID for the worker node pool. Required when using an existing cluster. Get this value from the node_subnet_id output of an infrastructure-only stack."
-    default: ""
-    required: false
+    visible: false
 
   existing_pods_subnet_id:
     type: string
@@ -561,10 +530,7 @@ variables:
 
   existing_autonomous_db_subnet_id:
     type: string
-    title: "Existing Autonomous DB Subnet OCID"
-    description: "Subnet OCID for the Autonomous Database private endpoint. Required when using an existing cluster. Get this value from the autonomous_db_subnet_id output of an infrastructure-only stack."
-    default: ""
-    required: false
+    visible: false
 
   ingress_nginx_enabled:
     type: boolean
@@ -604,21 +570,11 @@ variables:
 
   use_custom_dns:
     type: boolean
-    title: "Use Custom DNS"
-    description: "Enable to use your own domain instead of the automatic nip.io domain. Recommended for production deployments."
-    default: false
-    required: false
+    visible: false
 
   fqdn_custom_domain:
     type: string
-    title: "Custom Domain"
-    description: "Your base domain (e.g., ai.mycompany.com). Must be a fully qualified domain name with a TLD (like .com, .ai, .ml). Do not include the wildcard asterisk (*). However, you must create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in the outputs in your DNS registrar."
-    pattern: "^[a-zA-Z0-9][a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z]{2,}$"
-    required: true
-    visible:
-      eq:
-        - use_custom_dns
-        - "true"
+    visible: false
 
   cuopt_frontend_admin_username:
     type: string

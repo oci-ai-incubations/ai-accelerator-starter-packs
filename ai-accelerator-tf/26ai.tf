@@ -4,10 +4,10 @@
 
 # Autonomous Database
 resource "oci_database_autonomous_database" "oracle_26ai" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   db_name        = "AIAccel${var.db_name}${random_string.deploy_id.result}"
-  display_name   = "AIAccel${var.db_display_name}${random_string.deploy_id.result}"
-  admin_password = var.db_password
+  display_name   = "AIAccel${var.db_display_name} ${local.res_id}"
+  admin_password = local.db_password
   compute_count  = max(local.starter_pack_config.database_compute_count, 2)
   db_version     = "26ai"
   compute_model  = "ECPU"
@@ -35,7 +35,7 @@ resource "oci_database_autonomous_database" "oracle_26ai" {
 
   lifecycle {
     precondition {
-      condition     = var.db_password != null
+      condition     = local.db_password != null
       error_message = "db_password is required when the 26ai database is provisioned — that is the paas_rag / enterprise_rag / enterprise_rag_aiq / warehouse_pick_path / dox_pack packs, OR any pack with enable_auth_service=true (auth-service is backed by 26ai)."
     }
   }
@@ -51,7 +51,7 @@ resource "kubernetes_secret_v1" "oadb-admin" {
     namespace = "default"
   }
   data = {
-    oadb_admin_pw = var.db_password
+    oadb_admin_pw = local.db_password
   }
   type = "Opaque"
 

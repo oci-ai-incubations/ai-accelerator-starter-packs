@@ -1,0 +1,155 @@
+# AGENTS.md
+
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+
+## Project Overview
+
+AI Accelerator Starter Packs — a Terraform-based infrastructure-as-code project that deploys AI workloads on Oracle Cloud Infrastructure (OCI) using Oracle Kubernetes Engine (OKE). It provisions networking, compute, Kubernetes clusters, Helm charts, and application services (Corrino platform) for multiple "starter pack" categories: `cuopt` (Vehicle Route Optimizer), `vss` (Video Search and Summarization), `enterprise_rag` (Self-Hosted Enterprise Chat Agent), `paas_rag` (Managed Enterprise Chat Agent), and `enterprise_rag_aiq` (Agentic AI Starter Kit). See `NAMING.md` for the full name mapping.
+
+All Terraform code lives in `ai-accelerator-tf/`. The repo root contains support scripts, schema generation tooling, and zip artifacts.
+
+## Build & Deploy Commands
+
+```bash
+cd ai-accelerator-tf/
+terraform init -backend=false   # no real backend needed for local dev
+terraform plan
+terraform apply
+terraform destroy               # use --refresh=false if destroy fails on k8s provider
+```
+
+## Testing Commands
+
+### Terraform Unit Tests
+
+```bash
+cd ai-accelerator-tf/
+terraform init -backend=false
+terraform test                                            # all tests
+terraform test -filter=tests/core_plan.tftest.hcl         # single file
+terraform test -filter=tests/starter_pack_cuopt.tftest.hcl  # single starter pack
+```
+
+All providers are mocked — no cloud credentials needed. Tests are plan-only (`command = plan`).
+
+**Terraform version split:** OCI Resource Manager (ORM) only supports up to **Terraform 1.5.7**, so all Terraform code must remain 1.5-compatible (`required_version = ">= 1.5"` in `versions.tf`). However, unit tests use `mock_provider` which requires **Terraform >= 1.7**. This means:
+- **Production (ORM):** Runs Terraform 1.5.7 — the code must be compatible with this version.
+- **Unit tests (local/CI):** Require Terraform >= 1.7 — the test harness uses newer features, but the Terraform language constructs under test (locals, count, for_each, validations) behave identically across 1.5–1.9.
+- **CI must use Terraform >= 1.7** for the test job, not 1.5.
+
+### Schema Tests (requires Python 3.11+)
+
+```bash
+# from repo root
+source venv/bin/activate        # or create: python3 -m venv venv && pip install -r requirements.txt
+pytest ai-accelerator-tf/schemas/tests/ -v          # all schema tests
+pytest ai-accelerator-tf/schemas/tests/ -v -k "test_name"  # single test
+```
+
+### Integration Tests (OCI Resource Manager)
+
+Integration tests deploy real infrastructure via OCI Resource Manager. Use `/integration-test [category]` to run the full lifecycle (schema gen, zip, stack create, plan, apply, pod verification, destroy). Related skills: `/update-stack`, `/destroy-stack`.
+
+Requires a populated `ai-accelerator-tf/terraform.tfvars` with at minimum: `compartment_ocid`, `tenancy_ocid`, `region`, `current_user_ocid`, `corrino_admin_username`, `corrino_admin_password`, `corrino_admin_email`, `db_password`, plus any category-specific vars. Each PR may have additional testing parameters — ask the user for any PR-specific requirements before starting.
+
+### Linting
+
+```bash
+cd ai-accelerator-tf/
+terraform fmt -check -diff -recursive
+terraform validate
+tflint --recursive
+checkov -d . --framework terraform --config-file .checkov.yml
+```
+
+## Architecture
+
+### Terraform Structure (`ai-accelerator-tf/`)
+
+- **`vars.tf`** — All input variables with validation blocks. Central configuration point.
+- **`app-locals.tf`** — Core locals including `local.app`, `local.postgres_db`, starter pack mappings, image URIs, and deployment logic.
+- **`outputs.tf`** — All Terraform outputs exposed to OCI Resource Manager UI.
+- **`versions.tf`** — Provider requirements (OCI ~>7.0, 9 providers total). Module targets TF >= 1.5.
+- **`providers.tf`** — OCI provider (supports instance principal auth), Kubernetes/Helm providers configured via OKE cluster endpoint.
+- **`network.tf`** — VCN, subnets, security lists, route tables, gateways. Supports "create_new" or "bring_your_own" VCN modes.
+- **`oke.tf`** — OKE cluster and node pool definitions.
+- **`helm.tf`** — Helm releases: ingress-nginx, cert-manager, prometheus, grafana, NVIDIA DCGM.
+- **`blueprint_files.tf`** — Blueprint JSON definitions for each starter pack category/size, deployed via OCI AI Blueprints (corrino-cp). See [Blueprints & Corrino](#blueprints--corrino) below.
+- **`app-blueprint-deployment-job.tf`** — Kubernetes jobs that deploy blueprints onto the cluster.
+- **`capacity_check.tf`** — Pre-deploy GPU/shape capacity validation.
+- **`data-starter-pack-url.tf`** — Deployment readiness checks and static URL outputs for starter pack services.
+- **`app-*.tf`** — Application-layer resources (API, background workers, user service, migrations, configmaps, portal, VSS components).
+
+### Schema System (`ai-accelerator-tf/schemas/`)
+
+OCI Resource Manager UI schemas are generated by merging a common base with per-category overrides:
+
+1. `common_schema.yaml` — shared variables, outputs, variable groups
+2. `<category>_schema.yaml` — category-specific overrides (title, sizes, hidden variables)
+3. `create_final_schema.py` — deep-merge script that produces `schema.yaml`
+
+```bash
+python create_final_schema.py cuopt          # generate for specific category
+python create_final_schema.py --all          # generate all (used by tests)
+```
+
+The generated `schema.yaml` is gitignored. Category selection is stored in `starter_pack_category.auto.tfvars`.
+
+### Test Architecture
+
+**Terraform unit tests** (`ai-accelerator-tf/tests/*.tftest.hcl`):
+- Use `mock_provider` blocks for all 9 providers — no real infrastructure
+- Three OCI data sources (`home_region`, `ads`, `oracle_linux`) require `override_data` blocks in every test file
+- `core_plan.tftest.hcl` — shared output assertions with defaults
+- `core_validations.tftest.hcl` — `expect_failures` runs for variable validation blocks
+- `starter_pack_<category>.tftest.hcl` — per-pack plan tests asserting deployment name and postflight triggers
+- Test files must be flat in `tests/` (Terraform does not recurse subdirectories)
+
+**Schema tests** (`ai-accelerator-tf/schemas/tests/`):
+- Data-driven via `schema_expectations.yaml` — add assertions there, not in Python
+- `conftest.py` auto-generates all schemas before tests run
+- `test_schema_structure.py` reads expectations and runs parametrized assertions
+- `meta_schema.yaml` validates against OCI JSON Schema Draft 7
+
+### Blueprints & Corrino
+
+Starter packs (except `enterprise_rag`, which uses Helm directly) are deployed as **OCI AI Blueprints** through the Corrino control plane (`corrino-cp`), which runs on the OKE cluster. The Corrino API source lives at `~/code/corrino/api/`. A blueprint submitted to the Corrino API deploys multiple Kubernetes components (pods, services, etc.) onto the cluster.
+
+**Deployment flow:**
+1. `vars.tf` defines `local.starter_pack_configs` — a `category → size → config` map containing infrastructure settings (node shape, GPU count, worker count, etc.) for each pack/size combination.
+2. `blueprint_files.tf` defines `local.starter_pack_blueprints` — consumes the config from step 1 and builds the full JSON blueprint payloads as `jsonencode(merge(...))` calls, adding recipe config, environment secrets, node pool settings, and container commands.
+3. `app-blueprint-deployment-job.tf` creates Kubernetes jobs that connect to the Corrino API server running on OKE and submit the JSON blueprint payload for deployment.
+
+**Key rules:**
+- **Deployments are immutable.** The only way to modify a deployment is to undeploy it and redeploy it. There is no in-place update.
+- **`deployment_name` must be unique.** Submitting a blueprint with a `deployment_name` that already exists will cause a validation error from the Corrino API.
+- Blueprint payloads must conform to the schema at `~/code/corrino/api/json_schema/combined_schema.json` (JSON Schema Draft 2020-12). Key fields: `recipe_id`, `deployment_name`, `recipe_mode` (service/job/update/shared_node_pool/team), `recipe_node_shape`, `recipe_nvidia_gpu_count`, etc.
+
+### CI Pipelines (`.github/workflows/`)
+
+- **terraform-test.yml** — push/PR to `main`: `terraform init` + `terraform test` (creates dummy OCI config)
+- **terraform-lint.yml** — PR to any branch: `fmt -check`, `validate`, TFLint, Checkov
+- **schema-tests.yml** — push/PR to `main` (when schemas change): `pytest` schema tests
+
+## Git Workflow
+
+- Never commit directly to `main`. Always create a feature branch and open a PR.
+
+## Key Conventions
+
+- Starter pack categories: `enterprise_rag`, `enterprise_rag_aiq`, `paas_rag`, `cuopt`, `vss` (released); `warehouse-pick-path` (IN PROGRESS). Adding a new category requires changes in `vars.tf` (validation), `app-locals.tf` (mappings), `blueprint_files.tf`, a new schema YAML, `create_final_schema.py` CATEGORIES list, schema expectations, and a new test file.
+- Version is tracked in `AI_ACCELERATOR_STACK_VERSION` and must be kept in sync with `vars.tf` default and `schemas/common_schema.yaml` enum. See `readmes/VERSIONING.md`.
+- Checkov skip rules are in `ai-accelerator-tf/.checkov.yml`.
+- Helm values live in `ai-accelerator-tf/helm-values/` as standalone YAML files (some are Terraform-templated).
+- `schema.yaml` and `schemas/generated/` are gitignored — always regenerate, never edit directly.
+- Detailed test writing guides: `ai-accelerator-tf/tests/RULES.md` (Terraform tests) and `ai-accelerator-tf/schemas/tests/RULES.md` (schema tests).
+
+## Bug Tracking
+
+Proactively track bugs in `BUGS.md` at the repo root. This is an ongoing list — not something the user needs to ask for.
+
+- **When the user reports something is broken, wrong, or unexpected:** Log it in `BUGS.md` with symptoms, root cause, and affected files. Use the `/bug-tracker log` format.
+- **When a bug is fixed (in this session or any session):** Update the existing entry in `BUGS.md` with the resolution, PR/commit references, and verification steps. Use the `/bug-tracker fix` format.
+- **Before investigating a new issue:** Check `BUGS.md` first to see if it's a known bug.
+
+The goal is to build institutional knowledge of what breaks, why, and how it was fixed — so future sessions have context.

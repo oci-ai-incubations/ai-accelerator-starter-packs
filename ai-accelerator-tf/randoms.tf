@@ -61,32 +61,6 @@ resource "random_string" "postgres_db_name" {
   min_lower = 2
 }
 
-# VSS Oracle UX dedicated Postgres
-resource "random_string" "vss_postgres_db_password" {
-  count       = local.deploy_application ? 1 : 0
-  length      = 24
-  special     = false
-  min_upper   = 2
-  min_lower   = 2
-  min_numeric = 2
-}
-
-resource "random_string" "vss_postgres_db_username" {
-  count     = local.deploy_application ? 1 : 0
-  length    = 8
-  special   = false
-  min_upper = 2
-  min_lower = 2
-}
-
-resource "random_string" "vss_postgres_db_name" {
-  count     = local.deploy_application ? 1 : 0
-  length    = 4
-  special   = false
-  min_upper = 2
-  min_lower = 2
-}
-
 # resource "random_string" "autonomous_database_admin_password" {
 #   length           = 16
 #   special          = true
@@ -111,16 +85,6 @@ resource "random_uuid" "registration_id" {
 #  special = false
 #  upper   = false
 #}
-
-resource "random_string" "minio_access_key" {
-  length  = 20
-  special = false
-}
-
-resource "random_password" "minio_secret_key" {
-  length  = 40
-  special = false
-}
 
 # Token signing migrated to RS256; pack BEs verify via JWKS — no shared secret
 # remains in TF. The auth-service pod generates and persists its own RSA-2048

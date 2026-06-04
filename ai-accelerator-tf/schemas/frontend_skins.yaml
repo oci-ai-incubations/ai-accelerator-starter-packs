@@ -2,7 +2,7 @@
 learn_more_url: "https://github.com/oci-ai-incubations/ai-accelerator-starter-packs/blob/main/docs/skins/README.md"
 
 cuopt:
-  default: "Vehicle Route Optimizer Frontend (Core App)"
+  default: "Oracle Interactive - Route visualization (Partner Contributed)"
   skins:
     - key: "Vehicle Route Optimizer Frontend (Core App)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-6855f8b"
@@ -11,73 +11,13 @@ cuopt:
       container_port: "80"
       subdomain: "demo-cuopt"
       variable_name: "skin_cuopt_core"
-      default_enabled: true
+      default_enabled: false
+      # Hidden from the ORM UI for the LiveLabs workshop (partner skin is featured).
+      hidden: true
     - key: "Oracle Interactive - Route visualization (Partner Contributed)"
       image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:cuopt-interactive-frontend-6855f8b"
       provider: "Oracle"
       container_port: "80"
       subdomain: "demo-cuopt-partner"
       variable_name: "skin_cuopt_partner"
-      default_enabled: false
-
-vss:
-  default: "Oracle Custom - Enhanced search (Core App)"
-  skins:
-    - key: "Oracle Custom - Enhanced search (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository:vss-oracle-ux-090468e"
-      provider: "Oracle"
-      container_port: "3000"
-      subdomain: "vss-frontend"
-      variable_name: "skin_vss_core"
-      default_enabled: true
-
-paas_rag:
-  default: "Oracle Net - Chat interface (Core App)"
-  skins:
-    - key: "Oracle Net - Chat interface (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend:v0.0.3"
-      provider: "Oracle"
-      container_port: "3000"
-      subdomain: "frontend-paas"
-      variable_name: "skin_paas_rag_core"
-      default_enabled: true
-
-enterprise_rag:
-  default: "Oracle RAG - Document chat (Core App)"
-  skins:
-    - key: "Oracle RAG - Document chat (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/enterprise-rag-frontend:v0.0.2"
-      provider: "Oracle"
-      container_port: "3000"
-      subdomain: "frontend-erag"
-
-enterprise_rag_aiq:
-  default: "NVIDIA AI-Q - Agentic workflows (Core App)"
-  skins:
-    - key: "NVIDIA AI-Q - Agentic workflows (Core App)"
-      image_uri: "nvcr.io/nvidia/blueprint/aiq-frontend:2.0.0"
-      provider: "NVIDIA"
-      container_port: "3000"
-      subdomain: "aiq"
-
-warehouse_pick_path:
-  default: "Warehouse Pick Path Optimizer Frontend (Core App)"
-  skins:
-    - key: "Warehouse Pick Path Optimizer Frontend (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/warehouse-pick-path-optimizer-fe:2d2a008"
-      provider: "Oracle"
-      container_port: "3000"
-      subdomain: "wpp"
-      variable_name: "skin_wpp_core"
-      default_enabled: true
-
-dox_pack:
-  default: "Document Extractor Frontend (Core App)"
-  skins:
-    - key: "Document Extractor Frontend (Core App)"
-      image_uri: "iad.ocir.io/iduyx1qnmway/contract-analysis/contract-analysis-frontend:latest"
-      provider: "Oracle"
-      container_port: "80"
-      subdomain: "dox-frontend"
-      variable_name: "skin_dox_pack_core"
       default_enabled: true

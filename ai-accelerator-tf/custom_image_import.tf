@@ -4,7 +4,7 @@ locals {
 }
 
 resource "oci_core_image" "nvidia_image" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "NVIDIA_Ubuntu_22.04_Driver_580_CUDA_13.0_HPC"
   image_source_details {
     operating_system         = "Ubuntu"
@@ -19,7 +19,7 @@ resource "oci_core_image" "nvidia_image" {
 }
 
 resource "oci_core_image" "amd_image" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AMD_Ubuntu_22.04_Driver_643_ROCM_HPC"
   image_source_details {
     operating_system         = "Ubuntu"

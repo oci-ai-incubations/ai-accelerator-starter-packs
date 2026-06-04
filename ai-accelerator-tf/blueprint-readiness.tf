@@ -25,7 +25,7 @@ resource "null_resource" "wait_for_deployment" {
       echo "Waiting for ${var.starter_pack_category} deployment to become available..."
       API_URL="${local.public_endpoint.api_origin_secure}"
       USERNAME="${var.corrino_admin_username}"
-      PASSWORD="${var.corrino_admin_password}"
+      PASSWORD="${local.corrino_admin_password}"
       DEPLOYMENT_FOR_URL="${local.starter_pack_config.deployment_name}"
       MAX_ATTEMPTS=40  # 40 attempts * 30 seconds = 20 minutes max wait
       ATTEMPT=0
@@ -98,7 +98,7 @@ data "http" "starter_pack_auth" {
     Content-Type = "application/x-www-form-urlencoded"
   }
 
-  request_body = "username=${urlencode(var.corrino_admin_username)}&password=${urlencode(var.corrino_admin_password)}"
+  request_body = "username=${urlencode(var.corrino_admin_username)}&password=${urlencode(local.corrino_admin_password)}"
 
   insecure = true # Allow self-signed certificates
 
@@ -184,7 +184,7 @@ resource "null_resource" "wait_for_deployment_via_operator" {
       echo "Waiting for ${var.starter_pack_category} deployment to become available (via operator)..."
       API_URL="https://api.${local.fqdn.name}"
       USERNAME="${var.corrino_admin_username}"
-      PASSWORD="${var.corrino_admin_password}"
+      PASSWORD="${local.corrino_admin_password}"
       DEPLOYMENT_FOR_URL="${local.starter_pack_config.deployment_name}"
       MAX_ATTEMPTS=40
 
@@ -267,7 +267,7 @@ resource "null_resource" "fetch_workspace_via_operator" {
 
   provisioner "remote-exec" {
     inline = [
-      "TOKEN=$(curl -sk -X POST 'https://api.${local.fqdn.name}/login/' -H 'Content-Type: application/x-www-form-urlencoded' -d 'username=${var.corrino_admin_username}&password=${urlencode(var.corrino_admin_password)}' | jq -r '.token')",
+      "TOKEN=$(curl -sk -X POST 'https://api.${local.fqdn.name}/login/' -H 'Content-Type: application/x-www-form-urlencoded' -d 'username=${var.corrino_admin_username}&password=${urlencode(local.corrino_admin_password)}' | jq -r '.token')",
       "curl -sk -X GET 'https://api.${local.fqdn.name}/workspace/' -H \"Authorization: Token $TOKEN\" -H 'Content-Type: application/json' > /tmp/workspace.json",
       "cat /tmp/workspace.json"
     ]

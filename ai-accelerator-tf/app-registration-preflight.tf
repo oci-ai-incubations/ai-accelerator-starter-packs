@@ -9,9 +9,9 @@ locals {
     registration_id       = random_uuid.registration_id.result
     stage                 = "preflight"
     timestamp             = timestamp()
-    tenancy_ocid          = var.tenancy_ocid
-    region                = var.region
-    compartment_ocid      = var.compartment_ocid
+    tenancy_ocid          = local.tenancy_ocid
+    region                = local.region
+    compartment_ocid      = local.compartment_ocid
     starter_pack_category = var.starter_pack_category
     starter_pack_size     = var.starter_pack_size
   })
@@ -72,9 +72,9 @@ EOF
     postflight_filepath      = local.postflight_filepath
     registration_upload_path = local.registration_upload_path
     registration_id          = random_uuid.registration_id.result
-    tenancy_ocid             = var.tenancy_ocid
-    region                   = var.region
-    compartment_ocid         = var.compartment_ocid
+    tenancy_ocid             = local.tenancy_ocid
+    region                   = local.region
+    compartment_ocid         = local.compartment_ocid
     starter_pack_category    = var.starter_pack_category
     starter_pack_size        = var.starter_pack_size
   }

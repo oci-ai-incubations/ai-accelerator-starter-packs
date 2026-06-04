@@ -13,7 +13,7 @@ resource "terraform_data" "capacity_guidance" {
       echo "============================================================"
       echo ""
       echo "Starter Pack: ${var.starter_pack_category}"
-      echo "Region: ${var.region}"
+      echo "Region: ${local.region}"
 %{if local.starter_pack_config.worker_node_shape != "none"~}
       echo "Selected Worker Node Availability Domain: ${local.worker_node_availability_domain}"
 %{endif~}

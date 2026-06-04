@@ -59,13 +59,7 @@ variableGroups:
       - corrino_admin_email
 
   - title: "cuOpt Pack Configuration"
-    visible:
-      or:
-        - skin_cuopt_core
-        - skin_cuopt_partner
     variables:
-      - google_maps_api_key
-      - cuopt_openweathermap_api_key
       - genai_region
 
   - title: "Oracle 26ai Database (required when auth-service is enabled)"
@@ -85,19 +79,14 @@ variables:
     type: enum
     enum:
       - poc
-      - small
-      - medium
     title: "cuOpt Deployment Size"
-    description: "<strong>SMALL</strong> - 1x BM.GPU4.8 (8x A100 40GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required) | <strong>MEDIUM</strong> - 1x BM.GPU.A100-v2.8 (8x A100 80GB), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1 x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1TB storage, 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required)"
-    default: small
+    description: "<strong>POC</strong> - 1x VM.GPU.A10.2 (2x A10), 2x VM.Standard.E5.Flex (3 OCPU, 64GB Mem), 1x VM.Standard.E5.Flex (4 OCPU, 32GB Mem), 1 Flexible Load Balancer, OCI GenAI Service - On Demand (no GPU required)"
+    default: poc
     required: true
 
   google_maps_api_key:
     type: string
-    title: "Google Maps API Key"
-    description: "API key for Google Maps visualization in the cuOpt frontend. Leave empty to use the default Leaflet map."
-    default: ""
-    visible: true
+    visible: false
 
   # cuopt_frontend_admin_* are legacy: the Express server in the cuopt FE used
   # them for /api/auth/login. That server was retired in phase 5; auth-service
@@ -169,10 +158,7 @@ variables:
 
   cuopt_openweathermap_api_key:
     type: password
-    title: "OpenWeatherMap API Key"
-    description: "Optional API key for live weather data via the cuopt-backend's /api/weather/* routes. When blank, the backend falls back to a deterministic mock weather generator (still useful for routing demos)."
-    required: false
-    visible: true
+    visible: false
 
   # Make AD required for cuOpt (GPU starter pack)
   worker_node_availability_domain:

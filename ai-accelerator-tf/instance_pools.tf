@@ -8,12 +8,12 @@ data "cloudinit_config" "workers" {
 }
 
 resource "oci_core_instance_configuration" "worker_nodes_configuration" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-Worker-Nodes-Configuration-${random_string.deploy_id.result}"
   instance_details {
     instance_type = "compute"
     launch_details {
-      compartment_id           = var.compartment_ocid
+      compartment_id           = local.compartment_ocid
       is_ai_enterprise_enabled = local.starter_pack_config.nvaie_enabled
       display_name             = "AI-Accel-Worker-Node-${random_string.deploy_id.result}"
       shape                    = local.starter_pack_config.worker_node_shape
@@ -56,20 +56,23 @@ resource "oci_core_instance_configuration" "worker_nodes_configuration" {
 }
 
 resource "oci_core_instance_pool" "worker_nodes_pool" {
-  compartment_id            = var.compartment_ocid
+  compartment_id            = local.compartment_ocid
   display_name              = "AI-Accel-Worker-Nodes-Pool-${random_string.deploy_id.result}"
   instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration[0].id
   size                      = local.starter_pack_config.worker_node_pool_size
   placement_configurations {
     availability_domain = local.worker_node_availability_domain
-    primary_subnet_id   = oci_core_subnet.oke_nodes_subnet[0].id
+    # Use the resolved node subnet (created subnet in create_new mode, or the
+    # LiveLabs / bring-your-own private subnet). Previously hardcoded to
+    # oci_core_subnet.oke_nodes_subnet[0], which has count=0 in bring_your_own mode.
+    primary_subnet_id = local.node_subnet_id
   }
   depends_on = [oci_containerengine_cluster.oke_cluster, oci_core_instance_configuration.worker_nodes_configuration, terraform_data.capacity_validated]
   count      = local.deploy_infrastructure && local.should_import_nvidia_gpu_image ? 1 : 0
 }
 
 resource "oci_core_cluster_network" "worker_nodes_cluster_network" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-Worker-Nodes-Cluster-Network-${random_string.deploy_id.result}"
   instance_pools {
     instance_configuration_id = oci_core_instance_configuration.worker_nodes_configuration[0].id

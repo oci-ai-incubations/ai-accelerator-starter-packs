@@ -9,11 +9,13 @@ locals {
   deploy_infrastructure = !local.use_existing_cluster
   effective_cluster_id  = local.use_existing_cluster ? var.existing_cluster_id : local.oke_cluster.id
 
-  # Compound gating locals — single source of truth for repeated count/for_each conditions
-  deploy_app_vss      = local.deploy_application && var.starter_pack_category == "vss"
-  deploy_app_rag      = local.deploy_application && contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
-  deploy_app_rag_aiq  = local.deploy_application && var.starter_pack_category == "enterprise_rag_aiq"
-  deploy_app_non_rag  = local.deploy_application && !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category)
+  # Compound gating locals — cuOpt-only build. cuopt is a blueprint (non-rag),
+  # GPU pack; vss/rag flags are retained as constant false so the shared resource
+  # guards that reference them still resolve.
+  deploy_app_vss      = false
+  deploy_app_rag      = false
+  deploy_app_rag_aiq  = false
+  deploy_app_non_rag  = local.deploy_application
   deploy_app_26ai     = local.deploy_application && local.needs_26ai
   run_capacity_checks = local.deploy_infrastructure && !var.skip_capacity_check
   uses_gpu            = local.should_import_nvidia_gpu_image
@@ -73,9 +75,9 @@ locals {
       fqdn            = local.fqdn.name
 
       # Core OCI Info
-      tenancy_ocid          = var.tenancy_ocid
-      compartment_ocid      = var.compartment_ocid
-      region                = var.region
+      tenancy_ocid          = local.tenancy_ocid
+      compartment_ocid      = local.compartment_ocid
+      region                = local.region
       starter_pack_category = var.starter_pack_category
       starter_pack_size     = var.starter_pack_size
 
@@ -121,7 +123,7 @@ locals {
       # Configuration Details
       worker_node_shape     = try(local.starter_pack_config.worker_node_shape, null)
       worker_node_pool_size = try(local.starter_pack_config.worker_node_pool_size, null)
-      network_config_mode   = var.network_configuration_mode
+      network_config_mode   = local.network_configuration_mode
       load_balancer_ip      = try(local.ingress_controller_load_balancer_ip, null)
     })
     upload_path = local.registration_upload_path
@@ -145,12 +147,12 @@ locals {
   }
 
   oci = {
-    tenancy_id        = var.tenancy_ocid
+    tenancy_id        = local.tenancy_ocid
     tenancy_namespace = data.oci_objectstorage_namespace.ns.namespace
     namespace_name    = data.oci_objectstorage_namespace.ns.namespace
-    compartment_id    = var.compartment_ocid
+    compartment_id    = local.compartment_ocid
     oke_cluster_id    = local.effective_cluster_id
-    region_name       = var.region
+    region_name       = local.region
   }
 
   network = {
@@ -242,7 +244,7 @@ locals {
     },
     {
       name  = "DJANGO_SUPERUSER_PASSWORD"
-      value = var.corrino_admin_password
+      value = local.corrino_admin_password
     },
     {
       name  = "DJANGO_SUPERUSER_EMAIL"

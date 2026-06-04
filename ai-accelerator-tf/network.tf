@@ -5,7 +5,7 @@
 # VCN
 resource "oci_core_virtual_network" "oke_vcn" {
   cidr_block     = var.network_cidrs["VCN-CIDR"]
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-VCN-${random_string.deploy_id.result}"
   dns_label      = "vcn${random_string.deploy_id.result}"
   count          = local.create_network_resources ? 1 : 0
@@ -17,7 +17,7 @@ resource "oci_core_virtual_network" "oke_vcn" {
 # Subnets
 resource "oci_core_subnet" "oke_k8s_endpoint_subnet" {
   cidr_block                 = var.network_cidrs["ENDPOINT-SUBNET-REGIONAL-CIDR"]
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_ocid
   display_name               = "AI-Accel-ENDPOINT-SUBNET-${random_string.deploy_id.result}"
   dns_label                  = "endpoint${random_string.deploy_id.result}"
   vcn_id                     = oci_core_virtual_network.oke_vcn[0].id
@@ -30,7 +30,7 @@ resource "oci_core_subnet" "oke_k8s_endpoint_subnet" {
 
 resource "oci_core_subnet" "oke_nodes_subnet" {
   cidr_block                 = var.network_cidrs["NODES-SUBNET-REGIONAL-CIDR"]
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_ocid
   display_name               = "AI-Accel-NODES-SUBNET-${random_string.deploy_id.result}"
   dns_label                  = "nodes${random_string.deploy_id.result}"
   vcn_id                     = oci_core_virtual_network.oke_vcn[0].id
@@ -43,7 +43,7 @@ resource "oci_core_subnet" "oke_nodes_subnet" {
 
 resource "oci_core_subnet" "oke_lb_subnet" {
   cidr_block                 = var.network_cidrs["LB-SUBNET-BP-CONTROL-PLANE-REGIONAL-CIDR"]
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_ocid
   display_name               = "AI-Accel-LB-SUBNET-BP-CP-${random_string.deploy_id.result}"
   dns_label                  = "lbcp${random_string.deploy_id.result}"
   vcn_id                     = oci_core_virtual_network.oke_vcn[0].id
@@ -58,7 +58,7 @@ resource "oci_core_subnet" "oke_lb_subnet" {
 # Route Tables
 resource "oci_core_route_table" "oke_private_route_table" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-PRIVATE-ROUTE-TABLE-${random_string.deploy_id.result}"
 
   route_rules {
@@ -83,7 +83,7 @@ resource "oci_core_route_table" "oke_private_route_table" {
 
 resource "oci_core_route_table" "oke_public_route_table" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-PUBLIC-ROUTE-TABLE-${random_string.deploy_id.result}"
 
   route_rules {
@@ -98,7 +98,7 @@ resource "oci_core_route_table" "oke_public_route_table" {
 
 # Gateways
 resource "oci_core_nat_gateway" "oke_nat_gateway" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   block_traffic  = false
   display_name   = "AI-Accel-NAT-GATEWAY-${random_string.deploy_id.result}"
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
@@ -106,7 +106,7 @@ resource "oci_core_nat_gateway" "oke_nat_gateway" {
 }
 
 resource "oci_core_internet_gateway" "oke_internet_gateway" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-INTERNET-GATEWAY-${random_string.deploy_id.result}"
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
   enabled        = true
@@ -115,7 +115,7 @@ resource "oci_core_internet_gateway" "oke_internet_gateway" {
 }
 
 resource "oci_core_service_gateway" "oke_service_gateway" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-SERVICE-GATEWAY-${random_string.deploy_id.result}"
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
   services {
@@ -129,7 +129,7 @@ resource "oci_core_service_gateway" "oke_service_gateway" {
 
 resource "oci_core_security_list" "oke_nodes_security_list" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-NODES-SECURITY-LIST-${random_string.deploy_id.result}"
   ingress_security_rules {
     description = "Allow pods on one worker node to communicate with pods on another worker node"
@@ -258,7 +258,7 @@ resource "oci_core_security_list" "oke_nodes_security_list" {
 # Endpoint Security List
 resource "oci_core_security_list" "oke_endpoint_security_list" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-ENDPOINT-SECURITY-LIST-${random_string.deploy_id.result}"
 
   ingress_security_rules {
@@ -338,7 +338,7 @@ resource "oci_core_security_list" "oke_endpoint_security_list" {
 # Load Balancer Security List
 resource "oci_core_security_list" "oke_lb_security_list" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-LB-SECURITY-LIST-${random_string.deploy_id.result}"
 
   ingress_security_rules {
@@ -378,7 +378,7 @@ resource "oci_core_security_list" "oke_lb_security_list" {
 # Autonomous Database Security List
 resource "oci_core_security_list" "oke_db_security_list" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-DB-SECURITY-LIST-${random_string.deploy_id.result}"
 
   ingress_security_rules {
@@ -431,7 +431,7 @@ resource "oci_core_security_list" "oke_db_security_list" {
 # Bastion Subnet and Security List
 resource "oci_core_subnet" "oke_bastion_subnet" {
   cidr_block                 = var.network_cidrs["BASTION-SUBNET-REGIONAL-CIDR"]
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_ocid
   display_name               = "AI-Accel-BASTION-SUBNET-${random_string.deploy_id.result}"
   dns_label                  = "bastion${random_string.deploy_id.result}"
   vcn_id                     = oci_core_virtual_network.oke_vcn[0].id
@@ -444,7 +444,7 @@ resource "oci_core_subnet" "oke_bastion_subnet" {
 
 resource "oci_core_security_list" "oke_bastion_security_list" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-BASTION-SECURITY-LIST-${random_string.deploy_id.result}"
 
   ingress_security_rules {
@@ -495,7 +495,7 @@ resource "oci_core_security_list" "oke_bastion_security_list" {
 # Operator Subnet and Security List
 resource "oci_core_subnet" "oke_operator_subnet" {
   cidr_block                 = var.network_cidrs["OPERATOR-SUBNET-REGIONAL-CIDR"]
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_ocid
   display_name               = "AI-Accel-OPERATOR-SUBNET-${random_string.deploy_id.result}"
   dns_label                  = "operator${random_string.deploy_id.result}"
   vcn_id                     = oci_core_virtual_network.oke_vcn[0].id
@@ -508,7 +508,7 @@ resource "oci_core_subnet" "oke_operator_subnet" {
 
 resource "oci_core_security_list" "oke_operator_security_list" {
   vcn_id         = oci_core_virtual_network.oke_vcn[0].id
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-OPERATOR-SECURITY-LIST-${random_string.deploy_id.result}"
 
   ingress_security_rules {
@@ -559,7 +559,7 @@ resource "oci_core_security_list" "oke_operator_security_list" {
 # Autonomous Database Subnet
 resource "oci_core_subnet" "oke_db_subnet" {
   cidr_block                 = var.network_cidrs["DB-SUBNET-REGIONAL-CIDR"]
-  compartment_id             = var.compartment_ocid
+  compartment_id             = local.compartment_ocid
   display_name               = "AI-Accel-DB-SUBNET-${random_string.deploy_id.result}"
   dns_label                  = "db${random_string.deploy_id.result}"
   vcn_id                     = oci_core_virtual_network.oke_vcn[0].id

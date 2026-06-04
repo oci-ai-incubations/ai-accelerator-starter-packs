@@ -27,7 +27,7 @@ locals {
   # Issuer URL stamped into every minted token's `iss` claim and exposed via
   # /auth/.well-known/openid-configuration. Pack BEs accept tokens whose `iss`
   # is in this list and fetch JWKS from `{iss}/.well-known/jwks.json`.
-  auth_service_issuer_url = var.enable_auth_service ? "https://${local.public_endpoint.starter_pack}/auth" : ""
+  auth_service_issuer_url = local.enable_auth_service ? "https://${local.public_endpoint.starter_pack}/auth" : ""
 
   # Sanitized list of user-supplied extra trusted issuer URLs. Extras are split
   # on commas, whitespace-trimmed, and empty entries dropped so a trailing
@@ -43,7 +43,7 @@ locals {
   # standalone mode that's just this auth-service; integration deployments
   # add customer-controlled IdPs (Oracle IDCS, Microsoft Entra, etc.) via
   # var.auth_service_extra_trusted_issuers.
-  auth_service_trusted_issuers = var.enable_auth_service ? join(",", concat(
+  auth_service_trusted_issuers = local.enable_auth_service ? join(",", concat(
     [local.auth_service_issuer_url],
     local.auth_service_trusted_issuers_extras_list
   )) : ""
@@ -53,7 +53,7 @@ locals {
   # enable toggle is true. Empty omission is intentional — auth-service treats
   # an absent issuer_url / tenant_id as "provider disabled" without further
   # configuration.
-  auth_service_oidc_env = var.enable_auth_service ? concat(
+  auth_service_oidc_env = local.enable_auth_service ? concat(
     var.enable_oracle_oidc_idcs ? [
       { key = "AUTH_OIDC_ORACLE_IDCS_ISSUER_URL", value = var.auth_oidc_oracle_idcs_issuer_url },
       { key = "AUTH_OIDC_ORACLE_IDCS_CLIENT_ID", value = var.auth_oidc_oracle_idcs_client_id },
@@ -69,7 +69,7 @@ locals {
   # Single auth-service deployment ready to splat into a pack's blueprint.
   # List shape (empty when disabled, single element when enabled) lets callers
   # `concat(existing_deployments, local.auth_service_recipe)` without ternary.
-  auth_service_recipe = var.enable_auth_service ? [{
+  auth_service_recipe = local.enable_auth_service ? [{
     name       = "auth-service"
     exports    = ["service_name"]
     depends_on = []
@@ -99,7 +99,7 @@ locals {
           { key = "AUTH_DATABASE_TYPE", value = "oracle" },
           { key = "AUTH_ORACLE_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
           { key = "AUTH_ORACLE_USER", value = var.db_username },
-          { key = "AUTH_ORACLE_PASSWORD", value = var.db_password },
+          { key = "AUTH_ORACLE_PASSWORD", value = local.db_password },
           { key = "AUTH_AUTO_ADMIN_FIRST_USER", value = "true" },
           # Pack-extensible RBAC selector (per accelerator-pack-auth-service
           # pack_models/). Default in the auth-service is "base"; we
@@ -146,7 +146,7 @@ locals {
   }] : []
 
   # /auth ingress entry to splat into a pack frontend's recipe_additional_ingress_ports.
-  auth_service_ingress_route = var.enable_auth_service ? [
+  auth_service_ingress_route = local.enable_auth_service ? [
     { port_name = "auth", service_name = "$${auth-service.service_name}", port = 8080, path = "/auth", path_type = "Prefix" },
   ] : []
 
@@ -159,7 +159,7 @@ locals {
   # (cuopt-backend). The FQDN form is required: ingress-nginx runs in its own
   # namespace and short service names fail to resolve from there (nginx
   # returns 500 on the auth subrequest).
-  backend_ingress_annotations = var.enable_auth_service ? {
+  backend_ingress_annotations = local.enable_auth_service ? {
     "nginx.ingress.kubernetes.io/auth-url"    = "http://$${auth-service.service_name}.default.svc.cluster.local/auth/me"
     "nginx.ingress.kubernetes.io/auth-method" = "GET"
   } : {}
@@ -177,7 +177,7 @@ locals {
   # fetch. The token's `iss` claim still carries the public issuer URL —
   # only the fetch URL changes. Empty when auth is off.
   # Service port is 80 (corrino maps it to the container's 8080).
-  auth_service_local_jwks_url = var.enable_auth_service ? "http://$${auth-service.service_name}/auth/.well-known/jwks.json" : ""
+  auth_service_local_jwks_url = local.enable_auth_service ? "http://$${auth-service.service_name}/auth/.well-known/jwks.json" : ""
 
   # Env vars for the cuopt backend recipe. Splat into recipe_container_env via
   # concat. The CUOPT_AUTH_TRUSTED_ISSUERS list directs the backend at the
@@ -186,7 +186,7 @@ locals {
   # pack category onto every minted token, so audience scoping is per-pack.
   # CUOPT_AUTH_LOCAL_{ISSUER,JWKS}_URL together short-circuit the public-ingress
   # JWKS fetch when the issuer is this co-located auth-service.
-  cuopt_backend_auth_env = var.enable_auth_service ? [
+  cuopt_backend_auth_env = local.enable_auth_service ? [
     { key = "CUOPT_AUTH_TRUSTED_ISSUERS", value = local.auth_service_trusted_issuers },
     { key = "CUOPT_AUTH_JWKS_CACHE_TTL", value = tostring(var.auth_service_jwks_cache_ttl_seconds) },
     { key = "CUOPT_AUTH_TOKEN_AUDIENCE", value = var.starter_pack_category },

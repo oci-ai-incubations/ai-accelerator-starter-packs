@@ -67,7 +67,7 @@ output "node_pool_id" {
 
 output "node_subnet_id" {
   description = "OCID of the worker node subnet"
-  value       = local.create_network_resources ? oci_core_subnet.oke_nodes_subnet[0].id : var.existing_node_subnet_id
+  value       = local.node_subnet_id
 }
 
 output "node_pool_kubernetes_version" {
@@ -145,7 +145,7 @@ output "connection_instructions" {
 # Kubeconfig Command
 output "kubeconfig_command" {
   description = "Command to generate kubeconfig file"
-  value       = "oci ce cluster create-kubeconfig --cluster-id ${local.effective_cluster_id} --file $HOME/.kube/config --region ${var.region} --token-version 2.0.0"
+  value       = "oci ce cluster create-kubeconfig --cluster-id ${local.effective_cluster_id} --file $HOME/.kube/config --region ${local.region} --token-version 2.0.0"
 }
 
 # Load Balancer IP Address
@@ -163,12 +163,12 @@ output "custom_dns_domain" {
 # Load Balancer Subnet Information
 output "lb_subnet_bp_control_plane_id" {
   description = "ID of the load balancer subnet for blueprints control plane"
-  value       = local.create_network_resources ? oci_core_subnet.oke_lb_subnet[0].id : var.existing_lb_subnet_id
+  value       = local.lb_subnet_id
 }
 
 output "lb_subnet_apps_id" {
   description = "ID of the load balancer subnet for applications"
-  value       = local.create_network_resources ? oci_core_subnet.oke_lb_subnet[0].id : var.existing_lb_subnet_id
+  value       = local.lb_subnet_id
 }
 
 # Deployment Information
@@ -219,7 +219,8 @@ output "corrino_admin_username" {
 
 output "corrino_admin_password" {
   description = "Corrino admin password"
-  value       = var.corrino_admin_password
+  value       = local.corrino_admin_password
+  sensitive   = true
 }
 
 output "corrino_admin_email" {
@@ -261,7 +262,7 @@ output "private_endpoint" {
 
 output "autonomous_db_subnet_id" {
   description = "OCID of the Autonomous Database subnet"
-  value       = local.create_network_resources ? oci_core_subnet.oke_db_subnet[0].id : var.existing_autonomous_db_subnet_id
+  value       = local.autonomous_db_subnet_id
 }
 
 output "db_username" {
@@ -271,18 +272,8 @@ output "db_username" {
 
 output "db_password" {
   description = "Admin password for the Oracle 26ai Autonomous Database"
-  value       = var.db_password
+  value       = local.db_password
   sensitive   = true
-}
-
-output "paas_rag_bucket_id" {
-  description = "OCID of the Object Storage bucket (if created)"
-  value       = local.deploy_application && local._needs_object_storage ? oci_objectstorage_bucket.paas_rag_bucket[0].id : null
-}
-
-output "paas_rag_bucket_name" {
-  description = "Name of the Object Storage bucket (if created)"
-  value       = local.deploy_application && local._needs_object_storage ? oci_objectstorage_bucket.paas_rag_bucket[0].name : null
 }
 
 output "object_storage_namespace" {
@@ -293,17 +284,6 @@ output "object_storage_namespace" {
 output "selected_worker_node_availability_domain" {
   description = "Availability domain selected for worker nodes (for debugging)"
   value       = local.worker_node_availability_domain
-}
-
-# GenAI DAC Outputs (dox_pack)
-output "dac_endpoint_url" {
-  description = "OCI GenAI Dedicated AI Cluster endpoint for the Qwen3-VL model"
-  value       = local.dac_inference_url != "" ? local.dac_inference_url : null
-}
-
-output "dac_cluster_id" {
-  description = "OCID of the GenAI Dedicated AI Cluster"
-  value       = local.needs_dac ? oci_generative_ai_dedicated_ai_cluster.dox_pack_dac[0].id : null
 }
 
 # Version Information
@@ -341,7 +321,7 @@ output "auth_service_curl_example" {
     POST /auth/oauth/token (Client Credentials grant) — register the
     service account first with POST /auth/clients.
   EOT
-  value = var.enable_auth_service && local.deploy_application ? format(
+  value = local.enable_auth_service && local.deploy_application ? format(
     "# 1. Log in and capture the access token:\nTOKEN=$(curl -sk -X POST https://%s/auth/login \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"email\":\"<admin@example.com>\",\"password\":\"<password>\"}' \\\n  | jq -r .access_token)\n\n# 2. Call a protected backend endpoint with the bearer:\ncurl -sk -H \"Authorization: Bearer $TOKEN\" https://%s/api/<endpoint>",
     local.public_endpoint.starter_pack,
     local.public_endpoint.starter_pack,
@@ -349,13 +329,8 @@ output "auth_service_curl_example" {
 }
 
 output "frontend_skin_urls" {
-  description = "Map of enabled frontend skin keys to their URLs. For blueprint packs, one entry per enabled skin. Empty for Helm packs (which use starter_pack_url for their single skin) and for deploy_application=false. ORM renders map keys alphabetically."
-  # The `helm_pack_selected_skin == null` guard is an intentional product choice, NOT
-  # a logic necessity — Helm-pack catalog entries now have subdomains, so the for-
-  # expression would produce a valid 1-entry map without this guard. We keep it empty
-  # because Helm packs expose a single frontend via starter_pack_url; there's no
-  # additional signal to the user from a 1-entry map here. Don't remove.
-  value = local.deploy_application && local.helm_pack_selected_skin == null ? {
+  description = "Map of enabled frontend skin keys to their URLs — one entry per enabled cuopt skin. Empty for deploy_application=false. ORM renders map keys alphabetically."
+  value = local.deploy_application ? {
     for skin in local.enabled_frontend_skins :
     skin.key => "https://${skin.subdomain}.${local.fqdn.name}"
   } : {}
@@ -372,12 +347,8 @@ output "sso_callback_redirect_uris" {
     which would shadow any FE callback under that prefix. Empty when auth-service
     is disabled or the application isn't deployed.
   EOT
-  value = var.enable_auth_service && local.deploy_application ? (
-    local.helm_pack_selected_skin == null ? {
-      for skin in local.enabled_frontend_skins :
-      skin.key => "https://${skin.subdomain}.${local.fqdn.name}/sso/callback/{slug}"
-      } : {
-      starter_pack = "https://${local.public_endpoint.starter_pack}/sso/callback/{slug}"
-    }
-  ) : {}
+  value = local.enable_auth_service && local.deploy_application ? {
+    for skin in local.enabled_frontend_skins :
+    skin.key => "https://${skin.subdomain}.${local.fqdn.name}/sso/callback/{slug}"
+  } : {}
 }

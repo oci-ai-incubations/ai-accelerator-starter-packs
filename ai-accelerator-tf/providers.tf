@@ -3,47 +3,47 @@
 #
 
 provider "oci" {
-  tenancy_ocid = var.tenancy_ocid
-  region       = var.region
-  auth         = var.use_instance_principal ? "InstancePrincipal" : null
+  tenancy_ocid = local.tenancy_ocid
+  region       = local.region
+  auth         = local.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
-  fingerprint      = var.use_instance_principal ? null : var.fingerprint
-  private_key_path = var.use_instance_principal ? null : var.private_key_path
+  user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
+  fingerprint      = local.use_instance_principal ? null : var.fingerprint
+  private_key_path = local.use_instance_principal ? null : var.private_key_path
 }
 
 provider "oci" {
   alias        = "home_region"
-  tenancy_ocid = var.tenancy_ocid
+  tenancy_ocid = local.tenancy_ocid
   region       = data.oci_identity_regions.home_region.regions[0]["name"]
-  auth         = var.use_instance_principal ? "InstancePrincipal" : null
+  auth         = local.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
-  fingerprint      = var.use_instance_principal ? null : var.fingerprint
-  private_key_path = var.use_instance_principal ? null : var.private_key_path
+  user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
+  fingerprint      = local.use_instance_principal ? null : var.fingerprint
+  private_key_path = local.use_instance_principal ? null : var.private_key_path
 }
 
 # tflint-ignore: terraform_unused_declarations
 provider "oci" {
   alias        = "current_region"
-  tenancy_ocid = var.tenancy_ocid
-  region       = var.region
-  auth         = var.use_instance_principal ? "InstancePrincipal" : null
+  tenancy_ocid = local.tenancy_ocid
+  region       = local.region
+  auth         = local.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
-  fingerprint      = var.use_instance_principal ? null : var.fingerprint
-  private_key_path = var.use_instance_principal ? null : var.private_key_path
+  user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
+  fingerprint      = local.use_instance_principal ? null : var.fingerprint
+  private_key_path = local.use_instance_principal ? null : var.private_key_path
 }
 
 provider "oci" {
   alias        = "genai_region"
-  tenancy_ocid = var.tenancy_ocid
+  tenancy_ocid = local.tenancy_ocid
   region       = var.genai_region
-  auth         = var.use_instance_principal ? "InstancePrincipal" : null
+  auth         = local.use_instance_principal ? "InstancePrincipal" : null
 
-  user_ocid        = var.use_instance_principal ? null : var.current_user_ocid
-  fingerprint      = var.use_instance_principal ? null : var.fingerprint
-  private_key_path = var.use_instance_principal ? null : var.private_key_path
+  user_ocid        = local.use_instance_principal ? null : local.current_user_ocid
+  fingerprint      = local.use_instance_principal ? null : var.fingerprint
+  private_key_path = local.use_instance_principal ? null : var.private_key_path
 }
 
 # New configuration to avoid Terraform Kubernetes provider interpolation. https://registry.terraform.io/providers/hashicorp/kubernetes/2.2.0/docs#stacking-with-managed-kubernetes-cluster-resources

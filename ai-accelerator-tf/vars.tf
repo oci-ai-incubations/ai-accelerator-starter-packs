@@ -6,7 +6,7 @@
 variable "use_instance_principal" {
   type        = bool
   default     = false
-  description = "Whether to use Instance Principal for authentication. If false, user credentials will be used."
+  description = "Whether to use Instance Principal for authentication. If false, user credentials will be used. In LiveLabs mode (a LiveLabs VCN is supplied) this is forced on via local.use_instance_principal regardless of this default."
 }
 
 variable "fingerprint" {
@@ -90,18 +90,22 @@ variable "create_policies" {
 # -----------------------------------
 
 variable "corrino_admin_username" {
-  description = "The user name used to login to OCI AI Blueprints"
+  description = "The user name used to login to OCI AI Blueprints. Defaults to 'admin' for LiveLabs."
   type        = string
+  default     = "admin"
 }
 
 variable "corrino_admin_password" {
-  description = "The password used to login to OCI AI Blueprints"
+  description = "The password used to login to OCI AI Blueprints. Leave empty to auto-generate (LiveLabs); see local.corrino_admin_password_effective in livelabs.tf."
   type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "corrino_admin_email" {
-  description = "The email address used to identify the OCI AI Blueprints user"
+  description = "The email address used to identify the OCI AI Blueprints user. Defaults to a workshop placeholder for LiveLabs."
   type        = string
+  default     = "workshop@oracle.com"
 }
 
 variable "share_data_with_corrino_team_enabled" {
@@ -155,7 +159,7 @@ variable "cluster_endpoint_visibility_existing_vcn" {
 
 # Combined local for backward compatibility
 locals {
-  cluster_endpoint_visibility = var.network_configuration_mode == "create_new" ? var.cluster_endpoint_visibility_new_vcn : var.cluster_endpoint_visibility_existing_vcn
+  cluster_endpoint_visibility = local.network_configuration_mode == "create_new" ? var.cluster_endpoint_visibility_new_vcn : var.cluster_endpoint_visibility_existing_vcn
 }
 
 # Deployment mode locals
@@ -247,17 +251,25 @@ variable "apps_endpoint_visibility" {
 }
 
 # OCI Provider
+# Defaults are empty: in LiveLabs these are supplied via the ociTenancyOcid /
+# ociCompartmentOcid / ociRegionIdentifier / ociUserOcid vars and resolved
+# through the precedence locals in livelabs.tf. ORM auto-fills the native names
+# when present; either way the local layer picks the right value.
 variable "tenancy_ocid" {
-  type = string
+  type    = string
+  default = ""
 }
 variable "compartment_ocid" {
-  type = string
+  type    = string
+  default = ""
 }
 variable "region" {
-  type = string
+  type    = string
+  default = ""
 }
 variable "current_user_ocid" {
-  type = string
+  type    = string
+  default = ""
 }
 
 # ORM Schema visual control variables
@@ -384,7 +396,7 @@ variable "ingress_nginx_enabled" {
 variable "enable_auth_service" {
   type        = bool
   default     = false
-  description = "When true, deploy accelerator-pack-auth-service alongside the pack and route /auth/* through the frontend ingress. Per-user JWT auth (RS256). The auth-service pod generates and rotates its own RSA signing keypair; pack backends fetch its JWKS and verify tokens locally."
+  description = "When true, deploy accelerator-pack-auth-service alongside the pack and route /auth/* through the frontend ingress. Per-user JWT auth (RS256). The auth-service pod generates and rotates its own RSA signing keypair; pack backends fetch its JWKS and verify tokens locally. In LiveLabs mode this is forced on via local.enable_auth_service (provisions the 26ai DB that backs the auth-service)."
 }
 
 variable "auth_service_extra_trusted_issuers" {
@@ -605,30 +617,29 @@ variable "fqdn_domain_mode_selector" {
 # -----------------------------------
 
 variable "starter_pack_category" {
-  description = "The starter pack category. Set via starter_pack_category.auto.tfvars"
+  description = "The starter pack category. cuOpt-only build for LiveLabs."
   type        = string
-  # No default here - schema.yaml provides the default for Resource Manager portal
-  # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
+  default     = "cuopt"
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', 'warehouse_pick_path', or 'dox_pack'."
+    condition     = var.starter_pack_category == "cuopt"
+    error_message = "This is a cuOpt-only build. starter_pack_category must be 'cuopt'."
   }
 }
 
 variable "starter_pack_size" {
-  description = "The starter pack size (poc, small, medium, large)"
+  description = "The starter pack size. cuOpt-only build for LiveLabs supports 'poc'."
   type        = string
-  default     = "small"
+  default     = "poc"
   validation {
-    condition     = contains(["poc", "small", "medium", "large"], var.starter_pack_size)
-    error_message = "Starter pack size must be 'poc', 'small', 'medium', or 'large'."
+    condition     = var.starter_pack_size == "poc"
+    error_message = "This is a cuOpt-only build. starter_pack_size must be 'poc'."
   }
 }
 
 variable "skip_capacity_check" {
   description = "Skip the compute capacity pre-validation. Enable this only if you are certain capacity exists or want to bypass the pre-check. Note: Deployment may still fail later if capacity is unavailable."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "worker_node_availability_domain" {
@@ -651,14 +662,6 @@ variable "existing_cluster_id" {
     condition     = var.existing_cluster_id == "" || can(regex("^ocid1\\.cluster\\.", var.existing_cluster_id))
     error_message = "existing_cluster_id must be empty or a valid OKE cluster OCID."
   }
-}
-
-# -----------------------------------
-variable "tavily_api_key" {
-  description = "Tavily API key used by the AIQ Research Assistant for web search integration. Optional; leave empty to disable Tavily-powered search."
-  type        = string
-  default     = ""
-  sensitive   = true
 }
 
 # 26ai Autonomous Database Variables
@@ -704,20 +707,6 @@ variable "db_password" {
   }
 }
 
-variable "aws_access_key_id" {
-  description = "AWS-compatible access key ID for S3-compatible Object Storage. If not provided, one will be generated automatically. Only used for the paas_rag starter pack."
-  type        = string
-  sensitive   = true
-  default     = null
-}
-
-variable "aws_secret_access_key" {
-  description = "AWS-compatible secret access key for S3-compatible Object Storage. If not provided, one will be generated automatically. Only used for the paas_rag starter pack."
-  type        = string
-  sensitive   = true
-  default     = null
-}
-
 variable "db_compute_count" {
   description = "Number of ECPU cores for the database"
   type        = number
@@ -754,23 +743,6 @@ variable "llamastack_region" {
   default     = "us-chicago-1"
 }
 
-variable "dac_model_id" {
-  description = "HuggingFace model ID to import and deploy on the Dedicated AI Cluster (e.g. Qwen/Qwen3-VL-235B-A22B-Instruct)."
-  type        = string
-  default     = "Qwen/Qwen3-VL-235B-A22B-Instruct"
-}
-
-variable "dac_unit_shape" {
-  description = "GPU shape for the Dedicated AI Cluster. Must have sufficient memory for the selected model."
-  type        = string
-  default     = "H100_X8"
-}
-
-variable "dac_billing_acknowledgement" {
-  description = "Acknowledge that the Dedicated AI Cluster will be billed hourly until the stack is destroyed."
-  type        = bool
-  default     = false
-}
 
 variable "google_maps_api_key" {
   description = "Google Maps API key for the cuOpt frontend map visualization"
@@ -830,339 +802,7 @@ locals {
         database_storage_size_in_tbs = 0
         database_compute_count       = 0
       }
-      "small" = {
-        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
-        deployment_name                              = "cuopt"
-        app_namespace                                = "default"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU4.8"
-        worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 4
-          memory        = 32
-        }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
-      }
-      "medium" = {
-        blueprint_file                               = "cuopt-with-marketing-blueprint.json"
-        deployment_name                              = "cuopt"
-        app_namespace                                = "default"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU.A100-v2.8"
-        worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 4
-          memory        = 32
-        }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
-      }
-      # Add "large" here when implemented
     }
-
-    "vss" = {
-      "poc" = {
-        blueprint_file                               = "vss-blueprint.json"
-        deployment_name                              = "vss"
-        app_namespace                                = "default"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "VM.GPU.A10.2"
-        worker_node_pool_size                        = 2
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 16
-          memory        = 260
-        }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
-      }
-      "small" = {
-        blueprint_file                               = "vss-blueprint.json"
-        deployment_name                              = "vss"
-        app_namespace                                = "default"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU4.8"
-        worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "200"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 32
-          memory        = 128
-        }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
-      }
-      "medium" = {
-        blueprint_file                               = "vss-blueprint.json"
-        deployment_name                              = "vss"
-        app_namespace                                = "default"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU.L40S-NC.4"
-        worker_node_pool_size                        = 2
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "200"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 32
-          memory        = 128
-        }
-        database_storage_size_in_tbs = 0
-        database_compute_count       = 0
-      }
-      # Add "large" here when implemented
-    }
-
-    "paas_rag" = {
-      "small" = {
-        blueprint_file                               = "paas-rag-blueprint.json"
-        deployment_name                              = "paas"
-        app_namespace                                = "default"
-        nvaie_enabled                                = false
-        create_ngc_secrets_in_cluster                = false
-        worker_node_shape                            = "none"
-        worker_node_pool_size                        = 0
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "100"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 6
-          memory        = 48
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 12
-          memory        = 96
-        }
-        database_storage_size_in_tbs = 2
-        database_compute_count       = 4
-      }
-
-      "medium" = {
-        blueprint_file                               = "paas-rag-blueprint.json"
-        deployment_name                              = "paas"
-        app_namespace                                = "default"
-        nvaie_enabled                                = false
-        create_ngc_secrets_in_cluster                = false
-        worker_node_shape                            = "none"
-        worker_node_pool_size                        = 0
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "100"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 6
-          memory        = 48
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 12
-          memory        = 96
-        }
-        database_storage_size_in_tbs = 8
-        database_compute_count       = 16
-      }
-      # Add "large" here when implemented
-    }
-
-    "dox_pack" = {
-      "small" = {
-        blueprint_file                               = "dox-pack-blueprint.json"
-        deployment_name                              = "dox-pack"
-        app_namespace                                = "default"
-        nvaie_enabled                                = false
-        create_ngc_secrets_in_cluster                = false
-        worker_node_shape                            = "none"
-        worker_node_pool_size                        = 0
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "100"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 6
-          memory        = 48
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 12
-          memory        = 96
-        }
-        database_storage_size_in_tbs = 2
-        database_compute_count       = 4
-        frontend_url                 = "dox-frontend"
-      }
-    }
-
-    "enterprise_rag" = {
-      "small" = {
-        blueprint_file                               = ""
-        deployment_name                              = "enterprise-rag"
-        app_namespace                                = "rag"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU4.8"
-        worker_node_pool_size                        = 2
-        cpu_worker_node_pool_size                    = 0
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "120"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "none"
-          ocpus         = 0
-          memory        = 0
-        }
-        database_storage_size_in_tbs = 2
-        database_compute_count       = 4
-        frontend_url                 = "frontend-erag" # Not used
-      }
-    }
-
-    "enterprise_rag_aiq" = {
-      "small" = {
-        blueprint_file                               = ""
-        deployment_name                              = "enterprise-rag"
-        app_namespace                                = "rag"
-        aiq_namespace                                = "aiq"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU4.8"
-        worker_node_pool_size                        = 2
-        cpu_worker_node_pool_size                    = 0
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "120"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "none"
-          ocpus         = 0
-          memory        = 0
-        }
-        database_storage_size_in_tbs = 2
-        database_compute_count       = 4
-        frontend_url                 = "aiq"
-      }
-      "medium" = {
-        blueprint_file                               = ""
-        deployment_name                              = "enterprise-rag"
-        app_namespace                                = "rag"
-        aiq_namespace                                = "aiq"
-        nvaie_enabled                                = true
-        create_ngc_secrets_in_cluster                = true
-        worker_node_shape                            = "BM.GPU.A100-v2.8"
-        worker_node_pool_size                        = 2
-        cpu_worker_node_pool_size                    = 0
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "120"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "0"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "none"
-          ocpus         = 0
-          memory        = 0
-        }
-        database_storage_size_in_tbs = 8
-        database_compute_count       = 16
-        frontend_url                 = "aiq"
-      }
-    }
-
-    "warehouse_pick_path" = {
-      "small" = {
-        blueprint_file                               = "warehouse-pick-path-blueprint.json"
-        deployment_name                              = "wpp"
-        app_namespace                                = "default"
-        nvaie_enabled                                = false
-        create_ngc_secrets_in_cluster                = false
-        use_dynamic_url                              = true
-        worker_node_shape                            = "VM.GPU.A10.1"
-        worker_node_pool_size                        = 1
-        cpu_worker_node_pool_size                    = 1
-        control_plane_node_pool_size                 = 2
-        node_pool_boot_volume_size_in_gbs            = "150"
-        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
-        control_plane_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 3
-          memory        = 64
-        }
-        cpu_worker_node_pool_instance_shape = {
-          instanceShape = "VM.Standard.E5.Flex"
-          ocpus         = 8
-          memory        = 64
-        }
-        database_storage_size_in_tbs = 2
-        database_compute_count       = 4
-        api_url                      = "wpp-backend"
-        frontend_url                 = "wpp"
-      }
-    }
-
   }
 
 
@@ -1170,16 +810,15 @@ locals {
   starter_pack_config = local.starter_pack_configs[var.starter_pack_category][var.starter_pack_size]
 
   # Deployment name - unique per blueprint version (random_id changes only when canonical blueprint content changes)
-  # enterprise_rag and enterprise_rag_aiq use Helm (not blueprints), so random_id.blueprint_deploy_id doesn't exist for them
-  starter_pack_deployment_name = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) && local.deploy_application ? (
+  starter_pack_deployment_name = local.deploy_application ? (
     "${local.starter_pack_config.deployment_name}-${random_id.blueprint_deploy_id[0].hex}"
   ) : local.starter_pack_config.deployment_name
 
   # Blueprint content: raw uses placeholder "DEPLOY_NAME"; resolved content uses actual deployment name.
   # Canonical content (DEPLOY_NAME -> config.deployment_name) is hashed to drive job re-runs only when blueprint changes.
   starter_pack_blueprint_raw     = local.starter_pack_blueprints[var.starter_pack_category][var.starter_pack_size]
-  canonical_blueprint_content    = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name) : ""
-  starter_pack_blueprint_content = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name) : local.starter_pack_blueprint_raw
+  canonical_blueprint_content    = replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_config.deployment_name)
+  starter_pack_blueprint_content = replace(local.starter_pack_blueprint_raw, "DEPLOY_NAME", local.starter_pack_deployment_name)
 }
 
 # App Name Locals
@@ -1188,99 +827,62 @@ locals {
 }
 
 # Networking Locals
+# The *_eff subnet/VCN locals (defined in livelabs.tf) resolve to the LiveLabs-
+# injected OCIDs when present, otherwise to the existing_* vars. local.network_configuration_mode
+# (also in livelabs.tf) forces "bring_your_own" when a LiveLabs VCN is supplied.
 locals {
   # Determine which VCN and subnets to use based on configuration mode
   # When using an existing cluster, network resources are not created -- use existing_* vars or null
-  vcn_id = local.use_existing_cluster ? var.existing_vcn_id : (
-    var.network_configuration_mode == "bring_your_own" ? var.existing_vcn_id : oci_core_virtual_network.oke_vcn[0].id
+  vcn_id = local.use_existing_cluster ? local.existing_vcn_id_eff : (
+    local.network_configuration_mode == "bring_your_own" ? local.existing_vcn_id_eff : oci_core_virtual_network.oke_vcn[0].id
   )
 
-  endpoint_subnet_id = local.use_existing_cluster ? var.existing_endpoint_subnet_id : (
-    var.network_configuration_mode == "bring_your_own" ? var.existing_endpoint_subnet_id : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
+  endpoint_subnet_id = local.use_existing_cluster ? local.endpoint_subnet_eff : (
+    local.network_configuration_mode == "bring_your_own" ? local.endpoint_subnet_eff : oci_core_subnet.oke_k8s_endpoint_subnet[0].id
   )
 
-  node_subnet_id = local.use_existing_cluster ? var.existing_node_subnet_id : (
-    var.network_configuration_mode == "bring_your_own" ? var.existing_node_subnet_id : oci_core_subnet.oke_nodes_subnet[0].id
+  node_subnet_id = local.use_existing_cluster ? local.node_subnet_eff : (
+    local.network_configuration_mode == "bring_your_own" ? local.node_subnet_eff : oci_core_subnet.oke_nodes_subnet[0].id
   )
 
-  lb_subnet_id = local.use_existing_cluster ? var.existing_lb_subnet_id : (
-    var.network_configuration_mode == "bring_your_own" ? var.existing_lb_subnet_id : oci_core_subnet.oke_lb_subnet[0].id
+  lb_subnet_id = local.use_existing_cluster ? local.lb_subnet_eff : (
+    local.network_configuration_mode == "bring_your_own" ? local.lb_subnet_eff : oci_core_subnet.oke_lb_subnet[0].id
   )
 
-  autonomous_db_subnet_id = local.use_existing_cluster ? var.existing_autonomous_db_subnet_id : (
-    var.network_configuration_mode == "bring_your_own" ? var.existing_autonomous_db_subnet_id : oci_core_subnet.oke_db_subnet[0].id
+  autonomous_db_subnet_id = local.use_existing_cluster ? local.adb_subnet_eff : (
+    local.network_configuration_mode == "bring_your_own" ? local.adb_subnet_eff : oci_core_subnet.oke_db_subnet[0].id
   )
 
   # Only create new network resources when in create_new mode and creating infrastructure
-  create_network_resources = local.deploy_infrastructure && var.network_configuration_mode == "create_new"
+  create_network_resources = local.deploy_infrastructure && local.network_configuration_mode == "create_new"
 }
 
 # Accelerator specific stuff
 locals {
   # GPU image needed fcuopt, vss, and enterprise_rag categories (GPU workloads)
-  should_import_nvidia_gpu_image = var.starter_pack_category == "cuopt" || var.starter_pack_category == "vss" || var.starter_pack_category == "enterprise_rag" || var.starter_pack_category == "enterprise_rag_aiq" || var.starter_pack_category == "warehouse_pick_path"
-  should_import_amd_gpu_image    = false # if amd starter pack is added, update this
+  should_import_nvidia_gpu_image = true # cuOpt is a GPU pack
+  should_import_amd_gpu_image    = false
 }
 
 locals {
-  # 26ai database needed for paas_rag, enterprise_rag, enterprise_rag_aiq,
-  # warehouse_pick_path, dox_pack, and cuopt (when enable_auth_service=true,
-  # the auth-service backs onto 26ai).
-  # Packs that natively need 26ai for their own workload, plus any pack that
-  # has enable_auth_service=true (auth-service is backed by 26ai). cuopt only
-  # provisions 26ai when auth-service is on.
-  needs_26ai = contains(["paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category) || var.enable_auth_service
+  # cuOpt provisions the 26ai Autonomous Database only when the auth-service is
+  # enabled (the auth-service token store is backed by 26ai). For LiveLabs
+  # enable_auth_service defaults to true, so 26ai is provisioned.
+  needs_26ai = local.enable_auth_service
 }
 
 # ---------------------------------------------------------------------------
-# Frontend Skin Toggles (one per blueprint-pack skin)
+# Frontend Skin Toggles (cuOpt skins only)
 # ---------------------------------------------------------------------------
 
 variable "skin_cuopt_core" {
   type        = bool
-  description = "Enable the 'Vehicle Route Optimizer Frontend (Core App)' skin"
-  default     = true
+  description = "Enable the 'Vehicle Route Optimizer Frontend (Core App)' skin. Off by default for the LiveLabs workshop, which features the partner skin."
+  default     = false
 }
 
 variable "skin_cuopt_partner" {
   type        = bool
-  description = "Enable the 'Oracle Interactive - Route visualization (Partner Contributed)' skin"
-  default     = false
-}
-
-variable "skin_vss_core" {
-  type        = bool
-  description = "Enable the 'Oracle Custom - Enhanced search (Core App)' skin"
+  description = "Enable the 'Oracle Interactive - Route visualization (Partner Contributed)' skin. Featured frontend for the LiveLabs workshop (default on)."
   default     = true
-}
-
-variable "skin_paas_rag_core" {
-  type        = bool
-  description = "Enable the 'Oracle Net - Chat interface (Core App)' skin"
-  default     = true
-}
-
-variable "skin_wpp_core" {
-  type        = bool
-  description = "Enable the 'Warehouse Pick Path Optimizer Frontend (Core App)' skin"
-  default     = true
-}
-
-variable "skin_dox_pack_core" {
-  type        = bool
-  description = "Enable the 'Document Extractor Frontend (Core App)' skin"
-  default     = true
-}
-
-# Helm-pack skin selectors (single-select enum). Empty string resolves to catalog default.
-variable "skin_enterprise_rag" {
-  type        = string
-  description = "Frontend skin for enterprise_rag (single-select). Empty = catalog default."
-  default     = ""
-}
-
-variable "skin_enterprise_rag_aiq" {
-  type        = string
-  description = "Frontend skin for enterprise_rag_aiq (single-select). Empty = catalog default."
-  default     = ""
 }

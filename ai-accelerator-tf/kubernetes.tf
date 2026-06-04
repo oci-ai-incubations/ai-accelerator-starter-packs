@@ -35,7 +35,7 @@ locals {
   # CA certificate and other details from kubeconfig (still needed for authentication)
   cluster_ca_certificate = try(base64decode(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["clusters"][0]["cluster"]["certificate-authority-data"]), "")
   cluster_id             = try(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["users"][0]["user"]["exec"]["args"][4], local.effective_cluster_id)
-  cluster_region         = try(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["users"][0]["user"]["exec"]["args"][6], var.region)
+  cluster_region         = try(yamldecode(data.oci_containerengine_cluster_kube_config.oke.content)["users"][0]["user"]["exec"]["args"][6], local.region)
 }
 
 resource "kubernetes_namespace_v1" "cluster_tools" {
@@ -43,11 +43,4 @@ resource "kubernetes_namespace_v1" "cluster_tools" {
   metadata {
     name = "cluster-tools"
   }
-}
-
-resource "kubernetes_namespace_v1" "milvus" {
-  metadata {
-    name = "milvus"
-  }
-  count = local.deploy_app_vss ? 1 : 0
 }

@@ -17,7 +17,7 @@ resource "oci_core_compute_capacity_report" "gpu_worker_capacity" {
   )
 
   availability_domain = each.value.name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
 
   shape_availabilities {
     instance_shape = local.starter_pack_config.worker_node_shape
@@ -31,7 +31,7 @@ resource "oci_core_compute_capacity_report" "control_plane_capacity" {
   }
 
   availability_domain = each.value.name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
 
   shape_availabilities {
     instance_shape = local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape
@@ -51,7 +51,7 @@ resource "oci_core_compute_capacity_report" "cpu_worker_capacity" {
   )
 
   availability_domain = each.value.name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
 
   shape_availabilities {
     instance_shape = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
@@ -71,7 +71,7 @@ resource "oci_core_compute_capacity_report" "bastion_capacity" {
   )
 
   availability_domain = each.value.name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
 
   shape_availabilities {
     instance_shape = var.bastion_instance_shape.instanceShape
@@ -91,7 +91,7 @@ resource "oci_core_compute_capacity_report" "operator_capacity" {
   )
 
   availability_domain = each.value.name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
 
   shape_availabilities {
     instance_shape = var.operator_instance_shape.instanceShape
@@ -184,7 +184,7 @@ CAPACITY CHECK FAILED
 ============================================================
 
 Starter Pack: ${var.starter_pack_category} (${var.starter_pack_size})
-Region: ${var.region}
+Region: ${local.region}
 Availability Domains Checked: ${length(data.oci_identity_availability_domains.ads.availability_domains)}
 
 Required Capacity Status:
@@ -275,32 +275,32 @@ resource "terraform_data" "capacity_validated" {
     # Validate that the provided AD exists in the region (only if provided)
     precondition {
       condition     = var.worker_node_availability_domain == "" || contains([for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name], var.worker_node_availability_domain)
-      error_message = "The provided worker_node_availability_domain '${var.worker_node_availability_domain}' is not a valid availability domain in region ${var.region}. Valid ADs: ${join(", ", [for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name])}"
+      error_message = "The provided worker_node_availability_domain '${var.worker_node_availability_domain}' is not a valid availability domain in region ${local.region}. Valid ADs: ${join(", ", [for ad in data.oci_identity_availability_domains.ads.availability_domains : ad.name])}"
     }
 
     precondition {
       condition     = var.skip_capacity_check || local.gpu_worker_available
-      error_message = "Insufficient capacity for GPU worker nodes (${local.starter_pack_config.worker_node_shape}) in region ${var.region}.${local.capacity_error_message}"
+      error_message = "Insufficient capacity for GPU worker nodes (${local.starter_pack_config.worker_node_shape}) in region ${local.region}.${local.capacity_error_message}"
     }
 
     precondition {
       condition     = var.skip_capacity_check || local.control_plane_available
-      error_message = "Insufficient capacity for control plane nodes (${local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape}) in region ${var.region}.${local.capacity_error_message}"
+      error_message = "Insufficient capacity for control plane nodes (${local.starter_pack_config.control_plane_node_pool_instance_shape.instanceShape}) in region ${local.region}.${local.capacity_error_message}"
     }
 
     precondition {
       condition     = var.skip_capacity_check || local.cpu_worker_available
-      error_message = "Insufficient capacity for CPU worker nodes (${local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape}) in region ${var.region}.${local.capacity_error_message}"
+      error_message = "Insufficient capacity for CPU worker nodes (${local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape}) in region ${local.region}.${local.capacity_error_message}"
     }
 
     precondition {
       condition     = var.skip_capacity_check || local.bastion_available
-      error_message = "Insufficient capacity for bastion instance (${var.bastion_instance_shape.instanceShape}) in region ${var.region}.${local.capacity_error_message}"
+      error_message = "Insufficient capacity for bastion instance (${var.bastion_instance_shape.instanceShape}) in region ${local.region}.${local.capacity_error_message}"
     }
 
     precondition {
       condition     = var.skip_capacity_check || local.operator_available
-      error_message = "Insufficient capacity for operator instance (${var.operator_instance_shape.instanceShape}) in region ${var.region}.${local.capacity_error_message}"
+      error_message = "Insufficient capacity for operator instance (${var.operator_instance_shape.instanceShape}) in region ${local.region}.${local.capacity_error_message}"
     }
   }
 

@@ -169,15 +169,20 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
             var_name = skin.get("variable_name")
             if not var_name:
                 continue
+            # A skin can be marked `hidden: true` in the catalog to keep its
+            # toggle out of the ORM UI (still selectable via tfvars). Hidden
+            # skins are not added to the Frontend Skins group.
+            skin_visible = not skin.get("hidden", False)
             merged_schema.setdefault("variables", {})[var_name] = {
                 "type": "boolean",
                 "title": skin["key"],
                 "description": f"Enable this frontend skin. <a href='{learn_more_url}'>Learn more</a>",
                 "default": skin.get("default_enabled", False),
                 "required": True,
-                "visible": True,
+                "visible": skin_visible,
             }
-            group_var_names.append(var_name)
+            if skin_visible:
+                group_var_names.append(var_name)
 
     if not group_var_names:
         return  # Nothing to inject (shouldn't happen given the guards above).
@@ -254,7 +259,45 @@ def inject_frontend_skin_url_map_output(merged_schema, skins_data):
         target_group["outputs"] = [o for o in target_group["outputs"] if o != "frontend_skin_image_uri"]
 
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"]
+# cuOpt-only build for LiveLabs.
+CATEGORIES = ["cuopt"]
+
+# The 9 variables LiveLabs injects into the stack. Declared hidden so the ORM
+# form doesn't render them; livelabs.tf resolves them via precedence locals.
+LIVELABS_INJECTED_VARS = {
+    "ociTenancyOcid": "string",
+    "ociUserOcid": "string",
+    "ociCompartmentOcid": "string",
+    "ociUserPassword": "password",
+    "ociRegionIdentifier": "string",
+    "resId": "string",
+    "ociPrivateSubnetOcid": "string",
+    "ociPublicSubnetOcid": "string",
+    "ociVcnOcid": "string",
+}
+
+
+def apply_livelabs_turnkey(final):
+    """Make the schema a turnkey, no-input LiveLabs stack.
+
+    This branch is single-purpose: deploy cuOpt poc + frontend with no operator
+    input. LiveLabs injects the 9 ociXxx variables; every other value is pinned
+    via Terraform defaults and the livelabs.tf precedence locals. So we declare
+    the injected variables (hidden), hide every schema variable, and drop all
+    variable groups — the ORM form becomes a straight review-and-create. Outputs
+    are left intact so the workshop user can retrieve the frontend URL and the
+    auto-generated admin password after apply.
+    """
+    variables = final.setdefault("variables", {})
+    for name, vtype in LIVELABS_INJECTED_VARS.items():
+        variables.setdefault(name, {"type": vtype})
+    for spec in variables.values():
+        if isinstance(spec, dict):
+            spec["visible"] = False
+            # Nothing is operator-required: values come from Terraform defaults,
+            # livelabs.tf locals, or the LiveLabs-injected variables.
+            spec["required"] = False
+    final["variableGroups"] = []
 
 
 def get_args():
@@ -280,6 +323,9 @@ def generate_schema_for_category(common: dict, category: str, schemas_dir: Path,
         learn_more_url = skins_data.get("learn_more_url", "")
         inject_frontend_skin_toggles(final, skins_data, category, learn_more_url)
         inject_frontend_skin_url_map_output(final, skins_data)
+
+    # LiveLabs turnkey: hide all inputs, declare the injected vars, drop groups.
+    apply_livelabs_turnkey(final)
 
     with open(output_path, 'w') as f:
         f.write("# AUTO-GENERATED - Do not edit directly!\n")

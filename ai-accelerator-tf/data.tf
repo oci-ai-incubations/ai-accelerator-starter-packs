@@ -7,7 +7,7 @@ data "oci_core_services" "all_services" {
 }
 
 data "oci_identity_availability_domains" "ads" {
-  compartment_id = var.tenancy_ocid
+  compartment_id = local.tenancy_ocid
 }
 
 data "oci_identity_regions" "home_region" {
@@ -18,12 +18,12 @@ data "oci_identity_regions" "home_region" {
 }
 
 data "oci_identity_tenancy" "tenancy" {
-  tenancy_id = var.tenancy_ocid
+  tenancy_id = local.tenancy_ocid
 }
 
 # Get the latest Oracle Linux image
 data "oci_core_images" "oracle_linux" {
-  compartment_id           = var.compartment_ocid
+  compartment_id           = local.compartment_ocid
   operating_system         = "Oracle Linux"
   operating_system_version = "8"
   shape                    = var.bastion_instance_shape.instanceShape
@@ -39,5 +39,5 @@ data "oci_containerengine_cluster_kube_config" "oke" {
 
 # Get Object Storage namespace
 data "oci_objectstorage_namespace" "ns" {
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
 }

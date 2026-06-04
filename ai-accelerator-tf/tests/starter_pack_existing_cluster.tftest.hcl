@@ -62,7 +62,7 @@ variables {
   corrino_admin_username           = "testadmin"
   corrino_admin_password           = "TestP@ssw0rd123!"
   corrino_admin_email              = "test@example.com"
-  starter_pack_category            = "enterprise_rag"
+  starter_pack_category            = "cuopt"
   worker_node_availability_domain  = "US-ASHBURN-AD-1"
   skip_capacity_check              = true
   existing_cluster_id              = "ocid1.cluster.oc1.us-ashburn-1.testcluster"

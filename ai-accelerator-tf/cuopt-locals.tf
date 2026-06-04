@@ -41,7 +41,7 @@ locals {
   cuopt_backend_recipe = [{
     name       = "cuopt-backend"
     exports    = ["service_name"]
-    depends_on = concat(["cuopt", "llamastack"], var.enable_auth_service ? ["auth-service"] : [])
+    depends_on = concat(["cuopt", "llamastack"], local.enable_auth_service ? ["auth-service"] : [])
     recipe = {
       recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
       recipe_id                             = "cuopt-backend"

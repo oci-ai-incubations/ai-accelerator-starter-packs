@@ -7,49 +7,21 @@ locals {
 
   # Map of skin variable_name → var value. Must stay in sync with vars.tf.
   # Referencing an undeclared var is a plan-time error, which catches mismatches.
+  # cuOpt-only build: just the two cuopt skins.
   skin_enabled_map = {
     "skin_cuopt_core"    = var.skin_cuopt_core
     "skin_cuopt_partner" = var.skin_cuopt_partner
-    "skin_vss_core"      = var.skin_vss_core
-    "skin_paas_rag_core" = var.skin_paas_rag_core
-    "skin_wpp_core"      = var.skin_wpp_core
-    "skin_dox_pack_core" = var.skin_dox_pack_core
   }
 
-  # Helm-pack single-select enum: category → user's skin key choice (empty = catalog default).
-  helm_skin_enum_map = {
-    "enterprise_rag"     = var.skin_enterprise_rag
-    "enterprise_rag_aiq" = var.skin_enterprise_rag_aiq
-  }
+  # Skins the user has enabled for cuOpt, in catalog order (filter by boolean var).
+  enabled_frontend_skins = [
+    for skin in local.category_skins : skin
+    if try(skin.variable_name, "") != ""
+    && lookup(local.skin_enabled_map, try(skin.variable_name, ""), false)
+  ]
 
-  # For Helm packs, resolve the user's enum choice to a catalog entry.
-  # Empty selection OR selection not matching any catalog key → catalog default.
-  # Non-Helm packs → null.
-  helm_pack_selected_skin = (
-    contains(keys(local.helm_skin_enum_map), var.starter_pack_category)
-    ? try(
-      [for s in local.category_skins : s if s.key == local.helm_skin_enum_map[var.starter_pack_category]][0],
-      local._catalog_default_skin
-    )
-    : null
-  )
-
-  # Skins the user has enabled/selected for the current category, in catalog order.
-  # Blueprint packs: filter by boolean var. Helm packs: singleton with user's enum choice.
-  enabled_frontend_skins = (
-    local.helm_pack_selected_skin != null
-    ? [local.helm_pack_selected_skin]
-    : [
-      for skin in local.category_skins : skin
-      if try(skin.variable_name, "") != ""
-      && lookup(local.skin_enabled_map, try(skin.variable_name, ""), false)
-    ]
-  )
-
-  # First enabled skin. For blueprint packs: non-null when deploy_application=true
-  # (the precondition guarantees ≥1 enabled skin). For Helm packs: always non-null,
-  # resolved from the user's enum choice or the catalog default when the choice is
-  # empty or unrecognized.
+  # First enabled skin. Non-null when deploy_application=true (the skin-validation
+  # precondition guarantees ≥1 enabled skin).
   primary_skin = length(local.enabled_frontend_skins) > 0 ? local.enabled_frontend_skins[0] : null
 
   # Catalog's default skin entry, derived from the top-level default: key.

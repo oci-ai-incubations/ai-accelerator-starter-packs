@@ -5,7 +5,7 @@
 # Bastion Instance
 resource "oci_core_instance" "bastion" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
   display_name        = "AI-Accel-Bastion-${random_string.deploy_id.result}"
   shape               = var.bastion_instance_shape.instanceShape
 
@@ -49,7 +49,7 @@ resource "oci_core_instance" "bastion" {
 # Operator Instance
 resource "oci_core_instance" "operator" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-  compartment_id      = var.compartment_ocid
+  compartment_id      = local.compartment_ocid
   display_name        = "AI-Accel-Operator-${random_string.deploy_id.result}"
   shape               = var.operator_instance_shape.instanceShape
 
@@ -80,9 +80,9 @@ resource "oci_core_instance" "operator" {
     ssh_authorized_keys = var.ssh_public_key != "" ? var.ssh_public_key : tls_private_key.oke_ssh_key[0].public_key_openssh
     user_data = base64encode(templatefile("${path.module}/scripts/operator_bootstrap.sh", {
       cluster_id         = local.oke_cluster.id
-      region             = var.region
-      tenancy_ocid       = var.tenancy_ocid
-      compartment_id     = var.compartment_ocid
+      region             = local.region
+      tenancy_ocid       = local.tenancy_ocid
+      compartment_id     = local.compartment_ocid
       auto_configure_oke = local.needs_operator
     }))
   }

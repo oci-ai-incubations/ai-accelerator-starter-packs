@@ -5,7 +5,7 @@
 
 resource "oci_resourcemanager_private_endpoint" "oke" {
   count          = local.create_orm_private_endpoint ? 1 : 0
-  compartment_id = var.compartment_ocid
+  compartment_id = local.compartment_ocid
   display_name   = "AI-Accel-ORM-PE-${random_string.deploy_id.result}"
   vcn_id         = local.vcn_id
   subnet_id      = local.endpoint_subnet_id

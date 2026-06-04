@@ -43,43 +43,6 @@ resource "kubernetes_job_v1" "configure_oke_for_blueprint_deployment_job" {
   count = local.deploy_application && local.starter_pack_config.create_ngc_secrets_in_cluster ? 1 : 0
 }
 
-# Configure OKE secrets in the AIQ namespace (enterprise_rag_aiq only).
-# The main configure_oke job creates secrets in app_namespace ("rag"), but the AIQ
-# helm chart deploys to a separate namespace and needs its own copy of the secrets.
-resource "kubernetes_job_v1" "configure_oke_for_aiq_namespace" {
-  metadata {
-    name = "configure-oke-for-aiq-namespace"
-  }
-  spec {
-    template {
-      metadata {}
-      spec {
-        container {
-          name              = "configure-oke-aiq"
-          image             = local.app.deploy_blueprint_image_uri
-          image_pull_policy = "Always"
-          command           = ["/bin/sh", "-c"]
-          args = [
-            "python3 /app/configure_oke.py -n ${coalesce(local.starter_pack_config.aiq_namespace, "aiq")}"
-          ]
-        }
-      }
-    }
-    backoff_limit              = 0
-    ttl_seconds_after_finished = 3600
-  }
-  wait_for_completion = true
-  timeouts {
-    create = "20m"
-    update = "20m"
-  }
-  depends_on = [
-    kubernetes_deployment_v1.corrino_cp_deployment,
-    kubernetes_namespace_v1.aiq_namespace,
-  ]
-  count = local.deploy_app_rag_aiq ? 1 : 0
-}
-
 # =============================================================================
 # Blueprint lifecycle: Job runs only when canonical blueprint content changes.
 # random_id keepers use a hash of the canonical blueprint so the job is re-run
@@ -93,7 +56,7 @@ resource "random_id" "blueprint_deploy_id" {
   byte_length = 4
 
   keepers = {
-    blueprint_hash = !contains(["enterprise_rag", "enterprise_rag_aiq"], var.starter_pack_category) ? sha256(local.canonical_blueprint_content) : "enterprise_rag"
+    blueprint_hash = sha256(local.canonical_blueprint_content)
     # Manual override knob for forcing a fresh correlation_id when the
     # blueprint content hash hasn't changed but the cluster state has
     # drifted (e.g. zombie Corrino deployments blocking a redeploy). Bump
@@ -259,7 +222,7 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
 
           env {
             name  = "CORRINO_PASSWORD"
-            value = var.corrino_admin_password
+            value = local.corrino_admin_password
           }
 
           env {
@@ -311,8 +274,6 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     kubernetes_job_v1.configure_oke_for_blueprint_deployment_job,
     kubernetes_config_map_v1.blueprint_config_map,
     kubernetes_service_v1.postgres,
-    oci_objectstorage_bucket.paas_rag_bucket,
-    oci_identity_customer_secret_key.aws_compat_access_key,
     null_resource.custom_dns_configuration_warning,
   ]
 }
@@ -326,7 +287,7 @@ resource "terraform_data" "blueprint_undeploy" {
   input = {
     api_url  = local.public_endpoint.api_origin_secure
     username = var.corrino_admin_username
-    password = var.corrino_admin_password
+    password = local.corrino_admin_password
   }
 
   provisioner "local-exec" {
