@@ -141,3 +141,32 @@ Other necessary VCN, public IP, load balancers, and subnets are required.
 |                 | OCI Software                            | OCI AI Blueprints              | Free                               | 1                  |
 
 Other necessary VNET, public IP, load balancers and subnets are required.
+
+## Agent Observability (Langfuse)
+
+### Deployment Sizes & Services Required
+
+Enterprise Langfuse (LLM/agent observability) backed by managed OCI services and an HA ClickHouse cluster. CPU-only OKE cluster — the optional agentic model runs on an OCI GenAI Dedicated AI Cluster (managed GPUs), not on OKE.
+
+| Deployment Size | Component        | Requirements                                  | SKU                            | Specs                          | Quantity |
+| --------------- | ---------------- | --------------------------------------------- | ------------------------------ | ------------------------------ | -------- |
+| **SMALL**       | OCI Core Compute | CPU VM Flex (workers)                         | VM.Standard.E5.Flex            | ocpus=12, memory=96            | 3        |
+|                 |                  | CPU VM Flex (control plane)                   | VM.Standard.E5.Flex            | ocpus=6, memory=48             | 2        |
+|                 | OCI Services     | OCI Database with PostgreSQL (HA)             | PostgreSQL.VM.Standard.E5.Flex | ocpus=2, memory=16, 2 instances | 1        |
+|                 | OCI Services     | OCI Cache (managed Redis, TLS)               | NA                             | 2 nodes, 4 GB                  | 1        |
+|                 | OCI Services     | Object Storage (S3-compatible)               | Consumption based             | events + media buckets        | 1        |
+|                 | OCI Services     | Oracle Kubernetes Engine (OKE)               | NA                             | NA                             | 1        |
+|                 | In-cluster       | ClickHouse (Altinity operator)               | runs on OKE workers            | 1 shard × 2 replicas + 3 keepers, 250 GB PVC | 1 |
+|                 | OCI Services     | OCI GenAI endpoint (optional, agentic model) | Existing OCID or Dedicated AI Cluster | create: H100_X2 (Qwen3.6-35B-A3B) | 0–1 |
+|                 | OCI Software     | OCI AI Blueprints                            | Free                           | 1                              | NA       |
+| **MEDIUM**      | OCI Core Compute | CPU VM Flex (workers)                         | VM.Standard.E5.Flex            | ocpus=16, memory=128           | 4        |
+|                 |                  | CPU VM Flex (control plane)                   | VM.Standard.E5.Flex            | ocpus=8, memory=64             | 3        |
+|                 | OCI Services     | OCI Database with PostgreSQL (HA)             | PostgreSQL.VM.Standard.E5.Flex | ocpus=4, memory=32, 2 instances | 1        |
+|                 | OCI Services     | OCI Cache (managed Redis, TLS)               | NA                             | 2 nodes, 8 GB                  | 1        |
+|                 | OCI Services     | Object Storage (S3-compatible)               | Consumption based             | events + media buckets        | 1        |
+|                 | OCI Services     | Oracle Kubernetes Engine (OKE)               | NA                             | NA                             | 1        |
+|                 | In-cluster       | ClickHouse (Altinity operator)               | runs on OKE workers            | 1 shard × 2 replicas + 3 keepers, 500 GB PVC | 1 |
+|                 | OCI Services     | OCI GenAI endpoint (optional, agentic model) | Existing OCID or Dedicated AI Cluster | create: H100_X2 (Qwen3.6-35B-A3B) | 0–1 |
+|                 | OCI Software     | OCI AI Blueprints                            | Free                           | 1                              | NA       |
+
+Other necessary VNET, public IP, load balancers and subnets are required.
