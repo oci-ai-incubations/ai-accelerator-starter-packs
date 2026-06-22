@@ -314,6 +314,13 @@ resource "kubernetes_job_v1" "blueprint_deployment_job" {
     oci_objectstorage_bucket.paas_rag_bucket,
     oci_identity_customer_secret_key.aws_compat_access_key,
     null_resource.custom_dns_configuration_warning,
+    # agent_observability: the Langfuse blueprint references the langfuse-secrets
+    # k8s secret via recipe_environment_secrets, and Corrino validates that the
+    # secret exists at submission time. The secret is only created once managed
+    # PostgreSQL/Redis endpoints resolve (~15-20 min), so the blueprint job must
+    # wait for it — otherwise Corrino rejects the deployment. No-op for other packs
+    # (the secret has count = 0 unless category == agent_observability).
+    kubernetes_secret_v1.langfuse_secrets,
   ]
 }
 

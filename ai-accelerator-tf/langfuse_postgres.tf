@@ -51,7 +51,11 @@ resource "oci_psql_db_system" "langfuse_pg" {
   compartment_id = var.compartment_ocid
   display_name   = "langfuse-pg-${local.deploy_id}"
   db_version     = "14"
-  shape          = "PostgreSQL.VM.Standard.E4.Flex"
+  # E5.Flex, not E4.Flex: OCI Database with PostgreSQL meters E4 against the
+  # generic `dbsystem-count` limit (often 0 by default), while E5 uses the
+  # `dbsystem-e5-count` limit which has standing quota. E4 fails with
+  # 400-LimitExceeded(dbsystem-count) even when E5 capacity is available.
+  shape = "PostgreSQL.VM.Standard.E5.Flex"
 
   instance_count              = local.agent_obs_size.pg_instance_count
   instance_ocpu_count         = local.agent_obs_size.pg_ocpu_count
