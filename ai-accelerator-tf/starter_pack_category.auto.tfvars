@@ -5,4 +5,4 @@
 # - "paas_rag"       : RAG workloads using OCI PaaS services
 # - "enterprise_rag" : NVIDIA Enterprise RAG (deployed via Helm, not OCI AI Blueprints)
 # - "dox_pack"       : Document Extractor (airline-contract-analysis monorepo)
-starter_pack_category = "cuopt"
+starter_pack_category = "agent_observability"

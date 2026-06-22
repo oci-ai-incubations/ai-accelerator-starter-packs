@@ -86,8 +86,15 @@ locals {
           exports = ["service_name", "internal_dns_name", "service_url"]
           recipe = merge(
             {
-              recipe_id                             = "langfuse-web"
-              deployment_name                       = "langfuse-web"
+              recipe_id = "langfuse-web"
+              # Primary ingress recipe of the group: name it after the pack
+              # deployment_name (DEPLOY_NAME -> "agent-observability-<hex>") so its
+              # Corrino canonical-name STARTS with the pack name. The readiness
+              # check (blueprint-readiness.tf) matches an Ingress recipe key against
+              # (^|-)<deployment_name>-, and canonical-names are truncated to 63
+              # chars — a start-anchored match survives truncation; "langfuse-web-..."
+              # would not. Subdomain/URL stays "langfuse" via service_endpoint_subdomain.
+              deployment_name                       = "DEPLOY_NAME"
               recipe_mode                           = "service"
               recipe_image_uri                      = "docker.io/langfuse/langfuse:3"
               recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
