@@ -1,0 +1,304 @@
+# =============================================================================
+# Agent Observability (Langfuse) - Schema Overrides
+# =============================================================================
+# Enterprise Langfuse observability deployed via Corrino blueprints, backed by
+# managed OCI services (Object Storage, Database with PostgreSQL, Cache/Redis)
+# and in-cluster ClickHouse (Altinity operator). Optional agentic model on an
+# OCI GenAI Dedicated AI Cluster. Config-only OIDC SSO (works with OCI IDCS).
+
+title: "Agent Observability (Langfuse)"
+description: "Enterprise Langfuse LLM/agent observability on OKE with managed OCI Object Storage, OCI Database with PostgreSQL, OCI Cache (Redis), HA ClickHouse, OIDC SSO, and an optional OCI GenAI agentic model endpoint."
+informationalText: |
+  Deploy an enterprise-grade Langfuse stack with:
+  - Langfuse web + worker (Corrino-managed) with deploy-time generated secrets
+  - Managed OCI Object Storage (S3-compatible) for event/media blob storage
+  - Managed OCI Database with PostgreSQL (HA) for the transactional store
+  - Managed OCI Cache (Redis, TLS) for the event queue
+  - HA ClickHouse via the Altinity clickhouse-operator
+  - Config-only OIDC SSO (compatible with OCI IAM Identity Domains / IDCS)
+  - Optional agentic model: bring an existing OCI GenAI endpoint OCID, or create
+    a new Dedicated AI Cluster and import a model from HuggingFace
+
+  ⚠️ SSO NOTE: For OCI IDCS, the identity domain must emit a domain-specific
+  issuer claim that matches its discovery document, and you must register the
+  redirect URI https://<langfuse-host>/api/auth/callback/custom.
+
+  ⚠️ BILLING NOTICE: Selecting GenAI mode "create" provisions an OCI GenAI
+  Dedicated AI Cluster which is billed hourly until the stack is destroyed.
+
+# =============================================================================
+# Output Groups
+# =============================================================================
+outputGroups:
+  - title: "Langfuse Service"
+    outputs:
+      - starter_pack_url
+      - starter_pack_deployment_name
+
+  - title: "Agentic Model (OCI GenAI)"
+    outputs:
+      - agent_obs_endpoint_ocid
+      - agent_obs_inference_url
+
+  - title: "Management & API"
+    outputs:
+      - blueprints_portal_url
+      - corrino_api_url
+      - corrino_admin_username
+      - corrino_admin_password
+
+  - title: "Monitoring"
+    outputs:
+      - grafana_url
+      - prometheus_url
+      - grafana_admin_username
+      - grafana_admin_password
+
+# =============================================================================
+# Variable Groups
+# =============================================================================
+variableGroups:
+  - title: "Basic Hidden"
+    variables:
+      - compartment_ocid
+      - tenancy_ocid
+      - region
+    visible: false
+
+  - title: "Deployment Configuration"
+    variables:
+      - starter_pack_size
+
+  - title: "Administrator Account (also bootstraps the Langfuse admin)"
+    variables:
+      - corrino_admin_username
+      - corrino_admin_password
+      - corrino_admin_email
+
+  - title: "Single Sign-On (OIDC) - optional"
+    variables:
+      - agent_obs_oidc_issuer
+      - agent_obs_oidc_client_id
+      - agent_obs_oidc_client_secret
+      - agent_obs_oidc_name
+
+  - title: "Agentic Model (OCI GenAI)"
+    variables:
+      - agent_obs_genai_mode
+      - agent_obs_existing_endpoint_ocid
+      - genai_region
+      - agent_obs_model_id
+      - agent_obs_unit_shape
+      - agent_obs_hf_token
+      - agent_obs_billing_acknowledgement
+
+  - title: "Object Storage Secrets (optional - auto-generated if blank)"
+    variables:
+      - aws_access_key_id
+      - aws_secret_access_key
+
+  - title: "Hidden - Not Used"
+    variables:
+      - cuopt_frontend_enabled
+      - cuopt_frontend_admin_username
+      - cuopt_frontend_admin_password
+      - google_maps_api_key
+      - ngc_api_key
+      - tavily_api_key
+      - llamastack_region
+      - db_username
+      - db_password
+      - worker_node_availability_domain
+    visible: false
+
+# =============================================================================
+# Variables
+# =============================================================================
+variables:
+  starter_pack_size:
+    type: enum
+    enum:
+      - small
+      - medium
+    title: "Deployment Size"
+    description: "<strong>SMALL</strong> - 3x VM.Standard.E5.Flex workers, PostgreSQL (2 instances), OCI Cache (2 nodes), 1-shard ClickHouse.\n<strong>MEDIUM</strong> - 4x VM.Standard.E5.Flex workers, larger PostgreSQL/Cache, 2-shard replicated ClickHouse."
+    default: small
+    required: true
+
+  agent_obs_genai_mode:
+    type: enum
+    enum:
+      - existing
+      - create
+    title: "Agentic Model Mode"
+    description: "<strong>existing</strong> - reference an existing OCI GenAI endpoint OCID.\n<strong>create</strong> - provision a Dedicated AI Cluster and import the HuggingFace model (billed hourly)."
+    default: existing
+    required: true
+    visible: true
+
+  agent_obs_existing_endpoint_ocid:
+    type: string
+    title: "Existing GenAI Endpoint OCID"
+    description: "OCID of an existing OCI Generative AI endpoint (used when mode = existing)."
+    required: false
+    visible:
+      eq:
+        - agent_obs_genai_mode
+        - existing
+
+  genai_region:
+    type: enum
+    title: "OCI GenAI Region"
+    description: "Region for the OCI GenAI endpoint / Dedicated AI Cluster."
+    default: eu-frankfurt-1
+    enum:
+      - uk-london-1
+      - eu-frankfurt-1
+      - us-chicago-1
+      - us-ashburn-1
+      - me-riyadh-1
+    required: true
+    visible: true
+
+  agent_obs_model_id:
+    type: string
+    title: "HuggingFace Model ID"
+    description: "Model to import when mode = create (e.g. Qwen/Qwen3.6-35B-A3B)."
+    default: "Qwen/Qwen3.6-35B-A3B"
+    required: false
+    visible:
+      eq:
+        - agent_obs_genai_mode
+        - create
+
+  agent_obs_unit_shape:
+    type: enum
+    title: "DAC GPU Shape"
+    description: "GPU shape for the Dedicated AI Cluster (mode = create)."
+    default: "H100_X1"
+    enum:
+      - A100_80G_X1
+      - A100_80G_X2
+      - H100_X1
+      - H100_X2
+      - H100_X4
+      - H100_X8
+      - H200_X1
+      - H200_X2
+    required: false
+    visible:
+      eq:
+        - agent_obs_genai_mode
+        - create
+
+  agent_obs_hf_token:
+    type: password
+    title: "HuggingFace Access Token (for gated models)"
+    description: "Optional. Required only to import gated HuggingFace models when mode = create."
+    required: false
+    visible:
+      eq:
+        - agent_obs_genai_mode
+        - create
+
+  agent_obs_billing_acknowledgement:
+    type: boolean
+    title: "I acknowledge the Dedicated AI Cluster is billed hourly until the stack is destroyed."
+    description: "Required when mode = create. The Dedicated AI Cluster incurs hourly charges."
+    default: false
+    required: false
+    visible:
+      eq:
+        - agent_obs_genai_mode
+        - create
+
+  agent_obs_oidc_issuer:
+    type: string
+    title: "OIDC Issuer / Discovery URL"
+    description: "e.g. https://idcs-<domain-id>.identity.oraclecloud.com . Leave blank to disable SSO (admin bootstrap + signup disabled). For OCI IDCS, enable the domain-specific issuer so the token iss matches the discovery document."
+    required: false
+    visible: true
+
+  agent_obs_oidc_client_id:
+    type: string
+    title: "OIDC Client ID"
+    description: "Confidential application client ID. Required when issuer is set."
+    required: false
+    visible: true
+
+  agent_obs_oidc_client_secret:
+    type: password
+    title: "OIDC Client Secret"
+    description: "Confidential application client secret. Required when issuer is set."
+    required: false
+    visible: true
+
+  agent_obs_oidc_name:
+    type: string
+    title: "SSO Button Label"
+    description: "Display name shown on the Langfuse SSO button."
+    default: "Oracle SSO"
+    required: false
+    visible: true
+
+  aws_access_key_id:
+    type: password
+    title: "Object Storage Access Key ID"
+    description: "S3-compatible access key ID. If blank, one is generated automatically."
+    required: false
+
+  aws_secret_access_key:
+    type: password
+    title: "Object Storage Secret Access Key"
+    description: "S3-compatible secret access key. If blank, one is generated automatically."
+    required: false
+
+  # Hidden - not used by agent_observability but defined in Terraform
+  cuopt_frontend_enabled:
+    type: boolean
+    visible: false
+  cuopt_frontend_admin_username:
+    type: string
+    visible: false
+  cuopt_frontend_admin_password:
+    type: password
+    visible: false
+  google_maps_api_key:
+    type: string
+    visible: false
+  ngc_api_key:
+    type: password
+    visible: false
+  tavily_api_key:
+    type: password
+    visible: false
+  llamastack_region:
+    type: string
+    visible: false
+  db_username:
+    type: string
+    visible: false
+  db_password:
+    type: password
+    visible: false
+  worker_node_availability_domain:
+    type: string
+    visible: false
+
+# =============================================================================
+# Outputs
+# =============================================================================
+outputs:
+  starter_pack_url:
+    type: string
+    title: "Langfuse URL"
+
+  agent_obs_endpoint_ocid:
+    type: string
+    title: "OCI GenAI Endpoint OCID"
+    visible: true
+
+  agent_obs_inference_url:
+    type: string
+    title: "Agentic Model Inference URL"
+    visible: true

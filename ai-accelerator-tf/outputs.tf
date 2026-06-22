@@ -306,6 +306,17 @@ output "dac_cluster_id" {
   value       = local.needs_dac ? oci_generative_ai_dedicated_ai_cluster.dox_pack_dac[0].id : null
 }
 
+# Agent Observability (Langfuse) pack
+output "agent_obs_endpoint_ocid" {
+  description = "OCI GenAI endpoint OCID wired to the agent (created or existing)"
+  value       = local.deploy_app_agent_obs && local.agent_obs_endpoint_ocid != "" ? local.agent_obs_endpoint_ocid : null
+}
+
+output "agent_obs_inference_url" {
+  description = "OpenAI-compatible inference URL for the agentic model"
+  value       = local.agent_obs_inference_url != "" ? local.agent_obs_inference_url : null
+}
+
 # Version Information
 output "ai_accelerator_stack_version" {
   description = "AI Accelerator Starter Packs stack version"

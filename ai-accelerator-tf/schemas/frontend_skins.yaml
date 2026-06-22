@@ -81,3 +81,8 @@ dox_pack:
       subdomain: "dox-frontend"
       variable_name: "skin_dox_pack_core"
       default_enabled: true
+
+# Langfuse provides its own web UI; no separate frontend skin.
+agent_observability:
+  default: ""
+  skins: []

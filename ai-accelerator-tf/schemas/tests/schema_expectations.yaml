@@ -16,6 +16,7 @@ starter_pack_sizes:
   enterprise_rag_aiq: [small, medium]
   warehouse_pick_path: [small]
   dox_pack: [small]
+  agent_observability: [small, medium]
 
 # Outputs that must exist in every schema (referenced in outputGroups)
 required_outputs:
@@ -147,6 +148,33 @@ category_specific:
         required: true
     output_properties:
       starter_pack_url:
+        type: string
+        visible: true
+
+  agent_observability:
+    required_outputs: [agent_obs_endpoint_ocid, agent_obs_inference_url]
+    required_variables: [agent_obs_genai_mode, agent_obs_existing_endpoint_ocid, genai_region, agent_obs_oidc_issuer]
+    variable_properties:
+      agent_obs_genai_mode:
+        type: enum
+        default: existing
+        visible: true
+      genai_region:
+        visible: true
+      agent_obs_oidc_issuer:
+        visible: true
+      db_password:
+        visible: false
+      agent_obs_billing_acknowledgement:
+        type: boolean
+    output_properties:
+      starter_pack_url:
+        type: string
+        visible: true
+      agent_obs_endpoint_ocid:
+        type: string
+        visible: true
+      agent_obs_inference_url:
         type: string
         visible: true
 

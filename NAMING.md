@@ -13,6 +13,7 @@ This document is the single source of truth for starter pack naming. Use it to m
 | `enterprise_rag_aiq` | `enterpriseAgenticAIStarterKit.zip` | Enterprise Agentic AI Starter Kit | Agentic AI Starter Kit | Yes |
 | `warehouse_pick_path` | `warehousePickPathOptimizer.zip` | Warehouse Pick Path Optimizer | Warehouse Pick Path Optimizer | Yes |
 | `dox_pack` | `doxPack.zip` | Document Extractor | Document Extractor | No |
+| `agent_observability` | `agentObservability.zip` | Agent Observability (Langfuse) | Agent Observability | No |
 
 ## Descriptions
 
@@ -25,6 +26,7 @@ This document is the single source of truth for starter pack naming. Use it to m
 | `enterprise_rag_aiq` | Full-stack agentic AI environment on OCI powered by NVIDIA AIQ. Deploys reasoning models, vector DB, observability, application layer, and more in minutes. Customize and extend to build your own agentic workflows. |
 | `warehouse_pick_path` | Capacity-aware pick-path planner for Oracle WMS batches. Ingests warehouse layout + order batch CSVs, runs NVIDIA cuOpt on GPU to balance work across multiple pickers, and returns optimised inbound (putaway) or outbound (shipping) routes through a web UI with CSV export. |
 | `dox_pack` | Contract intelligence stack with OCI GenAI Dedicated AI Cluster (Qwen3-VL-235B), 3-pass extraction pipeline (vision OCR → LLM expansion → validation), RAG chat over extracted data, Oracle 26ai database, and S3-compatible Object Storage. CPU-only OKE cluster; GPU lives in the managed DAC. |
+| `agent_observability` | Enterprise Langfuse LLM/agent observability on OKE backed by managed OCI services: Object Storage (S3-compatible) for blobs, OCI Database with PostgreSQL for the transactional store, OCI Cache (Redis) for the queue, and HA ClickHouse via the Altinity operator. Deploy-time generated secrets, config-only OIDC SSO (works with OCI IDCS), and an optional agentic model on an OCI GenAI Dedicated AI Cluster (Qwen3.6-35B-A3B). |
 
 ## When to Use Which Name
 

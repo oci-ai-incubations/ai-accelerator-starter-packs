@@ -414,6 +414,30 @@ resource "oci_core_security_list" "oke_db_security_list" {
       max = local.https_port
     }
   }
+  # OCI Database with PostgreSQL (agent_observability / Langfuse)
+  ingress_security_rules {
+    description = "Allow PostgreSQL from nodes subnet"
+    source      = var.network_cidrs["NODES-SUBNET-REGIONAL-CIDR"]
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol
+    stateless   = false
+    tcp_options {
+      min = 5432
+      max = 5432
+    }
+  }
+  # OCI Cache (Redis) (agent_observability / Langfuse)
+  ingress_security_rules {
+    description = "Allow Redis from nodes subnet"
+    source      = var.network_cidrs["NODES-SUBNET-REGIONAL-CIDR"]
+    source_type = "CIDR_BLOCK"
+    protocol    = local.tcp_protocol
+    stateless   = false
+    tcp_options {
+      min = 6379
+      max = 6379
+    }
+  }
 
   egress_security_rules {
     description      = "All traffic to internet"

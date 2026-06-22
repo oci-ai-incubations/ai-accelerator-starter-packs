@@ -610,8 +610,8 @@ variable "starter_pack_category" {
   # No default here - schema.yaml provides the default for Resource Manager portal
   # Default is set in schema.yaml per category (paas_rag, cuopt, vss, enterprise_rag)
   validation {
-    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"], var.starter_pack_category)
-    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', 'warehouse_pick_path', or 'dox_pack'."
+    condition     = contains(["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack", "agent_observability"], var.starter_pack_category)
+    error_message = "Starter pack category must be 'cuopt', 'vss', 'paas_rag', 'enterprise_rag', 'enterprise_rag_aiq', 'warehouse_pick_path', 'dox_pack', or 'agent_observability'."
   }
 }
 
@@ -768,6 +768,76 @@ variable "dac_unit_shape" {
 
 variable "dac_billing_acknowledgement" {
   description = "Acknowledge that the Dedicated AI Cluster will be billed hourly until the stack is destroyed."
+  type        = bool
+  default     = false
+}
+
+# -----------------------------------
+# Agent Observability Pack (Langfuse) Variables
+# -----------------------------------
+
+variable "agent_obs_genai_mode" {
+  description = "How the agent_observability pack obtains its agentic model endpoint. 'existing' references an existing OCI Generative AI endpoint OCID (agent_obs_existing_endpoint_ocid). 'create' provisions a new Dedicated AI Cluster, imports dac_model_id from HuggingFace, and creates an endpoint (billed hourly)."
+  type        = string
+  default     = "existing"
+  validation {
+    condition     = contains(["existing", "create"], var.agent_obs_genai_mode)
+    error_message = "agent_obs_genai_mode must be 'existing' or 'create'."
+  }
+}
+
+variable "agent_obs_existing_endpoint_ocid" {
+  description = "OCID of an existing OCI Generative AI endpoint to wire the agent to (used when agent_obs_genai_mode = 'existing'). Defaults to the shared Qwen3.6-35B-A3B endpoint in eu-frankfurt-1."
+  type        = string
+  default     = "ocid1.generativeaiendpoint.oc1.eu-frankfurt-1.amaaaaaam3augwaawcknjbhgmkaibqlfrzqz3jyfdcnre7twh6o5a5mg4xcq"
+}
+
+variable "agent_obs_hf_token" {
+  description = "HuggingFace access token (read) used when agent_obs_genai_mode = 'create' to import gated models. Optional for ungated models."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "agent_obs_oidc_issuer" {
+  description = "OIDC issuer/discovery URL for Langfuse SSO (e.g. https://idcs-<domain-id>.identity.oraclecloud.com). Leave empty to disable SSO (admin bootstrap + signup disabled). The identity domain must emit a domain-specific issuer claim that matches its discovery document."
+  type        = string
+  default     = ""
+}
+
+variable "agent_obs_oidc_client_id" {
+  description = "OIDC client ID for Langfuse SSO. Required when agent_obs_oidc_issuer is set."
+  type        = string
+  default     = ""
+}
+
+variable "agent_obs_oidc_client_secret" {
+  description = "OIDC client secret for Langfuse SSO. Required when agent_obs_oidc_issuer is set."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "agent_obs_oidc_name" {
+  description = "Display name for the Langfuse SSO button (e.g. 'Oracle SSO')."
+  type        = string
+  default     = "Oracle SSO"
+}
+
+variable "agent_obs_model_id" {
+  description = "HuggingFace model ID to import when agent_obs_genai_mode = 'create'."
+  type        = string
+  default     = "Qwen/Qwen3.6-35B-A3B"
+}
+
+variable "agent_obs_unit_shape" {
+  description = "GPU shape for the Dedicated AI Cluster when agent_obs_genai_mode = 'create'."
+  type        = string
+  default     = "H100_X1"
+}
+
+variable "agent_obs_billing_acknowledgement" {
+  description = "Acknowledge the Dedicated AI Cluster will be billed hourly until the stack is destroyed. Required when agent_obs_genai_mode = 'create'."
   type        = bool
   default     = false
 }
@@ -1043,6 +1113,61 @@ locals {
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
         frontend_url                 = "dox-frontend"
+      }
+    }
+
+    "agent_observability" = {
+      "small" = {
+        blueprint_file                               = "agent-observability-blueprint.json"
+        deployment_name                              = "agent-observability"
+        app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
+        worker_node_shape                            = "none"
+        worker_node_pool_size                        = 0
+        cpu_worker_node_pool_size                    = 3
+        control_plane_node_pool_size                 = 2
+        node_pool_boot_volume_size_in_gbs            = "100"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "150"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 6
+          memory        = 48
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 12
+          memory        = 96
+        }
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
+        frontend_url                 = "langfuse"
+      }
+      "medium" = {
+        blueprint_file                               = "agent-observability-blueprint.json"
+        deployment_name                              = "agent-observability"
+        app_namespace                                = "default"
+        nvaie_enabled                                = false
+        create_ngc_secrets_in_cluster                = false
+        worker_node_shape                            = "none"
+        worker_node_pool_size                        = 0
+        cpu_worker_node_pool_size                    = 4
+        control_plane_node_pool_size                 = 3
+        node_pool_boot_volume_size_in_gbs            = "100"
+        cpu_worker_node_pool_boot_volume_size_in_gbs = "200"
+        control_plane_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 8
+          memory        = 64
+        }
+        cpu_worker_node_pool_instance_shape = {
+          instanceShape = "VM.Standard.E5.Flex"
+          ocpus         = 16
+          memory        = 128
+        }
+        database_storage_size_in_tbs = 2
+        database_compute_count       = 4
+        frontend_url                 = "langfuse"
       }
     }
 
