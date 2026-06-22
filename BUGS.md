@@ -2042,3 +2042,56 @@ green; schemas regenerated. **Edge case:** because the toggle is now operator-vi
 deploy that unchecks it will crashloop the cuopt backend (it requires auth, fails closed) —
 disabling auth on cuopt is unsupported; tracked separately if a no-auth cuopt mode is ever
 wanted.
+
+## BUG-040 — agent_observability (Langfuse) integration-test sweep
+
+**Context:** First live OCI Resource Manager integration test of the new
+`agent_observability` pack (Dennis-Compartment, eu-frankfurt-1). The initial apply failed;
+live debugging on the OKE cluster surfaced a chain of issues. All but the last are fixed and
+a clean re-apply went green (Langfuse `/api/public/health` → OK over TLS; HA ClickHouse
+replication verified). Commits: `7bbd36d`, `c757480`.
+
+**Fixed:**
+1. **Blueprint rejected — ordering.** `blueprint-deployment-job` only depended on
+   `corrino-cp`, so it submitted the Langfuse blueprint before `kubernetes_secret_v1.langfuse_secrets`
+   existed (the secret waits on the managed PostgreSQL FQDN, ~15-20 min). Corrino's
+   secret-existence validator rejected every `recipe_environment_secrets` ref → no deployment
+   → no ingress → `wait_for_deployment` timed out. Fix: add `langfuse_secrets` to the job's
+   `depends_on` (`app-blueprint-deployment-job.tf`).
+2. **PSQL shape.** `PostgreSQL.VM.Standard.E4.Flex` meters against `dbsystem-count` (0 by
+   default) → `400-LimitExceeded`. Tenancy quota is on `dbsystem-e5-count` (20). Fix: shape →
+   `E5.Flex` (`langfuse_postgres.tf`).
+3. **ClickHouse operator namespace.** The Altinity operator watches only its own namespace
+   unless it runs in `kube-system`. Installed in `clickhouse-operator`, it silently ignored
+   the CHI/CHK in `clickhouse`. Fix: run the operator in the `clickhouse` namespace
+   (`langfuse_clickhouse.tf`).
+4. **cri-o short-name + dead tags.** OKE cri-o rejects unqualified images. Fully-qualified
+   operator/metrics/server/keeper images with `docker.io/`. `bitnami/kubectl` no longer
+   publishes version tags (Bitnami 2025 catalog change) → use `docker.io/alpine/kubectl:1.35.4`
+   (operator crdHook + the `clickhouse_apply` Job).
+5. **ClickHouse version.** Operator 0.27.1 generates a Keeper config using `use_xid_64`, which
+   ClickHouse 24.8 rejects (`Unknown setting 'use_xid_64'`). Fix: server + keeper → `25.8`.
+6. **Keeper CHK templating.** podTemplate/serviceTemplate must be referenced under
+   `defaults.templates`, else the operator ignores them and uses its short-named `:latest`
+   default. Fix: reference them + pin keeper service to `keeper-langfuse:2181`.
+7. **DAC shape default.** Default model `Qwen/Qwen3.6-35B-A3B` needs `H100_X2` (verified
+   against the reference hosting cluster); default was `H100_X1`. Fix: default → `H100_X2`.
+8. **Blueprint readiness / canonical-name.** `blueprint-readiness.tf` matches an Ingress
+   recipe key against `(^|-)<deployment_name>-`; Corrino canonical-names are
+   `<recipe>-<group>-<uuid>` truncated to 63 chars. With the ingress recipe named
+   `langfuse-web`, the long `agent-observability` got clipped and never matched. Fix: name the
+   primary ingress recipe `DEPLOY_NAME` so the canonical-name STARTS with the pack name
+   (`agent_observability_blueprint.tf`).
+
+**OPEN — teardown:** ORM **destroy** hangs/times out (`context deadline exceeded`). The
+`clickhouse` namespace gets stuck `Terminating` because the CHI/CHK CRs carry operator
+finalizers, and the CRs are applied by a kubectl Job (not Terraform-managed), so TF tears
+down the operator/namespace without first removing the CRs → finalizers never clear.
+**Workaround:** `kubectl patch chi,chk -n clickhouse --type=merge -p '{"metadata":{"finalizers":[]}}'`,
+wait for the namespace to terminate, then re-run destroy. **Proper fix (TODO):** add a
+destroy-time provisioner (à la `terraform_data.blueprint_undeploy`) that deletes the CHI/CHK
+(and strips finalizers) before the operator/namespace are destroyed.
+
+**Affected files:** `langfuse_postgres.tf`, `langfuse_redis.tf`, `langfuse_clickhouse.tf`,
+`agent_observability_blueprint.tf`, `app-blueprint-deployment-job.tf`, `vars.tf`,
+`schemas/agent_observability_schema.yaml`.
