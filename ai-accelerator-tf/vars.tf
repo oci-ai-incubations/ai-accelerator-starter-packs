@@ -831,9 +831,9 @@ variable "agent_obs_model_id" {
 }
 
 variable "agent_obs_unit_shape" {
-  description = "GPU shape for the Dedicated AI Cluster when agent_obs_genai_mode = 'create'."
+  description = "GPU shape for the Dedicated AI Cluster when agent_obs_genai_mode = 'create'. Must fit the model; the default Qwen3.6-35B-A3B requires H100_X2 (verified against the reference hosting cluster)."
   type        = string
-  default     = "H100_X1"
+  default     = "H100_X2"
 }
 
 variable "agent_obs_billing_acknowledgement" {
