@@ -174,8 +174,8 @@ variables:
   agent_obs_unit_shape:
     type: enum
     title: "DAC GPU Shape"
-    description: "GPU shape for the Dedicated AI Cluster (mode = create)."
-    default: "H100_X1"
+    description: "GPU shape for the Dedicated AI Cluster (mode = create). The default Qwen3.6-35B-A3B requires H100_X2."
+    default: "H100_X2"
     enum:
       - A100_80G_X1
       - A100_80G_X2
