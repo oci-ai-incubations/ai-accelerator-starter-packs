@@ -664,6 +664,44 @@ variables:
     default: false
     visible: false
 
+  # Agent Observability (Langfuse) pack — hidden by default; the
+  # agent_observability schema overrides visibility for this category.
+  agent_obs_genai_mode:
+    type: enum
+    enum:
+      - existing
+      - create
+    default: existing
+    visible: false
+  agent_obs_existing_endpoint_ocid:
+    type: string
+    visible: false
+  agent_obs_hf_token:
+    type: password
+    visible: false
+  agent_obs_oidc_issuer:
+    type: string
+    visible: false
+  agent_obs_oidc_client_id:
+    type: string
+    visible: false
+  agent_obs_oidc_client_secret:
+    type: password
+    visible: false
+  agent_obs_oidc_name:
+    type: string
+    visible: false
+  agent_obs_model_id:
+    type: string
+    visible: false
+  agent_obs_unit_shape:
+    type: string
+    visible: false
+  agent_obs_billing_acknowledgement:
+    type: boolean
+    default: false
+    visible: false
+
   # Per-skin boolean fallbacks. create_final_schema.py's inject_frontend_skin_toggles
   # overrides the entry for the current category's skins with visible=true and full
   # metadata; skins for OTHER categories stay hidden via these defaults.

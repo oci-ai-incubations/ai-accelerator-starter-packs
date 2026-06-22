@@ -25,6 +25,10 @@ locals {
     "dox_pack" = {
       "small" = local._dox_pack_small_blueprint
     }
+    "agent_observability" = {
+      "small"  = local._agent_observability_blueprint
+      "medium" = local._agent_observability_blueprint
+    }
     # enterprise_rag is deployed via Helm, not OCI AI Blueprints - no blueprint content needed
     "enterprise_rag" = {
       "small" = ""

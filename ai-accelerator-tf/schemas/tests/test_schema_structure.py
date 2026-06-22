@@ -8,7 +8,7 @@ import jsonschema
 from jsonschema import Draft7Validator, FormatChecker
 
 
-CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack"]
+CATEGORIES = ["cuopt", "vss", "paas_rag", "enterprise_rag", "enterprise_rag_aiq", "warehouse_pick_path", "dox_pack", "agent_observability"]
 DOX_PACK_ONLY_VARIABLES = ("dac_model_id", "dac_unit_shape", "dac_billing_acknowledgement")
 
 
