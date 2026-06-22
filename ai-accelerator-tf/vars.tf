@@ -1139,6 +1139,10 @@ locals {
           ocpus         = 12
           memory        = 96
         }
+        # NOTE: database_storage_size_in_tbs / database_compute_count are NOT used by
+        # agent_observability (these drive the Oracle 26ai/ADB for other packs). This
+        # pack uses managed OCI Database with PostgreSQL + OCI Cache + ClickHouse,
+        # whose sizing lives in local.agent_obs_sizing in langfuse_postgres.tf.
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
         frontend_url                 = "langfuse"
@@ -1165,6 +1169,10 @@ locals {
           ocpus         = 16
           memory        = 128
         }
+        # NOTE: database_storage_size_in_tbs / database_compute_count are NOT used by
+        # agent_observability (these drive the Oracle 26ai/ADB for other packs). This
+        # pack uses managed OCI Database with PostgreSQL + OCI Cache + ClickHouse,
+        # whose sizing lives in local.agent_obs_sizing in langfuse_postgres.tf.
         database_storage_size_in_tbs = 2
         database_compute_count       = 4
         frontend_url                 = "langfuse"

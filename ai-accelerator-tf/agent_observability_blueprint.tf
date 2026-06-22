@@ -92,7 +92,7 @@ locals {
               recipe_image_uri                      = "docker.io/langfuse/langfuse:3"
               recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
               recipe_use_shared_node_pool           = true
-              recipe_replica_count                  = local.agent_obs_size.ch_replicas
+              recipe_replica_count                  = local.agent_obs_size.langfuse_web_replicas
               recipe_flex_shape_ocpu_count          = 2
               recipe_flex_shape_memory_size_in_gbs  = 8
               recipe_container_port                 = "3000"
