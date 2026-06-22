@@ -17,7 +17,12 @@ locals {
   langfuse_clickhouse_host            = "clickhouse-${local.langfuse_ch_chi_name}.${local.langfuse_ch_namespace}.svc.cluster.local"
   langfuse_clickhouse_url             = "http://${local.langfuse_clickhouse_host}:8123"
   langfuse_clickhouse_migration_url   = "clickhouse://${local.langfuse_clickhouse_host}:9000"
-  langfuse_clickhouse_cluster_enabled = local.agent_obs_size.ch_replicas > 1 ? "true" : "false"
+  langfuse_clickhouse_cluster_enabled = local.agent_obs_size.ch_replica_count > 1 ? "true" : "false"
+
+  # ClickHouse server/keeper image. Langfuse requires >= 24.3; the Altinity
+  # operator 0.27.1 is certified up to 25.8. 24.8 is a current LTS within range.
+  langfuse_ch_image        = "clickhouse/clickhouse-server:24.8"
+  langfuse_ch_keeper_image = "clickhouse/clickhouse-keeper:24.8-alpine"
 
   # ClickHouse stores a SHA-256 hex of the password, never the plaintext.
   langfuse_ch_password_sha256 = local.deploy_app_agent_obs ? sha256(random_password.langfuse_clickhouse_password[0].result) : ""
@@ -48,21 +53,22 @@ locals {
         clusters:
           - name: default
             layout:
-              shardsCount: ${local.agent_obs_size.ch_shards}
-              replicasCount: ${local.agent_obs_size.ch_replicas}
+              # Langfuse supports single-shard only; HA comes from replicas.
+              shardsCount: 1
+              replicasCount: ${local.agent_obs_size.ch_replica_count}
       templates:
         podTemplates:
           - name: clickhouse-pod
             spec:
               containers:
                 - name: clickhouse
-                  image: clickhouse/clickhouse-server:24.3
+                  image: ${local.langfuse_ch_image}
                   resources:
                     requests:
-                      cpu: "1"
-                      memory: 4Gi
+                      cpu: "${local.agent_obs_size.ch_cpu_count}"
+                      memory: ${local.agent_obs_size.ch_memory_request_gbs}Gi
                     limits:
-                      memory: 8Gi
+                      memory: ${local.agent_obs_size.ch_memory_limit_gbs}Gi
         volumeClaimTemplates:
           - name: data-volume
             spec:
@@ -71,7 +77,7 @@ locals {
                 - ReadWriteOnce
               resources:
                 requests:
-                  storage: 100Gi
+                  storage: ${local.agent_obs_size.ch_storage_gi}Gi
   YAML
 
   # ClickHouseKeeperInstallation manifest (coordination for replication).
@@ -86,7 +92,7 @@ locals {
         clusters:
           - name: keeper
             layout:
-              replicasCount: ${local.agent_obs_size.ch_replicas > 1 ? 3 : 1}
+              replicasCount: ${local.agent_obs_size.ch_replica_count > 1 ? 3 : 1}
       templates:
         volumeClaimTemplates:
           - name: data-volume
@@ -102,7 +108,7 @@ locals {
             spec:
               containers:
                 - name: clickhouse-keeper
-                  image: clickhouse/clickhouse-keeper:24.3-alpine
+                  image: ${local.langfuse_ch_keeper_image}
   YAML
 }
 
@@ -120,9 +126,9 @@ resource "helm_release" "clickhouse_operator" {
   namespace        = "clickhouse-operator"
   create_namespace = true
 
-  repository = "https://docs.altinity.com/clickhouse-operator/"
+  repository = "https://helm.altinity.com"
   chart      = "altinity-clickhouse-operator"
-  version    = "0.24.5"
+  version    = "0.27.1"
 
   timeout         = 600
   cleanup_on_fail = true

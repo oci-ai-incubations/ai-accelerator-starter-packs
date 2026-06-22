@@ -7,7 +7,10 @@
 # into the Langfuse blueprint via the langfuse-secrets Kubernetes secret.
 
 locals {
-  # Per-size sizing for the managed backing services.
+  # Per-size sizing for the agent_observability managed backing services. Kept
+  # here (not in starter_pack_configs) so the shared pack-config object stays
+  # uniform across all packs. OCI PSQL storage is elastic (no size knob); only
+  # OCPU/memory/instances are set.
   agent_obs_sizing = {
     small = {
       pg_instance_count = 2
@@ -15,17 +18,26 @@ locals {
       pg_memory_gbs     = 16
       redis_node_count  = 2
       redis_memory_gbs  = 4
-      ch_shards         = 1
-      ch_replicas       = 2
+      # Langfuse supports single-shard ClickHouse only; HA = replicas, not shards.
+      ch_replica_count      = 2
+      ch_cpu_count          = 4
+      ch_memory_request_gbs = 16
+      ch_memory_limit_gbs   = 32
+      ch_storage_gi         = 250
+      langfuse_web_replicas = 2
     }
     medium = {
-      pg_instance_count = 2
-      pg_ocpu_count     = 4
-      pg_memory_gbs     = 32
-      redis_node_count  = 2
-      redis_memory_gbs  = 8
-      ch_shards         = 2
-      ch_replicas       = 2
+      pg_instance_count     = 2
+      pg_ocpu_count         = 4
+      pg_memory_gbs         = 32
+      redis_node_count      = 2
+      redis_memory_gbs      = 8
+      ch_replica_count      = 3
+      ch_cpu_count          = 8
+      ch_memory_request_gbs = 32
+      ch_memory_limit_gbs   = 64
+      ch_storage_gi         = 500
+      langfuse_web_replicas = 3
     }
   }
   agent_obs_size = lookup(local.agent_obs_sizing, var.starter_pack_size, local.agent_obs_sizing["small"])
