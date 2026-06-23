@@ -2083,14 +2083,27 @@ replication verified). Commits: `7bbd36d`, `c757480`.
    primary ingress recipe `DEPLOY_NAME` so the canonical-name STARTS with the pack name
    (`agent_observability_blueprint.tf`).
 
-**OPEN — teardown:** ORM **destroy** hangs/times out (`context deadline exceeded`). The
-`clickhouse` namespace gets stuck `Terminating` because the CHI/CHK CRs carry operator
-finalizers, and the CRs are applied by a kubectl Job (not Terraform-managed), so TF tears
-down the operator/namespace without first removing the CRs → finalizers never clear.
-**Workaround:** `kubectl patch chi,chk -n clickhouse --type=merge -p '{"metadata":{"finalizers":[]}}'`,
-wait for the namespace to terminate, then re-run destroy. **Proper fix (TODO):** add a
-destroy-time provisioner (à la `terraform_data.blueprint_undeploy`) that deletes the CHI/CHK
-(and strips finalizers) before the operator/namespace are destroyed.
+**OPEN — teardown (two distinct gaps; destroy needed 4 retries + manual cleanup):**
+
+- **(a) ClickHouse namespace stuck `Terminating`.** The CHI/CHK CRs carry operator
+  finalizers and are applied by a kubectl Job (not Terraform-managed), so TF tears down the
+  operator/namespace without first removing the CRs → finalizers never clear → `context
+  deadline exceeded`. **Workaround:** `kubectl patch chi,chk -n clickhouse --type=merge -p
+  '{"metadata":{"finalizers":[]}}'`, wait for the namespace to terminate, re-run destroy.
+  **Proper fix (TODO):** destroy-time provisioner (à la `terraform_data.blueprint_undeploy`)
+  that deletes the CHI/CHK (and strips finalizers) before the operator/namespace teardown.
+- **(b) Orphaned `redis-security-list` blocks VCN deletion.** The OCI Cache (Redis) service
+  **auto-creates a `redis-security-list` in the VCN** when the cluster is provisioned. It is
+  not Terraform-managed, so on destroy it is orphaned and the VCN delete fails with
+  `409-IncorrectState ... associated with security list that is in use` (OCI refuses to delete
+  a VCN that still has non-default security lists). **Workaround:** after the Redis cluster +
+  subnets are gone, `oci network security-list delete` the leftover `redis-security-list` in
+  the stack's VCN, then re-run destroy. **Proper fix (TODO):** delete the service-created
+  security list as part of teardown (destroy-time provisioner), or attach the Redis cluster to
+  a dedicated subnet/NSG the stack fully controls.
+- **NOT a cause:** the "VCN in use" was NOT the other load balancers in the shared
+  Dennis-Compartment — those `CreatedBy` *other* cluster OCIDs / other VCNs and were correctly
+  left untouched. Only resources in the stack's own VCN were removed.
 
 **Affected files:** `langfuse_postgres.tf`, `langfuse_redis.tf`, `langfuse_clickhouse.tf`,
 `agent_observability_blueprint.tf`, `app-blueprint-deployment-job.tf`, `vars.tf`,
