@@ -11,10 +11,15 @@
 
 locals {
   agent_obs_create_genai = local.deploy_app_agent_obs && var.agent_obs_genai_mode == "create"
-  agent_obs_model_display_name = element(
+  # Last path segment of the HF model id, sanitized for OCI: the imported-model
+  # display_name allows only alphanumerics and hyphens (e.g. "Qwen3.6-35B-A3B"
+  # has a '.' which OCI rejects with 400-InvalidParameter "cannot have special
+  # characters"). Replace any non [a-zA-Z0-9-] with '-'.
+  _agent_obs_model_name_raw = element(
     split("/", var.agent_obs_model_id),
     length(split("/", var.agent_obs_model_id)) - 1,
   )
+  agent_obs_model_display_name = replace(local._agent_obs_model_name_raw, "/[^a-zA-Z0-9-]/", "-")
 }
 
 # create mode: import model from HuggingFace
