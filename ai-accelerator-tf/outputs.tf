@@ -317,6 +317,16 @@ output "agent_obs_inference_url" {
   value       = local.agent_obs_inference_url != "" ? local.agent_obs_inference_url : null
 }
 
+output "langfuse_login_email" {
+  description = "Email to log in to the Langfuse UI (the bootstrapped admin). Intentionally non-sensitive so the stack user can read it."
+  value       = local.deploy_app_agent_obs ? var.corrino_admin_email : null
+}
+
+output "langfuse_login_password" {
+  description = "Password to log in to the Langfuse UI (the bootstrapped admin). Intentionally non-sensitive so the stack user can read it; it reuses the Administrator password."
+  value       = local.deploy_app_agent_obs ? var.corrino_admin_password : null
+}
+
 output "langfuse_project_public_key" {
   description = "Auto-provisioned Langfuse project public API key (LANGFUSE_PUBLIC_KEY for SDKs/agents)"
   value       = local.deploy_app_agent_obs ? local.langfuse_init_public_key : null
