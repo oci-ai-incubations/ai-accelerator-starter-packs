@@ -29,11 +29,17 @@ emits to Langfuse works — the script uses the Langfuse OpenAI drop-in for zero
 |---|---|
 | `LLAMASTACK_BASE_URL` | The LlamaStack ingress, **with `/v1`**: `https://llamastack.<fqdn>/v1`. The `<fqdn>` is the host part of the stack's `starter_pack_url` output (e.g. if `starter_pack_url = langfuse.10-0-0-1.nip.io`, use `https://llamastack.10-0-0-1.nip.io/v1`). |
 | `LANGFUSE_HOST` | `https://` + the stack's **`starter_pack_url`** output (the Langfuse UI URL). |
-| `LANGFUSE_PUBLIC_KEY` | In the Langfuse UI: **Settings → API Keys → Create new API key** → copy the public key (`pk-lf-…`). |
-| `LANGFUSE_SECRET_KEY` | Same dialog → secret key (`sk-lf-…`). Shown once. |
+| `LANGFUSE_PUBLIC_KEY` | **Stack output `langfuse_project_public_key`** (`pk-lf-…`) — auto-provisioned at deploy. (Fallback: Langfuse UI → Settings → API Keys → Create.) |
+| `LANGFUSE_SECRET_KEY` | **Stack output `langfuse_project_secret_key`** (`sk-lf-…`, sensitive). (Fallback: same UI dialog — shown once.) |
 
-> The pack bootstraps an `Agent Observability` project and an admin user (the Administrator
-> email/password you set at deploy). Log in, open that project, and create an API key pair.
+> The pack bootstraps an `Agent Observability` project, an admin user (the Administrator
+> email/password you set at deploy), **and an API key pair** for that project. Read the keys
+> from the stack outputs:
+>
+> ```bash
+> oci resource-manager job get-job-logs-content --job-id <apply-job-ocid> | grep langfuse_project_
+> # or, from a local checkout after apply:  terraform output -raw langfuse_project_secret_key
+> ```
 
 Confirm the DAC model is being served (it should be backed by a `generativeaiendpoint` OCID):
 
