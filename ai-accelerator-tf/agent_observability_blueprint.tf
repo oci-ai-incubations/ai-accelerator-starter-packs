@@ -163,27 +163,39 @@ locals {
           exports    = ["service_name", "internal_dns_name", "service_url"]
           depends_on = ["langfuse-web"]
           recipe = {
-            recipe_id                             = "llamastack"
-            deployment_name                       = "llamastack"
-            recipe_mode                           = "service"
-            recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
-            recipe_node_shape                     = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
-            recipe_use_shared_node_pool           = true
-            recipe_replica_count                  = 1
+            recipe_id = "llamastack"
+            # NOTE: keep this named "llamastack" (not DEPLOY_NAME) so its ingress is
+            # distinct from langfuse-web's; the OpenAI-compatible API is at
+            # https://llamastack.<fqdn>/v1.
+            deployment_name             = "llamastack"
+            recipe_mode                 = "service"
+            recipe_image_uri            = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:pr-d74b10d"
+            recipe_node_shape           = local.starter_pack_config.cpu_worker_node_pool_instance_shape.instanceShape
+            recipe_use_shared_node_pool = true
+            recipe_replica_count        = 1
+            # The image's default entrypoint runs `ogx stack run $RUN_CONFIG_PATH`,
+            # so the config path is provided via env, not command args.
             recipe_flex_shape_ocpu_count          = 1
             recipe_flex_shape_memory_size_in_gbs  = 8
             recipe_container_port                 = "8321"
             service_endpoint_subdomain            = "llamastack"
             recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
-            recipe_container_command_args         = ["/config/config.yaml"]
             recipe_container_env = [
+              # Compartment that hosts the GenAI endpoint the OCI provider enumerates.
+              # In create mode the DAC/endpoint is created here (var.compartment_ocid).
               { key = "OCI_COMPARTMENT_OCID", value = var.compartment_ocid },
               { key = "OCI_REGION", value = var.genai_region },
               { key = "OCI_AUTH_TYPE", value = "instance_principal" },
-              { key = "AGENT_MODEL_ENDPOINT", value = local.agent_obs_inference_url },
+              { key = "SQLITE_STORE_DIR", value = "/tmp/llama" },
+              { key = "RUN_CONFIG_PATH", value = "/config/config.yaml" },
             ]
-            recipe_secret_mounts = [
-              { name = "llamastack-inference-config", mount_location = "/config" },
+            recipe_configmaps = [
+              {
+                name           = "llamastack-config"
+                mount_location = "/config"
+                default_mode   = 420
+                data           = { "config.yaml" = local.agent_obs_llamastack_config }
+              },
             ]
           }
         },
