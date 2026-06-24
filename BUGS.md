@@ -2101,9 +2101,26 @@ replication verified). Commits: `7bbd36d`, `c757480`.
   the stack's VCN, then re-run destroy. **Proper fix (TODO):** delete the service-created
   security list as part of teardown (destroy-time provisioner), or attach the Redis cluster to
   a dedicated subnet/NSG the stack fully controls.
+- **(c) Object Storage bucket not empty blocks destroy.** Langfuse writes events/media into
+  the bucket, which has **versioning enabled**, so `terraform destroy` fails with
+  `409-BucketNotEmpty`. Emptying is multi-part: delete current objects **and** all object
+  **versions/delete-markers** **and** abort any incomplete **multipart uploads** — and do it
+  **after** the Langfuse pods are gone, or they immediately re-populate it (the destroy
+  repeatedly raced live pods still uploading). There are also eventual-consistency lags
+  between deleting versions and the bucket-delete succeeding. **Workaround:** after the OKE
+  cluster is destroyed, `oci os object bulk-delete` + delete all `list-object-versions` items
+  + `oci os multipart abort` for the bucket, then re-run destroy. **Proper fix (TODO):** a
+  destroy-time provisioner that force-empties the bucket (or set the bucket
+  `auto_tiering`/force-delete semantics / disable versioning) before `oci_objectstorage_bucket`
+  is destroyed.
 - **NOT a cause:** the "VCN in use" was NOT the other load balancers in the shared
   Dennis-Compartment — those `CreatedBy` *other* cluster OCIDs / other VCNs and were correctly
   left untouched. Only resources in the stack's own VCN were removed.
+- **Teardown summary:** a clean destroy currently takes manual intervention in this order —
+  (1) delete CHI/CHK CRs (strip finalizers) + force-finalize the `clickhouse` namespace,
+  (2) empty the Object Storage bucket after pods are gone, (3) delete the orphaned
+  `redis-security-list`, then re-run destroy (often 2-4 ORM destroy jobs total). Productionizing
+  the pack should add destroy-time cleanup provisioners for all three.
 
 **Affected files:** `langfuse_postgres.tf`, `langfuse_redis.tf`, `langfuse_clickhouse.tf`,
 `agent_observability_blueprint.tf`, `app-blueprint-deployment-job.tf`, `vars.tf`,
