@@ -33,6 +33,8 @@ outputGroups:
   - title: "Langfuse Service"
     outputs:
       - starter_pack_url
+      - langfuse_login_email
+      - langfuse_login_password
       - starter_pack_deployment_name
 
   - title: "Agentic Model (OCI GenAI)"
@@ -292,6 +294,16 @@ outputs:
   starter_pack_url:
     type: string
     title: "Langfuse URL"
+
+  langfuse_login_email:
+    type: string
+    title: "Langfuse Login Email"
+    visible: true
+
+  langfuse_login_password:
+    type: string
+    title: "Langfuse Login Password"
+    visible: true
 
   agent_obs_endpoint_ocid:
     type: string
