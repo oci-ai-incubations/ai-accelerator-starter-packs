@@ -317,6 +317,17 @@ output "agent_obs_inference_url" {
   value       = local.agent_obs_inference_url != "" ? local.agent_obs_inference_url : null
 }
 
+output "langfuse_project_public_key" {
+  description = "Auto-provisioned Langfuse project public API key (LANGFUSE_PUBLIC_KEY for SDKs/agents)"
+  value       = local.deploy_app_agent_obs ? local.langfuse_init_public_key : null
+}
+
+output "langfuse_project_secret_key" {
+  description = "Auto-provisioned Langfuse project secret API key (LANGFUSE_SECRET_KEY for SDKs/agents)"
+  value       = local.deploy_app_agent_obs ? local.langfuse_init_secret_key : null
+  sensitive   = true
+}
+
 # Version Information
 output "ai_accelerator_stack_version" {
   description = "AI Accelerator Starter Packs stack version"

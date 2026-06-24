@@ -30,6 +30,7 @@ locals {
     [
       { envvar_name = "NEXTAUTH_SECRET", secret_name = local.langfuse_secret_name, secret_key = "NEXTAUTH_SECRET" },
       { envvar_name = "LANGFUSE_INIT_USER_PASSWORD", secret_name = local.langfuse_secret_name, secret_key = "LANGFUSE_INIT_USER_PASSWORD" },
+      { envvar_name = "LANGFUSE_INIT_PROJECT_SECRET_KEY", secret_name = local.langfuse_secret_name, secret_key = "LANGFUSE_INIT_PROJECT_SECRET_KEY" },
     ],
     local._langfuse_oidc_enabled ? [
       { envvar_name = "AUTH_CUSTOM_CLIENT_SECRET", secret_name = local.langfuse_secret_name, secret_key = "AUTH_CUSTOM_CLIENT_SECRET" },
@@ -66,6 +67,7 @@ locals {
       { key = "LANGFUSE_INIT_ORG_NAME", value = "Oracle" },
       { key = "LANGFUSE_INIT_PROJECT_ID", value = "agent-observability" },
       { key = "LANGFUSE_INIT_PROJECT_NAME", value = "Agent Observability" },
+      { key = "LANGFUSE_INIT_PROJECT_PUBLIC_KEY", value = local.langfuse_init_public_key },
       { key = "LANGFUSE_INIT_USER_EMAIL", value = var.corrino_admin_email },
       { key = "LANGFUSE_INIT_USER_NAME", value = var.corrino_admin_username },
     ],
