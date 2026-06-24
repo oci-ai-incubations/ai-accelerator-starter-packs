@@ -20,6 +20,45 @@ locals {
     length(split("/", var.agent_obs_model_id)) - 1,
   )
   agent_obs_model_display_name = replace(local._agent_obs_model_name_raw, "/[^a-zA-Z0-9-]/", "-")
+
+  # Minimal llama-stack config (oci-min): the OCI inference provider lists every
+  # model/endpoint in the compartment — including the dedicated DAC endpoint — so
+  # the imported model shows up in /v1/models. Kept minimal (inference only) to
+  # avoid the vector_io/file_search schema surface. $${...} escapes Terraform
+  # interpolation so the literal ${env....} reaches llama-stack.
+  agent_obs_llamastack_config = <<-YAML
+    version: 2
+    distro_name: oci-min
+    apis:
+    - inference
+    providers:
+      inference:
+      - provider_id: oci
+        provider_type: remote::oci
+        config:
+          oci_auth_type: $${env.OCI_AUTH_TYPE:=instance_principal}
+          oci_region: $${env.OCI_REGION:=us-ashburn-1}
+          oci_compartment_id: $${env.OCI_COMPARTMENT_OCID:=}
+    storage:
+      backends:
+        kv_default:
+          type: kv_sqlite
+          db_path: $${env.SQLITE_STORE_DIR:=/tmp/llama}/kvstore.db
+        sql_default:
+          type: sql_sqlite
+          db_path: $${env.SQLITE_STORE_DIR:=/tmp/llama}/sql_store.db
+      stores:
+        metadata:
+          namespace: registry
+          backend: kv_default
+        inference:
+          table_name: inference_store
+          backend: sql_default
+    registered_resources:
+      models: []
+    server:
+      port: 8321
+  YAML
 }
 
 # create mode: import model from HuggingFace
