@@ -29,6 +29,11 @@ The Agent Observability pack delivers that production posture in one click:
 
 ## Specs, Additional References, and Architecture
 
+> **Deep dive:** For a component-by-component breakdown — deployment footprint, the role of
+> each component, how they wire together, and the separation of concerns (what is managed by
+> OCI vs. the Altinity operator vs. Corrino vs. Terraform) — see
+> [**Advanced Architecture**](./agent_observability/architecture.md).
+
 **Deployment Architecture on OCI**
 
 ```
@@ -119,3 +124,8 @@ After deployment you get:
 - **OCI AI Blueprints Portal** — URL exposed by the stack; manages blueprint lifecycle.
 - **Langfuse UI** (`https://langfuse.<fqdn>`) — sign in with the bootstrapped admin (the Administrator email/password you supplied), or via OIDC SSO if configured. Public sign-up is disabled.
 - **Agentic model inference URL** — an OpenAI-compatible endpoint (via LlamaStack) wired to your OCI GenAI endpoint, ready to instrument with Langfuse.
+
+## Further Reading
+
+- [**Advanced Architecture**](./agent_observability/architecture.md) — deployment footprint, component roles, how everything ties together, and separation of concerns.
+- [**Connect an Agent**](./agent_observability/connect-an-agent.md) — point an agent at the DAC model via LlamaStack and see traces land in Langfuse (includes a runnable local script).
