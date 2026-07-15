@@ -495,9 +495,17 @@ variables:
     type: string
     visible: false
 
+  # ORM requires a map variable's `valueType` to name a (hidden) variable describing the value
+  # type — not a primitive like "string". This shared helper serves the internal map variables
+  # below. Schema-only (not a Terraform variable); never rendered (visible: false). Pointing
+  # valueType at the literal "string" produces "Missing Map ValueType Variable in Schema".
+  map_string_value:
+    type: string
+    visible: false
+
   bastion_instance_shape:
     type: map
-    valueType: string
+    valueType: map_string_value
     visible: false
 
   operator_boot_volume_size_in_gbs:
@@ -506,7 +514,7 @@ variables:
 
   operator_instance_shape:
     type: map
-    valueType: string
+    valueType: map_string_value
     visible: false
 
   ssh_public_key:
@@ -531,7 +539,7 @@ variables:
 
   network_cidrs:
     type: map
-    valueType: string
+    valueType: map_string_value
     visible: false
 
   existing_vcn_id:
@@ -804,7 +812,7 @@ variables:
 
   oci_tag_values:
     type: map
-    valueType: string
+    valueType: map_string_value
     visible: false
 
   genai_region:
