@@ -76,6 +76,10 @@ variableGroups:
       - aws_access_key_id
       - aws_secret_access_key
 
+  - title: "Web Search"
+    variables:
+      - nimbleway_api_key
+
 # =============================================================================
 # Variables - RAG specific
 # =============================================================================
@@ -137,6 +141,14 @@ variables:
     title: "AWS-Compatible Secret Access Key"
     description: "Secret Access Key for S3-compatible Object Storage. If not provided, one will be generated automatically."
     required: false
+
+  # Nimbleway web search — surfaced for paas_rag (hidden in the common base)
+  nimbleway_api_key:
+    type: password
+    title: "Nimbleway API Key"
+    description: "Optional API key for Nimbleway-powered web search (builtin::websearch). Leave blank to disable web search."
+    required: false
+    visible: true
 
 # =============================================================================
 # Outputs - RAG specific titles

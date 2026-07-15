@@ -72,14 +72,14 @@ The cuOpt Frontend is a static-SPA nginx image; /api/* routes through the OKE in
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| LlamaStack | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | ba41068 |
 | Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | v0.0.3 |
 
 ### Managed Enterprise Chat Agent Medium
 
 | Container | Image | Version |
 |-----------|-------|---------|
-| LlamaStack | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | v0.0.3 |
+| LlamaStack | ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci | ba41068 |
 | Frontend | iad.ocir.io/iduyx1qnmway/corrino-devops-repository/oracle-net-frontend | v0.0.3 |
 
 ## Warehouse Pick Path Optimizer
