@@ -2208,3 +2208,29 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml`, `cuopt_schema.yaml`, `vss_schema.yaml`.
 
 **Prevention:** Replace/augment the repo's lenient `meta_schema.yaml` with OCI's strict one (or add a lint step that validates generated schemas against `docs/meta_schema.yaml` with `jsonschema`). The repo copy sets `equality` operands to `[string, number, boolean]` and `additionalProperties: true` on groups — both looser than the live validator, so "passes local tooling" != "valid in the Console". See also BUG-041/042/043 (same "lenient local schema" theme).
+
+---
+
+### BUG-045: map `valueType: string` (primitive) rejected — ORM wants a variable name
+
+**Status:** Fixed  **Date:** 2026-07-15  **Severity:** High (common_schema — affects every pack)
+**Found by:** Dennis, capturing the client-side Console validation log (errors.txt): `{"event":"schema_yaml_error","complexType":"map","variableName":"bastion_instance_shape","category":"missing-map-value-type-variable","reason":"Missing Map ValueType Variable in Schema, string"}`.
+
+**Root cause:** OCI RM treats a map/list variable's `valueType` as the *name of a (hidden) variable* describing the value type, not a primitive type. `bastion_instance_shape`, `operator_instance_shape`, `network_cidrs`, `oci_tag_values` used `valueType: string`, so ORM looked for a variable named "string" and failed. Not caught by the meta-schema (it only checks that `valueType` is a string, not that the referenced variable exists) nor by CLI deploys (which don't validate schema.yaml).
+
+**Fix:** Added a hidden `map_string_value` (type: string, visible: false) helper in common_schema.yaml and repointed all four maps' `valueType` at it. Verified: paas_rag schema.yaml has 0 strict-meta-schema errors and all map valueTypes resolve to defined variables.
+
+**Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml`.
+
+---
+
+### BUG-046: ORM Console validates EVERY schema-YAML in the zip — extra files must be excluded
+
+**Status:** Fixed (packaging)  **Date:** 2026-07-15  **Severity:** High (blocks Console upload for all packs)
+**Found by:** Dennis (errors.txt shows `workingDirectory` = "", "schemas", "schemas/generated", "schemas/tests").
+
+**Root cause:** On stack create/edit, the ORM Console scans the whole zip and validates every schema-shaped YAML it finds in every subdirectory — not just the root `schema.yaml`. Our deploy zip shipped the entire `schemas/` tree (source `*_schema.yaml`, `schemas/generated/*.yaml` reference copies, `schemas/tests/*.yaml`, `meta_schema.yaml`), none of which are valid standalone ORM schemas → `missing-map-value-type-variable` and `unsupported-schema-document` errors. CLI deploys never validate schema.yaml, so this only surfaces on Console upload.
+
+**Fix:** Build the ORM upload zip with ONLY the root `schema.yaml` plus the files Terraform actually reads at runtime. The sole `schemas/` file TF reads is `schemas/frontend_skins.yaml` (via frontend-skins.tf). So: `zip -rq pack.zip . -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' '*__pycache__/*' '*.pytest_cache/*' 'schemas/*'` then re-add `schemas/frontend_skins.yaml` and `starter_pack_category.auto.tfvars`.
+
+**Prevention:** Update `/zip-tf`, `/integration-test`, `/deploy-and-test` to exclude `schemas/*` (except `frontend_skins.yaml`) from the ORM zip. See BUG-041..045 — all masked because the CLI path never validates schema.yaml; only the Console does.
