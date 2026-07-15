@@ -2166,3 +2166,25 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Affected files:** `create_final_schema.py`.
 
 **Prevention:** Add a schema-lint check that flags any variableGroup key outside {title, variables, visible}. More generally, the repo `meta_schema.yaml` is more permissive than the live ORM validator (additionalProperties) — treat "passes local tooling" as necessary but not sufficient for ORM validity.
+
+---
+
+### BUG-043: `visible` on outputGroups + bare condition refs break ORM Console schema validation
+
+**Status:** Fixed
+**Date found:** 2026-07-15
+**Date fixed:** 2026-07-15
+**Found by:** Dennis, uploading paas_rag to OCI Resource Manager (generic "Errors exist in your schema file"; persisted after BUG-041/BUG-042 fixes and could not even Edit the stack)
+**Severity:** High (blocks ORM Console stack create/edit for every pack — the offending constructs live in common_schema.yaml)
+
+**Symptom:** OCI RM Console rejects the schema with no line detail. Passes the repo meta-schema, `pytest schemas/tests/`, schema↔vars.tf checks, and the documented ORM rules.
+
+**Root cause:** `common_schema.yaml` put a `visible` condition on two **outputGroups** — "Auth Service" (added `c998a4d`) and "Bastion Access" (added `fdcdabd`). OCI RM outputGroups support only `title` and `outputs` (the meta-schema declares `visible` on variableGroup but NOT on outputGroup); the live Console validator rejects the extra key. The repo `meta_schema.yaml` uses `additionalProperties: true` on groups, so local validation missed it. Secondary: three `eq` conditions used a **bare** token instead of `${var}` (`enable_auth_service`, `create_bastion` on those outputGroups; `use_custom_dns` on the `fqdn_custom_domain` variable, added `0140269`) — a bare token is a string literal, so the condition is always false. Undetected because the CLI deploy path never validates schema.yaml (only the Console does).
+
+**Fix:** Remove `visible` from both outputGroups (outputs support only a boolean `visible`, not a condition, so per-feature hiding isn't expressible at group level — groups now always render). Fix the `fqdn_custom_domain` reference to `${use_custom_dns}`.
+
+**Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml`.
+
+**Still open (same class, other packs — do not affect paas_rag):** bare `eq` refs remain in `agent_observability` (`agent_obs_*` visibility keyed on `agent_obs_genai_mode`) and the cuopt skin-toggle variableGroup visibility (`skin_cuopt_core`/`skin_cuopt_partner`). These are logic bugs (conditions always false) and should be converted to `${...}`; they will also need attention before those packs are uploaded via the Console.
+
+**Prevention:** Add a schema-lint rule flagging (a) any outputGroup key outside {title, outputs}, and (b) any and/or/eq/ne/gt/ge/lt/le operand that is a non-boolean string not matching `${...}`. The repo meta_schema is a lenient superset of the live ORM validator — passing it is necessary but not sufficient.

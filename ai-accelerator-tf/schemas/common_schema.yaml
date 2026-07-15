@@ -33,14 +33,13 @@ outputGroups:
       - starter_pack_url
       - starter_pack_deployment_name
 
+  # NOTE: OCI Resource Manager outputGroups support only `title` and `outputs`; a `visible`
+  # condition on an outputGroup is rejected by the Console schema validator. (Outputs support
+  # only a boolean `visible`, not a condition, so per-feature hiding is not expressed here.)
   - title: "Auth Service"
     outputs:
       - auth_service_curl_example
       - sso_callback_redirect_uris
-    visible:
-      eq:
-        - enable_auth_service
-        - "true"
 
   - title: "Frontend"
     outputs:
@@ -56,10 +55,6 @@ outputGroups:
       - bastion_private_ssh_key
       - worker_ssh_target_format
       - worker_ssh_via_bastion_command
-    visible:
-      eq:
-        - create_bastion
-        - "true"
 
   - title: "Management & API"
     outputs:
@@ -624,7 +619,7 @@ variables:
     required: true
     visible:
       eq:
-        - use_custom_dns
+        - ${use_custom_dns}
         - "true"
 
   cuopt_frontend_admin_username:
