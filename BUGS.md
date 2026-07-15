@@ -2146,3 +2146,23 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml`.
 
 **Prevention:** Extend schema linting to flag any `type: enum` variable that lacks a non-empty `enum` list (the ORM validator enforces this but `meta_schema.yaml` does not).
+
+---
+
+### BUG-042: `description` on the "Frontend Skins" variableGroup breaks ORM schema validation
+
+**Status:** Fixed
+**Date found:** 2026-07-15
+**Date fixed:** 2026-07-15
+**Found by:** Dennis, uploading paas_rag to OCI Resource Manager ("Errors exist in your schema file", no line detail; persisted after a valid flat-structured zip)
+**Severity:** High (blocks ORM stack create/edit for every pack that defines frontend skins: paas_rag, cuopt, vss, warehouse_pick_path, dox_pack, enterprise_rag, enterprise_rag_aiq)
+
+**Symptom:** OCI RM Console reports "Errors exist in your schema file" for a skinned pack even though the schema passes the repo meta-schema, `pytest schemas/tests/`, schema↔vars.tf type checks, and the documented ORM rules (valid types, enum values, output types, condition refs, no unknown variable keys, no duplicate keys). No line-level error is surfaced in the Console.
+
+**Root cause:** `create_final_schema.py::inject_frontend_skin_toggles` set a `description` key on the injected "Frontend Skins" variableGroup (a code comment noted the Redwood UI doesn't render it but kept it "for parity with the schema spec"). OCI RM variableGroups support only `title`, `variables`, and `visible`; the Console's runtime validator rejects the unknown `description` key. The repo `meta_schema.yaml` allows it (additionalProperties), so local tooling stayed green. Skinless packs (e.g. agent_observability) have no Frontend Skins group and were unaffected, which masked the bug.
+
+**Fix:** Remove the `description` from the injected group and `pop` it defensively. Verified: regen + a scan for variableGroups carrying `description` across `schema.yaml` and all `schemas/generated/*.yaml` returns 0; 146 schema tests pass; full ORM-rules re-validation of `schema.yaml` returns 0 issues.
+
+**Affected files:** `create_final_schema.py`.
+
+**Prevention:** Add a schema-lint check that flags any variableGroup key outside {title, variables, visible}. More generally, the repo `meta_schema.yaml` is more permissive than the live ORM validator (additionalProperties) — treat "passes local tooling" as necessary but not sufficient for ORM validity.
