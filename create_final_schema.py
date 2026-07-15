@@ -184,22 +184,11 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
 
     variable_groups = merged_schema.setdefault("variableGroups", [])
 
-    # Group description explains the selection semantics for the current pack type.
-    # ORM Redwood UI does not render variableGroup descriptions today, but we keep
-    # the field populated for parity with the schema spec.
-    if is_helm_pack:
-        group_description = (
-            "Choose which frontend UI to deploy. Helm-based packs support a single "
-            f"skin at a time. <a href='{learn_more_url}'>Learn more about available skins</a>."
-        )
-    else:
-        group_description = (
-            "Select one or more frontend UIs to deploy. You can enable multiple "
-            "skins simultaneously — each runs as its own container with its own "
-            f"URL. <a href='{learn_more_url}'>Learn more about available skins</a>."
-        )
-
     # Find or create the "Frontend Skins" group.
+    #
+    # NOTE: OCI Resource Manager variableGroups support only `title`, `variables`, and `visible`.
+    # A `description` key is rejected by the ORM schema validator ("Errors exist in your schema
+    # file") — the Redwood UI never rendered group descriptions anyway — so we must NOT set one.
     skin_group = None
     for group in variable_groups:
         if group.get("title") == "Frontend Skins":
@@ -208,7 +197,6 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
     if skin_group is None:
         skin_group = {
             "title": "Frontend Skins",
-            "description": group_description,
             "variables": [],
         }
         # Insert right after "Deployment Configuration" if present, else append.
@@ -218,9 +206,8 @@ def inject_frontend_skin_toggles(merged_schema, skins_data, category, learn_more
                 insert_at = idx + 1
                 break
         variable_groups.insert(insert_at, skin_group)
-    else:
-        # Keep the description fresh if the group already exists.
-        skin_group["description"] = group_description
+    # Defensively strip any description a base schema or older run may have added.
+    skin_group.pop("description", None)
 
     # Populate in catalog order.
     for var_name in group_var_names:
