@@ -43,6 +43,7 @@ Ongoing list of bugs discovered during development and testing. Each entry track
 | Open | BUG-036 | dox_pack contract-backend `LLAMASTACK_URL` env var points to pod port 8321 but llamastack k8s Service exposes port 80 → `httpx.ConnectTimeout` blocks RAG-chat-with-document path; extract path works, only `/api/chat` with `document_ids` 500s | High | 2026-05-08 |
 | Open | BUG-037 | `tests/starter_pack_frontend_skins.tftest.hcl::cuopt_multi_skin` fails — asserts `enabled_frontend_skins[0].container_port == "3000"` but actual is `"80"`. Either the skin ordering changed (partner@80 now at index 0 instead of core@3000) or the cuopt core skin's container_port was updated 3000→80. Pre-existing on `feature/integrate-auth-service` before this session's auth changes; unrelated to auth integration. | Low | 2026-05-14 |
 | Fixed | BUG-039 | cuopt-backend CrashLoopBackOff — auth was off on deploy so no `CUOPT_AUTH_*` env reached the pod; backend image defaults `auth_require_auth=true` + empty trusted-issuers and `_validate_safety()` refuses to boot. Auth was off because `enable_auth_service`'s schema default wasn't reaching the stack (hidden default not injected into stored vars; TF default is `false`). Fixed by making the cuopt + vss schema override a *visible* toggle defaulting `true`, plus setting the var explicitly on existing stacks. | High | 2026-06-04 |
+| Fixed | BUG-041 | `skin_enterprise_rag`/`skin_enterprise_rag_aiq` are `type: enum` with no enum list in `common_schema.yaml`; non-owning packs (paas_rag, cuopt, vss, ...) inherit an empty-enum variable → OCI RM "Errors exist in your schema file". Meta-schema + schema tests pass (they don't require enum values). Fixed by changing the base entries to `type: string`; injection still overwrites them with a full enum for enterprise_rag/aiq. | High | 2026-07-15 |
 
 ---
 
@@ -2125,3 +2126,23 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Affected files:** `langfuse_postgres.tf`, `langfuse_redis.tf`, `langfuse_clickhouse.tf`,
 `agent_observability_blueprint.tf`, `app-blueprint-deployment-job.tf`, `vars.tf`,
 `schemas/agent_observability_schema.yaml`.
+
+---
+
+### BUG-041: `skin_enterprise_rag`/`skin_enterprise_rag_aiq` enum with no values breaks ORM schema for non-owning packs
+
+**Status:** Fixed
+**Date found:** 2026-07-15
+**Date fixed:** 2026-07-15
+**Found by:** Dennis, uploading the paas_rag stack to OCI Resource Manager ("Errors exist in your schema file")
+**Severity:** High (blocks ORM stack create/edit for every pack except enterprise_rag / enterprise_rag_aiq)
+
+**Symptom:** OCI Resource Manager Console reports "Errors exist in your schema file" when creating/editing a paas_rag (or any non-enterprise_rag) stack from the generated `schema.yaml`. The repo's meta-schema validation and `pytest schemas/tests/` both pass, so the bug is invisible to local tooling.
+
+**Root cause:** `common_schema.yaml` declared `skin_enterprise_rag` and `skin_enterprise_rag_aiq` as `type: enum` with **no `enum` list**. `create_final_schema.py::inject_frontend_skin_toggles` only builds the full single-select enum (type + values + visible) for a skin's *owning* Helm pack (enterprise_rag / enterprise_rag_aiq); it fully replaces the variable there. Every other pack inherits the base entry verbatim — an `enum` variable with no values, which the OCI RM schema validator rejects. Draft-7 meta-schema (`meta_schema.yaml`) does not require enum types to carry an `enum` list, so the schema tests miss it.
+
+**Fix:** Change the two base entries in `common_schema.yaml` to `type: string` (matching their `type = string` declaration in `vars.tf`). Non-owning packs now get a valid hidden string field; the injection still overwrites them with the proper `type: enum` + values for the owning packs. Verified: `create_final_schema.py --all` + a scan for enum-without-values across `schema.yaml` and all `schemas/generated/*.yaml` returns 0; enterprise_rag's generated skin dropdown retains its enum values; 146 schema tests pass.
+
+**Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml`.
+
+**Prevention:** Extend schema linting to flag any `type: enum` variable that lacks a non-empty `enum` list (the ORM validator enforces this but `meta_schema.yaml` does not).

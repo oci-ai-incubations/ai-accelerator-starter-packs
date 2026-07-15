@@ -742,12 +742,17 @@ variables:
     default: false
     visible: false
 
+  # Hidden base entries for non-owning packs. create_final_schema.py overwrites these with a
+  # full single-select enum (type: enum + enum list) for enterprise_rag / enterprise_rag_aiq.
+  # In every other pack they stay hidden, so the base type must be a valid ORM type WITHOUT an
+  # empty enum list (an enum with no values is rejected by the ORM schema validator). Matches the
+  # `type = string` declaration in vars.tf.
   skin_enterprise_rag:
-    type: enum
+    type: string
     visible: false
 
   skin_enterprise_rag_aiq:
-    type: enum
+    type: string
     visible: false
 
   nip_io_domain:
