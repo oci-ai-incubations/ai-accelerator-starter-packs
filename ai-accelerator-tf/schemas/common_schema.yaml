@@ -368,6 +368,13 @@ variables:
     required: false
     visible: false
 
+  nimbleway_api_key:
+    type: password
+    title: "Nimbleway API Key"
+    description: "Optional API key for enabling Nimbleway-powered web search. Leave blank to disable."
+    required: false
+    visible: false
+
   # Oracle 26ai Database Credentials
   db_username:
     type: string

@@ -80,6 +80,9 @@ category_specific:
       db_password:
         visible: true
         type: password
+      nimbleway_api_key:
+        visible: true
+        type: password
       skin_paas_rag_core:
         type: boolean
         default: true

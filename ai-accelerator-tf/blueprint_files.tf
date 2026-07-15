@@ -1601,7 +1601,7 @@ locals {
                 recipe_node_pool_size                 = local.starter_pack_config.cpu_worker_node_pool_size
                 recipe_use_shared_node_pool           = true
                 recipe_replica_count                  = 1
-                recipe_image_uri                      = "iad.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:v0.0.3"
+                recipe_image_uri                      = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:ba41068"
                 recipe_container_command_args         = ["/config/config.yaml"]
                 recipe_container_env = [
                   { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
@@ -1617,7 +1617,8 @@ locals {
                   { "key" = "AWS_SECRET_ACCESS_KEY", value = local.aws_compat_access_key_key },
                   { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
                   { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
-                  { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" }
+                  { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" },
+                  { "key" = "NIMBLEWAY_API_KEY", value = var.nimbleway_api_key }
                 ],
                 pvcs = {
                   retain_after_undeploy = false

@@ -661,6 +661,14 @@ variable "tavily_api_key" {
   sensitive   = true
 }
 
+# -----------------------------------
+variable "nimbleway_api_key" {
+  description = "Nimbleway API key used by the paas_rag pack for web search via ogx's Nimble Search provider (builtin::websearch). Optional; leave empty to disable Nimbleway-powered search."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 # 26ai Autonomous Database Variables
 # -----------------------------------
 

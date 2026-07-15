@@ -90,6 +90,12 @@ providers:
     config:
       api_key: ${env.TAVILY_SEARCH_API_KEY:=}
       max_results: 3
+  - provider_id: nimble-search
+    provider_type: remote::nimble-search
+    config:
+      api_key: ${env.NIMBLEWAY_API_KEY:=}
+      max_results: 3
+      search_depth: lite
   - provider_id: rag-runtime
     provider_type: inline::rag-runtime
   - provider_id: model-context-protocol
@@ -138,7 +144,7 @@ registered_resources:
   benchmarks: []
   tool_groups:
   - toolgroup_id: builtin::websearch
-    provider_id: tavily-search
+    provider_id: nimble-search
   - toolgroup_id: builtin::rag
     provider_id: rag-runtime
 server:
