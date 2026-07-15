@@ -174,7 +174,7 @@ variables:
     visible:
       eq:
         - ${enable_auth_service}
-        - true
+        - "true"
 
   enable_oracle_oidc_idcs:
     type: boolean
@@ -185,7 +185,7 @@ variables:
     visible:
       eq:
         - ${enable_auth_service}
-        - true
+        - "true"
 
   auth_oidc_oracle_idcs_issuer_url:
     type: string
@@ -197,10 +197,10 @@ variables:
       and:
         - eq:
             - ${enable_auth_service}
-            - true
+            - "true"
         - eq:
             - ${enable_oracle_oidc_idcs}
-            - true
+            - "true"
 
   auth_oidc_oracle_idcs_client_id:
     type: string
@@ -212,10 +212,10 @@ variables:
       and:
         - eq:
             - ${enable_auth_service}
-            - true
+            - "true"
         - eq:
             - ${enable_oracle_oidc_idcs}
-            - true
+            - "true"
 
   auth_oidc_oracle_idcs_client_secret:
     type: password
@@ -226,10 +226,10 @@ variables:
       and:
         - eq:
             - ${enable_auth_service}
-            - true
+            - "true"
         - eq:
             - ${enable_oracle_oidc_idcs}
-            - true
+            - "true"
 
   enable_microsoft_entra_oidc:
     type: boolean
@@ -240,7 +240,7 @@ variables:
     visible:
       eq:
         - ${enable_auth_service}
-        - true
+        - "true"
 
   auth_oidc_microsoft_entra_tenant_id:
     type: string
@@ -252,10 +252,10 @@ variables:
       and:
         - eq:
             - ${enable_auth_service}
-            - true
+            - "true"
         - eq:
             - ${enable_microsoft_entra_oidc}
-            - true
+            - "true"
 
   auth_oidc_microsoft_entra_client_id:
     type: string
@@ -267,10 +267,10 @@ variables:
       and:
         - eq:
             - ${enable_auth_service}
-            - true
+            - "true"
         - eq:
             - ${enable_microsoft_entra_oidc}
-            - true
+            - "true"
 
   auth_oidc_microsoft_entra_client_secret:
     type: password
@@ -281,10 +281,10 @@ variables:
       and:
         - eq:
             - ${enable_auth_service}
-            - true
+            - "true"
         - eq:
             - ${enable_microsoft_entra_oidc}
-            - true
+            - "true"
 
   # Image versions are pinned in vars.tf and hidden from the UI. A pack ships
   # a fully-versioned stack — operators should not override individual image
