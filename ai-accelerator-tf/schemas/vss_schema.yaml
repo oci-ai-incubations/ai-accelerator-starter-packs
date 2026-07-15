@@ -68,7 +68,7 @@ variableGroups:
     visible:
       eq:
         - ${enable_auth_service}
-        - true
+        - "true"
     variables:
       - db_username
       - db_password
@@ -115,7 +115,7 @@ variables:
     visible:
       eq:
         - ${enable_auth_service}
-        - true
+        - "true"
 
   db_password:
     type: password
@@ -125,7 +125,7 @@ variables:
     visible:
       eq:
         - ${enable_auth_service}
-        - true
+        - "true"
 
   # Hide object storage secret keys
   aws_access_key_id:

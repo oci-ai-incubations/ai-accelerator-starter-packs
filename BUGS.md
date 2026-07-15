@@ -2188,3 +2188,23 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Still open (same class, other packs — do not affect paas_rag):** bare `eq` refs remain in `agent_observability` (`agent_obs_*` visibility keyed on `agent_obs_genai_mode`) and the cuopt skin-toggle variableGroup visibility (`skin_cuopt_core`/`skin_cuopt_partner`). These are logic bugs (conditions always false) and should be converted to `${...}`; they will also need attention before those packs are uploaded via the Console.
 
 **Prevention:** Add a schema-lint rule flagging (a) any outputGroup key outside {title, outputs}, and (b) any and/or/eq/ne/gt/ge/lt/le operand that is a non-boolean string not matching `${...}`. The repo meta_schema is a lenient superset of the live ORM validator — passing it is necessary but not sufficient.
+
+---
+
+### BUG-044: boolean operands in `eq` visibility conditions rejected by ORM meta-schema
+
+**Status:** Fixed
+**Date found:** 2026-07-15
+**Date fixed:** 2026-07-15
+**Found by:** Dennis (provided OCI's strict meta_schema at docs/meta_schema.yaml after Console upload kept failing)
+**Severity:** High (blocks ORM Console stack create/edit for every pack — the constructs are in common_schema.yaml + cuopt/vss overrides)
+
+**Symptom:** Generic "Errors exist in your schema file" in the Console with no line detail, persisting after BUG-041/042/043 fixes. Passed the repo meta-schema and schema tests.
+
+**Root cause:** OCI RM's schema meta-schema defines the `equality` operator's operands as `items: [ {type: [string, number]}, {type: [string, number]} ]` — **boolean is not allowed**. Auth/DB visibility conditions used `eq: [${enable_auth_service}, true]` with a YAML boolean `true`. The repo's `meta_schema.yaml` is a lenient copy whose `equality` allows `[string, number, boolean]`, so local validation passed; and CLI deploys never validate schema.yaml. Only the live Console validator (matching the strict meta-schema) rejected it. Diagnosed by validating the generated `schema.yaml` against the strict `docs/meta_schema.yaml` with jsonschema, which surfaced 12 errors, each `... is not valid under any of the given schemas` → sub-reason `True is not of type 'string', 'number'`.
+
+**Fix:** Quote the operands — `true` -> `"true"` — in every `eq` visibility condition: common_schema.yaml (15), cuopt_schema.yaml (3), vss_schema.yaml (3). Verified: all 8 generated pack schemas (incl. paas_rag) validate with **0 errors** against docs/meta_schema.yaml; 146 schema tests pass.
+
+**Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml`, `cuopt_schema.yaml`, `vss_schema.yaml`.
+
+**Prevention:** Replace/augment the repo's lenient `meta_schema.yaml` with OCI's strict one (or add a lint step that validates generated schemas against `docs/meta_schema.yaml` with `jsonschema`). The repo copy sets `equality` operands to `[string, number, boolean]` and `additionalProperties: true` on groups — both looser than the live validator, so "passes local tooling" != "valid in the Console". See also BUG-041/042/043 (same "lenient local schema" theme).
