@@ -253,13 +253,18 @@ python3 create_final_schema.py -c $0
 
 ### Step 7: Create zip
 
-Uses the same exclusion logic as `/zip-tf` (excludes `.terraform/`, `.terraform.lock.hcl`, sensitive `*.tfvars`, `__pycache__/`, `.pytest_cache/`):
+Same exclusion logic as `/zip-tf`. Build FLAT (schema.yaml + .tf at the zip root)
+and exclude the whole `schemas/` tree except `frontend_skins.yaml` (the only
+schemas/ file Terraform reads at runtime). OCI RM's Console validates every
+schema-shaped YAML in the archive and rejects source/generated/test schemas with
+"Errors exist in your schema file" (see BUGS.md BUG-046). Re-add
+`frontend_skins.yaml` and `starter_pack_category.auto.tfvars` (dropped by `*.tfvars`):
 
 ```bash
 rm -rf ai-accelerator-tf/.terraform ai-accelerator-tf/.terraform.lock.hcl
 cd ai-accelerator-tf && zip -r "${DAT_SANDBOX}/zips/lifecycle.zip" . \
-  -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' '*__pycache__/*' '*.pytest_cache/*'
-zip "${DAT_SANDBOX}/zips/lifecycle.zip" starter_pack_category.auto.tfvars
+  -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' '*__pycache__/*' '*.pytest_cache/*' 'tests/*' 'schemas/*'
+zip "${DAT_SANDBOX}/zips/lifecycle.zip" schemas/frontend_skins.yaml starter_pack_category.auto.tfvars
 ```
 
 ### Step 8: Create ORM stack
