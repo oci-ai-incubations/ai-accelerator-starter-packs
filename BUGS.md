@@ -2249,3 +2249,16 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Affected files:** `ai-accelerator-tf/blueprint_files.tf`, `tests/starter_pack_paas_rag.tftest.hcl`.
 
 **Related (not fixed — out of scope):** `dox_pack` inherits paas_rag's llamastack via `_paas_rag_base_for_dox_pack`, so with auth enabled it now carries the llamastack→auth-service depends_on but does not add `auth_service_recipe` to its own group — dox_pack needs the same wiring (recipe + frontend/backend routes) before it is deployed with auth on. It was already broken for auth-on via the dangling annotation reference.
+
+---
+
+### BUG-048: paas_rag llamastack passes config as command arg; new ogx entrypoint rejects it
+
+**Status:** Fixed  **Date:** 2026-07-16  **Severity:** High (llamastack pod CrashLoop on paas_rag deploy)
+**Found by:** Dennis, pod logs: `ogx: error: unrecognized arguments: /config/config.yaml` (`k logs recipe-llamastack-paas-...`).
+
+**Root cause:** The bumped ogx image `llama-stack-oci:ba41068` runs `ogx stack run $RUN_CONFIG_PATH` as its default entrypoint (config path via env), whereas the old `v0.0.3` image took the config path as a positional CLI arg. The paas_rag llamastack still set `recipe_container_command_args = ["/config/config.yaml"]`, which the new `ogx` argparse rejects.
+
+**Fix:** In `blueprint_files.tf`, remove `recipe_container_command_args` from the paas_rag llamastack and add `{ key = "RUN_CONFIG_PATH", value = "/config/config.yaml" }` to `recipe_container_env` (mirrors `agent_observability_blueprint.tf`, which already runs the new image). dox_pack inherits the paas_rag llamastack so it gets the fix; cuopt/vss stay on `v0.0.3` and keep `command_args`.
+
+**Affected files:** `ai-accelerator-tf/blueprint_files.tf`.

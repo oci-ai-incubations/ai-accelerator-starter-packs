@@ -1609,7 +1609,8 @@ locals {
                 recipe_use_shared_node_pool           = true
                 recipe_replica_count                  = 1
                 recipe_image_uri                      = "ord.ocir.io/iduyx1qnmway/corrino-devops-repository/llama-stack-oci:ba41068"
-                recipe_container_command_args         = ["/config/config.yaml"]
+                # The image's default entrypoint runs `ogx stack run $RUN_CONFIG_PATH`,
+                # so the config path is provided via env (RUN_CONFIG_PATH), not command args.
                 recipe_container_env = [
                   { "key" = "OCI26AI_CONNECTION_STRING", value = local.oracle26ai_high_connection_string },
                   { "key" = "OCI26AI_USER", value = var.db_username },
@@ -1625,7 +1626,8 @@ locals {
                   { "key" = "S3_ENDPOINT_URL", value = "https://${data.oci_objectstorage_namespace.ns.namespace}.compat.objectstorage.${var.region}.oci.customer-oci.com" },
                   { "key" = "AWS_REQUEST_CHECKSUM_CALCULATION", value = "when_required" },
                   { "key" = "AWS_RESPONSE_CHECKSUM_VALIDATION", value = "when_required" },
-                  { "key" = "NIMBLEWAY_API_KEY", value = var.nimbleway_api_key }
+                  { "key" = "NIMBLEWAY_API_KEY", value = var.nimbleway_api_key },
+                  { "key" = "RUN_CONFIG_PATH", value = "/config/config.yaml" }
                 ],
                 pvcs = {
                   retain_after_undeploy = false
