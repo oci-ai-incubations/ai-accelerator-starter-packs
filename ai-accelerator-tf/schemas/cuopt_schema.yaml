@@ -55,8 +55,8 @@ variableGroups:
   - title: "cuOpt Pack Configuration"
     visible:
       or:
-        - skin_cuopt_core
-        - skin_cuopt_partner
+        - ${skin_cuopt_core}
+        - ${skin_cuopt_partner}
     variables:
       - google_maps_api_key
       - cuopt_openweathermap_api_key
