@@ -1,13 +1,18 @@
 version: 2
-distro_name: oci-blueprints
+distro_name: oci
+# Aligned to the ogx `oci` distribution run config (new ogx image). The new ogx
+# dropped the agents/datasetio/eval/safety/scoring APIs, added responses/
+# file_processors/batches, and auto-registers built-in tool groups from the
+# configured tool_runtime providers (explicit registered_resources.tool_groups is
+# deprecated). paas_rag specifics vs the distro default: OCI 26ai vector_io only,
+# S3 files, Nimble Search as the sole web-search provider (so builtin::websearch
+# resolves to it), and the vector_stores RAG-formatting tuning block below.
 apis:
-- agents
-- datasetio
-- eval
+- batches
+- file_processors
 - files
 - inference
-- safety
-- scoring
+- responses
 - tool_runtime
 - vector_io
 providers:
@@ -30,78 +35,31 @@ providers:
       vector_datatype: "${env.OCI26AI_VECTOR_DATATYPE:=FLOAT32}"
       distance_metric: "${env.OCI26AI_DISTANCE_METRIC:=COSINE}"
       persistence:
-        namespace: vector_id::oci26ai
+        namespace: vector_io::oci26ai
         backend: kv_default
-  # safety:
-  # - provider_id: llama-guard
-  #   provider_type: inline::llama-guard
-  #   config:
-  #     excluded_categories: []
-  agents:
-  - provider_id: meta-reference
-    provider_type: inline::meta-reference
+  responses:
+  - provider_id: builtin
+    provider_type: inline::builtin
     config:
       persistence:
-        agent_state:
-          namespace: agents
-          backend: kv_default
         responses:
           table_name: responses
           backend: sql_default
           max_write_queue_size: 10000
           num_writers: 4
-  eval:
-  - provider_id: meta-reference
-    provider_type: inline::meta-reference
-    config:
-      kvstore:
-        namespace: eval
-        backend: kv_default
-  datasetio:
-  - provider_id: huggingface
-    provider_type: remote::huggingface
-    config:
-      kvstore:
-        namespace: datasetio::huggingface
-        backend: kv_default
-  - provider_id: localfs
-    provider_type: inline::localfs
-    config:
-      kvstore:
-        namespace: datasetio::localfs
-        backend: kv_default
-  scoring:
-  - provider_id: basic
-    provider_type: inline::basic
-  - provider_id: llm-as-judge
-    provider_type: inline::llm-as-judge
-  - provider_id: braintrust
-    provider_type: inline::braintrust
-    config:
-      openai_api_key: ${env.OPENAI_API_KEY:=}
   tool_runtime:
-  - provider_id: brave-search
-    provider_type: remote::brave-search
-    config:
-      api_key: ${env.BRAVE_SEARCH_API_KEY:=}
-      max_results: 3
-  - provider_id: tavily-search
-    provider_type: remote::tavily-search
-    config:
-      api_key: ${env.TAVILY_SEARCH_API_KEY:=}
-      max_results: 3
   - provider_id: nimble-search
     provider_type: remote::nimble-search
     config:
       api_key: ${env.NIMBLEWAY_API_KEY:=}
       max_results: 3
       search_depth: lite
-  - provider_id: rag-runtime
-    provider_type: inline::rag-runtime
+  - provider_id: file-search
+    provider_type: inline::file-search
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
   files:
-  - provider_id: oci
+  - provider_id: s3-files
     provider_type: remote::s3
     config:
       bucket_name: "${env.S3_BUCKET_NAME}"
@@ -109,8 +67,33 @@ providers:
       aws_access_key_id: "${env.AWS_ACCESS_KEY_ID:=}"
       aws_secret_access_key: "${env.AWS_SECRET_ACCESS_KEY:=}"
       endpoint_url: "${env.S3_ENDPOINT_URL:=}"
+      auto_create_bucket: ${env.S3_AUTO_CREATE_BUCKET:=false}
       metadata_store:
-        table_name: files_metadata
+        table_name: s3_files_metadata
+        backend: sql_default
+  file_processors:
+  - provider_id: auto
+    provider_type: inline::auto
+  - provider_id: docling
+    provider_type: inline::docling
+    config:
+      default_chunk_size_tokens: 800
+      default_chunk_overlap_tokens: 400
+      extract_images: true
+      images_scale: 2.0
+      min_image_dim_px: 64
+      caption_images: false
+      caption_model: null
+      caption_max_tokens: 180
+      do_ocr: true
+      vlm_model: null
+      vlm_preset: granite_docling
+  batches:
+  - provider_id: reference
+    provider_type: inline::reference
+    config:
+      sqlstore:
+        table_name: batches
         backend: sql_default
 storage:
   backends:
@@ -133,22 +116,14 @@ storage:
       table_name: openai_conversations
       backend: sql_default
     prompts:
-      namespace: prompts
-      backend: kv_default
+      table_name: prompts
+      backend: sql_default
+    connectors:
+      table_name: connectors
+      backend: sql_default
 registered_resources:
   models: []
-  shields: []
-  vector_dbs: []
-  datasets: []
-  scoring_fns: []
-  benchmarks: []
-  tool_groups:
-  - toolgroup_id: builtin::websearch
-    provider_id: nimble-search
-  - toolgroup_id: builtin::rag
-    provider_id: rag-runtime
-server:
-  port: 8321
+  vector_stores: []
 vector_stores:
   file_search_params:
     header_template: 'file_search tool found {num_chunks} chunks:
@@ -196,3 +171,5 @@ vector_stores:
     max_concurrent_files_per_batch: 3
     file_batch_chunk_size: 10
     cleanup_interval_seconds: 86400
+server:
+  port: 8321

@@ -2275,3 +2275,18 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Fix:** Rename `knowledge_search` -> `file_search` in the header/footer templates. Verified the entire config parses against ogx `StackConfig` via `parse_and_maybe_upgrade_config`.
 
 **Affected files:** `ai-accelerator-tf/files/llamastack_paas_config.yaml`. (`files/llamastack_inference_config.yaml` for cuopt/vss has the same wording but runs the old v0.0.3 image without this validator — update when those bump.)
+
+---
+
+### BUG-050: paas_rag llamastack config uses APIs removed in the new ogx (agents/eval/etc.)
+
+**Status:** Fixed  **Date:** 2026-07-16  **Severity:** High (ogx server startup fails; llamastack CrashLoop)
+**Found by:** Dennis, pod logs: `ValueError: API 'agents' does not exist. Use Api.add() to register new APIs.` (resolver `validate_and_prepare_providers` -> `Api(api_str)` during `app.stack.initialize()`).
+
+**Root cause:** The bumped ogx dropped the `agents`, `datasetio`, `eval`, `safety`, and `scoring` APIs (and renamed `rag-runtime` -> `file-search`, deprecated explicit `registered_resources.tool_groups`, trimmed `registered_resources` to models/vector_stores). The paas_rag llamastack config (`files/llamastack_paas_config.yaml`) was an old-llama-stack config listing those APIs + provider blocks. `StackConfig` parse passed (structure is valid) but the runtime `Api(api_str)` enum check in the resolver rejected `agents`.
+
+**Fix:** Migrate the config to the ogx `oci` distribution run config's API set — apis: batches/file_processors/files/inference/responses/tool_runtime/vector_io; add responses (inline::builtin), file_processors (auto+docling), batches (reference); tool_runtime = nimble-search + inline::file-search + model-context-protocol; registered_resources = models + vector_stores only. Kept paas_rag specifics (OCI 26ai vector_io, S3 files, vector_stores RAG tuning). Verified end-to-end against the running ogx image (StackConfig parse + Api() for every provider + provider-type registry lookup).
+
+**Affected files:** `ai-accelerator-tf/files/llamastack_paas_config.yaml`.
+
+**Note:** `files/llamastack_inference_config.yaml` (cuopt/vss, old v0.0.3 image) still uses the old API set — migrate when those packs bump to the new ogx image.
