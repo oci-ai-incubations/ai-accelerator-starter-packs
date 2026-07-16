@@ -2262,3 +2262,16 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Fix:** In `blueprint_files.tf`, remove `recipe_container_command_args` from the paas_rag llamastack and add `{ key = "RUN_CONFIG_PATH", value = "/config/config.yaml" }` to `recipe_container_env` (mirrors `agent_observability_blueprint.tf`, which already runs the new image). dox_pack inherits the paas_rag llamastack so it gets the fix; cuopt/vss stay on `v0.0.3` and keep `command_args`.
 
 **Affected files:** `ai-accelerator-tf/blueprint_files.tf`.
+
+---
+
+### BUG-049: paas_rag llamastack config header_template lacks 'file_search' keyword (new ogx)
+
+**Status:** Fixed  **Date:** 2026-07-16  **Severity:** High (llamastack CrashLoop on paas_rag deploy)
+**Found by:** Dennis, pod logs: `ValidationError for StackConfig / vector_stores.file_search_params.header_template: Value error, header_template must contain 'file_search' keyword`.
+
+**Root cause:** ogx `core/datatypes.py` now validates `file_search_params.header_template` — it must contain `{num_chunks}` AND the `file_search` keyword (default: `"file_search tool found {num_chunks} chunks:\nBEGIN of file_search tool results.\n"`). The paas_rag config (`files/llamastack_paas_config.yaml`) used the pre-rename `knowledge_search` wording, which the new ogx image (`ba41068`) rejects at `ogx stack run` time.
+
+**Fix:** Rename `knowledge_search` -> `file_search` in the header/footer templates. Verified the entire config parses against ogx `StackConfig` via `parse_and_maybe_upgrade_config`.
+
+**Affected files:** `ai-accelerator-tf/files/llamastack_paas_config.yaml`. (`files/llamastack_inference_config.yaml` for cuopt/vss has the same wording but runs the old v0.0.3 image without this validator — update when those bump.)
