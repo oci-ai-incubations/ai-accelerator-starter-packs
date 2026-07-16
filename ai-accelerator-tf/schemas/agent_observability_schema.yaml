@@ -145,7 +145,7 @@ variables:
     required: false
     visible:
       eq:
-        - agent_obs_genai_mode
+        - ${agent_obs_genai_mode}
         - existing
 
   genai_region:
@@ -170,7 +170,7 @@ variables:
     required: false
     visible:
       eq:
-        - agent_obs_genai_mode
+        - ${agent_obs_genai_mode}
         - create
 
   agent_obs_unit_shape:
@@ -190,7 +190,7 @@ variables:
     required: false
     visible:
       eq:
-        - agent_obs_genai_mode
+        - ${agent_obs_genai_mode}
         - create
 
   agent_obs_hf_token:
@@ -200,7 +200,7 @@ variables:
     required: false
     visible:
       eq:
-        - agent_obs_genai_mode
+        - ${agent_obs_genai_mode}
         - create
 
   agent_obs_billing_acknowledgement:
@@ -211,7 +211,7 @@ variables:
     required: false
     visible:
       eq:
-        - agent_obs_genai_mode
+        - ${agent_obs_genai_mode}
         - create
 
   agent_obs_oidc_issuer:
