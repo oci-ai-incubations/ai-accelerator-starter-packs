@@ -151,12 +151,12 @@ server:
   port: 8321
 vector_stores:
   file_search_params:
-    header_template: 'knowledge_search tool found {num_chunks} chunks:
+    header_template: 'file_search tool found {num_chunks} chunks:
 
-      BEGIN of knowledge_search tool results.
+      BEGIN of file_search tool results.
 
       '
-    footer_template: 'END of knowledge_search tool results.
+    footer_template: 'END of file_search tool results.
 
       '
   context_prompt_params:
