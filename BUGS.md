@@ -2234,3 +2234,18 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Fix:** Build the ORM upload zip with ONLY the root `schema.yaml` plus the files Terraform actually reads at runtime. The sole `schemas/` file TF reads is `schemas/frontend_skins.yaml` (via frontend-skins.tf). So: `zip -rq pack.zip . -x '.terraform/*' '.terraform.lock.hcl' '*.tfvars' '*__pycache__/*' '*.pytest_cache/*' 'schemas/*'` then re-add `schemas/frontend_skins.yaml` and `starter_pack_category.auto.tfvars`.
 
 **Prevention:** Update `/zip-tf`, `/integration-test`, `/deploy-and-test` to exclude `schemas/*` (except `frontend_skins.yaml`) from the ORM zip. See BUG-041..045 — all masked because the CLI path never validates schema.yaml; only the Console does.
+
+---
+
+### BUG-047: paas_rag llamastack references auth-service, but the blueprint never deploys it
+
+**Status:** Fixed  **Date:** 2026-07-16  **Severity:** High (blocks paas_rag deploy when auth-service enabled)
+**Found by:** Dennis, deploying paas_rag with auth enabled: Corrino validation `Deployment Group / Deployment 'llamastack' references unknown deployment 'auth-service'`.
+
+**Root cause:** The paas_rag llamastack recipe uses `recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino`, which (when enable_auth_service) injects `nginx.ingress.kubernetes.io/auth-url = http://${auth-service.service_name}.../auth/me`. Corrino resolves `${auth-service.service_name}` from the deployment group's exports, so any recipe referencing it must (a) list `auth-service` in `depends_on` and (b) the group must actually contain an `auth-service` deployment. cuopt/vss did both; paas_rag did neither — it never concatenated `local.auth_service_recipe` and llamastack had no `depends_on`. Latent because CLI/plan never exercise Corrino blueprint validation (that runs at deploy time in the Corrino control plane).
+
+**Fix:** In `blueprint_files.tf`, add `depends_on = var.enable_auth_service ? ["auth-service"] : []` to the paas_rag llamastack, `concat` `local.auth_service_recipe` into the deployment group, and wire the OracleNet frontend (depends_on + `auth_service_ingress_route` in `recipe_additional_ingress_ports`). Added plan-time regression guards in `tests/starter_pack_paas_rag.tftest.hcl`. Verified: `terraform validate` + `terraform test` (paas_rag) pass.
+
+**Affected files:** `ai-accelerator-tf/blueprint_files.tf`, `tests/starter_pack_paas_rag.tftest.hcl`.
+
+**Related (not fixed — out of scope):** `dox_pack` inherits paas_rag's llamastack via `_paas_rag_base_for_dox_pack`, so with auth enabled it now carries the llamastack→auth-service depends_on but does not add `auth_service_recipe` to its own group — dox_pack needs the same wiring (recipe + frontend/backend routes) before it is deployed with auth on. It was already broken for auth-on via the dangling annotation reference.

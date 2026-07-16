@@ -1557,7 +1557,7 @@ locals {
   _paas_rag_frontend_deployments = [
     for skin in local.enabled_frontend_skins : {
       name       = skin.variable_name
-      depends_on = ["llamastack"]
+      depends_on = concat(["llamastack"], var.enable_auth_service ? ["auth-service"] : [])
       recipe = {
         recipe_id                            = replace(skin.variable_name, "_", "-")
         deployment_name                      = replace(skin.variable_name, "_", "-")
@@ -1570,14 +1570,17 @@ locals {
         recipe_use_shared_node_pool          = true
         recipe_container_port                = skin.container_port
         service_endpoint_subdomain           = skin.subdomain
-        recipe_additional_ingress_ports = [
-          { port_name = "models", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/models", path_type = "Prefix" },
-          { port_name = "health", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/health", path_type = "Prefix" },
-          { port_name = "responses", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/responses", path_type = "Prefix" },
-          { port_name = "vectorstores", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/vector_stores", path_type = "Prefix" },
-          { port_name = "files", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/files", path_type = "Prefix" },
-          { port_name = "base", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
-        ]
+        recipe_additional_ingress_ports = concat(
+          [
+            { port_name = "models", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/models", path_type = "Prefix" },
+            { port_name = "health", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/health", path_type = "Prefix" },
+            { port_name = "responses", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/responses", path_type = "Prefix" },
+            { port_name = "vectorstores", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/vector_stores", path_type = "Prefix" },
+            { port_name = "files", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1/files", path_type = "Prefix" },
+            { port_name = "base", service_name = "$${llamastack.service_name}", port = 8321, path = "/v1", path_type = "Prefix" },
+          ],
+          local.auth_service_ingress_route
+        )
       }
     }
     if try(skin.variable_name, "") != ""
@@ -1591,6 +1594,10 @@ locals {
           {
             name    = "llamastack"
             exports = ["service_name"]
+            # auth-service in depends_on when enabled so Corrino can resolve the
+            # $${auth-service.service_name} placeholder in the auth-url annotation
+            # injected by backend_ingress_annotations_corrino below.
+            depends_on = var.enable_auth_service ? ["auth-service"] : []
             recipe = merge(
               {
                 recipe_additional_ingress_annotations = local.backend_ingress_annotations_corrino
@@ -1637,7 +1644,8 @@ locals {
             )
           },
         ],
-        local._paas_rag_frontend_deployments
+        local._paas_rag_frontend_deployments,
+        local.auth_service_recipe
       )
     }
   })
