@@ -85,3 +85,36 @@ run "plan_paas_rag_small" {
 
 
 }
+
+# Regression guard (BUG-047): the auth-service recipe must toggle with
+# enable_auth_service. The full paas_rag blueprint embeds values unknown at plan
+# time (data sources, random IDs) so it can't be jsondecoded here, and apply
+# fires real local-exec provisioners — so we assert on the recipe list length,
+# which is known at plan. The blueprint concats local.auth_service_recipe into
+# the deployment group + wires llamastack/frontend depends_on (see
+# blueprint_files.tf), so a non-empty recipe here means auth-service is deployed.
+run "auth_service_recipe_present_when_enabled" {
+  command = plan
+
+  variables {
+    enable_auth_service = true
+  }
+
+  assert {
+    condition     = length(local.auth_service_recipe) == 1
+    error_message = "auth_service_recipe must contain the auth-service deployment when enable_auth_service is true"
+  }
+}
+
+run "auth_service_recipe_absent_when_disabled" {
+  command = plan
+
+  variables {
+    enable_auth_service = false
+  }
+
+  assert {
+    condition     = length(local.auth_service_recipe) == 0
+    error_message = "auth_service_recipe must be empty when enable_auth_service is false"
+  }
+}
