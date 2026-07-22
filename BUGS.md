@@ -2290,3 +2290,20 @@ replication verified). Commits: `7bbd36d`, `c757480`.
 **Affected files:** `ai-accelerator-tf/files/llamastack_paas_config.yaml`.
 
 **Note:** `files/llamastack_inference_config.yaml` (cuopt/vss, old v0.0.3 image) still uses the old API set — migrate when those packs bump to the new ogx image.
+
+---
+
+### BUG-051: boolean `visible` gates broke at ORM runtime after `eq` operands were quoted (BUG-044 regression)
+
+**Status:** Fixed  **Date:** 2026-07-17  **Severity:** High (auth/DB/OIDC/custom-DNS fields never render in the ORM Console; `db_password` stays null → `cuopt`/`vss` stack plan fails the 26ai precondition)
+**Found by:** Dennis's teammate — `cuopt` stack plan: `oci_database_autonomous_database.oracle_26ai` precondition `var.db_password != null` failed ("db_password is required when the 26ai database is provisioned", i.e. when `enable_auth_service=true`).
+
+**Root cause:** BUG-044 quoted the `eq` operand `true` -> `"true"` to satisfy the strict ORM meta-schema (which forbids boolean `eq` operands). But `enable_auth_service` (and `enable_oracle_oidc_idcs`, `enable_microsoft_entra_oidc`, `use_custom_dns`) are **boolean** variables, and `eq: [${bool_var}, "true"]` compares a boolean to a string at ORM runtime — it never matches. So every field gated that way was permanently hidden. Hidden `db_password` is never collected, so the 26ai `db_password != null` precondition fails on plan/apply. The gate wasn't removed by the schema cleanup; it was silently made always-false.
+
+**Fix:** Use the boolean-truthiness idiom the meta-schema already supports (`booleanStatement` `oneOf` includes `type: string` — a bare `${var}` reference), which is what the working `cuOpt Pack Configuration` group already used (`or: [${skin_cuopt_core}, ${skin_cuopt_partner}]`). Converted all 22 boolean gates: standalone `eq:[${bool},"true"]` -> `visible: ${bool}`; compound `and:[eq(${a},"true"), eq(${b},"true")]` -> `and: [${a}, ${b}]`. Enum/string `eq`s (e.g. `agent_observability` `eq:[${var},"existing"|"create"]`) are correct and were left untouched.
+
+**Verification:** All 8 generated pack schemas validate with 0 errors against `docs/meta_schema.yaml`; 146 schema tests pass. Added real regression guards in `schema_expectations.yaml` for `cuopt`/`vss` `db_password`/`db_username` (`visible: ${enable_auth_service}`) — these assertions were previously skipped because the old dict value counted as a "complex type".
+
+**Affected files:** `ai-accelerator-tf/schemas/common_schema.yaml` (16), `cuopt_schema.yaml` (3), `vss_schema.yaml` (3), `schemas/tests/schema_expectations.yaml`.
+
+**Prevention:** For a boolean toggle, gate visibility with a bare `${var}` reference, never `eq:[${var},"true"]`. `eq` is for string/number/enum operands only.

@@ -60,8 +60,12 @@ category_specific:
         type: boolean
         default: true
         visible: true
+      # Conditionally shown only when auth-service is on (26ai backs auth-service).
+      # A bare boolean ref, NOT eq:[${var},"true"] — the string compare never
+      # matches a boolean var at ORM runtime, which hid the field and left
+      # db_password null. Regression guard for that.
       db_password:
-        visible: false
+        visible: ${enable_auth_service}
       skin_cuopt_core:
         type: boolean
         default: false
@@ -100,10 +104,12 @@ category_specific:
         type: boolean
         default: true
         visible: true
+      # Conditionally shown only when auth-service is on — bare boolean ref
+      # (see cuopt note above; eq:[${var},"true"] never matches a boolean).
       db_password:
-        visible: false
+        visible: ${enable_auth_service}
       db_username:
-        visible: false
+        visible: ${enable_auth_service}
       skin_vss_core:
         type: boolean
         default: true
