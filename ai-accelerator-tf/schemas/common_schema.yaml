@@ -171,10 +171,7 @@ variables:
     description: "Optional extra issuer URLs (Oracle IDCS, Microsoft Entra, or a customer-controlled auth-service instance) whose RS256 tokens pack backends will accept in addition to the bundled auth-service. Each issuer must publish a JWKS document at <code>{issuer}/.well-known/jwks.json</code>. Leave blank for standalone deployments."
     default: ""
     required: false
-    visible:
-      eq:
-        - ${enable_auth_service}
-        - "true"
+    visible: ${enable_auth_service}
 
   enable_oracle_oidc_idcs:
     type: boolean
@@ -182,10 +179,7 @@ variables:
     description: "Enable Oracle Identity Cloud Service as an OIDC provider for the auth-service. Reveals the IDCS issuer URL / client ID / client secret fields when checked. Provider records are not auto-seeded — an admin must call <code>POST /auth/providers</code> via the auth-service admin panel after deploy."
     default: false
     required: false
-    visible:
-      eq:
-        - ${enable_auth_service}
-        - "true"
+    visible: ${enable_auth_service}
 
   auth_oidc_oracle_idcs_issuer_url:
     type: string
@@ -195,12 +189,8 @@ variables:
     required: true
     visible:
       and:
-        - eq:
-            - ${enable_auth_service}
-            - "true"
-        - eq:
-            - ${enable_oracle_oidc_idcs}
-            - "true"
+        - ${enable_auth_service}
+        - ${enable_oracle_oidc_idcs}
 
   auth_oidc_oracle_idcs_client_id:
     type: string
@@ -210,12 +200,8 @@ variables:
     required: true
     visible:
       and:
-        - eq:
-            - ${enable_auth_service}
-            - "true"
-        - eq:
-            - ${enable_oracle_oidc_idcs}
-            - "true"
+        - ${enable_auth_service}
+        - ${enable_oracle_oidc_idcs}
 
   auth_oidc_oracle_idcs_client_secret:
     type: password
@@ -224,12 +210,8 @@ variables:
     required: true
     visible:
       and:
-        - eq:
-            - ${enable_auth_service}
-            - "true"
-        - eq:
-            - ${enable_oracle_oidc_idcs}
-            - "true"
+        - ${enable_auth_service}
+        - ${enable_oracle_oidc_idcs}
 
   enable_microsoft_entra_oidc:
     type: boolean
@@ -237,10 +219,7 @@ variables:
     description: "Enable Microsoft Entra (Azure AD) as an OIDC provider for the auth-service. Reveals the Entra tenant ID / client ID / client secret fields when checked. Provider records are not auto-seeded — an admin must call <code>POST /auth/providers</code> via the auth-service admin panel after deploy."
     default: false
     required: false
-    visible:
-      eq:
-        - ${enable_auth_service}
-        - "true"
+    visible: ${enable_auth_service}
 
   auth_oidc_microsoft_entra_tenant_id:
     type: string
@@ -250,12 +229,8 @@ variables:
     required: true
     visible:
       and:
-        - eq:
-            - ${enable_auth_service}
-            - "true"
-        - eq:
-            - ${enable_microsoft_entra_oidc}
-            - "true"
+        - ${enable_auth_service}
+        - ${enable_microsoft_entra_oidc}
 
   auth_oidc_microsoft_entra_client_id:
     type: string
@@ -265,12 +240,8 @@ variables:
     required: true
     visible:
       and:
-        - eq:
-            - ${enable_auth_service}
-            - "true"
-        - eq:
-            - ${enable_microsoft_entra_oidc}
-            - "true"
+        - ${enable_auth_service}
+        - ${enable_microsoft_entra_oidc}
 
   auth_oidc_microsoft_entra_client_secret:
     type: password
@@ -279,12 +250,8 @@ variables:
     required: true
     visible:
       and:
-        - eq:
-            - ${enable_auth_service}
-            - "true"
-        - eq:
-            - ${enable_microsoft_entra_oidc}
-            - "true"
+        - ${enable_auth_service}
+        - ${enable_microsoft_entra_oidc}
 
   # Image versions are pinned in vars.tf and hidden from the UI. A pack ships
   # a fully-versioned stack — operators should not override individual image
@@ -625,10 +592,7 @@ variables:
     description: "Your base domain (e.g., ai.mycompany.com). Must be a fully qualified domain name with a TLD (like .com, .ai, .ml). Do not include the wildcard asterisk (*). However, you must create a wildcard DNS A-record (*.ai.mycompany.com) pointing to the Load Balancer IP shown in the outputs in your DNS registrar."
     pattern: "^[a-zA-Z0-9][a-zA-Z0-9-]*(\\.[a-zA-Z0-9-]+)*\\.[a-zA-Z]{2,}$"
     required: true
-    visible:
-      eq:
-        - ${use_custom_dns}
-        - "true"
+    visible: ${use_custom_dns}
 
   cuopt_frontend_admin_username:
     type: string
